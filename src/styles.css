@@ -200,6 +200,9 @@
     grid-template-columns: 1fr;
   }
 }
+@media (max-width: 900px) {
+  .obsidian-shell > .obsidian-sidebar + .obsidian-main { grid-column: 1 / -1; }
+}
 
 .sidebar-scrim {
   display: none;
