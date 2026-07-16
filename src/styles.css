@@ -53,23 +53,23 @@
   --chart-purple: #7d5a8a;
   --chart-green: #6b8e4e;
 
-  /* Semantic tokens mapped to Obsidian palette */
-  --background: #030405;
-  --foreground: #f2eee7;
+  /* Semantic tokens mapped to spec palette */
+  --background: #0a0a0a;
+  --foreground: #ffffff;
 
-  --card: rgba(14, 16, 19, 0.78);
-  --card-foreground: #f2eee7;
+  --card: #111111;
+  --card-foreground: #ffffff;
 
-  --muted: #090b0d;
-  --muted-foreground: #777b81;
+  --muted: #1a1a1a;
+  --muted-foreground: #a0a0a0;
 
-  --primary: #c9953d;
-  --primary-foreground: #030405;
-  --accent: #c9953d;
-  --accent-foreground: #030405;
+  --primary: #d4af37;
+  --primary-foreground: #0a0a0a;
+  --accent: #d4af37;
+  --accent-foreground: #0a0a0a;
 
-  --border: rgba(255, 255, 255, 0.08);
-  --ring: #c9953d;
+  --border: #1a1a1a;
+  --ring: #d4af37;
 
   --gradient-radial-amber: radial-gradient(
     circle at 72% 18%,
