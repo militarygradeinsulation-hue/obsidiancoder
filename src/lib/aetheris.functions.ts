@@ -57,7 +57,7 @@ export const generateHtml = createServerFn({ method: "POST" })
         Authorization: `Bearer ${apiKey}`,
       },
       body: JSON.stringify({
-        model: "google/gemini-2.5-flash",
+        model: data.model,
         messages,
       }),
     });
