@@ -578,6 +578,15 @@ function Index() {
                     <option key={m.id} value={m.id}>{m.label}</option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  className="obs-chip"
+                  onClick={clearAll}
+                  disabled={loading}
+                  title="Clear this session — wipes chat, preview, and version history"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Clear All
+                </button>
                 <div className="obs-avatar obs-avatar-sm">JT</div>
               </div>
             </div>
