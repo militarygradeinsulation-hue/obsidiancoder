@@ -119,7 +119,7 @@ function Index() {
         {/* Workspace */}
         <section className="mt-10 grid flex-1 gap-4 lg:grid-cols-2">
           {/* Chat pane */}
-          <div className="glass-panel float-slow flex min-h-[560px] flex-col overflow-hidden">
+          <div className="glass-panel flex min-h-[560px] flex-col overflow-hidden">
             <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 <span className="h-2 w-2 rounded-full bg-[color:var(--primary)] shadow-glow" />
@@ -200,7 +200,7 @@ function Index() {
           </div>
 
           {/* Preview pane */}
-          <div className="glass-panel float-slow flex min-h-[560px] flex-col overflow-hidden">
+          <div className="glass-panel flex min-h-[560px] flex-col overflow-hidden">
             <div className="flex items-center gap-1 border-b border-border px-3 py-2">
               <TabButton active={tab === "preview"} onClick={() => setTab("preview")}>
                 <Eye className="h-3.5 w-3.5" /> Preview
