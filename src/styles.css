@@ -796,6 +796,10 @@
   border-radius: 50%;
   object-fit: cover;
 }
+.obs-topbar-logo {
+  width: 24px; height: 24px;
+  margin: 0 4px;
+}
 .obs-brand-word {
   font-family: var(--font-display);
   font-size: 14px;
