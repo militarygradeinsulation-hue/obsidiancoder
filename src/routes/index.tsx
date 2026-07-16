@@ -1,22 +1,22 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useRef, useState, useEffect } from "react";
-import { Send, Eye, Code2, Sparkles, Loader2 } from "lucide-react";
+import { Send, Loader2, ChevronRight } from "lucide-react";
 import { generateHtml } from "@/lib/aetheris.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Aetheris Obsidian — Tell it what to build" },
+      { title: "Obsidian — Vibe Coding. Elevated." },
       {
         name: "description",
         content:
-          "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
+          "Code with clarity. Build with intention. Obsidian is the vibe coding tool for builders who value focus, flow, and precision.",
       },
-      { property: "og:title", content: "Aetheris Obsidian — Tell it what to build" },
+      { property: "og:title", content: "Obsidian — Vibe Coding. Elevated." },
       {
         property: "og:description",
-        content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
+        content: "Code with clarity. Build with intention. Obsidian is the vibe coding tool for builders who value focus, flow, and precision.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "/" },
@@ -100,47 +100,75 @@ function Index() {
 
   return (
     <main className="min-h-screen bg-constellation">
-      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-10 sm:px-6 lg:py-14">
-        {/* Header */}
-        <header className="mx-auto max-w-3xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--primary)]/30 bg-[color:var(--primary)]/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-amber sm:text-[11px]">
-            <Sparkles className="h-3 w-3" aria-hidden="true" />
-            Obsidian · Free · No Login
-          </div>
-          <h1 className="mt-5 font-serif text-4xl font-semibold tracking-tight text-amber sm:text-6xl">
-            Aetheris Obsidian
-          </h1>
-          <p className="mt-3 text-sm text-muted-foreground sm:text-lg">
-            Multi-AI code generation. Gemini · Claude · GPT-4.
-          </p>
-          <p className="mt-1 text-xs text-muted-foreground/80 sm:text-sm">
-            Production-ready code. Zero setup. Build anything in seconds.
-          </p>
-        </header>
-
-        {/* Workspace */}
-        <section className="mt-10 grid flex-1 gap-4 lg:grid-cols-2">
-          {/* Chat pane */}
-          <div className="glass-panel flex min-h-[560px] flex-col overflow-hidden">
-            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
-              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
-                <span className="h-2 w-2 rounded-full bg-[color:var(--primary)] shadow-glow" />
-                Chat
+      <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
+        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-2">
+          {/* Left: Premium Landing Section */}
+          <div className="flex flex-col justify-between">
+            {/* Logo & Branding */}
+            <div>
+              <div className="flex items-center gap-3 mb-2">
+                <svg className="w-8 h-8" viewBox="0 0 32 40" fill="none">
+                  <path d="M16 0L8 10L16 20L8 30L16 40M16 0L24 10L16 20L24 30L16 40" stroke="currentColor" strokeWidth="1.5" className="text-amber"/>
+                </svg>
+                <span className="font-mono text-xs uppercase tracking-widest text-amber">Obsidian</span>
               </div>
+              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-8">Vibe Coding. Elevated.</p>
+
+              {/* Main Headline */}
+              <h1 className="text-4xl sm:text-5xl font-light leading-tight tracking-tight mb-1">
+                <span className="text-foreground">Code with clarity.</span>
+                <br />
+                <span className="text-amber">Build with intention.</span>
+              </h1>
+              <div className="w-12 h-px bg-amber my-6" />
+
+              {/* Subheader */}
+              <p className="text-base text-muted-foreground leading-relaxed mb-8 max-w-lg">
+                Obsidian is the vibe coding tool for builders who value focus, flow, and precision.
+              </p>
+
+              {/* Features Grid */}
+              <div className="grid grid-cols-3 gap-4 mb-12">
+                <div className="space-y-2">
+                  <div className="w-2 h-2 rounded-full bg-amber" />
+                  <h3 className="text-xs uppercase tracking-widest text-amber font-medium">Focus</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    A distraction-free workspace that keeps you in flow.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div className="w-2 h-2 rounded-full bg-amber" />
+                  <h3 className="text-xs uppercase tracking-widest text-amber font-medium">Vibe</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Smart suggestions that understand your intent, not just syntax.
+                  </p>
+                </div>
+                <div className="space-y-2">
+                  <div className="w-2 h-2 rounded-full bg-amber" />
+                  <h3 className="text-xs uppercase tracking-widest text-amber font-medium">Ship</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    From idea to production with speed, confidence, and control.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Chat Input */}
+            <div className="space-y-2">
               <div className="flex items-center gap-2">
-                <label htmlFor="model-select" className="sr-only">
-                  AI model
+                <label htmlFor="model-select" className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                  Model
                 </label>
                 <select
                   id="model-select"
                   value={model}
                   onChange={(e) => setModel(e.target.value as ModelId)}
                   disabled={loading}
-                  className="rounded-md border border-border bg-background/60 px-2 py-1 text-[11px] font-medium text-foreground focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 disabled:opacity-50"
+                  className="flex-1 rounded-md border border-border bg-background/60 px-2.5 py-1.5 text-[11px] font-medium text-foreground focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 disabled:opacity-50"
                 >
                   {MODELS.map((m) => (
                     <option key={m.id} value={m.id}>
-                      {m.label} — {m.hint}
+                      {m.label}
                     </option>
                   ))}
                 </select>
@@ -158,125 +186,95 @@ function Index() {
                   </button>
                 )}
               </div>
-            </div>
-            <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
-              {messages.map((m, i) => (
-                <div
-                  key={i}
-                  className={
-                    m.role === "user"
-                      ? "ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[color:var(--primary)]/15 px-4 py-2.5 text-sm text-foreground"
-                      : "mr-auto max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm text-foreground"
-                  }
-                >
-                  {m.content}
-                </div>
-              ))}
-              {loading && (
-                <div className="mr-auto flex items-center gap-2 rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm text-muted-foreground">
-                  <Loader2 className="h-4 w-4 animate-spin text-amber" />
-                  Building…
-                </div>
-              )}
-            </div>
-            <form
-              onSubmit={submit}
-              className="flex items-center gap-2 border-t border-border p-3"
-            >
-              <input
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="What do you want to build?"
-                disabled={loading}
-                className="flex-1 rounded-lg border border-border bg-background/60 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30"
-              />
-              <button
-                type="submit"
-                disabled={loading || !input.trim()}
-                aria-label="Send"
-                className="grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--primary)] text-[color:var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-40"
-              >
-                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-              </button>
-            </form>
-          </div>
-
-          {/* Preview pane */}
-          <div className="glass-panel flex min-h-[560px] flex-col overflow-hidden">
-            <div className="flex items-center gap-1 border-b border-border px-3 py-2">
-              <TabButton active={tab === "preview"} onClick={() => setTab("preview")}>
-                <Eye className="h-3.5 w-3.5" /> Preview
-              </TabButton>
-              <TabButton active={tab === "code"} onClick={() => setTab("code")}>
-                <Code2 className="h-3.5 w-3.5" /> Code
-              </TabButton>
-              {html && (
-                <span className="ml-auto text-[11px] uppercase tracking-wider text-muted-foreground">
-                  {(html.length / 1024).toFixed(1)} KB
-                </span>
-              )}
-            </div>
-            <div className="relative flex-1 bg-background/40">
-              {tab === "preview" ? (
-                <iframe
-                  title="Aetheris preview"
-                  srcDoc={previewSrcDoc}
-                  sandbox="allow-scripts"
-                  className="h-full w-full"
+              <form onSubmit={submit} className="flex items-end gap-2">
+                <input
+                  value={input}
+                  onChange={(e) => setInput(e.target.value)}
+                  placeholder="What do you want to build?"
+                  disabled={loading}
+                  className="flex-1 rounded-lg border border-border bg-background/40 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 disabled:opacity-50"
                 />
-              ) : (
-                <pre className="h-full overflow-auto p-4 font-mono text-[12px] leading-relaxed text-muted-foreground">
-                  {html || "// Nothing yet. Prompt on the left to generate code."}
-                </pre>
-              )}
+                <button
+                  type="submit"
+                  disabled={loading || !input.trim()}
+                  className="grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--primary)] text-[color:var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-40 flex-shrink-0"
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                </button>
+              </form>
+              {error && <p className="text-xs text-red-400/80">{error}</p>}
             </div>
           </div>
-        </section>
 
-        {error && (
-          <p className="mt-3 text-center text-xs text-red-400/80">{error}</p>
-        )}
+          {/* Right: Code Editor Panel */}
+          <div className="glass-panel-amber flex flex-col overflow-hidden min-h-[600px]">
+            {/* Code Editor with Line Numbers */}
+            <div className="flex-1 overflow-auto p-6 font-mono text-sm leading-relaxed">
+              {html ? (
+                <CodeDisplay code={html} />
+              ) : (
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <p className="text-muted-foreground/50 text-xs">No code yet</p>
+                  <p className="text-muted-foreground/30 text-xs mt-1">Tell it what you want to build →</p>
+                </div>
+              )}
+            </div>
 
-        <footer className="mt-8 text-center text-sm text-muted-foreground">
-          <p>
-            Need this production-ready?{" "}
-            <a
-              href="https://businessforensics.tech/leak-audit"
-              className="text-amber underline-offset-4 hover:underline"
-            >
-              Run the Free Leak Audit™ →
-            </a>
+            {/* Status Bar */}
+            <div className="border-t border-border/30 px-6 py-3 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-2 h-2 rounded-full bg-amber" />
+                <span className="text-xs uppercase tracking-widest text-amber font-medium">
+                  {loading ? "Building…" : "In Flow"}
+                </span>
+              </div>
+              <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="mt-16 text-center">
+          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground/40">
+            Your Vibe. Our Intelligence. Limitless Possibilities.
           </p>
-          <p className="mt-2 text-xs tracking-[0.14em] text-muted-foreground/60">
-            Aetheris.Technology
-          </p>
-        </footer>
+        </div>
       </div>
     </main>
   );
 }
 
-function TabButton({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
+function CodeDisplay({ code }: { code: string }) {
+  const lines = code.split('\n');
+  const maxLines = Math.min(lines.length, 20);
+  const displayLines = lines.slice(0, maxLines);
+
+  const highlightLine = (line: string) => {
+    // Simple syntax highlighting for amber keywords
+    return line
+      .replace(/(".*?")/g, '<span class="text-amber">$1</span>')
+      .replace(/('.*?')/g, '<span class="text-amber">$1</span>')
+      .replace(/\b(function|const|let|var|return|if|else|class|import|export)\b/g, '<span class="text-amber">$1</span>');
+  };
+
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={
-        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors " +
-        (active
-          ? "bg-[color:var(--primary)]/15 text-amber"
-          : "text-muted-foreground hover:text-foreground")
-      }
-    >
-      {children}
-    </button>
+    <div className="w-full">
+      {displayLines.map((line, idx) => (
+        <div key={idx} className="flex gap-4 hover:bg-white/5 transition-colors">
+          <div className="text-muted-foreground/50 w-8 text-right flex-shrink-0 pt-px">
+            {String(idx + 1).padStart(2, '0')}
+          </div>
+          <div
+            className="text-muted-foreground/90 flex-1 whitespace-pre-wrap break-words"
+            dangerouslySetInnerHTML={{ __html: highlightLine(line) || '&nbsp;' }}
+          />
+        </div>
+      ))}
+      {lines.length > maxLines && (
+        <div className="mt-4 text-xs text-muted-foreground/30 italic">
+          ... and {lines.length - maxLines} more lines
+        </div>
+      )}
+    </div>
   );
 }
