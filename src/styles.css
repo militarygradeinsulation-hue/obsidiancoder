@@ -562,3 +562,40 @@
     0 -4px 28px -4px oklch(0.85 0.18 75 / 0.8),
     inset 0 1px 0 oklch(1 0 0 / 0.5);
 }
+
+/* Inactive session tab: muted */
+.obsidian-main .tab-vibe:not(.tab-active) {
+  background: linear-gradient(180deg, oklch(0.22 0.02 60), oklch(0.18 0.02 60));
+  color: oklch(0.75 0.04 70);
+  border: 1px solid oklch(0.3 0.02 60);
+  border-bottom: none;
+  box-shadow: none;
+}
+.obsidian-main .tab-vibe:not(.tab-active):hover {
+  transform: none;
+  background: linear-gradient(180deg, oklch(0.28 0.03 65), oklch(0.22 0.02 60));
+  color: oklch(0.9 0.06 75);
+  box-shadow: none;
+}
+.obsidian-main .tab-title {
+  max-width: 140px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.obsidian-main .tab-close {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: 4px;
+  border-radius: 4px;
+  opacity: 0.65;
+  transition: background .15s ease, opacity .15s ease;
+  cursor: pointer;
+}
+.obsidian-main .tab-close:hover {
+  opacity: 1;
+  background: oklch(0 0 0 / 0.25);
+}
+

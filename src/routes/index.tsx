@@ -33,6 +33,14 @@ const MODELS = [
 ] as const;
 type ModelId = (typeof MODELS)[number]["id"];
 
+type Session = {
+  id: string;
+  title: string;
+  messages: ChatMsg[];
+  html: string;
+  model: ModelId;
+};
+
 const NAV = [
   { id: "home", label: "Home", icon: Home },
   { id: "notes", label: "Notes", icon: FileText },
@@ -42,31 +50,101 @@ const NAV = [
   { id: "templates", label: "Templates", icon: Type },
 ] as const;
 
+const STORAGE_KEY = "obsidian.vibe.sessions.v1";
+const ACTIVE_KEY = "obsidian.vibe.active.v1";
+
+function newSession(): Session {
+  return {
+    id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
+    title: "Vibe Coder",
+    messages: [{ role: "assistant", content: "Obsidian ready. Describe what you want built." }],
+    html: "",
+    model: "google/gemini-3.5-flash",
+  };
+}
+
+const INITIAL_SESSION = newSession();
+
 function Index() {
   const callGenerate = useServerFn(generateHtml);
-  const [messages, setMessages] = useState<ChatMsg[]>([
-    { role: "assistant", content: "Obsidian ready. Describe what you want built." },
-  ]);
+  const [sessions, setSessions] = useState<Session[]>([INITIAL_SESSION]);
+  const [activeId, setActiveId] = useState<string>(INITIAL_SESSION.id);
+  const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
-  const [html, setHtml] = useState("");
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [model, setModel] = useState<ModelId>("google/gemini-3.5-flash");
   const [active, setActive] = useState<string>("home");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
+  const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
+
+  // Hydrate from localStorage after mount
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const activeRaw = window.localStorage.getItem(ACTIVE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Session[];
+        if (Array.isArray(parsed) && parsed.length) {
+          setSessions(parsed);
+          const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
+          setActiveId(id);
+        }
+      }
+    } catch { /* ignore */ }
+    setHydrated(true);
+  }, []);
+
+  // Persist to localStorage (only after hydration to avoid clobbering)
+  useEffect(() => {
+    if (!hydrated) return;
+    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); } catch { /* ignore */ }
+  }, [sessions, hydrated]);
+  useEffect(() => {
+    if (!hydrated) return;
+    try { window.localStorage.setItem(ACTIVE_KEY, activeId); } catch { /* ignore */ }
+  }, [activeId, hydrated]);
+
+
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [messages, loading]);
+  }, [current.messages, loading, activeId]);
 
   const previewSrcDoc = useMemo(
     () =>
-      html ||
+      current.html ||
       `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:transparent;color:#7a6a4a;font-family:system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`,
-    [html],
+    [current.html],
   );
+
+  function updateCurrent(patch: Partial<Session>) {
+    setSessions((all) => all.map((s) => (s.id === activeId ? { ...s, ...patch } : s)));
+  }
+
+  function addSession() {
+    const s = newSession();
+    setSessions((all) => [...all, s]);
+    setActiveId(s.id);
+    setInput("");
+    setError(null);
+    setTab("preview");
+  }
+
+  function closeSession(id: string, e: React.MouseEvent) {
+    e.stopPropagation();
+    setSessions((all) => {
+      const next = all.filter((s) => s.id !== id);
+      if (next.length === 0) {
+        const s = newSession();
+        setActiveId(s.id);
+        return [s];
+      }
+      if (id === activeId) setActiveId(next[0].id);
+      return next;
+    });
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -74,20 +152,28 @@ function Index() {
     if (!prompt || loading) return;
     setError(null);
     setInput("");
-    const nextHistory: ChatMsg[] = [...messages, { role: "user", content: prompt }];
-    setMessages(nextHistory);
+    const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: prompt }];
+    const isFirstUserMsg = !current.messages.some((m) => m.role === "user");
+    updateCurrent({
+      messages: nextHistory,
+      title: isFirstUserMsg ? prompt.slice(0, 28) : current.title,
+    });
     setLoading(true);
+    const sessionId = activeId;
     try {
       const { html: newHtml } = await callGenerate({
-        data: { prompt, currentHtml: html, history: messages.slice(-10), model },
+        data: { prompt, currentHtml: current.html, history: current.messages.slice(-10), model: current.model },
       });
-      setHtml(newHtml);
-      setMessages((m) => [...m, { role: "assistant", content: "Done — updated the preview." }]);
+      setSessions((all) => all.map((s) => s.id === sessionId
+        ? { ...s, html: newHtml, messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }] }
+        : s));
       setTab("preview");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       setError(msg);
-      setMessages((m) => [...m, { role: "assistant", content: `⚠ ${msg}` }]);
+      setSessions((all) => all.map((s) => s.id === sessionId
+        ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ ${msg}` }] }
+        : s));
     } finally {
       setLoading(false);
     }
@@ -168,31 +254,38 @@ function Index() {
             <button type="button" className="icon-btn" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
             <button type="button" className="icon-btn" aria-label="Forward"><ChevronRight className="h-4 w-4" /></button>
             <div className="tab-strip">
+              {sessions.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveId(s.id);
+                    setError(null);
+                    setInput("");
+                    setTab("preview");
+                  }}
+                  className={"tab tab-vibe " + (s.id === activeId ? "tab-active" : "")}
+                  aria-label={`Switch to session ${s.title}`}
+                  title={s.title}
+                >
+                  <Sparkle className="h-3.5 w-3.5" strokeWidth={2} />
+                  <span className="tab-title">{s.title}</span>
+                  {sessions.length > 1 && (
+                    <span
+                      role="button"
+                      tabIndex={0}
+                      className="tab-close"
+                      aria-label="Close session"
+                      onClick={(e) => closeSession(s.id, e)}
+                    >
+                      <X className="h-3 w-3" />
+                    </span>
+                  )}
+                </button>
+              ))}
               <button
                 type="button"
-                onClick={() => {
-                  setMessages([{ role: "assistant", content: "Obsidian ready. Describe what you want built." }]);
-                  setHtml("");
-                  setError(null);
-                  setInput("");
-                  setTab("preview");
-                  document.getElementById("vibe-canvas")?.scrollIntoView({ behavior: "smooth", block: "start" });
-                }}
-                className="tab tab-active tab-vibe"
-                aria-label="Open a fresh Vibe Coder session"
-              >
-                <Sparkle className="h-3.5 w-3.5" strokeWidth={2} />
-                <span>Vibe Coder</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setMessages([{ role: "assistant", content: "Fresh session. What are we building?" }]);
-                  setHtml("");
-                  setError(null);
-                  setInput("");
-                  setTab("preview");
-                }}
+                onClick={addSession}
                 className="icon-btn"
                 aria-label="New Vibe session"
                 title="New Vibe session"
@@ -222,8 +315,8 @@ function Index() {
                 </div>
                 <div className="flex items-center gap-2">
                   <select
-                    value={model}
-                    onChange={(e) => setModel(e.target.value as ModelId)}
+                    value={current.model}
+                    onChange={(e) => updateCurrent({ model: e.target.value as ModelId })}
                     disabled={loading}
                     className="model-select"
                     aria-label="Model"
@@ -232,10 +325,10 @@ function Index() {
                       <option key={m.id} value={m.id}>{m.label}</option>
                     ))}
                   </select>
-                  {messages.length > 1 && (
+                  {current.messages.length > 1 && (
                     <button
                       type="button"
-                      onClick={() => { setMessages([messages[0]]); setHtml(""); setError(null); }}
+                      onClick={() => updateCurrent({ messages: [current.messages[0]], html: "" })}
                       className="pane-reset"
                     >
                       Reset
@@ -244,7 +337,7 @@ function Index() {
                 </div>
               </div>
               <div ref={scrollRef} className="chat-scroll">
-                {messages.map((m, i) => (
+                {current.messages.map((m, i) => (
                   <div key={i} className={m.role === "user" ? "msg msg-user" : "msg msg-assistant"}>
                     {m.content}
                   </div>
@@ -286,9 +379,9 @@ function Index() {
                     <Code2 className="h-3.5 w-3.5" /> Code
                   </TabButton>
                 </div>
-                {html && (
+                {current.html && (
                   <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {(html.length / 1024).toFixed(1)} KB
+                    {(current.html.length / 1024).toFixed(1)} KB
                   </span>
                 )}
               </div>
@@ -301,7 +394,7 @@ function Index() {
                     className="h-full w-full"
                   />
                 ) : (
-                  <pre className="code-view">{html || "// Nothing yet."}</pre>
+                  <pre className="code-view">{current.html || "// Nothing yet."}</pre>
                 )}
               </div>
             </div>
