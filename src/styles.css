@@ -195,11 +195,25 @@
   background: #050505;
   color: var(--foreground);
   font-family: var(--font-sans);
+  position: relative;
   @media (max-width: 900px) {
     grid-template-columns: 1fr;
   }
 }
 
+.sidebar-scrim {
+  display: none;
+}
+@media (max-width: 900px) {
+  .sidebar-scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: oklch(0 0 0 / 0.6);
+    backdrop-filter: blur(4px);
+    z-index: 40;
+  }
+}
 
 @utility obsidian-sidebar {
   display: flex;
@@ -209,6 +223,27 @@
   background: linear-gradient(180deg, #070707 0%, #030303 100%);
   min-height: 100vh;
   gap: 4px;
+}
+.sidebar-close { display: none; margin-left: auto; }
+@media (max-width: 900px) {
+  .obsidian-sidebar {
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 280px;
+    z-index: 50;
+    transform: translateX(-100%);
+    transition: transform .25s ease;
+    min-height: 100vh;
+  }
+  .obsidian-sidebar.sidebar-open {
+    transform: translateX(0);
+    box-shadow: 24px 0 60px -20px oklch(0 0 0 / 0.9);
+  }
+  .sidebar-close { display: grid; }
+}
+.sidebar-toggle { display: none; }
+@media (max-width: 900px) {
+  .sidebar-toggle { display: grid; }
 }
 .obsidian-sidebar .brand {
   display: flex; align-items: center; gap: 12px;
