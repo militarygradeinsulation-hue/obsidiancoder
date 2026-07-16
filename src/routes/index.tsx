@@ -179,9 +179,9 @@ function Index() {
 
   async function extractPdfText(file: File): Promise<string> {
     const pdfjs: any = await import("pdfjs-dist");
-    // @ts-expect-error worker url import
-    const worker = await import("pdfjs-dist/build/pdf.worker.mjs?url");
+    const worker: any = await import("pdfjs-dist/build/pdf.worker.mjs?url");
     pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+
     const buf = await file.arrayBuffer();
     const doc = await pdfjs.getDocument({ data: buf }).promise;
     const out: string[] = [];
