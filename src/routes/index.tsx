@@ -80,7 +80,7 @@ function newSession(): Session {
     title: "Untitled",
     messages: [{ role: "assistant", content: "Obsidian is ready. Tell me what to build." }],
     html: "",
-    model: "google/gemini-3.5-flash",
+    model: "google/gemini-3.1-flash-lite",
   };
 }
 
