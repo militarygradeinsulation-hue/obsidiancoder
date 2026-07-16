@@ -182,6 +182,35 @@ function Index() {
     });
   }
 
+  function clearAll() {
+    if (loading) return;
+    const ok = window.confirm(
+      "Clear this tab? This wipes the chat, the current preview, and all saved versions for this session. This can't be undone.",
+    );
+    if (!ok) return;
+    const fresh = newSession();
+    setSessions((all) => all.map((s) => (s.id === activeId ? { ...fresh, id: s.id, model: s.model } : s)));
+    setInput("");
+    setPendingAttachments([]);
+    setError(null);
+    setTab("preview");
+    setTerminal((t) => [...t, "✓ Cleared session"]);
+  }
+
+  function revertTo(version: Version) {
+    if (loading) return;
+    setSessions((all) => all.map((s) => s.id === activeId
+      ? {
+          ...s,
+          html: version.html,
+          messages: [...s.messages, { role: "assistant", content: `↶ Reverted to "${version.label}"` }],
+        }
+      : s));
+    setTab("preview");
+    setError(null);
+    setTerminal((t) => [...t, `→ Reverted to "${version.label}"`]);
+  }
+
   type Attachment =
     | { kind: "image"; name: string; dataUrl: string }
     | { kind: "text"; name: string; text: string; source: "text" | "pdf" };
