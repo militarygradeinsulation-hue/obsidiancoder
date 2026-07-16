@@ -7,16 +7,18 @@ const messageSchema = z.object({
 });
 
 const ALLOWED_MODELS = [
+  "google/gemini-3.5-flash",
+  "google/gemini-3.1-flash-lite",
+  "google/gemini-3.1-pro-preview",
   "google/gemini-2.5-pro",
-  "google/gemini-2.5-flash",
-  "openai/gpt-5",
+  "openai/gpt-5.4-mini",
 ] as const;
 
 const inputSchema = z.object({
   prompt: z.string().min(1).max(2000),
-  currentHtml: z.string().max(100_000).optional().default(""),
+  currentHtml: z.string().max(200_000).optional().default(""),
   history: z.array(messageSchema).max(40).optional().default([]),
-  model: z.enum(ALLOWED_MODELS).optional().default("google/gemini-2.5-pro"),
+  model: z.enum(ALLOWED_MODELS).optional().default("google/gemini-3.5-flash"),
 });
 
 const SYSTEM_PROMPT = `You are Aetheris Coder — an elite AI front-end engineer.
