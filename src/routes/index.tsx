@@ -120,24 +120,42 @@ function Index() {
         <section className="mt-10 grid flex-1 gap-4 lg:grid-cols-2">
           {/* Chat pane */}
           <div className="flex min-h-[560px] flex-col overflow-hidden rounded-2xl border border-border bg-card/80 backdrop-blur">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 <span className="h-2 w-2 rounded-full bg-[color:var(--primary)] shadow-glow" />
                 Chat
               </div>
-              {messages.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMessages([messages[0]]);
-                    setHtml("");
-                    setError(null);
-                  }}
-                  className="text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-amber"
+              <div className="flex items-center gap-2">
+                <label htmlFor="model-select" className="sr-only">
+                  AI model
+                </label>
+                <select
+                  id="model-select"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value as ModelId)}
+                  disabled={loading}
+                  className="rounded-md border border-border bg-background/60 px-2 py-1 text-[11px] font-medium text-foreground focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 disabled:opacity-50"
                 >
-                  Reset
-                </button>
-              )}
+                  {MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label} — {m.hint}
+                    </option>
+                  ))}
+                </select>
+                {messages.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessages([messages[0]]);
+                      setHtml("");
+                      setError(null);
+                    }}
+                    className="text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-amber"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {messages.map((m, i) => (
