@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
   Send, Eye, Code2, Loader2, Home, FolderOpen, FileText, Files, Code,
@@ -8,8 +7,8 @@ import {
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
 } from "lucide-react";
-import { generateHtml } from "@/lib/aetheris.functions";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
