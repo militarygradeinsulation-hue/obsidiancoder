@@ -23,53 +23,70 @@
   --color-ring: var(--ring);
   --font-serif: "Fraunces", ui-serif, Georgia, serif;
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Space Grotesk", "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 :root {
   --radius: 1rem;
-  /* Deepest space black */
-  --background: oklch(0.02 0 0);
-  --foreground: oklch(0.96 0 0);
 
-  /* Ultra-translucent glass — barely visible, pure frosted effect */
-  --card: oklch(0.08 0.003 50 / 0.35);
-  --card-foreground: oklch(0.96 0 0);
+  /* ===== Obsidian Design System palette ===== */
+  --obsidian-black: #030405;
+  --obsidian-black-soft: #070809;
+  --obsidian-panel: #090b0d;
+  --obsidian-panel-raised: #0d0f12;
+  --obsidian-glass: rgba(14, 16, 19, 0.78);
+  --obsidian-border: rgba(255, 255, 255, 0.08);
+  --obsidian-border-strong: rgba(255, 255, 255, 0.14);
+  --obsidian-gold: #c9953d;
+  --obsidian-gold-light: #f0cf87;
+  --obsidian-gold-bright: #ffd783;
+  --obsidian-gold-dark: #72501f;
+  --obsidian-text: #f2eee7;
+  --obsidian-text-soft: #c8c3ba;
+  --obsidian-text-muted: #777b81;
+  --obsidian-success: #60c979;
+  --obsidian-warning: #e0ab4c;
+  --obsidian-danger: #de625d;
+  --obsidian-info: #5b9bd5;
 
-  --muted: oklch(0.12 0.003 55 / 0.45);
-  --muted-foreground: oklch(0.68 0.01 80);
+  /* Semantic tokens mapped to Obsidian palette */
+  --background: #030405;
+  --foreground: #f2eee7;
 
-  /* Bright amber/gold accent */
-  --primary: oklch(0.85 0.18 75);
-  --primary-foreground: oklch(0.02 0 0);
-  --accent: oklch(0.85 0.18 75);
-  --accent-foreground: oklch(0.02 0 0);
+  --card: rgba(14, 16, 19, 0.78);
+  --card-foreground: #f2eee7;
 
-  --border: oklch(1 0 0 / 0.12);
-  --ring: oklch(0.85 0.18 75);
+  --muted: #090b0d;
+  --muted-foreground: #777b81;
+
+  --primary: #c9953d;
+  --primary-foreground: #030405;
+  --accent: #c9953d;
+  --accent-foreground: #030405;
+
+  --border: rgba(255, 255, 255, 0.08);
+  --ring: #c9953d;
 
   --gradient-radial-amber: radial-gradient(
-    ellipse 100% 80% at 50% 0%,
-    oklch(0.85 0.18 75 / 0.2),
-    transparent 70%
+    circle at 72% 18%,
+    rgba(201, 149, 61, 0.07),
+    transparent 32%
   );
 
-  /* Deep glass with ethereal shimmer */
   --shadow-glass:
-    inset 0 1.5px 1px oklch(1 0 0 / 0.25),
-    inset 0 0 0 1px oklch(1 0 0 / 0.08),
-    0 0 2px oklch(1 0 0 / 0.05),
-    0 40px 80px -25px oklch(0 0 0 / 0.95),
-    0 15px 40px -15px oklch(0 0 0 / 0.75);
+    inset 0 1px 0 rgba(255, 255, 255, 0.06),
+    inset 0 0 0 1px rgba(255, 255, 255, 0.04),
+    0 30px 70px -25px rgba(0, 0, 0, 0.9),
+    0 12px 32px -12px rgba(0, 0, 0, 0.7);
 
   --shadow-glass-amber:
-    inset 0 1.5px 1px oklch(1 0 0 / 0.28),
-    inset 0 0 0 1px oklch(0.85 0.18 75 / 0.22),
-    0 0 30px -10px oklch(0.85 0.18 75 / 0.4),
-    0 40px 100px -25px oklch(0.85 0.18 75 / 0.2),
-    0 20px 60px -20px oklch(0 0 0 / 0.95);
+    inset 0 1px 0 rgba(255, 255, 255, 0.08),
+    inset 0 0 0 1px rgba(201, 149, 61, 0.18),
+    0 0 24px -10px rgba(201, 149, 61, 0.35),
+    0 30px 80px -25px rgba(0, 0, 0, 0.9);
 
-  --glow-amber: 0 0 80px oklch(0.85 0.18 75 / 0.45);
+  --glow-amber: 0 0 60px rgba(201, 149, 61, 0.35);
 }
 
 @layer base {
@@ -78,17 +95,22 @@
   }
   html,
   body {
-    background-color: var(--color-background);
-    color: var(--color-foreground);
+    background-color: var(--obsidian-black);
+    color: var(--obsidian-text);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
   body {
-    background-image:
-      radial-gradient(ellipse 80% 60% at 20% 15%, oklch(0.85 0.18 75 / 0.12), transparent 70%),
-      radial-gradient(ellipse 60% 50% at 80% 85%, oklch(0.55 0.18 280 / 0.1), transparent 65%),
-      radial-gradient(ellipse 90% 70% at 50% 50%, oklch(0.08 0.002 50 / 0.8), transparent 80%);
+    background:
+      radial-gradient(circle at 72% 18%, rgba(201, 149, 61, 0.07), transparent 32%),
+      linear-gradient(145deg, #030405 0%, #070809 48%, #020303 100%);
     background-attachment: fixed;
+    min-height: 100vh;
+  }
+  h1, h2, h3, h4, h5, h6,
+  .font-display {
+    font-family: var(--font-display);
+    letter-spacing: -0.01em;
   }
 }
 
