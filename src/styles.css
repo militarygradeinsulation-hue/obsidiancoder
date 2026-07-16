@@ -27,34 +27,49 @@
 }
 
 :root {
-  --radius: 0.75rem;
-  /* Deep near-black background with a faint warm tint */
-  --background: oklch(0.14 0.01 60);
-  --foreground: oklch(0.96 0.01 80);
+  --radius: 1rem;
+  /* Deep true black */
+  --background: oklch(0.06 0 0);
+  --foreground: oklch(0.98 0 0);
 
-  --card: oklch(0.18 0.012 60);
-  --card-foreground: oklch(0.96 0.01 80);
+  /* Glass surfaces — translucent, near-black with a hint of warmth */
+  --card: oklch(0.11 0.005 60 / 0.55);
+  --card-foreground: oklch(0.98 0 0);
 
-  --muted: oklch(0.22 0.012 60);
-  --muted-foreground: oklch(0.72 0.02 80);
+  --muted: oklch(0.16 0.005 60 / 0.6);
+  --muted-foreground: oklch(0.72 0.01 80);
 
   /* Amber/gold accent */
-  --primary: oklch(0.78 0.15 70);
-  --primary-foreground: oklch(0.16 0.01 60);
-  --accent: oklch(0.78 0.15 70);
-  --accent-foreground: oklch(0.16 0.01 60);
+  --primary: oklch(0.82 0.16 78);
+  --primary-foreground: oklch(0.08 0 0);
+  --accent: oklch(0.82 0.16 78);
+  --accent-foreground: oklch(0.08 0 0);
 
-  --border: oklch(0.28 0.02 70 / 60%);
-  --ring: oklch(0.78 0.15 70);
+  --border: oklch(1 0 0 / 0.08);
+  --ring: oklch(0.82 0.16 78);
 
   --gradient-radial-amber: radial-gradient(
-    circle at 50% 20%,
-    oklch(0.78 0.15 70 / 0.18),
-    transparent 60%
+    ellipse 80% 60% at 50% 0%,
+    oklch(0.82 0.16 78 / 0.16),
+    transparent 65%
   );
-  --shadow-amber: 0 0 0 1px oklch(0.78 0.15 70 / 0.25),
-    0 20px 60px -20px oklch(0.78 0.15 70 / 0.35);
-  --glow-amber: 0 0 40px oklch(0.78 0.15 70 / 0.35);
+
+  /* Hard glass edge: bright inner highlight + crisp rim + deep drop */
+  --shadow-glass:
+    inset 0 1px 0 oklch(1 0 0 / 0.18),
+    inset 0 0 0 1px oklch(1 0 0 / 0.06),
+    0 1px 0 oklch(1 0 0 / 0.04),
+    0 30px 60px -20px oklch(0 0 0 / 0.85),
+    0 10px 30px -10px oklch(0 0 0 / 0.6);
+
+  --shadow-glass-amber:
+    inset 0 1px 0 oklch(1 0 0 / 0.2),
+    inset 0 0 0 1px oklch(0.82 0.16 78 / 0.18),
+    0 0 0 1px oklch(0.82 0.16 78 / 0.14),
+    0 30px 80px -20px oklch(0.82 0.16 78 / 0.25),
+    0 20px 60px -20px oklch(0 0 0 / 0.85);
+
+  --glow-amber: 0 0 60px oklch(0.82 0.16 78 / 0.35);
 }
 
 @layer base {
@@ -68,19 +83,27 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
   }
+  body {
+    background-image:
+      radial-gradient(ellipse 60% 40% at 15% 10%, oklch(0.82 0.16 78 / 0.09), transparent 60%),
+      radial-gradient(ellipse 50% 40% at 85% 90%, oklch(0.55 0.18 280 / 0.08), transparent 60%),
+      radial-gradient(ellipse 70% 50% at 50% 50%, oklch(0.12 0.01 60 / 0.6), transparent 70%);
+    background-attachment: fixed;
+  }
 }
 
+/* Ambient starfield backdrop */
 @utility bg-constellation {
   background-image:
     var(--gradient-radial-amber),
-    radial-gradient(1px 1px at 12% 22%, oklch(0.78 0.15 70 / 0.55) 50%, transparent 51%),
-    radial-gradient(1px 1px at 78% 14%, oklch(0.78 0.15 70 / 0.45) 50%, transparent 51%),
-    radial-gradient(1px 1px at 34% 68%, oklch(0.78 0.15 70 / 0.4) 50%, transparent 51%),
-    radial-gradient(1px 1px at 88% 74%, oklch(0.78 0.15 70 / 0.5) 50%, transparent 51%),
-    radial-gradient(1px 1px at 58% 90%, oklch(0.78 0.15 70 / 0.35) 50%, transparent 51%),
-    radial-gradient(1px 1px at 8% 84%, oklch(0.78 0.15 70 / 0.4) 50%, transparent 51%),
-    radial-gradient(1px 1px at 66% 40%, oklch(0.78 0.15 70 / 0.35) 50%, transparent 51%);
-  background-color: var(--color-background);
+    radial-gradient(1px 1px at 12% 22%, oklch(1 0 0 / 0.35) 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 14%, oklch(0.82 0.16 78 / 0.45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 34% 68%, oklch(1 0 0 / 0.25) 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 74%, oklch(0.82 0.16 78 / 0.4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 58% 90%, oklch(1 0 0 / 0.2) 50%, transparent 51%),
+    radial-gradient(1px 1px at 8% 84%, oklch(0.82 0.16 78 / 0.3) 50%, transparent 51%),
+    radial-gradient(1px 1px at 66% 40%, oklch(1 0 0 / 0.3) 50%, transparent 51%);
+  background-color: transparent;
 }
 
 @utility text-amber {
@@ -90,3 +113,65 @@
 @utility shadow-glow {
   box-shadow: var(--glow-amber);
 }
+
+/* Hard shiny glass panel — bright top edge, rim highlight, deep shadow */
+@utility glass-panel {
+  background:
+    linear-gradient(
+      180deg,
+      oklch(1 0 0 / 0.06) 0%,
+      oklch(1 0 0 / 0.02) 30%,
+      oklch(0 0 0 / 0.35) 100%
+    ),
+    oklch(0.09 0.005 60 / 0.72);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid oklch(1 0 0 / 0.08);
+  box-shadow: var(--shadow-glass);
+  border-radius: var(--radius);
+}
+
+@utility glass-panel-amber {
+  background:
+    linear-gradient(
+      180deg,
+      oklch(0.82 0.16 78 / 0.08) 0%,
+      oklch(1 0 0 / 0.02) 40%,
+      oklch(0 0 0 / 0.4) 100%
+    ),
+    oklch(0.09 0.005 60 / 0.72);
+  backdrop-filter: blur(24px) saturate(160%);
+  border: 1px solid oklch(0.82 0.16 78 / 0.18);
+  box-shadow: var(--shadow-glass-amber);
+  border-radius: var(--radius);
+}
+
+/* Diagonal shine sweep across a glass surface */
+@utility glass-shine {
+  position: relative;
+  overflow: hidden;
+  &::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      115deg,
+      transparent 30%,
+      oklch(1 0 0 / 0.08) 48%,
+      oklch(1 0 0 / 0.14) 50%,
+      oklch(1 0 0 / 0.08) 52%,
+      transparent 70%
+    );
+    pointer-events: none;
+  }
+}
+
+/* Subtle floating animation for glass elements */
+@utility float-slow {
+  animation: float-slow 8s ease-in-out infinite;
+}
+
+@keyframes float-slow {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
