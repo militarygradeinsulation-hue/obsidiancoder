@@ -195,13 +195,11 @@
   background: #050505;
   color: var(--foreground);
   font-family: var(--font-sans);
-}
-
-@media (max-width: 900px) {
-  @utility obsidian-shell {
+  @media (max-width: 900px) {
     grid-template-columns: 1fr;
   }
 }
+
 
 @utility obsidian-sidebar {
   display: flex;
