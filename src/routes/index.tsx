@@ -171,11 +171,36 @@ function Index() {
     });
   }
 
+  const [pendingImage, setPendingImage] = useState<{ name: string; dataUrl: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Only image files can be attached.");
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setError("Image is too large (max 3 MB).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setPendingImage({ name: file.name, dataUrl: String(reader.result) });
+    reader.onerror = () => setError("Could not read that image.");
+    reader.readAsDataURL(file);
+  }
+
   async function submit(promptOverride?: string) {
-    const prompt = (promptOverride ?? input).trim();
-    if (!prompt || loading) return;
+    const basePrompt = (promptOverride ?? input).trim();
+    if ((!basePrompt && !pendingImage) || loading) return;
+    const prompt = pendingImage
+      ? `${basePrompt || "Use this image in the design."}\n\n[Attached image — embed exactly, do not replace]\nfilename: ${pendingImage.name}\nsrc: ${pendingImage.dataUrl}`
+      : basePrompt;
     setError(null);
     setInput("");
+    setPendingImage(null);
     const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: prompt }];
     const isFirstUserMsg = !current.messages.some((m) => m.role === "user");
     updateCurrent({
@@ -474,6 +499,15 @@ function Index() {
                   );
                 })}
               </div>
+              {pendingImage && (
+                <div className="obs-attach-preview">
+                  <img src={pendingImage.dataUrl} alt={pendingImage.name} />
+                  <span className="obs-attach-name">{pendingImage.name}</span>
+                  <button type="button" className="obs-icon-btn" aria-label="Remove attachment" onClick={() => setPendingImage(null)}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
               <form
                 className="obs-composer"
                 onSubmit={(e) => {
@@ -482,15 +516,31 @@ function Index() {
                 }}
               >
                 <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="obs-file-hidden"
+                  onChange={handleImagePick}
+                />
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label="Attach image"
+                  disabled={loading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                </button>
+                <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask Obsidian AI…"
+                  placeholder={pendingImage ? "Describe what to do with the image…" : "Ask Obsidian AI…"}
                   disabled={loading}
                   className="obs-composer-input"
                 />
                 <button
                   type="submit"
-                  disabled={loading || !input.trim()}
+                  disabled={loading || (!input.trim() && !pendingImage)}
                   aria-label="Send"
                   className="obs-composer-send"
                 >
