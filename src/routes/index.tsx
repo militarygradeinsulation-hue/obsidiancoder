@@ -110,9 +110,6 @@ function Index() {
             <X className="h-4 w-4" />
           </button>
         </div>
-          <Diamond className="h-6 w-6 text-amber" strokeWidth={1.2} />
-          <span className="brand-word">OBSIDIAN</span>
-        </div>
 
         <nav className="nav-list">
           {NAV.map((item) => {
