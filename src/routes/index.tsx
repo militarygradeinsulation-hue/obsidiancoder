@@ -2,19 +2,21 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
-  Send, Eye, Code2, Loader2, Home, FileText, Share2, CheckSquare,
-  Calendar, Type, Plus, Search, Bookmark, PanelsTopLeft, MoreHorizontal,
-  ChevronLeft, ChevronRight, Settings, HelpCircle, ChevronDown, Diamond, Menu, X, Sparkle,
+  Send, Eye, Code2, Loader2, Home, FolderOpen, FileText, Files, Code,
+  Layers, Bot, CheckSquare, Database, Sparkles, TerminalSquare,
+  FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
+  Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
+  Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
 } from "lucide-react";
 import { generateHtml } from "@/lib/aetheris.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Obsidian — Prompt-to-page builder" },
-      { name: "description", content: "A dark, focused prompt-to-page builder. Describe it — Obsidian builds it." },
-      { property: "og:title", content: "Obsidian — Prompt-to-page builder" },
-      { property: "og:description", content: "A dark, focused prompt-to-page builder. Describe it — Obsidian builds it." },
+      { title: "Obsidian — Vibe coding, elevated" },
+      { name: "description", content: "A premium prompt-to-page workspace. Deep space palette, warm gold accents, live preview." },
+      { property: "og:title", content: "Obsidian — Vibe coding, elevated" },
+      { property: "og:description", content: "A premium prompt-to-page workspace. Deep space palette, warm gold accents, live preview." },
       { property: "og:type", content: "website" },
     ],
     links: [{ rel: "canonical", href: "/" }],
@@ -41,13 +43,31 @@ type Session = {
   model: ModelId;
 };
 
-const NAV = [
+const WORKSPACE_NAV = [
   { id: "home", label: "Home", icon: Home },
+  { id: "projects", label: "Projects", icon: FolderOpen },
   { id: "notes", label: "Notes", icon: FileText },
-  { id: "graph", label: "Graph", icon: Share2 },
+  { id: "files", label: "Files", icon: Files },
+  { id: "code", label: "Code", icon: Code },
+  { id: "snippets", label: "Snippets", icon: Layers },
+  { id: "agents", label: "Agents", icon: Bot },
   { id: "tasks", label: "Tasks", icon: CheckSquare },
-  { id: "calendar", label: "Calendar", icon: Calendar },
-  { id: "templates", label: "Templates", icon: Type },
+  { id: "databases", label: "Databases", icon: Database },
+] as const;
+
+const TOOLS_NAV: { id: string; label: string; icon: typeof Sparkles; shortcut?: string }[] = [
+  { id: "ai-chat", label: "AI Chat", icon: Sparkles, shortcut: "⌘ I" },
+  { id: "code-assist", label: "Code Assist", icon: Code2, shortcut: "⌘ L" },
+  { id: "terminal", label: "Terminal", icon: TerminalSquare, shortcut: "⌘ J" },
+  { id: "playground", label: "Playground", icon: FlaskConical },
+  { id: "git", label: "Git", icon: GitBranch },
+  { id: "deploy", label: "Deploy", icon: Rocket },
+];
+
+const SUGGESTIONS = [
+  { icon: Calendar, label: "Add a hero with a call-to-action" },
+  { icon: Layers, label: "Build a pricing section" },
+  { icon: FileCode, label: "Generate a landing page" },
 ] as const;
 
 const STORAGE_KEY = "obsidian.vibe.sessions.v1";
@@ -56,8 +76,8 @@ const ACTIVE_KEY = "obsidian.vibe.active.v1";
 function newSession(): Session {
   return {
     id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
-    title: "Vibe Coder",
-    messages: [{ role: "assistant", content: "Obsidian ready. Describe what you want built." }],
+    title: "Untitled",
+    messages: [{ role: "assistant", content: "Obsidian is ready. Tell me what to build." }],
     html: "",
     model: "google/gemini-3.5-flash",
   };
@@ -72,15 +92,21 @@ function Index() {
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [tab, setTab] = useState<"preview" | "code">("preview");
+  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [active, setActive] = useState<string>("home");
+  const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [terminal, setTerminal] = useState<string[]>([
+    "✓ Compiled successfully in 842ms",
+    "✓ Preview ready",
+    "→ Local: http://localhost:5173",
+    "✓ No errors found",
+  ]);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
-  // Hydrate from localStorage after mount
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem(STORAGE_KEY);
@@ -97,7 +123,6 @@ function Index() {
     setHydrated(true);
   }, []);
 
-  // Persist to localStorage (only after hydration to avoid clobbering)
   useEffect(() => {
     if (!hydrated) return;
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); } catch { /* ignore */ }
@@ -107,7 +132,6 @@ function Index() {
     try { window.localStorage.setItem(ACTIVE_KEY, activeId); } catch { /* ignore */ }
   }, [activeId, hydrated]);
 
-
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [current.messages, loading, activeId]);
@@ -115,7 +139,7 @@ function Index() {
   const previewSrcDoc = useMemo(
     () =>
       current.html ||
-      `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:transparent;color:#7a6a4a;font-family:system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`,
+      `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`,
     [current.html],
   );
 
@@ -146,9 +170,8 @@ function Index() {
     });
   }
 
-  async function submit(e: React.FormEvent) {
-    e.preventDefault();
-    const prompt = input.trim();
+  async function submit(promptOverride?: string) {
+    const prompt = (promptOverride ?? input).trim();
     if (!prompt || loading) return;
     setError(null);
     setInput("");
@@ -159,7 +182,9 @@ function Index() {
       title: isFirstUserMsg ? prompt.slice(0, 28) : current.title,
     });
     setLoading(true);
+    setTerminal((t) => [...t, `→ Building: "${prompt.slice(0, 40)}…"`]);
     const sessionId = activeId;
+    const t0 = performance.now();
     try {
       const { html: newHtml } = await callGenerate({
         data: { prompt, currentHtml: current.html, history: current.messages.slice(-10), model: current.model },
@@ -168,20 +193,26 @@ function Index() {
         ? { ...s, html: newHtml, messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }] }
         : s));
       setTab("preview");
+      const ms = Math.round(performance.now() - t0);
+      setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       setError(msg);
       setSessions((all) => all.map((s) => s.id === sessionId
         ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ ${msg}` }] }
         : s));
+      setTerminal((t) => [...t, `✗ ${msg}`]);
     } finally {
       setLoading(false);
     }
   }
 
+  const kb = current.html ? (current.html.length / 1024).toFixed(1) : "0.0";
+
   return (
-    <main className="obsidian-shell">
-      <div className="obsidian-matrix" aria-hidden="true">
+    <main className="obs-shell">
+      {/* Ambient matrix backdrop */}
+      <div className="obs-matrix" aria-hidden="true">
         {Array.from({ length: 14 }).map((_, i) => (
           <span
             key={i}
@@ -190,257 +221,344 @@ function Index() {
               left: `${(i * 7.3) % 100}%`,
               animationDelay: `${(i * 1.7) % 12}s`,
               animationDuration: `${14 + (i % 5) * 3}s`,
-              opacity: 0.35 + ((i * 13) % 40) / 200,
+              opacity: 0.3 + ((i * 13) % 40) / 200,
             }}
           />
         ))}
       </div>
-      {sidebarOpen && <div className="sidebar-scrim" onClick={() => setSidebarOpen(false)} />}
-      {/* Sidebar */}
-      <aside className={"obsidian-sidebar " + (sidebarOpen ? "sidebar-open" : "")}>
-        <div className="brand">
-          <svg className="brand-mark" viewBox="0 0 40 48" fill="none" aria-hidden="true">
-            <path d="M20 2 L36 14 L32 40 L20 46 L8 40 L4 14 Z" stroke="url(#og)" strokeWidth="1.1" strokeLinejoin="round"/>
-            <path d="M20 2 L20 46 M4 14 L36 14 M8 40 L32 40 M20 2 L8 40 M20 2 L32 40 M4 14 L20 46 M36 14 L20 46" stroke="url(#og)" strokeWidth="0.6" strokeOpacity="0.55" strokeLinejoin="round"/>
+
+      {sidebarOpen && <div className="obs-scrim" onClick={() => setSidebarOpen(false)} />}
+
+      {/* ========== SIDEBAR ========== */}
+      <aside className={"obs-sidebar " + (sidebarOpen ? "is-open" : "")}>
+        <div className="obs-brand">
+          <svg className="obs-mark" viewBox="0 0 40 48" fill="none" aria-hidden="true">
+            <path d="M20 2 L36 14 L32 40 L20 46 L8 40 L4 14 Z" stroke="url(#og)" strokeWidth="1.2" strokeLinejoin="round"/>
+            <path d="M20 2 L20 46 M4 14 L36 14 M8 40 L32 40 M20 2 L8 40 M20 2 L32 40 M4 14 L20 46 M36 14 L20 46" stroke="url(#og)" strokeWidth="0.55" strokeOpacity="0.55" strokeLinejoin="round"/>
             <defs>
               <linearGradient id="og" x1="0" y1="0" x2="0" y2="48" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#FFD783"/>
-                <stop offset="1" stopColor="#72501F"/>
+                <stop stopColor="#f2d97a"/>
+                <stop offset="1" stopColor="#8a7020"/>
               </linearGradient>
             </defs>
           </svg>
-          <div className="brand-text">
-            <span className="brand-word">OBSIDIAN</span>
-            <span className="brand-tagline">VIBE CODING. ELEVATED.</span>
-          </div>
-          <button
-            type="button"
-            className="icon-btn sidebar-close"
-            aria-label="Close menu"
-            onClick={() => setSidebarOpen(false)}
-          >
+          <span className="obs-brand-word">OBSIDIAN</span>
+          <button type="button" className="obs-icon-btn obs-sidebar-close" aria-label="Close menu" onClick={() => setSidebarOpen(false)}>
             <X className="h-4 w-4" />
           </button>
         </div>
 
+        <div className="obs-search">
+          <Search className="h-3.5 w-3.5 obs-search-icon" strokeWidth={1.6} />
+          <input placeholder="Search anything…" className="obs-search-input" />
+          <kbd className="obs-kbd">⌘ K</kbd>
+        </div>
 
-        <nav className="nav-list">
-          {NAV.map((item) => {
+        <div className="obs-section-label">Workspace</div>
+        <nav className="obs-nav">
+          {WORKSPACE_NAV.map((item) => {
             const Icon = item.icon;
-            const isActive = active === item.id;
+            const isActive = activeNav === item.id;
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActive(item.id)}
-                className={"nav-item " + (isActive ? "nav-item-active" : "")}
+                onClick={() => setActiveNav(item.id)}
+                className={"obs-nav-item " + (isActive ? "is-active" : "")}
               >
-                <Icon className="h-[18px] w-[18px]" strokeWidth={1.4} />
+                <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
                 <span>{item.label}</span>
-                {isActive && <span className="nav-spark" aria-hidden="true" />}
               </button>
             );
           })}
         </nav>
 
-        <div className="section-label">
-          <span>VAULTS</span>
-          <button type="button" className="section-add" aria-label="Add vault">
-            <Plus className="h-3.5 w-3.5" />
-          </button>
-        </div>
-        <div className="vault-item">
-          <Diamond className="h-3.5 w-3.5 text-amber" strokeWidth={1.4} />
-          <span>Obsidian Vault</span>
-        </div>
+        <div className="obs-section-label">Tools</div>
+        <nav className="obs-nav">
+          {TOOLS_NAV.map((item) => {
+            const Icon = item.icon;
+            return (
+              <button key={item.id} type="button" className="obs-nav-item">
+                <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
+                <span>{item.label}</span>
+                {item.shortcut && <kbd className="obs-kbd obs-kbd-nav">{item.shortcut}</kbd>}
+              </button>
+            );
+          })}
+        </nav>
 
-        <div className="sidebar-bottom">
-          <button type="button" className="nav-item">
-            <Settings className="h-[18px] w-[18px]" strokeWidth={1.4} />
-            <span>Settings</span>
-          </button>
-          <button type="button" className="nav-item">
-            <HelpCircle className="h-[18px] w-[18px]" strokeWidth={1.4} />
-            <span>Help</span>
-          </button>
-          <div className="profile-row">
-            <div className="avatar">A</div>
-            <ChevronDown className="h-4 w-4 text-muted-foreground" />
+        <div className="obs-sidebar-footer">
+          <div className="obs-user">
+            <div className="obs-avatar">A</div>
+            <div className="obs-user-meta">
+              <div className="obs-user-name">Obsidian Dev</div>
+              <div className="obs-user-sub">Pro Workspace</div>
+            </div>
+            <button type="button" className="obs-icon-btn" aria-label="Settings">
+              <Settings className="h-4 w-4" strokeWidth={1.5} />
+            </button>
           </div>
         </div>
       </aside>
 
-      {/* Main */}
-      <section className="obsidian-main">
-        {/* Top tab bar */}
-        <div className="topbar">
-          <div className="topbar-left">
-            <button type="button" className="icon-btn sidebar-toggle" aria-label="Open menu" onClick={() => setSidebarOpen(true)}>
+      {/* ========== MAIN ========== */}
+      <section className="obs-main">
+        {/* Topbar */}
+        <div className="obs-topbar">
+          <div className="obs-topbar-left">
+            <button type="button" className="obs-icon-btn" aria-label="Menu" onClick={() => setSidebarOpen(true)}>
               <Menu className="h-4 w-4" />
             </button>
-            <button type="button" className="icon-btn" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
-            <button type="button" className="icon-btn" aria-label="Forward"><ChevronRight className="h-4 w-4" /></button>
-            <div className="tab-strip">
-              {sessions.map((s) => (
-                <button
-                  key={s.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveId(s.id);
-                    setError(null);
-                    setInput("");
-                    setTab("preview");
-                  }}
-                  className={"tab tab-vibe " + (s.id === activeId ? "tab-active" : "")}
-                  aria-label={`Switch to session ${s.title}`}
-                  title={s.title}
-                >
-                  <Sparkle className="h-3.5 w-3.5" strokeWidth={2} />
-                  <span className="tab-title">{s.title}</span>
-                  {sessions.length > 1 && (
-                    <span
-                      role="button"
-                      tabIndex={0}
-                      className="tab-close"
-                      aria-label="Close session"
-                      onClick={(e) => closeSession(s.id, e)}
-                    >
-                      <X className="h-3 w-3" />
-                    </span>
-                  )}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={addSession}
-                className="icon-btn"
-                aria-label="New Vibe session"
-                title="New Vibe session"
-              >
+            <button type="button" className="obs-icon-btn" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
+            <button type="button" className="obs-icon-btn" aria-label="Forward"><ChevronRight className="h-4 w-4" /></button>
+            <div className="obs-tabs">
+              {sessions.map((s) => {
+                const isActive = s.id === activeId;
+                return (
+                  <button
+                    key={s.id}
+                    type="button"
+                    onClick={() => {
+                      setActiveId(s.id);
+                      setError(null);
+                      setInput("");
+                      setTab("preview");
+                    }}
+                    className={"obs-tab " + (isActive ? "is-active" : "")}
+                    title={s.title}
+                  >
+                    <FileCode className="h-3.5 w-3.5" strokeWidth={1.6} />
+                    <span className="obs-tab-title">{s.title}</span>
+                    {isActive && s.html && <span className="obs-tab-live">LIVE</span>}
+                    {sessions.length > 1 && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="obs-tab-close"
+                        aria-label="Close tab"
+                        onClick={(e) => closeSession(s.id, e)}
+                      >
+                        <X className="h-3 w-3" />
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              <button type="button" onClick={addSession} className="obs-icon-btn" aria-label="New tab">
                 <Plus className="h-4 w-4" />
               </button>
             </div>
           </div>
-          <div className="topbar-right">
-            <button type="button" className="icon-btn" aria-label="Search"><Search className="h-4 w-4" /></button>
-            <button type="button" className="icon-btn" aria-label="Bookmarks"><Bookmark className="h-4 w-4" /></button>
-            <button type="button" className="icon-btn" aria-label="Split view"><PanelsTopLeft className="h-4 w-4" /></button>
-            <button type="button" className="icon-btn" aria-label="More"><MoreHorizontal className="h-4 w-4" /></button>
+          <div className="obs-topbar-right">
+            <button
+              type="button"
+              className={"obs-chip " + (tab === "preview" ? "is-on" : "")}
+              onClick={() => setTab("preview")}
+            >
+              <Eye className="h-3.5 w-3.5" /> Preview
+            </button>
+            <button
+              type="button"
+              className={"obs-chip " + (tab === "code" ? "is-on" : "")}
+              onClick={() => setTab("code")}
+            >
+              <Code2 className="h-3.5 w-3.5" /> Code
+            </button>
+            <div className="obs-divider" />
+            <button
+              type="button"
+              className={"obs-icon-btn " + (device === "desktop" ? "is-on" : "")}
+              onClick={() => setDevice("desktop")}
+              aria-label="Desktop preview"
+            >
+              <Monitor className="h-4 w-4" />
+            </button>
+            <button
+              type="button"
+              className={"obs-icon-btn " + (device === "mobile" ? "is-on" : "")}
+              onClick={() => setDevice("mobile")}
+              aria-label="Mobile preview"
+            >
+              <Smartphone className="h-4 w-4" />
+            </button>
+            <button type="button" className="obs-icon-btn" aria-label="More"><MoreHorizontal className="h-4 w-4" /></button>
           </div>
         </div>
 
-        {/* Canvas */}
-        <div className="canvas" id="vibe-canvas">
-          <div className="canvas-shine" aria-hidden="true" />
-          <div className="workspace">
-            {/* Chat pane */}
-            <div className="pane">
-              <div className="pane-head">
-                <div className="pane-head-title">
-                  <span className="dot" />
-                  <span>CHAT</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <select
-                    value={current.model}
-                    onChange={(e) => updateCurrent({ model: e.target.value as ModelId })}
-                    disabled={loading}
-                    className="model-select"
-                    aria-label="Model"
-                  >
-                    {MODELS.map((m) => (
-                      <option key={m.id} value={m.id}>{m.label}</option>
-                    ))}
-                  </select>
-                  {current.messages.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => updateCurrent({ messages: [current.messages[0]], html: "" })}
-                      className="pane-reset"
-                    >
-                      Reset
-                    </button>
-                  )}
-                </div>
+        {/* Body: canvas + right rail */}
+        <div className="obs-body">
+          <div className="obs-canvas">
+            <div className="obs-canvas-head">
+              <div className="obs-page-title">
+                <span className="obs-title-mark" />
+                <h1>{current.title === "Untitled" ? "Vibe Coder" : current.title}</h1>
               </div>
-              <div ref={scrollRef} className="chat-scroll">
+              <div className="obs-page-meta">
+                <select
+                  value={current.model}
+                  onChange={(e) => updateCurrent({ model: e.target.value as ModelId })}
+                  disabled={loading}
+                  className="obs-model"
+                  aria-label="Model"
+                >
+                  {MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>{m.label}</option>
+                  ))}
+                </select>
+                <div className="obs-avatar obs-avatar-sm">JT</div>
+              </div>
+            </div>
+
+            <div className={"obs-preview-wrap " + (device === "mobile" ? "is-mobile" : "")}>
+              {tab === "preview" ? (
+                <iframe
+                  title="Obsidian preview"
+                  srcDoc={previewSrcDoc}
+                  sandbox="allow-scripts"
+                  className="obs-preview"
+                />
+              ) : (
+                <pre className="obs-code">{current.html || "// Nothing yet."}</pre>
+              )}
+            </div>
+            {error && <p className="obs-error">{error}</p>}
+          </div>
+
+          {/* ========== RIGHT RAIL ========== */}
+          <aside className="obs-rail">
+            {/* AI Agent */}
+            <div className="obs-card">
+              <div className="obs-card-head">
+                <span className="obs-card-label">AI Agent</span>
+                <span className="obs-status">
+                  <span className="obs-status-dot" /> Active
+                </span>
+              </div>
+              <div ref={scrollRef} className="obs-chat">
                 {current.messages.map((m, i) => (
-                  <div key={i} className={m.role === "user" ? "msg msg-user" : "msg msg-assistant"}>
+                  <div key={i} className={m.role === "user" ? "obs-msg is-user" : "obs-msg is-assistant"}>
                     {m.content}
                   </div>
                 ))}
                 {loading && (
-                  <div className="msg msg-assistant msg-loading">
-                    <Loader2 className="h-4 w-4 animate-spin text-amber" />
+                  <div className="obs-msg is-assistant is-loading">
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
                     Building…
                   </div>
                 )}
               </div>
-              <form onSubmit={submit} className="composer">
+              <div className="obs-suggestions-label">Suggestions</div>
+              <div className="obs-suggestions">
+                {SUGGESTIONS.map((s) => {
+                  const Icon = s.icon;
+                  return (
+                    <button
+                      key={s.label}
+                      type="button"
+                      className="obs-suggestion"
+                      onClick={() => submit(s.label)}
+                      disabled={loading}
+                    >
+                      <Icon className="h-3.5 w-3.5" strokeWidth={1.6} />
+                      <span>{s.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <form
+                className="obs-composer"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  submit();
+                }}
+              >
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Describe what to build…"
+                  placeholder="Ask Obsidian AI…"
                   disabled={loading}
-                  className="composer-input"
+                  className="obs-composer-input"
                 />
                 <button
                   type="submit"
                   disabled={loading || !input.trim()}
                   aria-label="Send"
-                  className="composer-send"
+                  className="obs-composer-send"
                 >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                 </button>
               </form>
             </div>
 
-            {/* Preview pane */}
-            <div className="pane">
-              <div className="pane-head">
-                <div className="flex items-center gap-1">
-                  <TabButton active={tab === "preview"} onClick={() => setTab("preview")}>
-                    <Eye className="h-3.5 w-3.5" /> Preview
-                  </TabButton>
-                  <TabButton active={tab === "code"} onClick={() => setTab("code")}>
-                    <Code2 className="h-3.5 w-3.5" /> Code
-                  </TabButton>
-                </div>
-                {current.html && (
-                  <span className="text-[10px] uppercase tracking-[0.18em] text-muted-foreground">
-                    {(current.html.length / 1024).toFixed(1)} KB
-                  </span>
-                )}
+            {/* Context */}
+            <div className="obs-card">
+              <div className="obs-card-head">
+                <span className="obs-card-label">Context</span>
+                <button type="button" className="obs-add-tiny" aria-label="Add context">
+                  <Plus className="h-3 w-3" />
+                </button>
               </div>
-              <div className="pane-body">
-                {tab === "preview" ? (
-                  <iframe
-                    title="Obsidian preview"
-                    srcDoc={previewSrcDoc}
-                    sandbox="allow-scripts"
-                    className="h-full w-full"
-                  />
-                ) : (
-                  <pre className="code-view">{current.html || "// Nothing yet."}</pre>
-                )}
+              <ul className="obs-file-list">
+                {sessions.slice(0, 6).map((s) => (
+                  <li key={s.id} className="obs-file">
+                    <span className="obs-file-badge">TSX</span>
+                    <span className="obs-file-name">{(s.title || "Untitled").replace(/\s+/g, "_")}.tsx</span>
+                  </li>
+                ))}
+                <li className="obs-file">
+                  <span className="obs-file-badge is-css">CSS</span>
+                  <span className="obs-file-name">obsidian.css</span>
+                </li>
+              </ul>
+              <button type="button" className="obs-add-context">
+                <Paperclip className="h-3.5 w-3.5" /> Add Context
+              </button>
+            </div>
+
+            {/* Terminal */}
+            <div className="obs-card">
+              <div className="obs-card-head">
+                <span className="obs-card-label">Terminal</span>
+                <span className="obs-node">node <ChevronDown className="h-3 w-3 inline" /></span>
+              </div>
+              <div className="obs-terminal">
+                {terminal.slice(-6).map((line, i) => {
+                  const ok = line.startsWith("✓");
+                  const arr = line.startsWith("→");
+                  const bad = line.startsWith("✗");
+                  return (
+                    <div
+                      key={i}
+                      className={
+                        "obs-term-line " +
+                        (ok ? "is-ok " : "") + (arr ? "is-arrow " : "") + (bad ? "is-bad " : "")
+                      }
+                    >
+                      {ok && <Check className="h-3 w-3" strokeWidth={2.5} />}
+                      <span>{line.replace(/^[✓→✗]\s?/, "")}</span>
+                    </div>
+                  );
+                })}
               </div>
             </div>
+          </aside>
+        </div>
+
+        {/* Bottom status bar */}
+        <div className="obs-status-bar">
+          <div className="obs-status-left">
+            <span className="obs-badge-gold">Sandbox</span>
+            <span>Ready</span>
+            <span className="obs-muted">localhost:5173</span>
           </div>
-          {error && <p className="error-line">{error}</p>}
+          <div className="obs-status-right">
+            <span className="obs-muted"><GitBranch className="h-3 w-3 inline mr-1" />main</span>
+            <span className="obs-ok"><Check className="h-3 w-3 inline" /> Up to date</span>
+            <span className="obs-muted">Prettier <span className="obs-status-dot" /></span>
+            <span className="obs-muted">{kb} KB</span>
+          </div>
         </div>
       </section>
     </main>
-  );
-}
-
-function TabButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={"tab-btn " + (active ? "tab-btn-active" : "")}
-    >
-      {children}
-    </button>
   );
 }
