@@ -29,11 +29,11 @@ export const Route = createFileRoute("/")({
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 const MODELS = [
-  { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash", hint: "Fast · default" },
-  { id: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite", hint: "Fastest" },
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", hint: "Default · multimodal" },
+  { id: "anthropic/claude-3-5-sonnet", label: "Claude 3.5 Sonnet", hint: "Anthropic · best code" },
+  { id: "openai/gpt-4-turbo", label: "GPT-4 Turbo", hint: "OpenAI · powerful" },
+  { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash", hint: "Fast alternative" },
   { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", hint: "Deep reasoning" },
-  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", hint: "Multimodal" },
-  { id: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini", hint: "OpenAI · balanced" },
 ] as const;
 type ModelId = (typeof MODELS)[number]["id"];
 
@@ -43,7 +43,7 @@ function Index() {
     {
       role: "assistant",
       content:
-        "Tell me what to build. One thing at a time — I'll keep what already works.",
+        "Aetheris Obsidian. Powered by Gemini 2.5 Pro, Claude 3.5 Sonnet, and GPT-4 Turbo. Just describe what you need—I'll understand and build it right the first time.",
     },
   ]);
   const [input, setInput] = useState("");
@@ -107,14 +107,14 @@ function Index() {
             <Sparkles className="h-3 w-3" aria-hidden="true" />
             Obsidian · Free · No Login
           </div>
-          <h1 className="mt-5 font-serif text-4xl font-semibold tracking-tight text-foreground sm:text-6xl">
-            Aetheris <span className="text-amber">Coder</span>
+          <h1 className="mt-5 font-serif text-4xl font-semibold tracking-tight text-amber sm:text-6xl">
+            Aetheris Obsidian
           </h1>
           <p className="mt-3 text-sm text-muted-foreground sm:text-lg">
-            The world's best AI models for coding.
+            Multi-AI code generation. Gemini · Claude · GPT-4.
           </p>
           <p className="mt-1 text-xs text-muted-foreground/80 sm:text-sm">
-            Tell it what to build. It remembers. Watch it appear.
+            Production-ready code. Zero setup. Build anything in seconds.
           </p>
         </header>
 
