@@ -171,11 +171,36 @@ function Index() {
     });
   }
 
+  const [pendingImage, setPendingImage] = useState<{ name: string; dataUrl: string } | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Only image files can be attached.");
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      setError("Image is too large (max 3 MB).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setPendingImage({ name: file.name, dataUrl: String(reader.result) });
+    reader.onerror = () => setError("Could not read that image.");
+    reader.readAsDataURL(file);
+  }
+
   async function submit(promptOverride?: string) {
-    const prompt = (promptOverride ?? input).trim();
-    if (!prompt || loading) return;
+    const basePrompt = (promptOverride ?? input).trim();
+    if ((!basePrompt && !pendingImage) || loading) return;
+    const prompt = pendingImage
+      ? `${basePrompt || "Use this image in the design."}\n\n[Attached image — embed exactly, do not replace]\nfilename: ${pendingImage.name}\nsrc: ${pendingImage.dataUrl}`
+      : basePrompt;
     setError(null);
     setInput("");
+    setPendingImage(null);
     const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: prompt }];
     const isFirstUserMsg = !current.messages.some((m) => m.role === "user");
     updateCurrent({
