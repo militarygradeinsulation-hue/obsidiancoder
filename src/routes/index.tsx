@@ -562,13 +562,21 @@ function Index() {
                   );
                 })}
               </div>
-              {pendingImage && (
-                <div className="obs-attach-preview">
-                  <img src={pendingImage.dataUrl} alt={pendingImage.name} />
-                  <span className="obs-attach-name">{pendingImage.name}</span>
-                  <button type="button" className="obs-icon-btn" aria-label="Remove attachment" onClick={() => setPendingImage(null)}>
-                    <X className="h-3 w-3" />
-                  </button>
+              {pendingAttachments.length > 0 && (
+                <div className="obs-attach-list">
+                  {pendingAttachments.map((att, i) => (
+                    <div key={i} className="obs-attach-chip" title={att.name}>
+                      {att.kind === "image" ? (
+                        <img src={att.dataUrl} alt={att.name} />
+                      ) : (
+                        <span className="obs-attach-badge">{att.source === "pdf" ? "PDF" : "TXT"}</span>
+                      )}
+                      <span className="obs-attach-name">{att.name}</span>
+                      <button type="button" className="obs-icon-btn" aria-label="Remove attachment" onClick={() => removeAttachment(i)}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               <form
@@ -581,14 +589,16 @@ function Index() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,application/pdf,.pdf,.md,.markdown,.txt,.json,.css,.html,.htm,text/*"
+                  multiple
                   className="obs-file-hidden"
-                  onChange={handleImagePick}
+                  onChange={handleFilesPick}
                 />
                 <button
                   type="button"
                   className="obs-composer-attach"
-                  aria-label="Attach image"
+                  aria-label="Attach style guide, image, or PDF"
+                  title="Attach style guide, image, or PDF"
                   disabled={loading}
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -597,19 +607,20 @@ function Index() {
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={pendingImage ? "Describe what to do with the image…" : "Ask Obsidian AI…"}
+                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…" : "Ask Obsidian AI…"}
                   disabled={loading}
                   className="obs-composer-input"
                 />
                 <button
                   type="submit"
-                  disabled={loading || (!input.trim() && !pendingImage)}
+                  disabled={loading || (!input.trim() && pendingAttachments.length === 0)}
                   aria-label="Send"
                   className="obs-composer-send"
                 >
                   {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                 </button>
               </form>
+
             </div>
 
             {/* Context */}
