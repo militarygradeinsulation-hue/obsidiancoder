@@ -105,8 +105,8 @@
   }
   body {
     background:
-      radial-gradient(circle at 72% 18%, rgba(201, 149, 61, 0.07), transparent 32%),
-      linear-gradient(145deg, #030405 0%, #070809 48%, #020303 100%);
+      radial-gradient(circle at 72% 18%, rgba(212, 175, 55, 0.05), transparent 32%),
+      #0a0a0a;
     background-attachment: fixed;
     min-height: 100vh;
   }
