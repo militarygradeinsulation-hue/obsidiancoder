@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useRef, useState, useEffect } from "react";
-import { Send, Loader2, ChevronRight } from "lucide-react";
+import { Send, Loader2, Home, FileText, Grid3x3, CheckSquare, Calendar, Layout, Settings, HelpCircle, Search, Plus, MoreHorizontal, Bookmark } from "lucide-react";
 import { generateHtml } from "@/lib/aetheris.functions";
 
 export const Route = createFileRoute("/")({
@@ -37,6 +37,15 @@ const MODELS = [
 ] as const;
 type ModelId = (typeof MODELS)[number]["id"];
 
+const NAV_ITEMS = [
+  { icon: Home, label: "Home", id: "home" },
+  { icon: FileText, label: "Notes", id: "notes" },
+  { icon: Grid3x3, label: "Graph", id: "graph" },
+  { icon: CheckSquare, label: "Tasks", id: "tasks" },
+  { icon: Calendar, label: "Calendar", id: "calendar" },
+  { icon: Layout, label: "Templates", id: "templates" },
+];
+
 function Index() {
   const callGenerate = useServerFn(generateHtml);
   const [messages, setMessages] = useState<ChatMsg[]>([
@@ -48,22 +57,15 @@ function Index() {
   ]);
   const [input, setInput] = useState("");
   const [html, setHtml] = useState("");
-  const [tab, setTab] = useState<"preview" | "code">("preview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelId>("google/gemini-3.5-flash");
+  const [activeNav, setActiveNav] = useState("home");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, loading]);
-
-  const previewSrcDoc = useMemo(
-    () =>
-      html ||
-      `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:transparent;color:#9a8b6c;font-family:system-ui;font-size:14px">Nothing built yet — tell it what you want on the left.</body></html>`,
-    [html],
-  );
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -88,7 +90,6 @@ function Index() {
         ...m,
         { role: "assistant", content: "Done — updated the preview." },
       ]);
-      setTab("preview");
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       setError(msg);
@@ -99,64 +100,149 @@ function Index() {
   }
 
   return (
-    <main className="min-h-screen bg-constellation">
-      <div className="w-full px-4 py-8 sm:px-6 lg:px-8">
-        <div className="mx-auto grid max-w-7xl gap-8 lg:grid-cols-2">
-          {/* Left: Premium Landing Section */}
-          <div className="flex flex-col justify-between">
-            {/* Logo & Branding */}
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <svg className="w-8 h-8" viewBox="0 0 32 40" fill="none">
-                  <path d="M16 0L8 10L16 20L8 30L16 40M16 0L24 10L16 20L24 30L16 40" stroke="currentColor" strokeWidth="1.5" className="text-amber"/>
-                </svg>
-                <span className="font-mono text-xs uppercase tracking-widest text-amber">Obsidian</span>
+    <div className="bg-constellation h-screen flex flex-col">
+      {/* Top Navigation Bar */}
+      <div className="border-b border-border/30 px-4 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <button className="p-1.5 hover:bg-white/5 rounded text-muted-foreground hover:text-foreground transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <button className="p-1.5 hover:bg-white/5 rounded text-muted-foreground hover:text-foreground transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </button>
+          <div className="px-3 py-1.5 text-sm text-muted-foreground/60">New tab</div>
+          <button className="p-1.5 hover:bg-white/5 rounded text-muted-foreground hover:text-foreground transition">
+            <Plus className="w-4 h-4" />
+          </button>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <button className="p-1.5 hover:bg-white/5 rounded text-muted-foreground hover:text-foreground transition">
+            <Search className="w-4 h-4" />
+          </button>
+          <button className="p-1.5 hover:bg-white/5 rounded text-muted-foreground hover:text-foreground transition">
+            <Bookmark className="w-4 h-4" />
+          </button>
+          <button className="p-1.5 hover:bg-white/5 rounded text-muted-foreground hover:text-foreground transition">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+            </svg>
+          </button>
+          <button className="p-1.5 hover:bg-white/5 rounded text-muted-foreground hover:text-foreground transition">
+            <MoreHorizontal className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex flex-1 overflow-hidden">
+        {/* Left Sidebar */}
+        <div className="w-56 border-r border-border/30 flex flex-col">
+          {/* Logo */}
+          <div className="px-4 py-4 border-b border-border/30">
+            <div className="flex items-center gap-2">
+              <svg className="w-5 h-5" viewBox="0 0 32 40" fill="none">
+                <path d="M16 0L8 10L16 20L8 30L16 40M16 0L24 10L16 20L24 30L16 40" stroke="currentColor" strokeWidth="1.5" className="text-amber"/>
+              </svg>
+              <span className="font-mono text-sm font-semibold text-amber">OBSIDIAN</span>
+            </div>
+          </div>
+
+          {/* Navigation */}
+          <nav className="flex-1 px-2 py-4 space-y-1">
+            {NAV_ITEMS.map((item) => {
+              const Icon = item.icon;
+              const isActive = activeNav === item.id;
+              return (
+                <button
+                  key={item.id}
+                  onClick={() => setActiveNav(item.id)}
+                  className={`w-full flex items-center gap-3 px-3 py-2 rounded transition ${
+                    isActive
+                      ? "bg-amber/10 text-amber border-l-2 border-amber"
+                      : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                  }`}
+                >
+                  <Icon className="w-4 h-4" />
+                  <span className="text-sm">{item.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Vaults */}
+          <div className="px-2 py-4 border-t border-border/30">
+            <div className="flex items-center justify-between px-3 py-2 mb-2">
+              <span className="text-xs uppercase tracking-widest text-muted-foreground/50 font-medium">Vaults</span>
+              <button className="p-1 hover:bg-white/5 rounded text-muted-foreground hover:text-amber transition">
+                <Plus className="w-3 h-3" />
+              </button>
+            </div>
+            <div className="px-3 py-2 text-sm text-muted-foreground hover:text-amber transition cursor-pointer flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-amber" />
+              Obsidian Vault
+            </div>
+          </div>
+
+          {/* Footer */}
+          <div className="border-t border-border/30 px-2 py-4 space-y-1">
+            <button className="w-full flex items-center gap-3 px-3 py-2 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition">
+              <Settings className="w-4 h-4" />
+              <span className="text-sm">Settings</span>
+            </button>
+            <button className="w-full flex items-center gap-3 px-3 py-2 rounded text-muted-foreground hover:text-foreground hover:bg-white/5 transition">
+              <HelpCircle className="w-4 h-4" />
+              <span className="text-sm">Help</span>
+            </button>
+            <div className="px-3 py-2 flex items-center gap-2 text-sm cursor-pointer">
+              <div className="w-6 h-6 rounded-full border border-amber flex items-center justify-center text-xs text-amber font-semibold">
+                A
               </div>
-              <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground mb-8">Vibe Coding. Elevated.</p>
+              <svg className="w-4 h-4 text-muted-foreground ml-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
+              </svg>
+            </div>
+          </div>
+        </div>
 
-              {/* Main Headline */}
-              <h1 className="text-4xl sm:text-5xl font-light leading-tight tracking-tight mb-1">
-                <span className="text-foreground">Code with clarity.</span>
-                <br />
-                <span className="text-amber">Build with intention.</span>
-              </h1>
-              <div className="w-12 h-px bg-amber my-6" />
-
-              {/* Subheader */}
-              <p className="text-base text-muted-foreground leading-relaxed mb-8 max-w-lg">
-                Obsidian is the vibe coding tool for builders who value focus, flow, and precision.
-              </p>
-
-              {/* Features Grid */}
-              <div className="grid grid-cols-3 gap-4 mb-12">
-                <div className="space-y-2">
-                  <div className="w-2 h-2 rounded-full bg-amber" />
-                  <h3 className="text-xs uppercase tracking-widest text-amber font-medium">Focus</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    A distraction-free workspace that keeps you in flow.
-                  </p>
+        {/* Main Content Area */}
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {/* Chat Area */}
+          <div className="flex-1 flex flex-col overflow-hidden">
+            {/* Messages */}
+            <div ref={scrollRef} className="flex-1 overflow-y-auto px-6 py-6 space-y-4">
+              {messages.map((m, i) => (
+                <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div
+                    className={
+                      m.role === "user"
+                        ? "max-w-lg rounded-lg rounded-tr-sm px-4 py-2.5 text-sm bg-amber/10 text-foreground border border-amber/20"
+                        : "max-w-lg rounded-lg rounded-tl-sm px-4 py-2.5 text-sm bg-white/5 text-muted-foreground"
+                    }
+                  >
+                    {m.content}
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="w-2 h-2 rounded-full bg-amber" />
-                  <h3 className="text-xs uppercase tracking-widest text-amber font-medium">Vibe</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    Smart suggestions that understand your intent, not just syntax.
-                  </p>
+              ))}
+              {loading && (
+                <div className="flex justify-start">
+                  <div className="rounded-lg rounded-tl-sm px-4 py-2.5 text-sm bg-white/5 text-muted-foreground inline-flex items-center gap-2">
+                    <Loader2 className="w-3.5 h-3.5 animate-spin text-amber" />
+                    Building…
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <div className="w-2 h-2 rounded-full bg-amber" />
-                  <h3 className="text-xs uppercase tracking-widest text-amber font-medium">Ship</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    From idea to production with speed, confidence, and control.
-                  </p>
-                </div>
-              </div>
+              )}
+              {error && <p className="text-xs text-red-400/80 px-2">{error}</p>}
             </div>
 
-            {/* Chat Input */}
-            <div className="space-y-2">
+            {/* Input Area */}
+            <div className="border-t border-border/30 px-6 py-4 space-y-3">
               <div className="flex items-center gap-2">
-                <label htmlFor="model-select" className="text-[11px] uppercase tracking-widest text-muted-foreground">
+                <label htmlFor="model-select" className="text-xs uppercase tracking-widest text-muted-foreground/60 font-medium">
                   Model
                 </label>
                 <select
@@ -164,7 +250,7 @@ function Index() {
                   value={model}
                   onChange={(e) => setModel(e.target.value as ModelId)}
                   disabled={loading}
-                  className="flex-1 rounded-md border border-border bg-background/60 px-2.5 py-1.5 text-[11px] font-medium text-foreground focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 disabled:opacity-50"
+                  className="flex-1 rounded border border-border/30 bg-white/5 px-2.5 py-1.5 text-xs font-medium text-foreground focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber/30 disabled:opacity-50"
                 >
                   {MODELS.map((m) => (
                     <option key={m.id} value={m.id}>
@@ -180,7 +266,7 @@ function Index() {
                       setHtml("");
                       setError(null);
                     }}
-                    className="text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-amber"
+                    className="text-xs uppercase tracking-wider text-muted-foreground hover:text-amber transition"
                   >
                     Reset
                   </button>
@@ -192,89 +278,53 @@ function Index() {
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="What do you want to build?"
                   disabled={loading}
-                  className="flex-1 rounded-lg border border-border bg-background/40 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/50 focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 disabled:opacity-50"
+                  className="flex-1 rounded border border-border/30 bg-white/5 px-4 py-3 text-sm text-foreground placeholder:text-muted-foreground/40 focus:border-amber focus:outline-none focus:ring-1 focus:ring-amber/30 disabled:opacity-50"
                 />
                 <button
                   type="submit"
                   disabled={loading || !input.trim()}
-                  className="grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--primary)] text-[color:var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-40 flex-shrink-0"
+                  className="grid h-11 w-11 place-items-center rounded bg-amber text-background transition-opacity hover:opacity-90 disabled:opacity-40 flex-shrink-0"
                 >
                   {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
                 </button>
               </form>
-              {error && <p className="text-xs text-red-400/80">{error}</p>}
             </div>
           </div>
 
-          {/* Right: Code Editor Panel */}
-          <div className="glass-panel-amber flex flex-col overflow-hidden min-h-[600px]">
-            {/* Code Editor with Line Numbers */}
-            <div className="flex-1 overflow-auto p-6 font-mono text-sm leading-relaxed">
+          {/* Right Preview Panel */}
+          <div className="w-96 border-l border-border/30 flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-amber/5">
+            <div className="px-4 py-3 border-b border-border/30 text-xs uppercase tracking-widest text-amber/60 font-medium">
+              Preview
+            </div>
+            <div className="flex-1 overflow-auto p-4">
               {html ? (
-                <CodeDisplay code={html} />
+                <div className="text-[11px] font-mono leading-relaxed text-muted-foreground/80">
+                  <CodePreview code={html} />
+                </div>
               ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                  <p className="text-muted-foreground/50 text-xs">No code yet</p>
-                  <p className="text-muted-foreground/30 text-xs mt-1">Tell it what you want to build →</p>
+                <div className="flex items-center justify-center h-full text-center">
+                  <p className="text-xs text-muted-foreground/30">Generated code appears here</p>
                 </div>
               )}
             </div>
-
-            {/* Status Bar */}
-            <div className="border-t border-border/30 px-6 py-3 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-amber" />
-                <span className="text-xs uppercase tracking-widest text-amber font-medium">
-                  {loading ? "Building…" : "In Flow"}
-                </span>
-              </div>
-              <ChevronRight className="w-4 h-4 text-muted-foreground/30" />
-            </div>
           </div>
         </div>
-
-        {/* Footer */}
-        <div className="mt-16 text-center">
-          <p className="text-xs uppercase tracking-[0.2em] text-muted-foreground/40">
-            Your Vibe. Our Intelligence. Limitless Possibilities.
-          </p>
-        </div>
       </div>
-    </main>
+    </div>
   );
 }
 
-function CodeDisplay({ code }: { code: string }) {
-  const lines = code.split('\n');
-  const maxLines = Math.min(lines.length, 20);
-  const displayLines = lines.slice(0, maxLines);
-
-  const highlightLine = (line: string) => {
-    // Simple syntax highlighting for amber keywords
-    return line
-      .replace(/(".*?")/g, '<span class="text-amber">$1</span>')
-      .replace(/('.*?')/g, '<span class="text-amber">$1</span>')
-      .replace(/\b(function|const|let|var|return|if|else|class|import|export)\b/g, '<span class="text-amber">$1</span>');
-  };
-
+function CodePreview({ code }: { code: string }) {
+  const lines = code.split('\n').slice(0, 30);
   return (
-    <div className="w-full">
-      {displayLines.map((line, idx) => (
-        <div key={idx} className="flex gap-4 hover:bg-white/5 transition-colors">
-          <div className="text-muted-foreground/50 w-8 text-right flex-shrink-0 pt-px">
-            {String(idx + 1).padStart(2, '0')}
-          </div>
-          <div
-            className="text-muted-foreground/90 flex-1 whitespace-pre-wrap break-words"
-            dangerouslySetInnerHTML={{ __html: highlightLine(line) || '&nbsp;' }}
-          />
+    <div className="space-y-1">
+      {lines.map((line, idx) => (
+        <div key={idx} className="flex gap-3">
+          <span className="text-muted-foreground/40 w-6 text-right flex-shrink-0">{idx + 1}</span>
+          <span className="whitespace-pre-wrap break-words">{line || ' '}</span>
         </div>
       ))}
-      {lines.length > maxLines && (
-        <div className="mt-4 text-xs text-muted-foreground/30 italic">
-          ... and {lines.length - maxLines} more lines
-        </div>
-      )}
+      {lines.length >= 30 && <div className="text-xs text-muted-foreground/20 mt-2">... more code</div>}
     </div>
   );
 }
