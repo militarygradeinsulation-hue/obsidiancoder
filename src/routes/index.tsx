@@ -171,44 +171,91 @@ function Index() {
     });
   }
 
-  const [pendingImage, setPendingImage] = useState<{ name: string; dataUrl: string } | null>(null);
+  type Attachment =
+    | { kind: "image"; name: string; dataUrl: string }
+    | { kind: "text"; name: string; text: string; source: "text" | "pdf" };
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  function handleImagePick(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
+  async function extractPdfText(file: File): Promise<string> {
+    const pdfjs: any = await import("pdfjs-dist");
+    const worker: any = await import("pdfjs-dist/build/pdf.worker.mjs?url");
+    pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
+
+    const buf = await file.arrayBuffer();
+    const doc = await pdfjs.getDocument({ data: buf }).promise;
+    const out: string[] = [];
+    const max = Math.min(doc.numPages, 25);
+    for (let i = 1; i <= max; i++) {
+      const page = await doc.getPage(i);
+      const c = await page.getTextContent();
+      out.push(c.items.map((it: any) => it.str).join(" "));
+    }
+    return out.join("\n\n").slice(0, 60000);
+  }
+
+  async function handleFilesPick(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files ?? []);
     e.target.value = "";
-    if (!file) return;
-    if (!file.type.startsWith("image/")) {
-      setError("Only image files can be attached.");
-      return;
+    if (!files.length) return;
+    setError(null);
+    for (const file of files) {
+      try {
+        if (file.size > 8 * 1024 * 1024) {
+          setError(`"${file.name}" is too large (max 8 MB).`);
+          continue;
+        }
+        if (file.type.startsWith("image/")) {
+          const dataUrl = await new Promise<string>((resolve, reject) => {
+            const r = new FileReader();
+            r.onload = () => resolve(String(r.result));
+            r.onerror = () => reject(new Error("read failed"));
+            r.readAsDataURL(file);
+          });
+          setPendingAttachments((a) => [...a, { kind: "image", name: file.name, dataUrl }]);
+        } else if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
+          const text = await extractPdfText(file);
+          setPendingAttachments((a) => [...a, { kind: "text", name: file.name, text, source: "pdf" }]);
+        } else {
+          const text = await file.text();
+          setPendingAttachments((a) => [
+            ...a,
+            { kind: "text", name: file.name, text: text.slice(0, 60000), source: "text" },
+          ]);
+        }
+      } catch (err) {
+        setError(`Could not read "${file.name}": ${err instanceof Error ? err.message : "unknown error"}`);
+      }
     }
-    if (file.size > 3 * 1024 * 1024) {
-      setError("Image is too large (max 3 MB).");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => setPendingImage({ name: file.name, dataUrl: String(reader.result) });
-    reader.onerror = () => setError("Could not read that image.");
-    reader.readAsDataURL(file);
+  }
+
+  function removeAttachment(idx: number) {
+    setPendingAttachments((a) => a.filter((_, i) => i !== idx));
   }
 
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
-    if ((!basePrompt && !pendingImage) || loading) return;
-    const prompt = pendingImage
-      ? `${basePrompt || "Use this image in the design."}\n\n[Attached image — embed exactly, do not replace]\nfilename: ${pendingImage.name}\nsrc: ${pendingImage.dataUrl}`
-      : basePrompt;
+    if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
+    let prompt = basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : "");
+    for (const att of pendingAttachments) {
+      if (att.kind === "image") {
+        prompt += `\n\n[Attached image — embed exactly, do not replace]\nfilename: ${att.name}\nsrc: ${att.dataUrl}`;
+      } else {
+        const label = att.source === "pdf" ? "PDF style guide (extracted text)" : "Style guide / reference document";
+        prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
+      }
+    }
     setError(null);
     setInput("");
-    setPendingImage(null);
+    setPendingAttachments([]);
     const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: prompt }];
     const isFirstUserMsg = !current.messages.some((m) => m.role === "user");
     updateCurrent({
       messages: nextHistory,
-      title: isFirstUserMsg ? prompt.slice(0, 28) : current.title,
+      title: isFirstUserMsg ? (basePrompt || pendingAttachments[0]?.name || "Untitled").slice(0, 28) : current.title,
     });
     setLoading(true);
-    setTerminal((t) => [...t, `→ Building: "${prompt.slice(0, 40)}…"`]);
+    setTerminal((t) => [...t, `→ Building: "${(basePrompt || pendingAttachments[0]?.name || "attachment").slice(0, 40)}…"`]);
     const sessionId = activeId;
     const t0 = performance.now();
     try {
@@ -232,6 +279,7 @@ function Index() {
       setLoading(false);
     }
   }
+
 
   const kb = current.html ? (current.html.length / 1024).toFixed(1) : "0.0";
 
@@ -514,13 +562,21 @@ function Index() {
                   );
                 })}
               </div>
-              {pendingImage && (
-                <div className="obs-attach-preview">
-                  <img src={pendingImage.dataUrl} alt={pendingImage.name} />
-                  <span className="obs-attach-name">{pendingImage.name}</span>
-                  <button type="button" className="obs-icon-btn" aria-label="Remove attachment" onClick={() => setPendingImage(null)}>
-                    <X className="h-3 w-3" />
-                  </button>
+              {pendingAttachments.length > 0 && (
+                <div className="obs-attach-list">
+                  {pendingAttachments.map((att, i) => (
+                    <div key={i} className="obs-attach-chip" title={att.name}>
+                      {att.kind === "image" ? (
+                        <img src={att.dataUrl} alt={att.name} />
+                      ) : (
+                        <span className="obs-attach-badge">{att.source === "pdf" ? "PDF" : "TXT"}</span>
+                      )}
+                      <span className="obs-attach-name">{att.name}</span>
+                      <button type="button" className="obs-icon-btn" aria-label="Remove attachment" onClick={() => removeAttachment(i)}>
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
                 </div>
               )}
               <form
@@ -533,14 +589,16 @@ function Index() {
                 <input
                   ref={fileInputRef}
                   type="file"
-                  accept="image/*"
+                  accept="image/*,application/pdf,.pdf,.md,.markdown,.txt,.json,.css,.html,.htm,text/*"
+                  multiple
                   className="obs-file-hidden"
-                  onChange={handleImagePick}
+                  onChange={handleFilesPick}
                 />
                 <button
                   type="button"
                   className="obs-composer-attach"
-                  aria-label="Attach image"
+                  aria-label="Attach style guide, image, or PDF"
+                  title="Attach style guide, image, or PDF"
                   disabled={loading}
                   onClick={() => fileInputRef.current?.click()}
                 >
@@ -549,19 +607,20 @@ function Index() {
                 <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={pendingImage ? "Describe what to do with the image…" : "Ask Obsidian AI…"}
+                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…" : "Ask Obsidian AI…"}
                   disabled={loading}
                   className="obs-composer-input"
                 />
                 <button
                   type="submit"
-                  disabled={loading || (!input.trim() && !pendingImage)}
+                  disabled={loading || (!input.trim() && pendingAttachments.length === 0)}
                   aria-label="Send"
                   className="obs-composer-send"
                 >
                   {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
                 </button>
               </form>
+
             </div>
 
             {/* Context */}
