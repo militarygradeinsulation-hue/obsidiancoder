@@ -7,13 +7,13 @@ import { generateHtml } from "@/lib/aetheris.functions";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Aetheris Coder — Tell it what to build" },
+      { title: "Aetheris Obsidian — Tell it what to build" },
       {
         name: "description",
         content:
           "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
       },
-      { property: "og:title", content: "Aetheris Coder — Tell it what to build" },
+      { property: "og:title", content: "Aetheris Obsidian — Tell it what to build" },
       {
         property: "og:description",
         content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",

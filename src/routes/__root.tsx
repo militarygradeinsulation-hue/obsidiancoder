@@ -77,7 +77,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Aetheris Coder — Tell it what to build" },
+      { title: "Aetheris Obsidian — Tell it what to build" },
       {
         name: "description",
         content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
@@ -85,8 +85,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:site_name", content: "Aetheris Coder" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "Aetheris Coder — Tell it what to build" },
-      { name: "twitter:title", content: "Aetheris Coder — Tell it what to build" },
+      { property: "og:title", content: "Aetheris Obsidian — Tell it what to build" },
+      { name: "twitter:title", content: "Aetheris Obsidian — Tell it what to build" },
       { property: "og:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
       { name: "twitter:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
       { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/95c02ebb-f0f5-43e9-814b-0c46901dece5/id-preview-f969d54d--bbfc65dd-76bc-44ba-98f1-fd9ab610072c.lovable.app-1784213248324.png" },
