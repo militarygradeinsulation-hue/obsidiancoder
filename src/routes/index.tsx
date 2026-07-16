@@ -13,10 +13,10 @@ export const Route = createFileRoute("/")({
         content:
           "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
       },
-      { property: "og:title", content: "Aetheris Coder" },
+      { property: "og:title", content: "Aetheris Coder — Tell it what to build" },
       {
         property: "og:description",
-        content: "Tell it what to build. It remembers. Watch it appear.",
+        content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "/" },
