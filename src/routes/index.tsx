@@ -6,6 +6,7 @@ import {
   FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
+  History, RotateCcw, Trash2,
 } from "lucide-react";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 
@@ -36,12 +37,20 @@ const MODELS = [
 type ModelId = (typeof MODELS)[number]["id"];
 
 
+type Version = {
+  id: string;
+  ts: number;
+  html: string;
+  label: string;
+};
+
 type Session = {
   id: string;
   title: string;
   messages: ChatMsg[];
   html: string;
   model: ModelId;
+  versions: Version[];
 };
 
 const WORKSPACE_NAV = [
@@ -81,6 +90,7 @@ function newSession(): Session {
     messages: [{ role: "assistant", content: "Obsidian is ready. Tell me what to build." }],
     html: "",
     model: "google/gemini-3.1-flash-lite",
+    versions: [],
   };
 }
 
@@ -115,7 +125,8 @@ function Index() {
       if (raw) {
         const parsed = JSON.parse(raw) as Session[];
         if (Array.isArray(parsed) && parsed.length) {
-          setSessions(parsed);
+          const normalized = parsed.map((s) => ({ ...s, versions: Array.isArray(s.versions) ? s.versions : [] }));
+          setSessions(normalized);
           const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
           setActiveId(id);
         }
@@ -169,6 +180,35 @@ function Index() {
       if (id === activeId) setActiveId(next[0].id);
       return next;
     });
+  }
+
+  function clearAll() {
+    if (loading) return;
+    const ok = window.confirm(
+      "Clear this tab? This wipes the chat, the current preview, and all saved versions for this session. This can't be undone.",
+    );
+    if (!ok) return;
+    const fresh = newSession();
+    setSessions((all) => all.map((s) => (s.id === activeId ? { ...fresh, id: s.id, model: s.model } : s)));
+    setInput("");
+    setPendingAttachments([]);
+    setError(null);
+    setTab("preview");
+    setTerminal((t) => [...t, "✓ Cleared session"]);
+  }
+
+  function revertTo(version: Version) {
+    if (loading) return;
+    setSessions((all) => all.map((s) => s.id === activeId
+      ? {
+          ...s,
+          html: version.html,
+          messages: [...s.messages, { role: "assistant", content: `↶ Reverted to "${version.label}"` }],
+        }
+      : s));
+    setTab("preview");
+    setError(null);
+    setTerminal((t) => [...t, `→ Reverted to "${version.label}"`]);
   }
 
   type Attachment =
@@ -301,8 +341,20 @@ function Index() {
       if (!/<!doctype|<html/i.test(finalHtml)) {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
       }
+      const versionLabel = (basePrompt || pendingAttachments[0]?.name || "Update").slice(0, 48);
+      const newVersion: Version = {
+        id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
+        ts: Date.now(),
+        html: finalHtml,
+        label: versionLabel,
+      };
       setSessions((all) => all.map((s) => s.id === sessionId
-        ? { ...s, html: finalHtml, messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }] }
+        ? {
+            ...s,
+            html: finalHtml,
+            messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }],
+            versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
+          }
         : s));
       const ms = Math.round(performance.now() - t0);
       setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
@@ -526,6 +578,15 @@ function Index() {
                     <option key={m.id} value={m.id}>{m.label}</option>
                   ))}
                 </select>
+                <button
+                  type="button"
+                  className="obs-chip"
+                  onClick={clearAll}
+                  disabled={loading}
+                  title="Clear this session — wipes chat, preview, and version history"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Clear All
+                </button>
                 <div className="obs-avatar obs-avatar-sm">JT</div>
               </div>
             </div>
@@ -686,6 +747,47 @@ function Index() {
                 <Paperclip className="h-3.5 w-3.5" /> Add Context
               </button>
             </div>
+
+            {/* Version History */}
+            <div className="obs-card">
+              <div className="obs-card-head">
+                <span className="obs-card-label">
+                  <History className="h-3.5 w-3.5 inline mr-1" /> Version History
+                </span>
+                <span className="obs-node">{current.versions?.length ?? 0}</span>
+              </div>
+              {(current.versions?.length ?? 0) === 0 ? (
+                <p className="obs-history-empty">Each build is saved here. Revert anytime.</p>
+              ) : (
+                <ul className="obs-history-list">
+                  {current.versions.map((v, i) => {
+                    const isCurrent = v.html === current.html;
+                    const d = new Date(v.ts);
+                    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                    return (
+                      <li key={v.id} className={"obs-history-item " + (isCurrent ? "is-current" : "")}>
+                        <div className="obs-history-meta">
+                          <span className="obs-history-idx">v{(current.versions.length - i).toString().padStart(2, "0")}</span>
+                          <span className="obs-history-label" title={v.label}>{v.label}</span>
+                          <span className="obs-history-time">{time}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="obs-history-revert"
+                          onClick={() => revertTo(v)}
+                          disabled={loading || isCurrent}
+                          title={isCurrent ? "This is the current version" : "Revert to this version"}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          {isCurrent ? "Current" : "Revert"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
 
             {/* Terminal */}
             <div className="obs-card">
