@@ -714,7 +714,11 @@
   z-index: 0;
 }
 .obs-shell > .obs-sidebar,
-.obs-shell > .obs-main { position: relative; z-index: 1; }
+.obs-shell > .obs-main { z-index: 1; }
+.obs-shell > .obs-main { position: relative; }
+@media (min-width: 901px) {
+  .obs-shell > .obs-sidebar { position: relative; }
+}
 
 .matrix-line {
   position: absolute;
