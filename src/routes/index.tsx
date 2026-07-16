@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import {
   Send, Eye, Code2, Loader2, Home, FileText, Share2, CheckSquare,
   Calendar, Type, Plus, Search, Bookmark, PanelsTopLeft, MoreHorizontal,
-  ChevronLeft, ChevronRight, Settings, HelpCircle, ChevronDown, Diamond, Menu, X,
+  ChevronLeft, ChevronRight, Settings, HelpCircle, ChevronDown, Diamond, Menu, X, Sparkle,
 } from "lucide-react";
 import { generateHtml } from "@/lib/aetheris.functions";
 
