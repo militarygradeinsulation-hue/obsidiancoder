@@ -27,12 +27,18 @@ OUTPUT: exactly one complete, production-grade standalone HTML document that sat
 
 Hard rules:
 - Return ONLY the raw HTML document, starting with <!doctype html>. No markdown fences, no prose.
-- Inline all CSS in a <style> tag and all JS in a <script> tag. No external URLs, CDNs, fonts, or images.
+- Inline all CSS in a <style> tag and all JS in a <script> tag. No external CSS, no external JS, no external fonts.
+- Images ARE allowed and encouraged when they improve the design. Use one of:
+  • Inline SVG (preferred for icons, logos, decorative shapes).
+  • https URLs from placeholder providers: https://images.unsplash.com/... , https://picsum.photos/<w>/<h> , https://source.unsplash.com/<w>x<h>/?<keyword> , https://api.dicebear.com/... .
+  • Any https URL the user explicitly provided.
+  Always set width, height, and descriptive alt text. Use object-fit: cover for hero/card images.
+- If the user uploads or pastes an image (data: URL or https URL) in the prompt, embed it exactly as given — do not replace it with a placeholder.
 - Accessibility: semantic HTML, proper heading order, labels for inputs, aria-* where needed, visible keyboard focus, WCAG AA contrast.
 - Responsive: mobile-first, fluid layouts, no horizontal scroll at 320px.
 - Aesthetic: dark background, warm amber/gold accents, subtle glass/shine, refined typography.
 - Never remove previously-built features unless explicitly asked.
-- Safe & self-contained: no network calls, no third-party scripts, no tracking.`;
+- Safe: no third-party scripts, no tracking, no network calls beyond loading the images described above.`;
 
 export const generateHtml = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
