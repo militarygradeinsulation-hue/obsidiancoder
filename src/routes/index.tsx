@@ -55,14 +55,14 @@ const WORKSPACE_NAV = [
   { id: "databases", label: "Databases", icon: Database },
 ] as const;
 
-const TOOLS_NAV = [
+const TOOLS_NAV: { id: string; label: string; icon: typeof Sparkles; shortcut?: string }[] = [
   { id: "ai-chat", label: "AI Chat", icon: Sparkles, shortcut: "⌘ I" },
   { id: "code-assist", label: "Code Assist", icon: Code2, shortcut: "⌘ L" },
   { id: "terminal", label: "Terminal", icon: TerminalSquare, shortcut: "⌘ J" },
   { id: "playground", label: "Playground", icon: FlaskConical },
   { id: "git", label: "Git", icon: GitBranch },
   { id: "deploy", label: "Deploy", icon: Rocket },
-] as const;
+];
 
 const SUGGESTIONS = [
   { icon: Calendar, label: "Add a hero with a call-to-action" },
