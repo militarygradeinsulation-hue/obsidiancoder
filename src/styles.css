@@ -788,9 +788,13 @@
   margin-bottom: 12px;
 }
 .obs-mark {
-  width: 22px; height: 26px;
+  width: 26px; height: 26px;
   filter: drop-shadow(0 0 6px rgba(212,175,55,0.35));
   flex-shrink: 0;
+}
+.obs-mark-img {
+  border-radius: 50%;
+  object-fit: cover;
 }
 .obs-brand-word {
   font-family: var(--font-display);
