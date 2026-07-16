@@ -63,30 +63,13 @@ function newSession(): Session {
   };
 }
 
-function loadSessions(): { sessions: Session[]; activeId: string } {
-  if (typeof window === "undefined") {
-    const s = newSession();
-    return { sessions: [s], activeId: s.id };
-  }
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    const activeRaw = window.localStorage.getItem(ACTIVE_KEY);
-    if (raw) {
-      const parsed = JSON.parse(raw) as Session[];
-      if (Array.isArray(parsed) && parsed.length) {
-        const activeId = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
-        return { sessions: parsed, activeId };
-      }
-    }
-  } catch { /* ignore */ }
-  const s = newSession();
-  return { sessions: [s], activeId: s.id };
-}
+const INITIAL_SESSION = newSession();
 
 function Index() {
   const callGenerate = useServerFn(generateHtml);
-  const [sessions, setSessions] = useState<Session[]>(() => loadSessions().sessions);
-  const [activeId, setActiveId] = useState<string>(() => loadSessions().activeId);
+  const [sessions, setSessions] = useState<Session[]>([INITIAL_SESSION]);
+  const [activeId, setActiveId] = useState<string>(INITIAL_SESSION.id);
+  const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [loading, setLoading] = useState(false);
@@ -97,13 +80,33 @@ function Index() {
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
-  // Persist to localStorage
+  // Hydrate from localStorage after mount
   useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem(STORAGE_KEY);
+      const activeRaw = window.localStorage.getItem(ACTIVE_KEY);
+      if (raw) {
+        const parsed = JSON.parse(raw) as Session[];
+        if (Array.isArray(parsed) && parsed.length) {
+          setSessions(parsed);
+          const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
+          setActiveId(id);
+        }
+      }
+    } catch { /* ignore */ }
+    setHydrated(true);
+  }, []);
+
+  // Persist to localStorage (only after hydration to avoid clobbering)
+  useEffect(() => {
+    if (!hydrated) return;
     try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); } catch { /* ignore */ }
-  }, [sessions]);
+  }, [sessions, hydrated]);
   useEffect(() => {
+    if (!hydrated) return;
     try { window.localStorage.setItem(ACTIVE_KEY, activeId); } catch { /* ignore */ }
-  }, [activeId]);
+  }, [activeId, hydrated]);
+
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
