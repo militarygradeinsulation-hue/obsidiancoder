@@ -654,7 +654,12 @@
   overflow: hidden;
   z-index: 0;
 }
-.obsidian-shell > :not(.obsidian-matrix) { position: relative; z-index: 1; }
+.obsidian-shell > .obsidian-sidebar,
+.obsidian-shell > .obsidian-main { z-index: 1; }
+@media (min-width: 901px) {
+  .obsidian-shell > .obsidian-sidebar { position: relative; }
+}
+.obsidian-shell > .obsidian-main { position: relative; }
 
 .matrix-line {
   position: absolute;
