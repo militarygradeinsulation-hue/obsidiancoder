@@ -162,6 +162,9 @@ function Index() {
         {/* Top tab bar */}
         <div className="topbar">
           <div className="topbar-left">
+            <button type="button" className="icon-btn sidebar-toggle" aria-label="Open menu" onClick={() => setSidebarOpen(true)}>
+              <Menu className="h-4 w-4" />
+            </button>
             <button type="button" className="icon-btn" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
             <button type="button" className="icon-btn" aria-label="Forward"><ChevronRight className="h-4 w-4" /></button>
             <div className="tab-strip">
