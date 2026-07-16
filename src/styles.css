@@ -45,7 +45,7 @@
   --accent: oklch(0.85 0.18 75);
   --accent-foreground: oklch(0.02 0 0);
 
-  --border: oklch(1 0 0 / 0.06);
+  --border: oklch(1 0 0 / 0.12);
   --ring: oklch(0.85 0.18 75);
 
   --gradient-radial-amber: radial-gradient(
@@ -97,11 +97,11 @@
   background-image:
     var(--gradient-radial-amber),
     radial-gradient(1px 1px at 12% 22%, oklch(1 0 0 / 0.35) 50%, transparent 51%),
-    radial-gradient(1px 1px at 78% 14%, oklch(0.82 0.16 78 / 0.45) 50%, transparent 51%),
+    radial-gradient(1px 1px at 78% 14%, oklch(0.85 0.18 75 / 0.45) 50%, transparent 51%),
     radial-gradient(1px 1px at 34% 68%, oklch(1 0 0 / 0.25) 50%, transparent 51%),
-    radial-gradient(1px 1px at 88% 74%, oklch(0.82 0.16 78 / 0.4) 50%, transparent 51%),
+    radial-gradient(1px 1px at 88% 74%, oklch(0.85 0.18 75 / 0.4) 50%, transparent 51%),
     radial-gradient(1px 1px at 58% 90%, oklch(1 0 0 / 0.2) 50%, transparent 51%),
-    radial-gradient(1px 1px at 8% 84%, oklch(0.82 0.16 78 / 0.3) 50%, transparent 51%),
+    radial-gradient(1px 1px at 8% 84%, oklch(0.85 0.18 75 / 0.3) 50%, transparent 51%),
     radial-gradient(1px 1px at 66% 40%, oklch(1 0 0 / 0.3) 50%, transparent 51%);
   background-color: transparent;
 }
@@ -124,6 +124,7 @@
       oklch(0 0 0 / 0.4) 100%
     ),
     oklch(0.06 0.002 50 / 0.45);
+  -webkit-backdrop-filter: blur(32px) saturate(140%) brightness(1.1);
   backdrop-filter: blur(32px) saturate(140%) brightness(1.1);
   border: 1px solid oklch(1 0 0 / 0.1);
   box-shadow: var(--shadow-glass);
@@ -140,6 +141,7 @@
       oklch(0 0 0 / 0.45) 100%
     ),
     oklch(0.06 0.002 50 / 0.45);
+  -webkit-backdrop-filter: blur(32px) saturate(150%) brightness(1.12);
   backdrop-filter: blur(32px) saturate(150%) brightness(1.12);
   border: 1px solid oklch(0.85 0.18 75 / 0.2);
   box-shadow: var(--shadow-glass-amber);
@@ -175,5 +177,11 @@
 @keyframes float-slow {
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  @utility float-slow {
+    animation: none;
+  }
 }
 
