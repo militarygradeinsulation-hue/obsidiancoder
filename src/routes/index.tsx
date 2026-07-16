@@ -236,13 +236,18 @@ function Index() {
         )}
 
         <footer className="mt-8 text-center text-sm text-muted-foreground">
-          Need this production-ready?{" "}
-          <a
-            href="https://businessforensics.tech/leak-audit"
-            className="text-amber underline-offset-4 hover:underline"
-          >
-            Run the Free Leak Audit™ →
-          </a>
+          <p>
+            Need this production-ready?{" "}
+            <a
+              href="https://businessforensics.tech/leak-audit"
+              className="text-amber underline-offset-4 hover:underline"
+            >
+              Run the Free Leak Audit™ →
+            </a>
+          </p>
+          <p className="mt-2 text-xs tracking-[0.14em] text-muted-foreground/60">
+            Aetheris.Technology
+          </p>
         </footer>
       </div>
     </main>
