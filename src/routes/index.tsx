@@ -259,13 +259,51 @@ function Index() {
     const sessionId = activeId;
     const t0 = performance.now();
     try {
-      const { html: newHtml } = await callGenerate({
-        data: { prompt, currentHtml: current.html, history: current.messages.slice(-10), model: current.model },
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          currentHtml: current.html,
+          history: current.messages.slice(-4),
+          model: current.model,
+        }),
       });
-      setSessions((all) => all.map((s) => s.id === sessionId
-        ? { ...s, html: newHtml, messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }] }
-        : s));
+      if (!res.ok || !res.body) {
+        const text = await res.text().catch(() => "AI request failed");
+        throw new Error(text || `AI request failed (${res.status})`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      let firstChunkAt = 0;
+      // Throttle preview updates so we don't re-render the iframe on every token
+      let lastPaint = 0;
+      const paint = (force = false) => {
+        const now = performance.now();
+        if (!force && now - lastPaint < 120) return;
+        lastPaint = now;
+        const cleaned = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
+        setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: cleaned } : s));
+      };
       setTab("preview");
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        if (!firstChunkAt) {
+          firstChunkAt = performance.now();
+          setTerminal((t) => [...t, `→ First token in ${Math.round(firstChunkAt - t0)}ms`]);
+        }
+        paint();
+      }
+      let finalHtml = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      if (!/<!doctype|<html/i.test(finalHtml)) {
+        finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
+      }
+      setSessions((all) => all.map((s) => s.id === sessionId
+        ? { ...s, html: finalHtml, messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }] }
+        : s));
       const ms = Math.round(performance.now() - t0);
       setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
     } catch (err) {
@@ -279,6 +317,7 @@ function Index() {
       setLoading(false);
     }
   }
+
 
 
   const kb = current.html ? (current.html.length / 1024).toFixed(1) : "0.0";
