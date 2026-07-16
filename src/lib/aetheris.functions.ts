@@ -6,10 +6,17 @@ const messageSchema = z.object({
   content: z.string(),
 });
 
+const ALLOWED_MODELS = [
+  "google/gemini-2.5-pro",
+  "google/gemini-2.5-flash",
+  "openai/gpt-5",
+] as const;
+
 const inputSchema = z.object({
   prompt: z.string().min(1).max(2000),
   currentHtml: z.string().max(100_000).optional().default(""),
   history: z.array(messageSchema).max(40).optional().default([]),
+  model: z.enum(ALLOWED_MODELS).optional().default("google/gemini-2.5-pro"),
 });
 
 const SYSTEM_PROMPT = `You are Aetheris Coder, a minimal front-end code generator.
