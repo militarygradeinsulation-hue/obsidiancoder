@@ -15,8 +15,8 @@ const ALLOWED_MODELS = [
 ] as const;
 
 const inputSchema = z.object({
-  prompt: z.string().min(1).max(2000),
-  currentHtml: z.string().max(200_000).optional().default(""),
+  prompt: z.string().min(1).max(6_000_000),
+  currentHtml: z.string().max(6_000_000).optional().default(""),
   history: z.array(messageSchema).max(40).optional().default([]),
   model: z.enum(ALLOWED_MODELS).optional().default("google/gemini-3.5-flash"),
 });
