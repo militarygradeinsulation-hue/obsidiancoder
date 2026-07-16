@@ -29,9 +29,11 @@ export const Route = createFileRoute("/")({
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 const MODELS = [
-  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", hint: "Deep reasoning" },
-  { id: "openai/gpt-5", label: "GPT-5", hint: "OpenAI flagship" },
-  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", hint: "Fastest" },
+  { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash", hint: "Fast · default" },
+  { id: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite", hint: "Fastest" },
+  { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", hint: "Deep reasoning" },
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", hint: "Multimodal" },
+  { id: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini", hint: "OpenAI · balanced" },
 ] as const;
 type ModelId = (typeof MODELS)[number]["id"];
 
@@ -49,7 +51,7 @@ function Index() {
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [model, setModel] = useState<ModelId>("google/gemini-2.5-pro");
+  const [model, setModel] = useState<ModelId>("google/gemini-3.5-flash");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
