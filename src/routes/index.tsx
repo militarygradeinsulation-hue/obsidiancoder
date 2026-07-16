@@ -95,9 +95,21 @@ function Index() {
 
   return (
     <main className="obsidian-shell">
+      {sidebarOpen && <div className="sidebar-scrim" onClick={() => setSidebarOpen(false)} />}
       {/* Sidebar */}
-      <aside className="obsidian-sidebar">
+      <aside className={"obsidian-sidebar " + (sidebarOpen ? "sidebar-open" : "")}>
         <div className="brand">
+          <Diamond className="h-6 w-6 text-amber" strokeWidth={1.2} />
+          <span className="brand-word">OBSIDIAN</span>
+          <button
+            type="button"
+            className="icon-btn sidebar-close"
+            aria-label="Close menu"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
           <Diamond className="h-6 w-6 text-amber" strokeWidth={1.2} />
           <span className="brand-word">OBSIDIAN</span>
         </div>
