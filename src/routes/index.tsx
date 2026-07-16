@@ -454,6 +454,21 @@ function Index() {
               ) : (
                 <pre className="obs-code">{current.html || "// Nothing yet."}</pre>
               )}
+              {loading && (
+                <div className="obs-preview-loading" aria-live="polite">
+                  <div className="obs-loading-core">
+                    <div className="obs-loading-orb" />
+                    <div className="obs-loading-ring" />
+                    <div className="obs-loading-ring is-outer" />
+                  </div>
+                  <div className="obs-loading-waves" aria-hidden="true">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <span key={i} className="obs-loading-wave" style={{ animationDelay: `${i * 0.18}s` }} />
+                    ))}
+                  </div>
+                  <p className="obs-loading-text">Weaving your build…</p>
+                </div>
+              )}
             </div>
             {error && <p className="obs-error">{error}</p>}
           </div>
