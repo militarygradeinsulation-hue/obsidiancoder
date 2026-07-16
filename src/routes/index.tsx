@@ -87,7 +87,7 @@ function newSession(): Session {
 const INITIAL_SESSION = newSession();
 
 function Index() {
-  const callGenerate = useServerFn(generateHtml);
+  // streaming via /api/generate
   const [sessions, setSessions] = useState<Session[]>([INITIAL_SESSION]);
   const [activeId, setActiveId] = useState<string>(INITIAL_SESSION.id);
   const [hydrated, setHydrated] = useState(false);
