@@ -312,8 +312,20 @@ function Index() {
       if (!/<!doctype|<html/i.test(finalHtml)) {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
       }
+      const versionLabel = (basePrompt || pendingAttachments[0]?.name || "Update").slice(0, 48);
+      const newVersion: Version = {
+        id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
+        ts: Date.now(),
+        html: finalHtml,
+        label: versionLabel,
+      };
       setSessions((all) => all.map((s) => s.id === sessionId
-        ? { ...s, html: finalHtml, messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }] }
+        ? {
+            ...s,
+            html: finalHtml,
+            messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }],
+            versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
+          }
         : s));
       const ms = Math.round(performance.now() - t0);
       setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
