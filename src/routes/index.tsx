@@ -210,7 +210,7 @@ function Index() {
         </div>
 
         {/* Canvas */}
-        <div className="canvas">
+        <div className="canvas" id="vibe-canvas">
           <div className="canvas-shine" aria-hidden="true" />
           <div className="workspace">
             {/* Chat pane */}
