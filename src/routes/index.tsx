@@ -168,10 +168,37 @@ function Index() {
             <button type="button" className="icon-btn" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
             <button type="button" className="icon-btn" aria-label="Forward"><ChevronRight className="h-4 w-4" /></button>
             <div className="tab-strip">
-              <div className="tab tab-active">
-                <span>New tab</span>
-              </div>
-              <button type="button" className="icon-btn" aria-label="New tab"><Plus className="h-4 w-4" /></button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMessages([{ role: "assistant", content: "Obsidian ready. Describe what you want built." }]);
+                  setHtml("");
+                  setError(null);
+                  setInput("");
+                  setTab("preview");
+                  document.getElementById("vibe-canvas")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                }}
+                className="tab tab-active tab-vibe"
+                aria-label="Open a fresh Vibe Coder session"
+              >
+                <Sparkle className="h-3.5 w-3.5" strokeWidth={2} />
+                <span>Vibe Coder</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMessages([{ role: "assistant", content: "Fresh session. What are we building?" }]);
+                  setHtml("");
+                  setError(null);
+                  setInput("");
+                  setTab("preview");
+                }}
+                className="icon-btn"
+                aria-label="New Vibe session"
+                title="New Vibe session"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
             </div>
           </div>
           <div className="topbar-right">
