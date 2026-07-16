@@ -181,12 +181,38 @@ function Index() {
 
   return (
     <main className="obsidian-shell">
+      <div className="obsidian-matrix" aria-hidden="true">
+        {Array.from({ length: 14 }).map((_, i) => (
+          <span
+            key={i}
+            className="matrix-line"
+            style={{
+              left: `${(i * 7.3) % 100}%`,
+              animationDelay: `${(i * 1.7) % 12}s`,
+              animationDuration: `${14 + (i % 5) * 3}s`,
+              opacity: 0.35 + ((i * 13) % 40) / 200,
+            }}
+          />
+        ))}
+      </div>
       {sidebarOpen && <div className="sidebar-scrim" onClick={() => setSidebarOpen(false)} />}
       {/* Sidebar */}
       <aside className={"obsidian-sidebar " + (sidebarOpen ? "sidebar-open" : "")}>
         <div className="brand">
-          <Diamond className="h-6 w-6 text-amber" strokeWidth={1.2} />
-          <span className="brand-word">OBSIDIAN</span>
+          <svg className="brand-mark" viewBox="0 0 40 48" fill="none" aria-hidden="true">
+            <path d="M20 2 L36 14 L32 40 L20 46 L8 40 L4 14 Z" stroke="url(#og)" strokeWidth="1.1" strokeLinejoin="round"/>
+            <path d="M20 2 L20 46 M4 14 L36 14 M8 40 L32 40 M20 2 L8 40 M20 2 L32 40 M4 14 L20 46 M36 14 L20 46" stroke="url(#og)" strokeWidth="0.6" strokeOpacity="0.55" strokeLinejoin="round"/>
+            <defs>
+              <linearGradient id="og" x1="0" y1="0" x2="0" y2="48" gradientUnits="userSpaceOnUse">
+                <stop stopColor="#FFD783"/>
+                <stop offset="1" stopColor="#72501F"/>
+              </linearGradient>
+            </defs>
+          </svg>
+          <div className="brand-text">
+            <span className="brand-word">OBSIDIAN</span>
+            <span className="brand-tagline">VIBE CODING. ELEVATED.</span>
+          </div>
           <button
             type="button"
             className="icon-btn sidebar-close"
@@ -196,6 +222,7 @@ function Index() {
             <X className="h-4 w-4" />
           </button>
         </div>
+
 
         <nav className="nav-list">
           {NAV.map((item) => {
