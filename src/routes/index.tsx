@@ -748,6 +748,47 @@ function Index() {
               </button>
             </div>
 
+            {/* Version History */}
+            <div className="obs-card">
+              <div className="obs-card-head">
+                <span className="obs-card-label">
+                  <History className="h-3.5 w-3.5 inline mr-1" /> Version History
+                </span>
+                <span className="obs-node">{current.versions?.length ?? 0}</span>
+              </div>
+              {(current.versions?.length ?? 0) === 0 ? (
+                <p className="obs-history-empty">Each build is saved here. Revert anytime.</p>
+              ) : (
+                <ul className="obs-history-list">
+                  {current.versions.map((v, i) => {
+                    const isCurrent = v.html === current.html;
+                    const d = new Date(v.ts);
+                    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+                    return (
+                      <li key={v.id} className={"obs-history-item " + (isCurrent ? "is-current" : "")}>
+                        <div className="obs-history-meta">
+                          <span className="obs-history-idx">v{(current.versions.length - i).toString().padStart(2, "0")}</span>
+                          <span className="obs-history-label" title={v.label}>{v.label}</span>
+                          <span className="obs-history-time">{time}</span>
+                        </div>
+                        <button
+                          type="button"
+                          className="obs-history-revert"
+                          onClick={() => revertTo(v)}
+                          disabled={loading || isCurrent}
+                          title={isCurrent ? "This is the current version" : "Revert to this version"}
+                        >
+                          <RotateCcw className="h-3 w-3" />
+                          {isCurrent ? "Current" : "Revert"}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+
             {/* Terminal */}
             <div className="obs-card">
               <div className="obs-card-head">
