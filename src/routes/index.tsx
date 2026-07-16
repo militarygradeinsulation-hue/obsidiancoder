@@ -233,16 +233,7 @@ function Index() {
       {/* ========== SIDEBAR ========== */}
       <aside className={"obs-sidebar " + (sidebarOpen ? "is-open" : "")}>
         <div className="obs-brand">
-          <svg className="obs-mark" viewBox="0 0 40 48" fill="none" aria-hidden="true">
-            <path d="M20 2 L36 14 L32 40 L20 46 L8 40 L4 14 Z" stroke="url(#og)" strokeWidth="1.2" strokeLinejoin="round"/>
-            <path d="M20 2 L20 46 M4 14 L36 14 M8 40 L32 40 M20 2 L8 40 M20 2 L32 40 M4 14 L20 46 M36 14 L20 46" stroke="url(#og)" strokeWidth="0.55" strokeOpacity="0.55" strokeLinejoin="round"/>
-            <defs>
-              <linearGradient id="og" x1="0" y1="0" x2="0" y2="48" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#f2d97a"/>
-                <stop offset="1" stopColor="#8a7020"/>
-              </linearGradient>
-            </defs>
-          </svg>
+          <img src={aetherisLogo.url} alt="Aetheris" className="obs-mark obs-mark-img" />
           <span className="obs-brand-word">OBSIDIAN</span>
           <button type="button" className="obs-icon-btn obs-sidebar-close" aria-label="Close menu" onClick={() => setSidebarOpen(false)}>
             <X className="h-4 w-4" />
