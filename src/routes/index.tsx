@@ -78,6 +78,7 @@ function Index() {
           prompt,
           currentHtml: html,
           history: messages.slice(-10),
+          model,
         },
       });
       setHtml(newHtml);
