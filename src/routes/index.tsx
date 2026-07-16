@@ -28,6 +28,13 @@ export const Route = createFileRoute("/")({
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
+const MODELS = [
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", hint: "Deep reasoning" },
+  { id: "openai/gpt-5", label: "GPT-5", hint: "OpenAI flagship" },
+  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", hint: "Fastest" },
+] as const;
+type ModelId = (typeof MODELS)[number]["id"];
+
 function Index() {
   const callGenerate = useServerFn(generateHtml);
   const [messages, setMessages] = useState<ChatMsg[]>([
@@ -42,6 +49,7 @@ function Index() {
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [model, setModel] = useState<ModelId>("google/gemini-2.5-pro");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -70,6 +78,7 @@ function Index() {
           prompt,
           currentHtml: html,
           history: messages.slice(-10),
+          model,
         },
       });
       setHtml(newHtml);
@@ -92,14 +101,17 @@ function Index() {
       <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-10 sm:px-6 lg:py-14">
         {/* Header */}
         <header className="mx-auto max-w-3xl text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--primary)]/30 bg-[color:var(--primary)]/5 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.18em] text-amber">
-            <Sparkles className="h-3 w-3" />
-            Free Tool · No Login
+          <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--primary)]/30 bg-[color:var(--primary)]/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-amber sm:text-[11px]">
+            <Sparkles className="h-3 w-3" aria-hidden="true" />
+            Obsidian · Free · No Login
           </div>
-          <h1 className="mt-5 font-serif text-5xl font-semibold tracking-tight text-foreground sm:text-6xl">
+          <h1 className="mt-5 font-serif text-4xl font-semibold tracking-tight text-foreground sm:text-6xl">
             Aetheris <span className="text-amber">Coder</span>
           </h1>
-          <p className="mt-3 text-base text-muted-foreground sm:text-lg">
+          <p className="mt-3 text-sm text-muted-foreground sm:text-lg">
+            The world's best AI models for coding.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground/80 sm:text-sm">
             Tell it what to build. It remembers. Watch it appear.
           </p>
         </header>
@@ -108,24 +120,42 @@ function Index() {
         <section className="mt-10 grid flex-1 gap-4 lg:grid-cols-2">
           {/* Chat pane */}
           <div className="flex min-h-[560px] flex-col overflow-hidden rounded-2xl border border-border bg-card/80 backdrop-blur">
-            <div className="flex items-center justify-between border-b border-border px-4 py-3">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
               <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
                 <span className="h-2 w-2 rounded-full bg-[color:var(--primary)] shadow-glow" />
                 Chat
               </div>
-              {messages.length > 1 && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setMessages([messages[0]]);
-                    setHtml("");
-                    setError(null);
-                  }}
-                  className="text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-amber"
+              <div className="flex items-center gap-2">
+                <label htmlFor="model-select" className="sr-only">
+                  AI model
+                </label>
+                <select
+                  id="model-select"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value as ModelId)}
+                  disabled={loading}
+                  className="rounded-md border border-border bg-background/60 px-2 py-1 text-[11px] font-medium text-foreground focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 disabled:opacity-50"
                 >
-                  Reset
-                </button>
-              )}
+                  {MODELS.map((m) => (
+                    <option key={m.id} value={m.id}>
+                      {m.label} — {m.hint}
+                    </option>
+                  ))}
+                </select>
+                {messages.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessages([messages[0]]);
+                      setHtml("");
+                      setError(null);
+                    }}
+                    className="text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-amber"
+                  >
+                    Reset
+                  </button>
+                )}
+              </div>
             </div>
             <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
               {messages.map((m, i) => (
