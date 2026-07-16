@@ -28,6 +28,13 @@ export const Route = createFileRoute("/")({
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
+const MODELS = [
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", hint: "Deep reasoning" },
+  { id: "openai/gpt-5", label: "GPT-5", hint: "OpenAI flagship" },
+  { id: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash", hint: "Fastest" },
+] as const;
+type ModelId = (typeof MODELS)[number]["id"];
+
 function Index() {
   const callGenerate = useServerFn(generateHtml);
   const [messages, setMessages] = useState<ChatMsg[]>([
@@ -42,6 +49,7 @@ function Index() {
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [model, setModel] = useState<ModelId>("google/gemini-2.5-pro");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
