@@ -51,7 +51,7 @@ function Index() {
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [model, setModel] = useState<ModelId>("google/gemini-2.5-pro");
+  const [model, setModel] = useState<ModelId>("google/gemini-3.5-flash");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
