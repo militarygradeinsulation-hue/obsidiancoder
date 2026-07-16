@@ -37,12 +37,20 @@ const MODELS = [
 type ModelId = (typeof MODELS)[number]["id"];
 
 
+type Version = {
+  id: string;
+  ts: number;
+  html: string;
+  label: string;
+};
+
 type Session = {
   id: string;
   title: string;
   messages: ChatMsg[];
   html: string;
   model: ModelId;
+  versions: Version[];
 };
 
 const WORKSPACE_NAV = [
