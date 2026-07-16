@@ -374,6 +374,22 @@ function Index() {
             >
               <Smartphone className="h-4 w-4" />
             </button>
+            <div className="obs-divider" />
+            <button
+              type="button"
+              className="obs-chip obs-chip-gold"
+              disabled={!current.html}
+              onClick={() => {
+                if (!current.html) return;
+                const blob = new Blob([current.html], { type: "text/html" });
+                const url = URL.createObjectURL(blob);
+                window.open(url, "_blank", "noopener,noreferrer");
+                setTerminal((t) => [...t, `→ Live: opened "${current.title}" in new tab`]);
+              }}
+              title={current.html ? "Open the current build as a standalone site" : "Build something first"}
+            >
+              <Rocket className="h-3.5 w-3.5" /> Go Live
+            </button>
             <button type="button" className="obs-icon-btn" aria-label="More"><MoreHorizontal className="h-4 w-4" /></button>
           </div>
         </div>
