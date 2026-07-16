@@ -1,5 +1,4 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
   Send, Eye, Code2, Loader2, Home, FolderOpen, FileText, Files, Code,
@@ -8,8 +7,8 @@ import {
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
 } from "lucide-react";
-import { generateHtml } from "@/lib/aetheris.functions";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
+
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -28,13 +27,14 @@ export const Route = createFileRoute("/")({
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 const MODELS = [
-  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-  { id: "anthropic/claude-3-5-sonnet", label: "Claude 3.5 Sonnet" },
-  { id: "openai/gpt-4-turbo", label: "GPT-4 Turbo" },
+  { id: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (fastest)" },
   { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash" },
   { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+  { id: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
 ] as const;
 type ModelId = (typeof MODELS)[number]["id"];
+
 
 type Session = {
   id: string;
@@ -80,14 +80,14 @@ function newSession(): Session {
     title: "Untitled",
     messages: [{ role: "assistant", content: "Obsidian is ready. Tell me what to build." }],
     html: "",
-    model: "google/gemini-3.5-flash",
+    model: "google/gemini-3.1-flash-lite",
   };
 }
 
 const INITIAL_SESSION = newSession();
 
 function Index() {
-  const callGenerate = useServerFn(generateHtml);
+  // streaming via /api/generate
   const [sessions, setSessions] = useState<Session[]>([INITIAL_SESSION]);
   const [activeId, setActiveId] = useState<string>(INITIAL_SESSION.id);
   const [hydrated, setHydrated] = useState(false);
@@ -259,13 +259,51 @@ function Index() {
     const sessionId = activeId;
     const t0 = performance.now();
     try {
-      const { html: newHtml } = await callGenerate({
-        data: { prompt, currentHtml: current.html, history: current.messages.slice(-10), model: current.model },
+      const res = await fetch("/api/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt,
+          currentHtml: current.html,
+          history: current.messages.slice(-4),
+          model: current.model,
+        }),
       });
-      setSessions((all) => all.map((s) => s.id === sessionId
-        ? { ...s, html: newHtml, messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }] }
-        : s));
+      if (!res.ok || !res.body) {
+        const text = await res.text().catch(() => "AI request failed");
+        throw new Error(text || `AI request failed (${res.status})`);
+      }
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let acc = "";
+      let firstChunkAt = 0;
+      // Throttle preview updates so we don't re-render the iframe on every token
+      let lastPaint = 0;
+      const paint = (force = false) => {
+        const now = performance.now();
+        if (!force && now - lastPaint < 120) return;
+        lastPaint = now;
+        const cleaned = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
+        setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: cleaned } : s));
+      };
       setTab("preview");
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        acc += decoder.decode(value, { stream: true });
+        if (!firstChunkAt) {
+          firstChunkAt = performance.now();
+          setTerminal((t) => [...t, `→ First token in ${Math.round(firstChunkAt - t0)}ms`]);
+        }
+        paint();
+      }
+      let finalHtml = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      if (!/<!doctype|<html/i.test(finalHtml)) {
+        finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
+      }
+      setSessions((all) => all.map((s) => s.id === sessionId
+        ? { ...s, html: finalHtml, messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }] }
+        : s));
       const ms = Math.round(performance.now() - t0);
       setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
     } catch (err) {
@@ -279,6 +317,7 @@ function Index() {
       setLoading(false);
     }
   }
+
 
 
   const kb = current.html ? (current.html.length / 1024).toFixed(1) : "0.0";
