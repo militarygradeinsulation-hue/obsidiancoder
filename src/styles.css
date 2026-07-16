@@ -30,25 +30,28 @@
 :root {
   --radius: 1rem;
 
-  /* ===== Obsidian Design System palette ===== */
-  --obsidian-black: #030405;
-  --obsidian-black-soft: #070809;
-  --obsidian-panel: #090b0d;
-  --obsidian-panel-raised: #0d0f12;
-  --obsidian-glass: rgba(14, 16, 19, 0.78);
-  --obsidian-border: rgba(255, 255, 255, 0.08);
-  --obsidian-border-strong: rgba(255, 255, 255, 0.14);
-  --obsidian-gold: #c9953d;
-  --obsidian-gold-light: #f0cf87;
-  --obsidian-gold-bright: #ffd783;
-  --obsidian-gold-dark: #72501f;
-  --obsidian-text: #f2eee7;
-  --obsidian-text-soft: #c8c3ba;
-  --obsidian-text-muted: #777b81;
+  /* ===== Obsidian Design System palette (spec) ===== */
+  --obsidian-black: #0a0a0a;
+  --obsidian-black-soft: #0f0f0f;
+  --obsidian-panel: #111111;
+  --obsidian-panel-raised: #1a1a1a;
+  --obsidian-glass: rgba(20, 20, 20, 0.82);
+  --obsidian-border: #1a1a1a;
+  --obsidian-border-strong: #262626;
+  --obsidian-gold: #d4af37;
+  --obsidian-gold-light: #e6c76a;
+  --obsidian-gold-bright: #f2d97a;
+  --obsidian-gold-dark: #8a7020;
+  --obsidian-text: #ffffff;
+  --obsidian-text-soft: #a0a0a0;
+  --obsidian-text-muted: #666666;
   --obsidian-success: #60c979;
   --obsidian-warning: #e0ab4c;
   --obsidian-danger: #de625d;
   --obsidian-info: #5b9bd5;
+  --chart-blue: #4a7c9e;
+  --chart-purple: #7d5a8a;
+  --chart-green: #6b8e4e;
 
   /* Semantic tokens mapped to Obsidian palette */
   --background: #030405;
