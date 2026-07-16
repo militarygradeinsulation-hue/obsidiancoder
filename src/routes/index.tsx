@@ -9,6 +9,7 @@ import {
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
 } from "lucide-react";
 import { generateHtml } from "@/lib/aetheris.functions";
+import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 
 export const Route = createFileRoute("/")({
   head: () => ({
