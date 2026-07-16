@@ -534,3 +534,31 @@
   font-size: 12px;
   color: oklch(0.72 0.18 25);
 }
+
+/* Bold Vibe Coder tab */
+.obsidian-main .tab-vibe {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: oklch(0.12 0 0);
+  background: linear-gradient(180deg, oklch(0.92 0.16 78), oklch(0.78 0.18 72));
+  border: 1px solid oklch(0.85 0.18 75 / 0.6);
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
+  box-shadow:
+    0 0 0 1px oklch(0.85 0.18 75 / 0.25),
+    0 -2px 20px -4px oklch(0.85 0.18 75 / 0.6),
+    inset 0 1px 0 oklch(1 0 0 / 0.4);
+  cursor: pointer;
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.obsidian-main .tab-vibe:hover {
+  transform: translateY(-1px);
+  box-shadow:
+    0 0 0 1px oklch(0.85 0.18 75 / 0.4),
+    0 -4px 28px -4px oklch(0.85 0.18 75 / 0.8),
+    inset 0 1px 0 oklch(1 0 0 / 0.5);
+}
