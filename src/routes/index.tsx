@@ -4,7 +4,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 import {
   Send, Eye, Code2, Loader2, Home, FileText, Share2, CheckSquare,
   Calendar, Type, Plus, Search, Bookmark, PanelsTopLeft, MoreHorizontal,
-  ChevronLeft, ChevronRight, Settings, HelpCircle, ChevronDown, Diamond,
+  ChevronLeft, ChevronRight, Settings, HelpCircle, ChevronDown, Diamond, Menu, X,
 } from "lucide-react";
 import { generateHtml } from "@/lib/aetheris.functions";
 
@@ -54,6 +54,7 @@ function Index() {
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelId>("google/gemini-3.5-flash");
   const [active, setActive] = useState<string>("home");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -94,11 +95,20 @@ function Index() {
 
   return (
     <main className="obsidian-shell">
+      {sidebarOpen && <div className="sidebar-scrim" onClick={() => setSidebarOpen(false)} />}
       {/* Sidebar */}
-      <aside className="obsidian-sidebar">
+      <aside className={"obsidian-sidebar " + (sidebarOpen ? "sidebar-open" : "")}>
         <div className="brand">
           <Diamond className="h-6 w-6 text-amber" strokeWidth={1.2} />
           <span className="brand-word">OBSIDIAN</span>
+          <button
+            type="button"
+            className="icon-btn sidebar-close"
+            aria-label="Close menu"
+            onClick={() => setSidebarOpen(false)}
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
 
         <nav className="nav-list">
@@ -152,6 +162,9 @@ function Index() {
         {/* Top tab bar */}
         <div className="topbar">
           <div className="topbar-left">
+            <button type="button" className="icon-btn sidebar-toggle" aria-label="Open menu" onClick={() => setSidebarOpen(true)}>
+              <Menu className="h-4 w-4" />
+            </button>
             <button type="button" className="icon-btn" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
             <button type="button" className="icon-btn" aria-label="Forward"><ChevronRight className="h-4 w-4" /></button>
             <div className="tab-strip">
