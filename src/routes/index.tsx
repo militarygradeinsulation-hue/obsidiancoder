@@ -499,6 +499,15 @@ function Index() {
                   );
                 })}
               </div>
+              {pendingImage && (
+                <div className="obs-attach-preview">
+                  <img src={pendingImage.dataUrl} alt={pendingImage.name} />
+                  <span className="obs-attach-name">{pendingImage.name}</span>
+                  <button type="button" className="obs-icon-btn" aria-label="Remove attachment" onClick={() => setPendingImage(null)}>
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
               <form
                 className="obs-composer"
                 onSubmit={(e) => {
@@ -507,15 +516,31 @@ function Index() {
                 }}
               >
                 <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="obs-file-hidden"
+                  onChange={handleImagePick}
+                />
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label="Attach image"
+                  disabled={loading}
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                </button>
+                <input
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder="Ask Obsidian AI…"
+                  placeholder={pendingImage ? "Describe what to do with the image…" : "Ask Obsidian AI…"}
                   disabled={loading}
                   className="obs-composer-input"
                 />
                 <button
                   type="submit"
-                  disabled={loading || !input.trim()}
+                  disabled={loading || (!input.trim() && !pendingImage)}
                   aria-label="Send"
                   className="obs-composer-send"
                 >
