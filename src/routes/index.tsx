@@ -54,6 +54,7 @@ function Index() {
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelId>("google/gemini-3.5-flash");
   const [active, setActive] = useState<string>("home");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
