@@ -1,24 +1,25 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useRef, useState, useEffect } from "react";
-import {
-  Send, Eye, Code2, Loader2, Home, FolderOpen, FileText, Files, Code,
-  Layers, Bot, CheckSquare, Database, Sparkles, TerminalSquare,
-  FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
-  Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
-  Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
-  History, RotateCcw, Trash2,
-} from "lucide-react";
-import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
-
+import { Send, Eye, Code2, Sparkles, Loader2 } from "lucide-react";
+import { generateHtml } from "@/lib/aetheris.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Obsidian — Vibe coding, elevated" },
-      { name: "description", content: "A premium prompt-to-page workspace. Deep space palette, warm gold accents, live preview." },
-      { property: "og:title", content: "Obsidian — Vibe coding, elevated" },
-      { property: "og:description", content: "A premium prompt-to-page workspace. Deep space palette, warm gold accents, live preview." },
+      { title: "Obsidian by Aetheris— Tell it what to build" },
+      {
+        name: "description",
+        content:
+          "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
+      },
+      { property: "og:title", content: "Obsidian by Aetheris— Tell it what to build" },
+      {
+        property: "og:description",
+        content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
+      },
       { property: "og:type", content: "website" },
+      { property: "og:url", content: "/" },
     ],
     links: [{ rel: "canonical", href: "/" }],
   }),
@@ -28,811 +29,254 @@ export const Route = createFileRoute("/")({
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 const MODELS = [
-  { id: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (fastest)" },
-  { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash" },
-  { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
-  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-  { id: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
+  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro", hint: "Default · multimodal" },
+  { id: "anthropic/claude-3-5-sonnet", label: "Claude 3.5 Sonnet", hint: "Anthropic · best code" },
+  { id: "openai/gpt-4-turbo", label: "GPT-4 Turbo", hint: "OpenAI · powerful" },
+  { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash", hint: "Fast alternative" },
+  { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro", hint: "Deep reasoning" },
 ] as const;
 type ModelId = (typeof MODELS)[number]["id"];
 
-
-type Version = {
-  id: string;
-  ts: number;
-  html: string;
-  label: string;
-};
-
-type Session = {
-  id: string;
-  title: string;
-  messages: ChatMsg[];
-  html: string;
-  model: ModelId;
-  versions: Version[];
-};
-
-const WORKSPACE_NAV = [
-  { id: "home", label: "Home", icon: Home },
-  { id: "projects", label: "Projects", icon: FolderOpen },
-  { id: "notes", label: "Notes", icon: FileText },
-  { id: "files", label: "Files", icon: Files },
-  { id: "code", label: "Code", icon: Code },
-  { id: "snippets", label: "Snippets", icon: Layers },
-  { id: "agents", label: "Agents", icon: Bot },
-  { id: "tasks", label: "Tasks", icon: CheckSquare },
-  { id: "databases", label: "Databases", icon: Database },
-] as const;
-
-const TOOLS_NAV: { id: string; label: string; icon: typeof Sparkles; shortcut?: string }[] = [
-  { id: "ai-chat", label: "AI Chat", icon: Sparkles, shortcut: "⌘ I" },
-  { id: "code-assist", label: "Code Assist", icon: Code2, shortcut: "⌘ L" },
-  { id: "terminal", label: "Terminal", icon: TerminalSquare, shortcut: "⌘ J" },
-  { id: "playground", label: "Playground", icon: FlaskConical },
-  { id: "git", label: "Git", icon: GitBranch },
-  { id: "deploy", label: "Deploy", icon: Rocket },
-];
-
-const SUGGESTIONS = [
-  { icon: Calendar, label: "Add a hero with a call-to-action" },
-  { icon: Layers, label: "Build a pricing section" },
-  { icon: FileCode, label: "Generate a landing page" },
-] as const;
-
-const STORAGE_KEY = "obsidian.vibe.sessions.v1";
-const ACTIVE_KEY = "obsidian.vibe.active.v1";
-
-function newSession(): Session {
-  return {
-    id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
-    title: "Untitled",
-    messages: [{ role: "assistant", content: "Obsidian is ready. Tell me what to build." }],
-    html: "",
-    model: "google/gemini-3.1-flash-lite",
-    versions: [],
-  };
-}
-
-const INITIAL_SESSION = newSession();
-
 function Index() {
-  // streaming via /api/generate
-  const [sessions, setSessions] = useState<Session[]>([INITIAL_SESSION]);
-  const [activeId, setActiveId] = useState<string>(INITIAL_SESSION.id);
-  const [hydrated, setHydrated] = useState(false);
+  const callGenerate = useServerFn(generateHtml);
+  const [messages, setMessages] = useState<ChatMsg[]>([
+    {
+      role: "assistant",
+      content:
+        "Aetheris Obsidian. Powered by Gemini 2.5 Pro, Claude 3.5 Sonnet, and GPT-4 Turbo. Just describe what you need—I'll understand and build it right the first time.",
+    },
+  ]);
   const [input, setInput] = useState("");
+  const [html, setHtml] = useState("");
   const [tab, setTab] = useState<"preview" | "code">("preview");
-  const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [activeNav, setActiveNav] = useState<string>("projects");
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [terminal, setTerminal] = useState<string[]>([
-    "✓ Compiled successfully in 842ms",
-    "✓ Preview ready",
-    "→ Local: http://localhost:5173",
-    "✓ No errors found",
-  ]);
+  const [model, setModel] = useState<ModelId>("google/gemini-3.5-flash");
   const scrollRef = useRef<HTMLDivElement>(null);
-
-  const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
-
-  useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      const activeRaw = window.localStorage.getItem(ACTIVE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Session[];
-        if (Array.isArray(parsed) && parsed.length) {
-          const normalized = parsed.map((s) => ({ ...s, versions: Array.isArray(s.versions) ? s.versions : [] }));
-          setSessions(normalized);
-          const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
-          setActiveId(id);
-        }
-      }
-    } catch { /* ignore */ }
-    setHydrated(true);
-  }, []);
-
-  useEffect(() => {
-    if (!hydrated) return;
-    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); } catch { /* ignore */ }
-  }, [sessions, hydrated]);
-  useEffect(() => {
-    if (!hydrated) return;
-    try { window.localStorage.setItem(ACTIVE_KEY, activeId); } catch { /* ignore */ }
-  }, [activeId, hydrated]);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [current.messages, loading, activeId]);
+  }, [messages, loading]);
 
   const previewSrcDoc = useMemo(
     () =>
-      current.html ||
-      `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`,
-    [current.html],
+      html ||
+      `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:transparent;color:#9a8b6c;font-family:system-ui;font-size:14px">Nothing built yet — tell it what you want on the left.</body></html>`,
+    [html],
   );
 
-  function updateCurrent(patch: Partial<Session>) {
-    setSessions((all) => all.map((s) => (s.id === activeId ? { ...s, ...patch } : s)));
-  }
-
-  function addSession() {
-    const s = newSession();
-    setSessions((all) => [...all, s]);
-    setActiveId(s.id);
-    setInput("");
-    setError(null);
-    setTab("preview");
-  }
-
-  function closeSession(id: string, e: React.MouseEvent) {
-    e.stopPropagation();
-    setSessions((all) => {
-      const next = all.filter((s) => s.id !== id);
-      if (next.length === 0) {
-        const s = newSession();
-        setActiveId(s.id);
-        return [s];
-      }
-      if (id === activeId) setActiveId(next[0].id);
-      return next;
-    });
-  }
-
-  function clearAll() {
-    if (loading) return;
-    const ok = window.confirm(
-      "Clear this tab? This wipes the chat, the current preview, and all saved versions for this session. This can't be undone.",
-    );
-    if (!ok) return;
-    const fresh = newSession();
-    setSessions((all) => all.map((s) => (s.id === activeId ? { ...fresh, id: s.id, model: s.model } : s)));
-    setInput("");
-    setPendingAttachments([]);
-    setError(null);
-    setTab("preview");
-    setTerminal((t) => [...t, "✓ Cleared session"]);
-  }
-
-  function revertTo(version: Version) {
-    if (loading) return;
-    setSessions((all) => all.map((s) => s.id === activeId
-      ? {
-          ...s,
-          html: version.html,
-          messages: [...s.messages, { role: "assistant", content: `↶ Reverted to "${version.label}"` }],
-        }
-      : s));
-    setTab("preview");
-    setError(null);
-    setTerminal((t) => [...t, `→ Reverted to "${version.label}"`]);
-  }
-
-  type Attachment =
-    | { kind: "image"; name: string; dataUrl: string }
-    | { kind: "text"; name: string; text: string; source: "text" | "pdf" };
-  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  async function extractPdfText(file: File): Promise<string> {
-    const pdfjs: any = await import("pdfjs-dist");
-    const worker: any = await import("pdfjs-dist/build/pdf.worker.mjs?url");
-    pdfjs.GlobalWorkerOptions.workerSrc = worker.default;
-
-    const buf = await file.arrayBuffer();
-    const doc = await pdfjs.getDocument({ data: buf }).promise;
-    const out: string[] = [];
-    const max = Math.min(doc.numPages, 25);
-    for (let i = 1; i <= max; i++) {
-      const page = await doc.getPage(i);
-      const c = await page.getTextContent();
-      out.push(c.items.map((it: any) => it.str).join(" "));
-    }
-    return out.join("\n\n").slice(0, 60000);
-  }
-
-  async function handleFilesPick(e: React.ChangeEvent<HTMLInputElement>) {
-    const files = Array.from(e.target.files ?? []);
-    e.target.value = "";
-    if (!files.length) return;
-    setError(null);
-    for (const file of files) {
-      try {
-        if (file.size > 8 * 1024 * 1024) {
-          setError(`"${file.name}" is too large (max 8 MB).`);
-          continue;
-        }
-        if (file.type.startsWith("image/")) {
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            const r = new FileReader();
-            r.onload = () => resolve(String(r.result));
-            r.onerror = () => reject(new Error("read failed"));
-            r.readAsDataURL(file);
-          });
-          setPendingAttachments((a) => [...a, { kind: "image", name: file.name, dataUrl }]);
-        } else if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
-          const text = await extractPdfText(file);
-          setPendingAttachments((a) => [...a, { kind: "text", name: file.name, text, source: "pdf" }]);
-        } else {
-          const text = await file.text();
-          setPendingAttachments((a) => [
-            ...a,
-            { kind: "text", name: file.name, text: text.slice(0, 60000), source: "text" },
-          ]);
-        }
-      } catch (err) {
-        setError(`Could not read "${file.name}": ${err instanceof Error ? err.message : "unknown error"}`);
-      }
-    }
-  }
-
-  function removeAttachment(idx: number) {
-    setPendingAttachments((a) => a.filter((_, i) => i !== idx));
-  }
-
-  async function submit(promptOverride?: string) {
-    const basePrompt = (promptOverride ?? input).trim();
-    if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
-    let prompt = basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : "");
-    for (const att of pendingAttachments) {
-      if (att.kind === "image") {
-        prompt += `\n\n[Attached image — embed exactly, do not replace]\nfilename: ${att.name}\nsrc: ${att.dataUrl}`;
-      } else {
-        const label = att.source === "pdf" ? "PDF style guide (extracted text)" : "Style guide / reference document";
-        prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
-      }
-    }
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    const prompt = input.trim();
+    if (!prompt || loading) return;
     setError(null);
     setInput("");
-    setPendingAttachments([]);
-    const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: prompt }];
-    const isFirstUserMsg = !current.messages.some((m) => m.role === "user");
-    updateCurrent({
-      messages: nextHistory,
-      title: isFirstUserMsg ? (basePrompt || pendingAttachments[0]?.name || "Untitled").slice(0, 28) : current.title,
-    });
+    const nextHistory: ChatMsg[] = [...messages, { role: "user", content: prompt }];
+    setMessages(nextHistory);
     setLoading(true);
-    setTerminal((t) => [...t, `→ Building: "${(basePrompt || pendingAttachments[0]?.name || "attachment").slice(0, 40)}…"`]);
-    const sessionId = activeId;
-    const t0 = performance.now();
     try {
-      const res = await fetch("/api/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
+      const { html: newHtml } = await callGenerate({
+        data: {
           prompt,
-          currentHtml: current.html,
-          history: current.messages.slice(-4),
-          model: current.model,
-        }),
+          currentHtml: html,
+          history: messages.slice(-10),
+          model,
+        },
       });
-      if (!res.ok || !res.body) {
-        const text = await res.text().catch(() => "AI request failed");
-        throw new Error(text || `AI request failed (${res.status})`);
-      }
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = "";
-      let firstChunkAt = 0;
-      // Throttle preview updates so we don't re-render the iframe on every token
-      let lastPaint = 0;
-      const paint = (force = false) => {
-        const now = performance.now();
-        if (!force && now - lastPaint < 120) return;
-        lastPaint = now;
-        const cleaned = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
-        setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: cleaned } : s));
-      };
+      setHtml(newHtml);
+      setMessages((m) => [
+        ...m,
+        { role: "assistant", content: "Done — updated the preview." },
+      ]);
       setTab("preview");
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        acc += decoder.decode(value, { stream: true });
-        if (!firstChunkAt) {
-          firstChunkAt = performance.now();
-          setTerminal((t) => [...t, `→ First token in ${Math.round(firstChunkAt - t0)}ms`]);
-        }
-        paint();
-      }
-      let finalHtml = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
-      if (!/<!doctype|<html/i.test(finalHtml)) {
-        finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
-      }
-      const versionLabel = (basePrompt || pendingAttachments[0]?.name || "Update").slice(0, 48);
-      const newVersion: Version = {
-        id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
-        ts: Date.now(),
-        html: finalHtml,
-        label: versionLabel,
-      };
-      setSessions((all) => all.map((s) => s.id === sessionId
-        ? {
-            ...s,
-            html: finalHtml,
-            messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }],
-            versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
-          }
-        : s));
-      const ms = Math.round(performance.now() - t0);
-      setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       setError(msg);
-      setSessions((all) => all.map((s) => s.id === sessionId
-        ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ ${msg}` }] }
-        : s));
-      setTerminal((t) => [...t, `✗ ${msg}`]);
+      setMessages((m) => [...m, { role: "assistant", content: `⚠ ${msg}` }]);
     } finally {
       setLoading(false);
     }
   }
 
-
-
-  const kb = current.html ? (current.html.length / 1024).toFixed(1) : "0.0";
-
   return (
-    <main className="obs-shell">
-      {/* Ambient matrix backdrop */}
-      <div className="obs-matrix" aria-hidden="true">
-        {Array.from({ length: 14 }).map((_, i) => (
-          <span
-            key={i}
-            className="matrix-line"
-            style={{
-              left: `${(i * 7.3) % 100}%`,
-              animationDelay: `${(i * 1.7) % 12}s`,
-              animationDuration: `${14 + (i % 5) * 3}s`,
-              opacity: 0.3 + ((i * 13) % 40) / 200,
-            }}
-          />
-        ))}
-      </div>
-
-      {sidebarOpen && <div className="obs-scrim" onClick={() => setSidebarOpen(false)} />}
-
-      {/* ========== SIDEBAR ========== */}
-      <aside className={"obs-sidebar " + (sidebarOpen ? "is-open" : "")}>
-        <div className="obs-brand">
-          <img src={aetherisLogo.url} alt="Aetheris" className="obs-mark obs-mark-img" />
-          <span className="obs-brand-word">OBSIDIAN</span>
-          <button type="button" className="obs-icon-btn obs-sidebar-close" aria-label="Close menu" onClick={() => setSidebarOpen(false)}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-
-        <div className="obs-search">
-          <Search className="h-3.5 w-3.5 obs-search-icon" strokeWidth={1.6} />
-          <input placeholder="Search anything…" className="obs-search-input" />
-          <kbd className="obs-kbd">⌘ K</kbd>
-        </div>
-
-        <div className="obs-section-label">Workspace</div>
-        <nav className="obs-nav">
-          {WORKSPACE_NAV.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeNav === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => setActiveNav(item.id)}
-                className={"obs-nav-item " + (isActive ? "is-active" : "")}
-              >
-                <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                <span>{item.label}</span>
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="obs-section-label">Tools</div>
-        <nav className="obs-nav">
-          {TOOLS_NAV.map((item) => {
-            const Icon = item.icon;
-            return (
-              <button key={item.id} type="button" className="obs-nav-item">
-                <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
-                <span>{item.label}</span>
-                {item.shortcut && <kbd className="obs-kbd obs-kbd-nav">{item.shortcut}</kbd>}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="obs-sidebar-footer">
-          <div className="obs-user">
-            <div className="obs-avatar">A</div>
-            <div className="obs-user-meta">
-              <div className="obs-user-name">Obsidian Dev</div>
-              <div className="obs-user-sub">Pro Workspace</div>
-            </div>
-            <button type="button" className="obs-icon-btn" aria-label="Settings">
-              <Settings className="h-4 w-4" strokeWidth={1.5} />
-            </button>
+    <main className="min-h-screen bg-constellation">
+      <div className="mx-auto flex min-h-screen w-full max-w-7xl flex-col px-4 py-10 sm:px-6 lg:py-14">
+        {/* Header */}
+        <header className="mx-auto max-w-3xl text-center">
+          <div className="inline-flex items-center gap-2 rounded-full border border-[color:var(--primary)]/30 bg-[color:var(--primary)]/5 px-3 py-1 text-[10px] font-medium uppercase tracking-[0.18em] text-amber sm:text-[11px]">
+            <Sparkles className="h-3 w-3" aria-hidden="true" />
+            Obsidian · Free · No Login
           </div>
-        </div>
-      </aside>
+          <h1 className="mt-5 font-serif text-4xl font-semibold tracking-tight text-amber sm:text-6xl">
+            Aetheris Obsidian
+          </h1>
+          <p className="mt-3 text-sm text-muted-foreground sm:text-lg">
+            Multi-AI code generation. Gemini · Claude · GPT-4.
+          </p>
+          <p className="mt-1 text-xs text-muted-foreground/80 sm:text-sm">
+            Production-ready code. Zero setup. Build anything in seconds.
+          </p>
+        </header>
 
-      {/* ========== MAIN ========== */}
-      <section className="obs-main">
-        {/* Topbar */}
-        <div className="obs-topbar">
-          <div className="obs-topbar-left">
-            <button type="button" className="obs-icon-btn" aria-label="Menu" onClick={() => setSidebarOpen(true)}>
-              <Menu className="h-4 w-4" />
-            </button>
-            <img src={aetherisLogo.url} alt="Aetheris" className="obs-mark obs-mark-img obs-topbar-logo" />
-            <button type="button" className="obs-icon-btn" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
-            <button type="button" className="obs-icon-btn" aria-label="Forward"><ChevronRight className="h-4 w-4" /></button>
-            <div className="obs-tabs">
-              {sessions.map((s) => {
-                const isActive = s.id === activeId;
-                return (
-                  <button
-                    key={s.id}
-                    type="button"
-                    onClick={() => {
-                      setActiveId(s.id);
-                      setError(null);
-                      setInput("");
-                      setTab("preview");
-                    }}
-                    className={"obs-tab " + (isActive ? "is-active" : "")}
-                    title={s.title}
-                  >
-                    <FileCode className="h-3.5 w-3.5" strokeWidth={1.6} />
-                    <span className="obs-tab-title">{s.title}</span>
-                    {isActive && s.html && <span className="obs-tab-live">LIVE</span>}
-                    {sessions.length > 1 && (
-                      <span
-                        role="button"
-                        tabIndex={0}
-                        className="obs-tab-close"
-                        aria-label="Close tab"
-                        onClick={(e) => closeSession(s.id, e)}
-                      >
-                        <X className="h-3 w-3" />
-                      </span>
-                    )}
-                  </button>
-                );
-              })}
-              <button type="button" onClick={addSession} className="obs-icon-btn" aria-label="New tab">
-                <Plus className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-          <div className="obs-topbar-right">
-            <button
-              type="button"
-              className={"obs-chip " + (tab === "preview" ? "is-on" : "")}
-              onClick={() => setTab("preview")}
-            >
-              <Eye className="h-3.5 w-3.5" /> Preview
-            </button>
-            <button
-              type="button"
-              className={"obs-chip " + (tab === "code" ? "is-on" : "")}
-              onClick={() => setTab("code")}
-            >
-              <Code2 className="h-3.5 w-3.5" /> Code
-            </button>
-            <div className="obs-divider" />
-            <button
-              type="button"
-              className={"obs-icon-btn " + (device === "desktop" ? "is-on" : "")}
-              onClick={() => setDevice("desktop")}
-              aria-label="Desktop preview"
-            >
-              <Monitor className="h-4 w-4" />
-            </button>
-            <button
-              type="button"
-              className={"obs-icon-btn " + (device === "mobile" ? "is-on" : "")}
-              onClick={() => setDevice("mobile")}
-              aria-label="Mobile preview"
-            >
-              <Smartphone className="h-4 w-4" />
-            </button>
-            <div className="obs-divider" />
-            <button
-              type="button"
-              className="obs-chip obs-chip-gold"
-              disabled={!current.html}
-              onClick={() => {
-                if (!current.html) return;
-                const blob = new Blob([current.html], { type: "text/html" });
-                const url = URL.createObjectURL(blob);
-                window.open(url, "_blank", "noopener,noreferrer");
-                setTerminal((t) => [...t, `→ Live: opened "${current.title}" in new tab`]);
-              }}
-              title={current.html ? "Open the current build as a standalone site" : "Build something first"}
-            >
-              <Rocket className="h-3.5 w-3.5" /> Go Live
-            </button>
-            <button type="button" className="obs-icon-btn" aria-label="More"><MoreHorizontal className="h-4 w-4" /></button>
-          </div>
-        </div>
-
-        {/* Body: canvas + right rail */}
-        <div className="obs-body">
-          <div className="obs-canvas">
-            <div className="obs-canvas-head">
-              <div className="obs-page-title">
-                <span className="obs-title-mark" />
-                <h1>{current.title === "Untitled" ? "Vibe Coder" : current.title}</h1>
+        {/* Workspace */}
+        <section className="mt-10 grid flex-1 gap-4 lg:grid-cols-2">
+          {/* Chat pane */}
+          <div className="glass-panel flex min-h-[560px] flex-col overflow-hidden">
+            <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-4 py-3">
+              <div className="flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">
+                <span className="h-2 w-2 rounded-full bg-[color:var(--primary)] shadow-glow" />
+                Chat
               </div>
-              <div className="obs-page-meta">
+              <div className="flex items-center gap-2">
+                <label htmlFor="model-select" className="sr-only">
+                  AI model
+                </label>
                 <select
-                  value={current.model}
-                  onChange={(e) => updateCurrent({ model: e.target.value as ModelId })}
+                  id="model-select"
+                  value={model}
+                  onChange={(e) => setModel(e.target.value as ModelId)}
                   disabled={loading}
-                  className="obs-model"
-                  aria-label="Model"
+                  className="rounded-md border border-border bg-background/60 px-2 py-1 text-[11px] font-medium text-foreground focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30 disabled:opacity-50"
                 >
                   {MODELS.map((m) => (
-                    <option key={m.id} value={m.id}>{m.label}</option>
+                    <option key={m.id} value={m.id}>
+                      {m.label} — {m.hint}
+                    </option>
                   ))}
                 </select>
-                <button
-                  type="button"
-                  className="obs-chip"
-                  onClick={clearAll}
-                  disabled={loading}
-                  title="Clear this session — wipes chat, preview, and version history"
-                >
-                  <Trash2 className="h-3.5 w-3.5" /> Clear All
-                </button>
-                <div className="obs-avatar obs-avatar-sm">JT</div>
-              </div>
-            </div>
-
-            <div className={"obs-preview-wrap " + (device === "mobile" ? "is-mobile" : "")}>
-              {tab === "preview" ? (
-                <iframe
-                  title="Obsidian preview"
-                  srcDoc={previewSrcDoc}
-                  sandbox="allow-scripts"
-                  className="obs-preview"
-                />
-              ) : (
-                <pre className="obs-code">{current.html || "// Nothing yet."}</pre>
-              )}
-              {loading && (
-                <div className="obs-preview-loading" aria-live="polite">
-                  <div className="obs-loading-core">
-                    <div className="obs-loading-orb" />
-                    <div className="obs-loading-ring" />
-                    <div className="obs-loading-ring is-outer" />
-                  </div>
-                  <div className="obs-loading-waves" aria-hidden="true">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <span key={i} className="obs-loading-wave" style={{ animationDelay: `${i * 0.18}s` }} />
-                    ))}
-                  </div>
-                  <p className="obs-loading-text">Weaving your build…</p>
-                </div>
-              )}
-            </div>
-            {error && <p className="obs-error">{error}</p>}
-          </div>
-
-          {/* ========== RIGHT RAIL ========== */}
-          <aside className="obs-rail">
-            {/* AI Agent */}
-            <div className="obs-card">
-              <div className="obs-card-head">
-                <span className="obs-card-label">AI Agent</span>
-                <span className="obs-status">
-                  <span className="obs-status-dot" /> Active
-                </span>
-              </div>
-              <div ref={scrollRef} className="obs-chat">
-                {current.messages.map((m, i) => (
-                  <div key={i} className={m.role === "user" ? "obs-msg is-user" : "obs-msg is-assistant"}>
-                    {m.content}
-                  </div>
-                ))}
-                {loading && (
-                  <div className="obs-msg is-assistant is-loading">
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Building…
-                  </div>
+                {messages.length > 1 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMessages([messages[0]]);
+                      setHtml("");
+                      setError(null);
+                    }}
+                    className="text-[11px] uppercase tracking-wider text-muted-foreground transition-colors hover:text-amber"
+                  >
+                    Reset
+                  </button>
                 )}
               </div>
-              <div className="obs-suggestions-label">Suggestions</div>
-              <div className="obs-suggestions">
-                {SUGGESTIONS.map((s) => {
-                  const Icon = s.icon;
-                  return (
-                    <button
-                      key={s.label}
-                      type="button"
-                      className="obs-suggestion"
-                      onClick={() => submit(s.label)}
-                      disabled={loading}
-                    >
-                      <Icon className="h-3.5 w-3.5" strokeWidth={1.6} />
-                      <span>{s.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
-              {pendingAttachments.length > 0 && (
-                <div className="obs-attach-list">
-                  {pendingAttachments.map((att, i) => (
-                    <div key={i} className="obs-attach-chip" title={att.name}>
-                      {att.kind === "image" ? (
-                        <img src={att.dataUrl} alt={att.name} />
-                      ) : (
-                        <span className="obs-attach-badge">{att.source === "pdf" ? "PDF" : "TXT"}</span>
-                      )}
-                      <span className="obs-attach-name">{att.name}</span>
-                      <button type="button" className="obs-icon-btn" aria-label="Remove attachment" onClick={() => removeAttachment(i)}>
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
+            </div>
+            <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
+              {messages.map((m, i) => (
+                <div
+                  key={i}
+                  className={
+                    m.role === "user"
+                      ? "ml-auto max-w-[85%] rounded-2xl rounded-br-sm bg-[color:var(--primary)]/15 px-4 py-2.5 text-sm text-foreground"
+                      : "mr-auto max-w-[85%] rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm text-foreground"
+                  }
+                >
+                  {m.content}
+                </div>
+              ))}
+              {loading && (
+                <div className="mr-auto flex items-center gap-2 rounded-2xl rounded-bl-sm bg-muted px-4 py-2.5 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin text-amber" />
+                  Building…
                 </div>
               )}
-              <form
-                className="obs-composer"
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  submit();
-                }}
+            </div>
+            <form
+              onSubmit={submit}
+              className="flex items-center gap-2 border-t border-border p-3"
+            >
+              <input
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                placeholder="What do you want to build?"
+                disabled={loading}
+                className="flex-1 rounded-lg border border-border bg-background/60 px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/70 focus:border-[color:var(--primary)] focus:outline-none focus:ring-2 focus:ring-[color:var(--primary)]/30"
+              />
+              <button
+                type="submit"
+                disabled={loading || !input.trim()}
+                aria-label="Send"
+                className="grid h-11 w-11 place-items-center rounded-lg bg-[color:var(--primary)] text-[color:var(--primary-foreground)] transition-opacity hover:opacity-90 disabled:opacity-40"
               >
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept="image/*,application/pdf,.pdf,.md,.markdown,.txt,.json,.css,.html,.htm,text/*"
-                  multiple
-                  className="obs-file-hidden"
-                  onChange={handleFilesPick}
-                />
-                <button
-                  type="button"
-                  className="obs-composer-attach"
-                  aria-label="Attach style guide, image, or PDF"
-                  title="Attach style guide, image, or PDF"
-                  disabled={loading}
-                  onClick={() => fileInputRef.current?.click()}
-                >
-                  <Paperclip className="h-3.5 w-3.5" />
-                </button>
-                <input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…" : "Ask Obsidian AI…"}
-                  disabled={loading}
-                  className="obs-composer-input"
-                />
-                <button
-                  type="submit"
-                  disabled={loading || (!input.trim() && pendingAttachments.length === 0)}
-                  aria-label="Send"
-                  className="obs-composer-send"
-                >
-                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                </button>
-              </form>
-
-            </div>
-
-            {/* Context */}
-            <div className="obs-card">
-              <div className="obs-card-head">
-                <span className="obs-card-label">Context</span>
-                <button type="button" className="obs-add-tiny" aria-label="Add context">
-                  <Plus className="h-3 w-3" />
-                </button>
-              </div>
-              <ul className="obs-file-list">
-                {sessions.slice(0, 6).map((s) => (
-                  <li key={s.id} className="obs-file">
-                    <span className="obs-file-badge">TSX</span>
-                    <span className="obs-file-name">{(s.title || "Untitled").replace(/\s+/g, "_")}.tsx</span>
-                  </li>
-                ))}
-                <li className="obs-file">
-                  <span className="obs-file-badge is-css">CSS</span>
-                  <span className="obs-file-name">obsidian.css</span>
-                </li>
-              </ul>
-              <button type="button" className="obs-add-context">
-                <Paperclip className="h-3.5 w-3.5" /> Add Context
+                {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
               </button>
-            </div>
+            </form>
+          </div>
 
-            {/* Version History */}
-            <div className="obs-card">
-              <div className="obs-card-head">
-                <span className="obs-card-label">
-                  <History className="h-3.5 w-3.5 inline mr-1" /> Version History
+          {/* Preview pane */}
+          <div className="glass-panel flex min-h-[560px] flex-col overflow-hidden">
+            <div className="flex items-center gap-1 border-b border-border px-3 py-2">
+              <TabButton active={tab === "preview"} onClick={() => setTab("preview")}>
+                <Eye className="h-3.5 w-3.5" /> Preview
+              </TabButton>
+              <TabButton active={tab === "code"} onClick={() => setTab("code")}>
+                <Code2 className="h-3.5 w-3.5" /> Code
+              </TabButton>
+              {html && (
+                <span className="ml-auto text-[11px] uppercase tracking-wider text-muted-foreground">
+                  {(html.length / 1024).toFixed(1)} KB
                 </span>
-                <span className="obs-node">{current.versions?.length ?? 0}</span>
-              </div>
-              {(current.versions?.length ?? 0) === 0 ? (
-                <p className="obs-history-empty">Each build is saved here. Revert anytime.</p>
-              ) : (
-                <ul className="obs-history-list">
-                  {current.versions.map((v, i) => {
-                    const isCurrent = v.html === current.html;
-                    const d = new Date(v.ts);
-                    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                    return (
-                      <li key={v.id} className={"obs-history-item " + (isCurrent ? "is-current" : "")}>
-                        <div className="obs-history-meta">
-                          <span className="obs-history-idx">v{(current.versions.length - i).toString().padStart(2, "0")}</span>
-                          <span className="obs-history-label" title={v.label}>{v.label}</span>
-                          <span className="obs-history-time">{time}</span>
-                        </div>
-                        <button
-                          type="button"
-                          className="obs-history-revert"
-                          onClick={() => revertTo(v)}
-                          disabled={loading || isCurrent}
-                          title={isCurrent ? "This is the current version" : "Revert to this version"}
-                        >
-                          <RotateCcw className="h-3 w-3" />
-                          {isCurrent ? "Current" : "Revert"}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
               )}
             </div>
-
-
-            {/* Terminal */}
-            <div className="obs-card">
-              <div className="obs-card-head">
-                <span className="obs-card-label">Terminal</span>
-                <span className="obs-node">node <ChevronDown className="h-3 w-3 inline" /></span>
-              </div>
-              <div className="obs-terminal">
-                {terminal.slice(-6).map((line, i) => {
-                  const ok = line.startsWith("✓");
-                  const arr = line.startsWith("→");
-                  const bad = line.startsWith("✗");
-                  return (
-                    <div
-                      key={i}
-                      className={
-                        "obs-term-line " +
-                        (ok ? "is-ok " : "") + (arr ? "is-arrow " : "") + (bad ? "is-bad " : "")
-                      }
-                    >
-                      {ok && <Check className="h-3 w-3" strokeWidth={2.5} />}
-                      <span>{line.replace(/^[✓→✗]\s?/, "")}</span>
-                    </div>
-                  );
-                })}
-              </div>
+            <div className="relative flex-1 bg-background/40">
+              {tab === "preview" ? (
+                <iframe
+                  title="Aetheris preview"
+                  srcDoc={previewSrcDoc}
+                  sandbox="allow-scripts"
+                  className="h-full w-full"
+                />
+              ) : (
+                <pre className="h-full overflow-auto p-4 font-mono text-[12px] leading-relaxed text-muted-foreground">
+                  {html || "// Nothing yet. Prompt on the left to generate code."}
+                </pre>
+              )}
             </div>
-          </aside>
-        </div>
+          </div>
+        </section>
 
-        {/* Bottom status bar */}
-        <div className="obs-status-bar">
-          <div className="obs-status-left">
-            <span className="obs-badge-gold">Sandbox</span>
-            <span>Ready</span>
-            <span className="obs-muted">localhost:5173</span>
-          </div>
-          <div className="obs-status-right">
-            <span className="obs-muted"><GitBranch className="h-3 w-3 inline mr-1" />main</span>
-            <span className="obs-ok"><Check className="h-3 w-3 inline" /> Up to date</span>
-            <span className="obs-muted">Prettier <span className="obs-status-dot" /></span>
-            <span className="obs-muted">{kb} KB</span>
-          </div>
-        </div>
-      </section>
+        {error && (
+          <p className="mt-3 text-center text-xs text-red-400/80">{error}</p>
+        )}
+
+        <footer className="mt-8 text-center text-sm text-muted-foreground">
+          <p>
+            Need this production-ready?{" "}
+            <a
+              href="https://businessforensics.tech/leak-audit"
+              className="text-amber underline-offset-4 hover:underline"
+            >
+              Run the Free Leak Audit™ →
+            </a>
+          </p>
+          <p className="mt-2 text-xs tracking-[0.14em] text-muted-foreground/60">
+            Aetheris.Technology
+          </p>
+        </footer>
+      </div>
     </main>
+  );
+}
+
+function TabButton({
+  active,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={
+        "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors " +
+        (active
+          ? "bg-[color:var(--primary)]/15 text-amber"
+          : "text-muted-foreground hover:text-foreground")
+      }
+    >
+      {children}
+    </button>
   );
 }
