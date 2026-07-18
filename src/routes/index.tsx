@@ -705,13 +705,34 @@ function Index() {
             model: modelForPatch,
           }),
         });
-        if (!pRes.ok) {
-          const t = await pRes.text().catch(() => "");
-          throw new Error(t || `Patch request failed (${pRes.status})`);
+        const pCtype = (pRes.headers.get("content-type") || "").toLowerCase();
+        let pJson:
+          | { ok: true; patch: unknown; model: string; fallbackUsed: boolean; requestId?: string }
+          | { ok: false; error: string; fallbackUsed: boolean; model: string; requestId?: string }
+          | AiErrorEnvelope;
+        if (pCtype.includes("application/json")) {
+          pJson = await pRes.json();
+        } else {
+          // Non-JSON body from /api/patch is treated as an upstream transport failure.
+          // The stable HTML stays untouched; fall through to full generation.
+          setTerminal((t) => [...t, `✗ Patch route returned non-JSON — falling back to full AI generation.`]);
+          abortRef.current = null;
+          break patchAttempt;
         }
-        const pJson = await pRes.json() as
-          | { ok: true; patch: unknown; model: string; fallbackUsed: boolean }
-          | { ok: false; error: string; fallbackUsed: boolean; model: string };
+        if (isAiErrorEnvelope(pJson)) {
+          // Non-retryable envelopes surface directly to the user; retryable ones fall through.
+          if (!pJson.retryable) {
+            setLastAiError(pJson);
+            setError(pJson.message);
+            setTerminal((t) => [...t, `✗ Patch: ${pJson.message} (id ${pJson.requestId})`]);
+            abortRef.current = null;
+            setLoading(false); setStage(null);
+            return;
+          }
+          setTerminal((t) => [...t, `✗ Patch upstream failed (${pJson.code}) — falling back to full AI generation.`]);
+          abortRef.current = null;
+          break patchAttempt;
+        }
 
         if (!pJson.ok) {
           setTerminal((t) => [...t, `✗ Patch invalid: ${pJson.error.slice(0, 120)} — falling back to full AI generation.`]);
