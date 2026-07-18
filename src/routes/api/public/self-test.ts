@@ -7,7 +7,7 @@ export const Route = createFileRoute("/api/public/self-test")({
   server: {
     handlers: {
       GET: async () => {
-        const out = runSelfTests();
+        const out = await runSelfTests();
         return Response.json(out, {
           headers: { "Cache-Control": "no-store" },
         });
