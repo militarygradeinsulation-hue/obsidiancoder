@@ -31,9 +31,22 @@ import { RulesPanel, reconcileRules } from "@/components/panels/RulesPanel";
 import { RuntimePanel, countRuntimeBlockers } from "@/components/panels/RuntimePanel";
 import { CostPanel } from "@/components/panels/CostPanel";
 import { ExecutionGraphPanel } from "@/components/panels/ExecutionGraphPanel";
+import { FileExplorerPanel } from "@/components/panels/FileExplorerPanel";
+import { InspectorPanel, type InspectorSelection } from "@/components/panels/InspectorPanel";
+import { FlowPanel } from "@/components/panels/FlowPanel";
+import { ComponentLibraryPanel } from "@/components/panels/ComponentLibraryPanel";
+import { DeploymentReadinessPanel } from "@/components/panels/DeploymentReadinessPanel";
+import { GitReadyPanel } from "@/components/panels/GitReadyPanel";
+import { TemplatePanel, type Template } from "@/components/panels/TemplatePanel";
 import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/lib/runtime-bridge";
-import { EMPTY_COST, foldMetrics, type CostSnapshot } from "@/lib/cost-metrics";
-import type { Rule } from "@/lib/rules-engine";
+import { EMPTY_COST, foldMetrics, recordRestore, type CostSnapshot } from "@/lib/cost-metrics";
+import { evaluateCommit, type CommitSource } from "@/lib/commit-gate";
+import { stripPreviewOnly } from "@/lib/clean-export";
+import { migrateFromHtml, type Project } from "@/lib/project-model";
+import { record as recordFeedback, type FeedbackEvent } from "@/lib/failure-learning";
+import type { ComponentEntry } from "@/lib/component-library";
+import { runRules, type Rule, type RuleViolation } from "@/lib/rules-engine";
+import { buildGraph } from "@/lib/knowledge-graph";
 
 
 
@@ -105,6 +118,13 @@ type Session = {
   rules?: Rule[];
   runtimeEvents?: RuntimeEvent[];
   cost?: CostSnapshot;
+  // Core 3.1 additions — lazy-migrated on load; all optional.
+  project?: Project;
+  activeFileId?: string;
+  feedback?: FeedbackEvent[];
+  components?: ComponentEntry[];
+  templates?: Template[];
+  lastRequest?: string;
 };
 
 const WORKSPACE_NAV = [
@@ -181,6 +201,8 @@ function Index() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [inspectorEnabled, setInspectorEnabled] = useState(false);
+  const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -205,15 +227,23 @@ function Index() {
     const parsed = safeGet<Session[]>(STORAGE_KEY);
     const activeRaw = safeGet<string>(ACTIVE_KEY);
     if (Array.isArray(parsed) && parsed.length) {
-      const normalized = parsed.map((s) => ({
-        ...s,
-        mode: (s as Partial<Session>).mode ?? "agent",
-        versions: Array.isArray(s.versions) ? s.versions : [],
-        memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) },
-        rules: reconcileRules((s as Partial<Session>).rules),
-        runtimeEvents: [], // never persist runtime log — always fresh per session load
-        cost: { ...EMPTY_COST, ...((s as Partial<Session>).cost ?? {}) },
-      }));
+      const normalized: Session[] = parsed.map((s) => {
+        const partial = s as Partial<Session>;
+        return {
+          ...s,
+          mode: partial.mode ?? "agent",
+          versions: Array.isArray(s.versions) ? s.versions : [],
+          memory: { ...EMPTY_MEMORY, ...(partial.memory ?? {}) },
+          rules: reconcileRules(partial.rules),
+          runtimeEvents: [], // never persist runtime log — always fresh per session load
+          cost: { ...EMPTY_COST, ...(partial.cost ?? {}) },
+          // Lazy-migrate legacy sessions — only touch when field is missing.
+          project: partial.project ?? (s.html ? migrateFromHtml(s.html) : undefined),
+          feedback: Array.isArray(partial.feedback) ? partial.feedback : [],
+          components: Array.isArray(partial.components) ? partial.components : [],
+          templates: Array.isArray(partial.templates) ? partial.templates : [],
+        };
+      });
       setSessions(normalized);
       const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
       setActiveId(id);
@@ -410,6 +440,28 @@ function Index() {
     };
   }
 
+  // Central commit gate — runs rules (already-validated candidate) and
+  // returns null if the candidate is clear to commit, or the list of
+  // blocking reasons if the caller must keep the stable HTML.
+  function checkCommitGate(prev: string, candidate: string, source: CommitSource): string[] | null {
+    const report = evaluateCommit({
+      previousHtml: prev,
+      candidateHtml: candidate,
+      source,
+      rules: current.rules ?? [],
+      allowRepair: false, // callers already ran repair; gate is rule-only here
+    });
+    if (report.ok) return null;
+    return report.blockers;
+  }
+
+  function pushFeedback(sessionId: string, evt: Omit<FeedbackEvent, "ts">) {
+    setSessions((all) => all.map((s) => s.id === sessionId
+      ? { ...s, feedback: recordFeedback(s.feedback ?? [], { ...evt, ts: Date.now() }) }
+      : s));
+  }
+
+
   function buildMetadata(input: {
     request: string;
     classification: ReturnType<typeof classifyTask>;
@@ -520,6 +572,16 @@ function Index() {
             changed: true,
             validation,
           });
+          const gateBlockers = checkCommitGate(stableHtml, det.html, "deterministic");
+          if (gateBlockers) {
+            setSessions((all) => all.map((s) => s.id === sessionId
+              ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Blocked by rule: ${gateBlockers.join("; ").slice(0, 200)} — preview unchanged.` }] }
+              : s));
+            setTerminal((t) => [...t, `✗ Rule gate rejected deterministic edit: ${gateBlockers[0].slice(0, 120)}`]);
+            pushFeedback(sessionId, { taskType: classification.taskType, strategy: "deterministic", model: null, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockers[0] });
+            setLoading(false); setStage(null);
+            return;
+          }
           const newVersion: Version = makeVersion(det.html, versionLabel, detMeta);
           setSessions((all) => all.map((s) => s.id === sessionId
             ? {
@@ -693,6 +755,17 @@ function Index() {
               validation,
               repairAttempts: patchRepairAttempts,
             });
+            const gateBlockersP = checkCommitGate(stableHtml, patchedHtml, "ai-patch");
+            if (gateBlockersP) {
+              setSessions((all) => all.map((s) => s.id === sessionId
+                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Blocked by rule: ${gateBlockersP.join("; ").slice(0, 200)} — preview unchanged.` }] }
+                : s));
+              setTerminal((t) => [...t, `✗ Rule gate rejected patch: ${gateBlockersP[0].slice(0, 120)}`]);
+              pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockersP[0] });
+              setLoading(false); setStage(null);
+              abortRef.current = null;
+              return;
+            }
             const newVersion: Version = makeVersion(patchedHtml, versionLabel, commitMeta);
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
@@ -875,6 +948,15 @@ function Index() {
         validation,
         repairAttempts: fullRepairAttempts,
       });
+      const gateBlockersG = checkCommitGate(stableHtml, finalHtml, "full-generation");
+      if (gateBlockersG) {
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Blocked by rule: ${gateBlockersG.join("; ").slice(0, 200)} — reverted to last stable version.` }] }
+          : s));
+        setTerminal((t) => [...t, `✗ Rule gate rejected generation: ${gateBlockersG[0].slice(0, 120)}`]);
+        pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockersG[0] });
+        return;
+      }
       const newVersion: Version = makeVersion(finalHtml, versionLabel, genMeta);
       setSessions((all) => all.map((s) => s.id === sessionId
         ? {
@@ -1520,6 +1602,60 @@ function Index() {
               onRulesChange={(rules) => updateCurrent({ rules })}
             />
             <CostPanel snapshot={current.cost ?? EMPTY_COST} />
+
+            {/* Core 3.1 — file explorer, inspector, flow runner, components, deployment, git-ready, templates */}
+            <FileExplorerPanel
+              project={current.project}
+              activeFileId={current.activeFileId}
+              onSelect={(id) => updateCurrent({ activeFileId: id })}
+            />
+            <InspectorPanel
+              selection={inspectorSelection}
+              enabled={inspectorEnabled}
+              onToggle={setInspectorEnabled}
+            />
+            <FlowPanel />
+            <ComponentLibraryPanel
+              components={current.components ?? []}
+              onDelete={(id) => updateCurrent({ components: (current.components ?? []).filter((c) => c.id !== id) })}
+              onDuplicate={(id) => {
+                const c = (current.components ?? []).find((x) => x.id === id);
+                if (!c) return;
+                const dup: ComponentEntry = { ...c, id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now())), name: `${c.name} copy`, createdAt: Date.now() };
+                updateCurrent({ components: [...(current.components ?? []), dup] });
+              }}
+            />
+            {(() => {
+              const violations: RuleViolation[] = current.html
+                ? runRules(current.rules ?? [], current.html, buildGraph(current.html))
+                : [];
+              const blockingRuleCount = violations.filter((v) => v.severity === "blocking").length;
+              return (
+                <DeploymentReadinessPanel
+                  html={current.html}
+                  validationStatus={current.versions[0]?.metadata?.validation.status ?? "unknown"}
+                  blockingRuleCount={blockingRuleCount}
+                  runtimeErrorCount={countRuntimeBlockers(current.runtimeEvents ?? [])}
+                />
+              );
+            })()}
+            <GitReadyPanel
+              previousHtml={current.versions[0]?.html ?? ""}
+              currentHtml={current.html}
+              lastRequest={current.lastRequest}
+            />
+            <TemplatePanel
+              html={current.html}
+              templates={current.templates ?? []}
+              onSave={(t) => updateCurrent({ templates: [...(current.templates ?? []), t] })}
+              onDelete={(id) => updateCurrent({ templates: (current.templates ?? []).filter((t) => t.id !== id) })}
+              onClone={(t) => {
+                const s: Session = { ...newSession(), title: t.name.slice(0, 40), html: t.html };
+                setSessions((all) => [s, ...all]);
+                setActiveId(s.id);
+              }}
+            />
+
 
             {/* Project Memory */}
             <div className="obs-card">
