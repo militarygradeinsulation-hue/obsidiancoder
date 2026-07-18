@@ -71,6 +71,84 @@ export const appendScriptOp = z.object({
   note: z.string().max(200).optional(),
 });
 
+// -- V2 ops -----------------------------------------------------------------
+
+const expectedPrev = z.string().max(MAX_OP_SIZE).optional();
+const classToken = z.string().min(1).max(120).regex(/^[A-Za-z_][-A-Za-z0-9_]*$/);
+
+export const removeElementByIdOp = z.object({
+  op: z.literal("remove_element_by_id"),
+  id: idString,
+  expected_prev: expectedPrev,
+  note: z.string().max(200).optional(),
+});
+
+export const removeAttributeOp = z.object({
+  op: z.literal("remove_attribute"),
+  id: idString,
+  attribute: attrName,
+  note: z.string().max(200).optional(),
+});
+
+export const addClassOp = z.object({
+  op: z.literal("add_class"),
+  id: idString,
+  class_name: classToken,
+  note: z.string().max(200).optional(),
+});
+
+export const removeClassOp = z.object({
+  op: z.literal("remove_class"),
+  id: idString,
+  class_name: classToken,
+  note: z.string().max(200).optional(),
+});
+
+export const insertChildOp = z.object({
+  op: z.literal("insert_child"),
+  id: idString,
+  position: z.enum(["first", "last"]),
+  content: bounded(1),
+  note: z.string().max(200).optional(),
+});
+
+export const updateInlineStyleOp = z.object({
+  op: z.literal("update_inline_style"),
+  id: idString,
+  property: z.string().min(1).max(64).regex(/^-?[a-zA-Z_][a-zA-Z0-9_-]*$/),
+  value: z.string().max(400),
+  note: z.string().max(200).optional(),
+});
+
+export const replaceCssRuleOp = z.object({
+  op: z.literal("replace_css_rule"),
+  selector: z.string().min(1).max(400),
+  body: z.string().max(4000),
+  note: z.string().max(200).optional(),
+});
+
+export const replaceScriptBlockOp = z.object({
+  op: z.literal("replace_script_block"),
+  marker: z.string().min(4).max(200),
+  code: bounded(0, 8000),
+  note: z.string().max(200).optional(),
+});
+
+export const renameIdOp = z.object({
+  op: z.literal("rename_id"),
+  from: idString,
+  to: idString,
+  update_references: z.boolean().optional().default(true),
+  note: z.string().max(200).optional(),
+});
+
+export const updateJsonBlockOp = z.object({
+  op: z.literal("update_json_block"),
+  marker: z.string().min(4).max(200),
+  json: z.string().min(2).max(MAX_OP_SIZE),
+  note: z.string().max(200).optional(),
+});
+
 export const patchOpSchema = z.discriminatedUnion("op", [
   replaceTextOp,
   insertBeforeOp,
@@ -80,6 +158,16 @@ export const patchOpSchema = z.discriminatedUnion("op", [
   setAttributeOp,
   appendCssRuleOp,
   appendScriptOp,
+  removeElementByIdOp,
+  removeAttributeOp,
+  addClassOp,
+  removeClassOp,
+  insertChildOp,
+  updateInlineStyleOp,
+  replaceCssRuleOp,
+  replaceScriptBlockOp,
+  renameIdOp,
+  updateJsonBlockOp,
 ]);
 export type PatchOp = z.infer<typeof patchOpSchema>;
 
