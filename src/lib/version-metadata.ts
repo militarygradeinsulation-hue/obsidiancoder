@@ -25,7 +25,7 @@ export type VersionMetadata = {
   name?: string;
   protected?: boolean;
   request: string;
-  taskType: Classification["type"];
+  taskType: Classification["taskType"];
   strategy: ExecutionStrategy;
   model: string;
   tier: Tier;
