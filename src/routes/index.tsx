@@ -45,7 +45,8 @@ import { stripPreviewOnly } from "@/lib/clean-export";
 import { migrateFromHtml, type Project } from "@/lib/project-model";
 import { record as recordFeedback, type FeedbackEvent } from "@/lib/failure-learning";
 import type { ComponentEntry } from "@/lib/component-library";
-import { runRules, type Rule } from "@/lib/rules-engine";
+import { runRules, type Rule, type RuleViolation } from "@/lib/rules-engine";
+import { buildGraph } from "@/lib/knowledge-graph";
 
 
 
