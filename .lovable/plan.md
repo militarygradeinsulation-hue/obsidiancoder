@@ -1,49 +1,63 @@
-## Obsidian Core 2.1 — Final Forward Merge
 
-This is a large, multi-day scope (11 workstreams, ~15+ files, new UI panels, iframe protocol, expanded patch engine, extended tests). To ship it safely as one merge without regressing the working submit flow, I need to confirm scope and sequencing before touching code.
+## Obsidian UI Overhaul — Plan
 
-### What I'll build (in one merge)
+A full visual redesign of the current builder into a premium dark IDE shell, while preserving every working capability and auditing all controls.
 
-**A. Pipeline & orchestration (items 1, 2, 4)**
-- `src/lib/pipeline.ts` — typed stages: `classify → plan → context → execute → validate → repair → finalize`, with per-stage status emitted to UI.
-- Rewrite the submit handler in `src/routes/index.tsx` to call `orchestrator.planFor()` and dispatch: deterministic-edit / patch / full-gen / advisory.
-- Bounded repair: 1 deterministic pass, then ≤1 narrow AI repair, else rollback to last stable doc. Record attempts in metrics + version metadata.
-- Staged context escalation (minimal → nearby → sections → full), 1 focused retry, report tier + char savings.
+### Phase 1 — Audit (read-only)
+- Read `src/routes/index.tsx` end-to-end to inventory every state slice, action, panel mount, and control.
+- Read `src/styles.css` to catalog current tokens and utility classes (`obs-card`, `obs-chip`, etc.).
+- Read all `src/components/panels/*.tsx` to confirm props and behavior.
+- Read `src/lib/{commit-gate,clean-export,runtime-bridge,orchestrator,pipeline,staged-context}.ts` to confirm the safe-commit path stays intact.
+- Read `src/routes/gallery.tsx` and `src/routes/api/*` to confirm nothing routes through UI-only state.
+- Deliverable: internal control inventory + gap list (dead buttons, missing wiring, duplicates).
 
-**B. Patch engine V2 (item 3)**
-- Extend `src/lib/patch-engine.ts` with: `remove-element`, `remove-attribute`, `add-class`, `remove-class`, `insert-child` (first/last), `update-inline-style`, `replace-css-rule`, `replace-script-block`, `wrap`, `unwrap`, `move-element`, `rename-id` (with ref updates), `update-json-block`.
-- Preflight/dry-run, `expectedPrev`, size caps, full rollback, per-op summaries.
-- Update `patch-protocol.ts` prompt to list only implemented ops.
+### Phase 2 — Design system
+Update `src/styles.css` with the token palette:
+- Surfaces `#050607 / #0A0C0F / #111318`, text `#E7E3DB / #8E9095`, gold `#D9A84E` (bright variant for focus), success green sparingly.
+- Borders `rgba(255,255,255,0.06–0.10)`, gold active border `rgba(217,168,78,0.35)`, radii 6–10px, subtle shadows + gold glow on active only, 120–180ms transitions.
+- New utilities: `.obs-shell`, `.obs-rail-l`, `.obs-rail-r`, `.obs-topbar`, `.obs-tab`, `.obs-tab.is-active`, `.obs-navrow`, `.obs-navrow.is-active`, `.obs-section-label`, `.obs-statusbar`, `.obs-glow-gold`.
+- Keep every legacy class (`obs-card`, `obs-chip`, `obs-list`, `obs-empty`) working — restyle in place, do not rename.
 
-**C. Visual Inspector (item 5)**
-- Iframe postMessage protocol (origin-checked, sanitized payload).
-- `src/components/VisualInspectorPanel.tsx` + injected inspector script.
-- Feed selection into next patch context.
+### Phase 3 — Shell modularization
+Extract layout out of `src/routes/index.tsx` into thin presentational components (state stays in the route):
+- `src/components/shell/ObsidianShell.tsx` — 3-column grid + status bar slot.
+- `src/components/shell/LeftRail.tsx` — logo, wordmark, palette search, Workspace nav, Tools nav, workspace chip.
+- `src/components/shell/TopBar.tsx` — sidebar toggle, back/forward (no-op safely disabled with tooltip), tab strip, `+ New`, right actions (Run/Preview/Code, device selector, search, overflow).
+- `src/components/shell/StatusBar.tsx` — sandbox ready, route/preview state, device, validation, "Local only" for git.
+- `src/components/shell/CenterWorkspace.tsx` — preview/code tab switch + composer host (still uses existing handlers/refs passed as props).
 
-**D. UI panels (items 6, 7, 8, 9)**
-- `src/components/MemoryPanel.tsx` (edit/lock/clear/extract).
-- `src/components/DesignSystemPanel.tsx` (view + deterministic global edits).
-- `src/components/VersionHistoryPanel.tsx` (rename/protect/compare/restore/fork).
-- `src/components/CommandPalette.tsx` (extract from index.tsx).
-- Extract session persistence + generation orchestration hooks from `index.tsx`.
+### Phase 4 — Left rail wiring (no dead nav)
+Map target labels to real behavior:
+- **Home** → focus/create empty session. **Projects** → sessions list drawer. **Files** → scroll-to `FileExplorerPanel`. **Code** → toggle center to code view. **Snippets** → scroll-to `ComponentLibraryPanel`. **Agents** → open mode selector. **Tasks** → scroll-to `FlowPanel`. **Databases** → disabled with tooltip "Not connected in this workspace".
+- **AI Chat** → focus composer. **Code Assist** → set mode `code`. **Terminal** → scroll-to Runtime panel. **Playground** → focus preview. **Git** → scroll-to `GitReadyPanel`. **Deploy** → scroll-to `DeploymentReadinessPanel`. **Settings** → open command palette settings view.
+- Active state = translucent gold row + thin gold border + edge glow.
 
-**E. Hardening (item 10)**
-- Timeouts (AI call, patch, repair), request/context caps, bounded retries, sanitized error messages, safe localStorage wrapper.
+### Phase 5 — Top bar wiring
+- Sidebar toggle drives mobile drawer + desktop rail collapse.
+- Tabs = existing sessions (active dot in gold, file-type badge from primary language detected in HTML).
+- `+` = existing new-session handler.
+- Right: Run (regenerate), Preview/Code split toggle, device selector (desktop/tablet/mobile — sets preview width), search (opens command palette), overflow (export/clear/version restore).
 
-**F. Verification (item 11)**
-- Expand `self-test.ts` with fixtures for: orchestrator routing, context tiers, transactional rollback, repair path, memory locks, design edits, version protection guard, inspector sanitization.
-- Run `bunx tsgo --noEmit`, self-test endpoint, build.
+### Phase 6 — Right rail reorg
+Collapsible sections in order: **AI Agent** (status dot from real streaming state, current instruction, mode, model) → Context → File Explorer → Execution Graph → Trust Dashboard → Runtime → Rules → Cost → Memory → Design System → Version History → Integrations → Validation/Repair. All existing panel components reused as-is; only wrapper/header restyled.
 
-### Questions before I start
+### Phase 7 — Control audit + fixes
+Walk the inventory from Phase 1; for each control: verify it fires a real action, disable with tooltip, or remove. Log fixes.
 
-1. **Scope confirmation.** This is realistically 8–12 hours of focused edits touching ~20 files. Do you want me to ship it all in one merge (higher risk of a broken intermediate state during the turn), or split into 2–3 sequential merges (A+B, then C+D, then E+F) that each leave the app green? I recommend the split.
+### Phase 8 — QA
+- `tsgo --noEmit`
+- Self-test suite via `/api/public/self-test` (expect ≥73 pre-existing; add wiring tests where cheap).
+- Playwright: home route 200, click each left nav row, tab switch, device selector, send/cancel, version restore, export → verify `containsPreviewOnly(html) === false`.
+- Confirm mobile drawer, focus rings, keyboard nav on nav rows and tabs.
 
-2. **Visual inspector injection.** The generated builds are single HTML docs rendered in a sandboxed iframe (`srcdoc`). To enable selection mode I need to inject a small inspector script into the preview HTML at render time (not into the saved artifact). Confirm that's acceptable — it means the live preview differs slightly from "Go Live" output.
+### Guardrails (unchanged)
+- Do not modify `commit-gate.ts`, `clean-export.ts`, `runtime-bridge.ts`, `patch-engine.ts`, `orchestrator.ts`, `pipeline.ts`, `validation.ts`, `repair.ts`, `models.ts`, generated Supabase files, or `.env`.
+- No new full-regeneration fallback paths.
+- No preview-only scripts in exports/versions/gallery/templates.
 
-3. **Design System edits scope.** "Deterministic global color/font/radius edits" — should these mutate the current preview doc directly (creating a new version), or open a diff preview the user confirms first?
+### Deferred (called out explicitly if hit)
+- True git connection (kept as "Local only" chip).
+- Databases panel (disabled entry with tooltip).
+- Any target label that has no plausible real mapping — will be removed rather than faked.
 
-4. **Memory panel — "Extract from project".** Should extraction overwrite unlocked fields silently, or always present a diff for confirmation?
-
-5. **`index.tsx` extraction.** Aggressive extraction risks breaking the working submit flow. Confirm you want me to prioritize *shipping working features* over hitting a specific LOC target — i.e., extract panels but leave orchestration inline if extraction would destabilize the flow this turn.
-
-Once you answer (or say "your call on all of them, proceed"), I'll execute.
+Estimated file touches: `src/styles.css`, `src/routes/index.tsx` (layout swap only), 5 new files under `src/components/shell/`. No panel rewrites.
