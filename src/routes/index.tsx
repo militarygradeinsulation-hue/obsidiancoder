@@ -138,6 +138,11 @@ function Index() {
     "✓ No errors found",
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  function stopGeneration() {
+    abortRef.current?.abort();
+  }
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
