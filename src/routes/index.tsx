@@ -6,9 +6,10 @@ import {
   FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
-  History, RotateCcw, Trash2,
+  History, RotateCcw, Trash2, Square,
 } from "lucide-react";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
+import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 
 
 export const Route = createFileRoute("/")({
@@ -27,17 +28,8 @@ export const Route = createFileRoute("/")({
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
-const MODELS = [
-  { id: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (fastest)" },
-  { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash" },
-  { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
-  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-  { id: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
-  { id: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna (fast)" },
-  { id: "openai/gpt-5.6-terra", label: "GPT-5.6 Terra (balanced)" },
-  { id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol (flagship)" },
-] as const;
-type ModelId = (typeof MODELS)[number]["id"];
+// Client-side model picker id: registry id, or "auto" (resolves to DEFAULT_MODEL server-side).
+type PickerModelId = ModelId | "auto";
 
 const MODES = [
   { id: "agent",  label: "Agent",  hint: "Autonomous — plans + builds in one pass." },
@@ -78,7 +70,7 @@ type Session = {
   title: string;
   messages: ChatMsg[];
   html: string;
-  model: ModelId;
+  model: PickerModelId;
   mode: ModeId;
   versions: Version[];
 };
@@ -119,7 +111,7 @@ function newSession(): Session {
     title: "Untitled",
     messages: [{ role: "assistant", content: "Obsidian is ready. Tell me what to build." }],
     html: "",
-    model: "google/gemini-3.1-flash-lite",
+    model: "auto",
     mode: "agent",
     versions: [],
   };
@@ -146,6 +138,11 @@ function Index() {
     "✓ No errors found",
   ]);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
+
+  function stopGeneration() {
+    abortRef.current?.abort();
+  }
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
@@ -329,17 +326,24 @@ function Index() {
     setLoading(true);
     setTerminal((t) => [...t, `→ Building: "${(basePrompt || pendingAttachments[0]?.name || "attachment").slice(0, 40)}…"`]);
     const sessionId = activeId;
+    const activeMode = current.mode;
+    // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
+    const previewMode = activeMode !== "chat" && activeMode !== "plan";
+    const modelForServer = resolveModel(current.model);
     const t0 = performance.now();
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          currentHtml: current.html,
+          currentHtml: previewMode ? current.html : "",
           history: current.messages.slice(-4),
-          model: current.model,
+          model: modelForServer,
         }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         const text = await res.text().catch(() => "AI request failed");
@@ -351,14 +355,15 @@ function Index() {
       let firstChunkAt = 0;
       // Throttle preview updates so we don't re-render the iframe on every token
       let lastPaint = 0;
-      const paint = (force = false) => {
+      const paintPreview = (force = false) => {
+        if (!previewMode) return;
         const now = performance.now();
         if (!force && now - lastPaint < 120) return;
         lastPaint = now;
         const cleaned = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
         setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: cleaned } : s));
       };
-      setTab("preview");
+      if (previewMode) setTab("preview");
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -367,8 +372,19 @@ function Index() {
           firstChunkAt = performance.now();
           setTerminal((t) => [...t, `→ First token in ${Math.round(firstChunkAt - t0)}ms`]);
         }
-        paint();
+        paintPreview();
       }
+
+      if (!previewMode) {
+        // Advisory reply — surface as an assistant chat message; do NOT touch the preview.
+        const reply = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim() || "(no response)";
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, messages: [...s.messages, { role: "assistant", content: reply }] }
+          : s));
+        setTerminal((t) => [...t, `✓ ${activeMode === "chat" ? "Chat" : "Plan"} response ready`]);
+        return;
+      }
+
       let finalHtml = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
       if (!/<!doctype|<html/i.test(finalHtml)) {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
@@ -390,7 +406,7 @@ function Index() {
         : s));
       const ms = Math.round(performance.now() - t0);
       setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
-      // Auto-save every build to the shared gallery (cross-browser, cross-IP)
+      // Auto-save every build to the private gallery (admin-gated read).
       try {
         let clientId = localStorage.getItem("obs.client_id");
         if (!clientId) {
@@ -404,23 +420,31 @@ function Index() {
             title: versionLabel,
             prompt: basePrompt,
             html: finalHtml,
-            model: current.model,
+            model: modelForServer,
             session_id: sessionId,
             client_id: clientId,
           }),
         })
           .then((r) => (r.ok ? r.json() : null))
-          .then((d) => d?.id && setTerminal((t) => [...t, `✓ Saved to gallery (${String(d.id).slice(0, 8)})`]))
+          .then((d) => d?.id && setTerminal((t) => [...t, `✓ Saved (${String(d.id).slice(0, 8)})`]))
           .catch(() => {});
       } catch {}
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
-      setError(msg);
-      setSessions((all) => all.map((s) => s.id === sessionId
-        ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ ${msg}` }] }
-        : s));
-      setTerminal((t) => [...t, `✗ ${msg}`]);
+      if ((err as { name?: string })?.name === "AbortError") {
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, messages: [...s.messages, { role: "assistant", content: "■ Stopped." }] }
+          : s));
+        setTerminal((t) => [...t, "■ Stopped by user"]);
+      } else {
+        const msg = err instanceof Error ? err.message : "Something went wrong.";
+        setError(msg);
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ ${msg}` }] }
+          : s));
+        setTerminal((t) => [...t, `✗ ${msg}`]);
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
   }
@@ -652,12 +676,12 @@ function Index() {
               <div className="obs-page-meta">
                 <select
                   value={current.model}
-                  onChange={(e) => updateCurrent({ model: e.target.value as ModelId })}
+                  onChange={(e) => updateCurrent({ model: e.target.value as PickerModelId })}
                   disabled={loading}
                   className="obs-model"
                   aria-label="Model"
                 >
-                  {MODELS.map((m) => (
+                  {MODEL_PICKER_OPTIONS.map((m) => (
                     <option key={m.id} value={m.id}>{m.label}</option>
                   ))}
                 </select>
@@ -794,14 +818,26 @@ function Index() {
                   disabled={loading}
                   className="obs-composer-input"
                 />
-                <button
-                  type="submit"
-                  disabled={loading || (!input.trim() && pendingAttachments.length === 0)}
-                  aria-label="Send"
-                  className="obs-composer-send"
-                >
-                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                </button>
+                {loading ? (
+                  <button
+                    type="button"
+                    onClick={stopGeneration}
+                    aria-label="Stop"
+                    className="obs-composer-send"
+                    title="Stop"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!input.trim() && pendingAttachments.length === 0}
+                    aria-label="Send"
+                    className="obs-composer-send"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </form>
 
             </div>
