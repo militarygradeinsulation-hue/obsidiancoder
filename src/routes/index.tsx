@@ -1026,6 +1026,45 @@ function Index() {
               </ul>
             </div>
 
+            {/* Last operation metrics */}
+            {lastMetrics && (
+              <div className="obs-card">
+                <div className="obs-card-head">
+                  <span className="obs-card-label">Last operation</span>
+                  <span className={
+                    "obs-node " +
+                    (lastMetrics.validation.status === "passed" ? "text-emerald-400"
+                      : lastMetrics.validation.status === "warnings" ? "text-amber-300"
+                      : "text-red-400")
+                  }>{lastMetrics.validation.status}</span>
+                </div>
+                <div className="obs-metrics">
+                  <div className="obs-metric-row"><span>Task</span><b>{lastMetrics.taskType}</b></div>
+                  <div className="obs-metric-row"><span>Path</span><b>{lastMetrics.executionPath}</b></div>
+                  <div className="obs-metric-row">
+                    <span>AI used</span>
+                    <b>{lastMetrics.usedAi ? "Yes" : "No — no AI credits used"}</b>
+                  </div>
+                  {lastMetrics.usedAi && lastMetrics.model && (
+                    <div className="obs-metric-row"><span>Model</span><b>{lastMetrics.model}</b></div>
+                  )}
+                  <div className="obs-metric-row"><span>Cost</span><b>{lastMetrics.costEstimate}</b></div>
+                  <div className="obs-metric-row"><span>Duration</span><b>{formatDuration(lastMetrics.durationMs)}</b></div>
+                  <div className="obs-metric-row"><span>Changed</span><b>{lastMetrics.documentChanged ? "Yes" : "No"}</b></div>
+                  <div className="obs-metric-note">{lastMetrics.summary}</div>
+                  {lastMetrics.validation.issues.length > 0 && (
+                    <ul className="obs-metric-issues">
+                      {lastMetrics.validation.issues.slice(0, 4).map((i, idx) => (
+                        <li key={idx} className={i.level === "fail" ? "text-red-400" : "text-amber-300"}>
+                          {i.level === "fail" ? "✗" : "!"} {i.message}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Terminal */}
             <div className="obs-card">
               <div className="obs-card-head">
