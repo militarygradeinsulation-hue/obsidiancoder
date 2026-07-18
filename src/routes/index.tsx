@@ -1461,7 +1461,47 @@ function Index() {
                 </div>
               )}
             </div>
-            {error && <p className="obs-error">{error}</p>}
+            {(error || lastAiError) && (
+              <div className="obs-error-card" role="alert" data-testid="ai-error-card">
+                <div className="obs-error-card-row">
+                  <span className="obs-error-card-label">
+                    {lastAiError ? lastAiError.code.replace(/_/g, " ") : "error"}
+                  </span>
+                  {lastAiError?.requestId && (
+                    <span className="obs-error-card-id" title="Request ID">id {lastAiError.requestId.slice(0, 8)}</span>
+                  )}
+                </div>
+                <p className="obs-error-card-msg">{lastAiError?.message ?? error}</p>
+                <div className="obs-error-card-actions">
+                  {(lastAiError?.retryable ?? true) && (
+                    <button
+                      type="button"
+                      className="obs-btn is-sm"
+                      onClick={() => {
+                        const p = lastSubmitRef.current?.prompt;
+                        if (p) { setError(null); setLastAiError(null); void submit(p); }
+                      }}
+                      data-testid="ai-error-retry"
+                    >Retry</button>
+                  )}
+                  {lastAiError?.requestId && (
+                    <button
+                      type="button"
+                      className="obs-btn is-sm is-ghost"
+                      onClick={() => {
+                        try { void navigator.clipboard.writeText(lastAiError.requestId); } catch { /* ignore */ }
+                      }}
+                      data-testid="ai-error-copy-id"
+                    >Copy request ID</button>
+                  )}
+                  <button
+                    type="button"
+                    className="obs-btn is-sm is-ghost"
+                    onClick={() => { setError(null); setLastAiError(null); }}
+                  >Dismiss</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ========== RIGHT RAIL ========== */}
