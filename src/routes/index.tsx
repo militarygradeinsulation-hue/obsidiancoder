@@ -33,8 +33,37 @@ const MODELS = [
   { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
   { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
   { id: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
+  { id: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna (fast)" },
+  { id: "openai/gpt-5.6-terra", label: "GPT-5.6 Terra (balanced)" },
+  { id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol (flagship)" },
 ] as const;
 type ModelId = (typeof MODELS)[number]["id"];
+
+const MODES = [
+  { id: "agent",  label: "Agent",  hint: "Autonomous — plans + builds in one pass." },
+  { id: "chat",   label: "Chat",   hint: "Planning & iteration, no code changes." },
+  { id: "plan",   label: "Plan",   hint: "Architecture-first outline before build." },
+  { id: "dev",    label: "Dev",    hint: "Direct code edits, minimal narration." },
+  { id: "visual", label: "Visual", hint: "Layout, spacing, color — micro tweaks." },
+] as const;
+type ModeId = (typeof MODES)[number]["id"];
+
+const MODE_PREFIX: Record<ModeId, string> = {
+  agent:  "",
+  chat:   "PLANNING MODE. Do not modify the current build's structure. Reply with a concise strategic plan rendered as a clean HTML page (headings + checklist). Ask no questions.",
+  plan:   "PLAN MODE. Output an architecture outline (sections, components, data, integrations) as a rendered checklist page. Do not implement features yet.",
+  dev:    "DEV MODE. Apply the smallest possible diff to the current HTML to satisfy the request. Preserve everything else byte-for-byte.",
+  visual: "VISUAL EDIT MODE. Only adjust layout, spacing, color, typography, and micro-interactions. Do not change copy, structure, or logic.",
+};
+
+const INTEGRATIONS = [
+  { id: "supabase", label: "Supabase",   sub: "Auth · Postgres · RLS", on: true  },
+  { id: "stripe",   label: "Stripe",     sub: "Payments & subs",       on: false },
+  { id: "resend",   label: "Resend",     sub: "Transactional email",   on: false },
+  { id: "meta",     label: "Meta Graph", sub: "Instagram · FB",        on: false },
+  { id: "apify",    label: "Apify",      sub: "Web scraping",          on: false },
+  { id: "n8n",      label: "n8n",        sub: "Workflow webhooks",     on: false },
+] as const;
 
 
 type Version = {
@@ -50,6 +79,7 @@ type Session = {
   messages: ChatMsg[];
   html: string;
   model: ModelId;
+  mode: ModeId;
   versions: Version[];
 };
 
@@ -90,6 +120,7 @@ function newSession(): Session {
     messages: [{ role: "assistant", content: "Obsidian is ready. Tell me what to build." }],
     html: "",
     model: "google/gemini-3.1-flash-lite",
+    mode: "agent",
     versions: [],
   };
 }
@@ -125,7 +156,7 @@ function Index() {
       if (raw) {
         const parsed = JSON.parse(raw) as Session[];
         if (Array.isArray(parsed) && parsed.length) {
-          const normalized = parsed.map((s) => ({ ...s, versions: Array.isArray(s.versions) ? s.versions : [] }));
+          const normalized = parsed.map((s) => ({ ...s, mode: (s as Partial<Session>).mode ?? "agent", versions: Array.isArray(s.versions) ? s.versions : [] }));
           setSessions(normalized);
           const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
           setActiveId(id);
@@ -276,7 +307,8 @@ function Index() {
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
-    let prompt = basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : "");
+    const modePrefix = MODE_PREFIX[current.mode] ? `[${current.mode.toUpperCase()} MODE] ${MODE_PREFIX[current.mode]}\n\n` : "";
+    let prompt = modePrefix + (basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : ""));
     for (const att of pendingAttachments) {
       if (att.kind === "image") {
         prompt += `\n\n[Attached image — embed exactly, do not replace]\nfilename: ${att.name}\nsrc: ${att.dataUrl}`;
@@ -373,6 +405,9 @@ function Index() {
 
 
   const kb = current.html ? (current.html.length / 1024).toFixed(1) : "0.0";
+  const userTurns = current.messages.filter((m) => m.role === "user").length;
+  const versionCount = current.versions?.length ?? 0;
+  const specTax = versionCount > 0 ? Math.max(0, Math.round(((userTurns - versionCount) / Math.max(1, userTurns)) * 100)) : 0;
 
   return (
     <main className="obs-shell">
@@ -565,6 +600,22 @@ function Index() {
               <div className="obs-page-title">
                 <span className="obs-title-mark" />
                 <h1>{current.title === "Untitled" ? "Vibe Coder" : current.title}</h1>
+              </div>
+              <div className="obs-mode-group" role="tablist" aria-label="Development mode">
+                {MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={current.mode === m.id}
+                    className={"obs-mode " + (current.mode === m.id ? "is-on" : "")}
+                    onClick={() => updateCurrent({ mode: m.id })}
+                    title={m.hint}
+                    disabled={loading}
+                  >
+                    {m.label}
+                  </button>
+                ))}
               </div>
               <div className="obs-page-meta">
                 <select
@@ -789,6 +840,26 @@ function Index() {
             </div>
 
 
+            {/* Integrations */}
+            <div className="obs-card">
+              <div className="obs-card-head">
+                <span className="obs-card-label">Integrations</span>
+                <span className="obs-node">{INTEGRATIONS.filter((i) => i.on).length}/{INTEGRATIONS.length}</span>
+              </div>
+              <ul className="obs-integ-list">
+                {INTEGRATIONS.map((it) => (
+                  <li key={it.id} className={"obs-integ " + (it.on ? "is-on" : "")}>
+                    <span className="obs-integ-dot" />
+                    <div className="obs-integ-meta">
+                      <span className="obs-integ-name">{it.label}</span>
+                      <span className="obs-integ-sub">{it.sub}</span>
+                    </div>
+                    <span className="obs-integ-state">{it.on ? "Linked" : "Add"}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             {/* Terminal */}
             <div className="obs-card">
               <div className="obs-card-head">
@@ -829,6 +900,7 @@ function Index() {
             <span className="obs-muted"><GitBranch className="h-3 w-3 inline mr-1" />main</span>
             <span className="obs-ok"><Check className="h-3 w-3 inline" /> Up to date</span>
             <span className="obs-muted">Prettier <span className="obs-status-dot" /></span>
+            <span className="obs-muted" title="Rework ratio: user turns per saved version (SocialMize 'specification tax')">Spec-tax {specTax}%</span>
             <span className="obs-muted">{kb} KB</span>
           </div>
         </div>

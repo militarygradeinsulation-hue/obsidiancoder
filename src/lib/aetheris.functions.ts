@@ -12,6 +12,9 @@ const ALLOWED_MODELS = [
   "google/gemini-3.1-pro-preview",
   "google/gemini-2.5-pro",
   "openai/gpt-5.4-mini",
+  "openai/gpt-5.6-luna",
+  "openai/gpt-5.6-terra",
+  "openai/gpt-5.6-sol",
 ] as const;
 
 const inputSchema = z.object({
@@ -67,6 +70,7 @@ export const generateHtml = createServerFn({ method: "POST" })
       body: JSON.stringify({
         model: data.model,
         messages,
+        ...(data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
       }),
     });
 
