@@ -161,8 +161,11 @@ function Index() {
   const [lastMetrics, setLastMetrics] = useState<GenerationMetrics | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
+  const [stage, setStage] = useState<StageName | null>(null);
+  const [stageDetail, setStageDetail] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
