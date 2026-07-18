@@ -15,6 +15,9 @@ import { EMPTY_MEMORY, mergeMemory, lockKey } from "./project-memory";
 import { createPipeline } from "./pipeline";
 import { buildContext, nextTier } from "./staged-context";
 import { sanitizeErrorMessage, safeGet } from "./safe-storage";
+import { buildGraph } from "./knowledge-graph";
+import { scanAll } from "./scanners";
+import { computeConfidence } from "./confidence";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
@@ -204,6 +207,28 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   // --- Safe storage ---
   results.push(assert(sanitizeErrorMessage(new Error("Failed at https://x.co Bearer abc.def.ghi")).includes("[url]"), "safe: sanitize URL in error"));
   results.push(assert(safeGet("__no_such_key__") === undefined, "safe: missing key returns undefined"));
+
+  // --- Knowledge graph (Core 3.0) ---
+  const kgHtml = `<!doctype html><html lang="en"><head><title>T</title><meta name="viewport" content="width=device-width"><script src="https://cdn.jsdelivr.net/npm/htmx.org@1.9.0"></script></head><body><h1>x</h1><button id="a">Go</button><a href="#">bad</a><img src="/x.png"><script>fetch("/api/x")</script></body></html>`;
+  const g = buildGraph(kgHtml);
+  results.push(assert(g.ids.includes("a"), "kg: extracts ids"));
+  results.push(assert(g.buttons.length === 1 && g.buttons[0].text === "Go", "kg: extracts buttons + text"));
+  results.push(assert(g.links[0].broken, "kg: detects broken '#' link"));
+  results.push(assert(g.endpoints.includes("/api/x"), "kg: extracts fetch endpoint"));
+  results.push(assert(g.dependencies.some((d) => d.includes("htmx")), "kg: extracts CDN dependency"));
+  results.push(assert(g.meta.hasLang && g.meta.hasViewport, "kg: meta flags"));
+
+  // --- Scanners ---
+  const scans = scanAll(kgHtml, g);
+  results.push(assert(scans.accessibility.findings.some((f) => f.id.startsWith("alt-")), "scan a11y: missing alt"));
+  results.push(assert(scans.detective.findings.some((f) => f.id === "broken-links"), "scan detective: broken links"));
+  const secHtml = kgHtml + "<script>const k='sk_live_" + "a".repeat(24) + "'</script>";
+  const secScan = scanAll(secHtml, buildGraph(secHtml)).security;
+  results.push(assert(secScan.findings.some((f) => f.severity === "critical"), "scan security: detects exposed secret"));
+
+  // --- Confidence ---
+  const conf = computeConfidence({ validation: validateHtml(kgHtml), security: scans.security, accessibility: scans.accessibility, performance: scans.performance, detective: scans.detective, runtimeErrors: 0 });
+  results.push(assert(conf.score >= 0 && conf.score <= 100 && conf.evidence.length >= 5, `confidence: composite score (${conf.score}, ${conf.evidence.length} signals)`));
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;

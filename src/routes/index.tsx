@@ -26,6 +26,7 @@ import { MemoryPanel } from "@/components/panels/MemoryPanel";
 import { VersionHistoryPanel, type UiVersion } from "@/components/panels/VersionHistoryPanel";
 import { DesignSystemPanel } from "@/components/panels/DesignSystemPanel";
 import { createPipeline, type StageName, type StageState } from "@/lib/pipeline";
+import { TrustDashboard } from "@/components/panels/TrustDashboard";
 
 
 
@@ -1450,6 +1451,9 @@ function Index() {
                 </div>
               </div>
             )}
+
+            {/* Trust Dashboard — Obsidian Core 3.0 evidence-based confidence */}
+            <TrustDashboard html={current.html} />
 
             {/* Project Memory */}
             <div className="obs-card">
