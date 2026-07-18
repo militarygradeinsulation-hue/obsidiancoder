@@ -1805,7 +1805,8 @@ function Index() {
 
 
             {/* Project Memory */}
-            <div className="obs-card">
+            <div className="obs-card" id="rail-memory">
+
               <div className="obs-card-head">
                 <span className="obs-card-label">Project memory</span>
                 <span className="obs-node opacity-60">context for AI</span>
