@@ -1871,20 +1871,26 @@ function Index() {
         </div>
 
         {/* Bottom status bar */}
-        <div className="obs-status-bar">
+        <div className="obs-status-bar" role="status">
           <div className="obs-status-left">
             <span className="obs-badge-gold">Sandbox</span>
-            <span>Ready</span>
-            <span className="obs-muted">localhost:5173</span>
+            <span data-testid="status-state">
+              {loading ? (stage || "Working…") : error ? "Error" : current.html ? "Ready" : "Idle"}
+            </span>
+            <span className="obs-muted">{current.mode.toUpperCase()} · {current.model.split("/").pop()}</span>
           </div>
           <div className="obs-status-right">
-            <span className="obs-muted"><GitBranch className="h-3 w-3 inline mr-1" />main</span>
-            <span className="obs-ok"><Check className="h-3 w-3 inline" /> Up to date</span>
-            <span className="obs-muted">Prettier <span className="obs-status-dot" /></span>
-            <span className="obs-muted" title="Rework ratio: user turns per saved version (SocialMize 'specification tax')">Spec-tax {specTax}%</span>
+            <span className="obs-muted">{current.versions.length} version{current.versions.length === 1 ? "" : "s"}</span>
+            {current.html ? (
+              <span className="obs-ok"><Check className="h-3 w-3 inline" /> Build attached</span>
+            ) : (
+              <span className="obs-muted">No build yet</span>
+            )}
+            <span className="obs-muted" title="Rework ratio: user turns per saved version (specification tax)">Spec-tax {specTax}%</span>
             <span className="obs-muted">{kb} KB</span>
           </div>
         </div>
+
       </section>
 
       {paletteOpen && (
