@@ -166,7 +166,7 @@ function Index() {
       if (raw) {
         const parsed = JSON.parse(raw) as Session[];
         if (Array.isArray(parsed) && parsed.length) {
-          const normalized = parsed.map((s) => ({ ...s, mode: (s as Partial<Session>).mode ?? "agent", versions: Array.isArray(s.versions) ? s.versions : [] }));
+          const normalized = parsed.map((s) => ({ ...s, mode: (s as Partial<Session>).mode ?? "agent", versions: Array.isArray(s.versions) ? s.versions : [], memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) } }));
           setSessions(normalized);
           const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
           setActiveId(id);
