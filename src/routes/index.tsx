@@ -83,6 +83,7 @@ type Session = {
   model: PickerModelId;
   mode: ModeId;
   versions: Version[];
+  memory: ProjectMemory;
 };
 
 const WORKSPACE_NAV = [
