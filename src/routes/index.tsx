@@ -70,7 +70,7 @@ type Session = {
   title: string;
   messages: ChatMsg[];
   html: string;
-  model: ModelId;
+  model: PickerModelId;
   mode: ModeId;
   versions: Version[];
 };
