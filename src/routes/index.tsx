@@ -195,6 +195,20 @@ function Index() {
   const [error, setError] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("obs.sidebarCollapsed") === "1";
+  });
+  const [railCollapsed, setRailCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("obs.railCollapsed") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.sidebarCollapsed", sidebarCollapsed ? "1" : "0"); } catch {}
+  }, [sidebarCollapsed]);
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.railCollapsed", railCollapsed ? "1" : "0"); } catch {}
+  }, [railCollapsed]);
   const [terminal, setTerminal] = useState<string[]>([
     "· Sandbox ready — no build yet",
   ]);
