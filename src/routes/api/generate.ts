@@ -132,7 +132,8 @@ export const Route = createFileRoute("/api/generate")({
             content:
               `GENERATED IMAGES AVAILABLE — embed each as <img src="..."> using the EXACT data URLs below. Do NOT swap for Unsplash/placeholders.\n\n` +
               images
-                .map((img, i) => `[image ${i + 1} — slot=${img.slot}] prompt: ${img.prompt}\nURL: ${img.url}`)
+                .map((img: PlannedImage, i: number) => `[image ${i + 1} — slot=${img.slot}] prompt: ${img.prompt}\nURL: ${img.url}`)
+
                 .join("\n\n"),
           });
         }
