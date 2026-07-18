@@ -620,6 +620,7 @@ function Index() {
           summary: `Advisory ${activeMode} reply`,
           validation: { status: "passed", issues: [] },
           documentChanged: false,
+          strategy: "advisory",
         }));
         return;
       }
