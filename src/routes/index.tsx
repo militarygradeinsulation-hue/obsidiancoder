@@ -27,6 +27,7 @@ import { VersionHistoryPanel, type UiVersion } from "@/components/panels/Version
 import { DesignSystemPanel } from "@/components/panels/DesignSystemPanel";
 import { createPipeline, type StageName, type StageState } from "@/lib/pipeline";
 import { TrustDashboard } from "@/components/panels/TrustDashboard";
+import { RulesPanel } from "@/components/panels/RulesPanel";
 
 
 
