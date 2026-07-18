@@ -1228,10 +1228,27 @@ function Index() {
                   {lastMetrics.usedAi && lastMetrics.model && (
                     <div className="obs-metric-row"><span>Model</span><b>{lastMetrics.model}</b></div>
                   )}
+                  <div className="obs-metric-row"><span>Strategy</span><b>{lastMetrics.strategy ?? "—"}</b></div>
                   <div className="obs-metric-row"><span>Cost</span><b>{lastMetrics.costEstimate}</b></div>
                   <div className="obs-metric-row"><span>Duration</span><b>{formatDuration(lastMetrics.durationMs)}</b></div>
                   <div className="obs-metric-row"><span>Changed</span><b>{lastMetrics.documentChanged ? "Yes" : "No"}</b></div>
+                  {typeof lastMetrics.patchOperationCount === "number" && (
+                    <div className="obs-metric-row"><span>Operations</span><b>{lastMetrics.patchOperationCount}</b></div>
+                  )}
+                  {(typeof lastMetrics.charactersAdded === "number" || typeof lastMetrics.charactersRemoved === "number") && (
+                    <div className="obs-metric-row"><span>Chars ±</span><b>+{lastMetrics.charactersAdded ?? 0} / −{lastMetrics.charactersRemoved ?? 0}</b></div>
+                  )}
+                  {lastMetrics.fallbackUsed && (
+                    <div className="obs-metric-row"><span>Fallback</span><b className="text-amber-300">used</b></div>
+                  )}
                   <div className="obs-metric-note">{lastMetrics.summary}</div>
+                  {lastMetrics.patchOperationSummaries && lastMetrics.patchOperationSummaries.length > 0 && (
+                    <ul className="obs-metric-issues">
+                      {lastMetrics.patchOperationSummaries.slice(0, 6).map((s, idx) => (
+                        <li key={idx} className="opacity-80">• {s}</li>
+                      ))}
+                    </ul>
+                  )}
                   {lastMetrics.validation.issues.length > 0 && (
                     <ul className="obs-metric-issues">
                       {lastMetrics.validation.issues.slice(0, 4).map((i, idx) => (
@@ -1244,6 +1261,37 @@ function Index() {
                 </div>
               </div>
             )}
+
+            {/* Project Memory */}
+            <div className="obs-card">
+              <div className="obs-card-head">
+                <span className="obs-card-label">Project memory</span>
+                <span className="obs-node opacity-60">context for AI</span>
+              </div>
+              <div className="obs-metrics" style={{ gap: 6 }}>
+                {([
+                  ["purpose", "Purpose"],
+                  ["audience", "Audience"],
+                  ["design", "Design direction"],
+                  ["constraints", "Constraints"],
+                  ["doNotChange", "Do NOT change"],
+                ] as const).map(([key, label]) => (
+                  <label key={key} className="obs-metric-row" style={{ flexDirection: "column", alignItems: "stretch", gap: 4 }}>
+                    <span className="opacity-70 text-[10px] uppercase tracking-wider">{label}</span>
+                    <textarea
+                      value={current.memory[key]}
+                      onChange={(e) => {
+                        const val = e.target.value.slice(0, 500);
+                        setSessions((all) => all.map((s) => s.id === activeId
+                          ? { ...s, memory: { ...s.memory, [key]: val } }
+                          : s));
+                      }}
+                      rows={2}
+                      className="obs-memory-input"
+                      placeholder={`(none)`}
+                    />
+                  </label>
+                ))}
 
             {/* Terminal */}
             <div className="obs-card">
