@@ -205,7 +205,15 @@ function Index() {
     const parsed = safeGet<Session[]>(STORAGE_KEY);
     const activeRaw = safeGet<string>(ACTIVE_KEY);
     if (Array.isArray(parsed) && parsed.length) {
-      const normalized = parsed.map((s) => ({ ...s, mode: (s as Partial<Session>).mode ?? "agent", versions: Array.isArray(s.versions) ? s.versions : [], memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) } }));
+      const normalized = parsed.map((s) => ({
+        ...s,
+        mode: (s as Partial<Session>).mode ?? "agent",
+        versions: Array.isArray(s.versions) ? s.versions : [],
+        memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) },
+        rules: reconcileRules((s as Partial<Session>).rules),
+        runtimeEvents: [], // never persist runtime log — always fresh per session load
+        cost: { ...EMPTY_COST, ...((s as Partial<Session>).cost ?? {}) },
+      }));
       setSessions(normalized);
       const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
       setActiveId(id);
