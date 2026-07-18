@@ -1357,14 +1357,38 @@ function Index() {
             </div>
 
             <div className={"obs-preview-wrap " + (device === "mobile" ? "is-mobile" : "")}>
+              {/* Amber constellation backdrop (behind preview) */}
+              <Background />
+              {/* Ambient matrix rain */}
+              <div className="obs-matrix" aria-hidden="true">
+                {Array.from({ length: 14 }).map((_, i) => (
+                  <span
+                    key={i}
+                    className="matrix-line"
+                    style={{
+                      left: `${(i * 7.3) % 100}%`,
+                      animationDelay: `${(i * 1.7) % 12}s`,
+                      animationDuration: `${14 + (i % 5) * 3}s`,
+                      opacity: 0.3 + ((i * 13) % 40) / 200,
+                    }}
+                  />
+                ))}
+              </div>
               {tab === "preview" ? (
-                <iframe
-                  ref={iframeRef}
-                  title="Obsidian preview"
-                  srcDoc={previewSrcDoc}
-                  sandbox="allow-scripts"
-                  className="obs-preview"
-                />
+                current.html ? (
+                  <iframe
+                    ref={iframeRef}
+                    title="Obsidian preview"
+                    srcDoc={previewSrcDoc}
+                    sandbox="allow-scripts"
+                    className="obs-preview"
+                  />
+                ) : (
+                  <div className="obs-preview-empty">
+                    <p>Ask Obsidian to build something.</p>
+                    <span>Your sandbox preview will appear here.</span>
+                  </div>
+                )
               ) : (
                 <pre className="obs-code">{current.html || "// Nothing yet."}</pre>
               )}
