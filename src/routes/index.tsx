@@ -752,6 +752,17 @@ function Index() {
               validation,
               repairAttempts: patchRepairAttempts,
             });
+            const gateBlockersP = checkCommitGate(stableHtml, patchedHtml, "ai-patch");
+            if (gateBlockersP) {
+              setSessions((all) => all.map((s) => s.id === sessionId
+                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Blocked by rule: ${gateBlockersP.join("; ").slice(0, 200)} — preview unchanged.` }] }
+                : s));
+              setTerminal((t) => [...t, `✗ Rule gate rejected patch: ${gateBlockersP[0].slice(0, 120)}`]);
+              pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockersP[0] });
+              setLoading(false); setStage(null);
+              abortRef.current = null;
+              return;
+            }
             const newVersion: Version = makeVersion(patchedHtml, versionLabel, commitMeta);
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
