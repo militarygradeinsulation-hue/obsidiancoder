@@ -612,6 +612,15 @@ function Index() {
             >
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
+            <a
+              href="/gallery"
+              target="_blank"
+              rel="noreferrer"
+              className="obs-chip"
+              title="See every build saved from every browser"
+            >
+              <FolderOpen className="h-3.5 w-3.5" /> Gallery
+            </a>
             <button type="button" className="obs-icon-btn" aria-label="More"><MoreHorizontal className="h-4 w-4" /></button>
           </div>
         </div>
