@@ -31,7 +31,10 @@ export function extractPatterns(html: string): ProjectPatterns {
   const tokens = extractDesignTokens(html);
 
   const colorCount = new Map<string, number>();
-  for (const c of tokens.colors) colorCount.set(c, (colorCount.get(c) ?? 0) + 1);
+  for (const c of tokens.colors) {
+    const rawMatches = (html.match(new RegExp(c.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "gi")) ?? []).length;
+    colorCount.set(c, Math.max(1, rawMatches));
+  }
   for (const [color, count] of colorCount.entries()) {
     if (count >= 2) patterns.push({ id: makeId("color", color), kind: "color-token", value: color, count, status: "observed" });
   }
