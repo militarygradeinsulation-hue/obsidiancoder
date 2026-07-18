@@ -1196,12 +1196,31 @@ function Index() {
         {/* Topbar */}
         <div className="obs-topbar">
           <div className="obs-topbar-left">
-            <button type="button" className="obs-icon-btn" aria-label="Menu" onClick={() => setSidebarOpen(true)}>
+            <button
+              type="button"
+              className="obs-icon-btn"
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={() => {
+                if (typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches) {
+                  setSidebarOpen(true);
+                } else {
+                  setSidebarCollapsed((v) => !v);
+                }
+              }}
+            >
               <Menu className="h-4 w-4" />
             </button>
             <img src={aetherisLogo.url} alt="Aetheris" className="obs-mark obs-mark-img obs-topbar-logo" />
-            <button type="button" className="obs-icon-btn" aria-label="Back" disabled title="History navigation not available"><ChevronLeft className="h-4 w-4" /></button>
-            <button type="button" className="obs-icon-btn" aria-label="Forward" disabled title="History navigation not available"><ChevronRight className="h-4 w-4" /></button>
+            <button
+              type="button"
+              className="obs-icon-btn obs-rail-toggle-btn"
+              aria-label={railCollapsed ? "Show right panel" : "Hide right panel"}
+              title={railCollapsed ? "Show right panel" : "Hide right panel"}
+              onClick={() => setRailCollapsed((v) => !v)}
+            >
+              {railCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
             <div className="obs-tabs">
               {sessions.map((s) => {
                 const isActive = s.id === activeId;
