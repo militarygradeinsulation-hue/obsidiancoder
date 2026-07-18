@@ -13,7 +13,7 @@ const TIER_PREFERENCE: Record<Tier, readonly string[]> = {
   advanced: ["google/gemini-3.1-pro-preview", "openai/gpt-5.6-sol", "google/gemini-2.5-pro", "google/gemini-3.5-flash"],
 };
 
-const REGISTRY_IDS = new Set(MODEL_REGISTRY.map((m) => m.id));
+const REGISTRY_IDS = new Set<string>(MODEL_REGISTRY.map((m) => m.id));
 
 export function pickModelForTier(tier: Tier): ModelId {
   for (const id of TIER_PREFERENCE[tier]) {
