@@ -47,6 +47,7 @@ import { record as recordFeedback, type FeedbackEvent } from "@/lib/failure-lear
 import type { ComponentEntry } from "@/lib/component-library";
 import { runRules, type Rule, type RuleViolation } from "@/lib/rules-engine";
 import { buildGraph } from "@/lib/knowledge-graph";
+import Background from "@/components/Background";
 
 
 
@@ -1089,6 +1090,8 @@ function Index() {
 
   return (
     <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "")}>
+      {/* Amber particle-network backdrop */}
+      <Background />
       {/* Ambient matrix backdrop */}
       <div className="obs-matrix" aria-hidden="true">
         {Array.from({ length: 14 }).map((_, i) => (
