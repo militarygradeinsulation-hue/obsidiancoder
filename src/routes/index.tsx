@@ -1520,12 +1520,15 @@ function Index() {
                   <Paperclip className="h-3.5 w-3.5" />
                 </button>
                 <input
+                  ref={composerRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={pendingAttachments.length ? "Describe how to use the attached materials…" : "Ask Obsidian AI…"}
                   disabled={loading}
                   className="obs-composer-input"
+                  data-testid="composer-input"
                 />
+
                 {loading ? (
                   <button
                     type="button"
