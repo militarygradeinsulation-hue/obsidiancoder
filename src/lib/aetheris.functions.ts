@@ -1,27 +1,21 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { ALLOWED_MODEL_IDS, DEFAULT_MODEL } from "./models";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
   content: z.string(),
 });
 
-const ALLOWED_MODELS = [
-  "google/gemini-3.5-flash",
-  "google/gemini-3.1-flash-lite",
-  "google/gemini-3.1-pro-preview",
-  "google/gemini-2.5-pro",
-  "openai/gpt-5.4-mini",
-  "openai/gpt-5.6-luna",
-  "openai/gpt-5.6-terra",
-  "openai/gpt-5.6-sol",
-] as const;
-
 const inputSchema = z.object({
   prompt: z.string().min(1).max(6_000_000),
   currentHtml: z.string().max(6_000_000).optional().default(""),
-  history: z.array(messageSchema).max(40).optional().default([]),
-  model: z.enum(ALLOWED_MODELS).optional().default("google/gemini-3.5-flash"),
+  history: z.array(messageSchema).max(8).optional().default([]),
+  model: z
+    .string()
+    .refine((m) => (ALLOWED_MODEL_IDS as readonly string[]).includes(m), "unsupported model")
+    .optional()
+    .default(DEFAULT_MODEL),
 });
 
 const SYSTEM_PROMPT = `You are Aetheris Coder — an elite AI front-end engineer.
