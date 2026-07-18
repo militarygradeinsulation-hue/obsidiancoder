@@ -598,6 +598,22 @@ function Index() {
                 <span className="obs-title-mark" />
                 <h1>{current.title === "Untitled" ? "Vibe Coder" : current.title}</h1>
               </div>
+              <div className="obs-mode-group" role="tablist" aria-label="Development mode">
+                {MODES.map((m) => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={current.mode === m.id}
+                    className={"obs-mode " + (current.mode === m.id ? "is-on" : "")}
+                    onClick={() => updateCurrent({ mode: m.id })}
+                    title={m.hint}
+                    disabled={loading}
+                  >
+                    {m.label}
+                  </button>
+                ))}
+              </div>
               <div className="obs-page-meta">
                 <select
                   value={current.model}
