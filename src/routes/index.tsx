@@ -27,7 +27,13 @@ import { VersionHistoryPanel, type UiVersion } from "@/components/panels/Version
 import { DesignSystemPanel } from "@/components/panels/DesignSystemPanel";
 import { createPipeline, type StageName, type StageState } from "@/lib/pipeline";
 import { TrustDashboard } from "@/components/panels/TrustDashboard";
-import { RulesPanel } from "@/components/panels/RulesPanel";
+import { RulesPanel, reconcileRules } from "@/components/panels/RulesPanel";
+import { RuntimePanel, countRuntimeBlockers } from "@/components/panels/RuntimePanel";
+import { CostPanel } from "@/components/panels/CostPanel";
+import { ExecutionGraphPanel } from "@/components/panels/ExecutionGraphPanel";
+import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/lib/runtime-bridge";
+import { EMPTY_COST, foldMetrics, type CostSnapshot } from "@/lib/cost-metrics";
+import type { Rule } from "@/lib/rules-engine";
 
 
 
@@ -95,6 +101,10 @@ type Session = {
   mode: ModeId;
   versions: Version[];
   memory: ProjectMemory;
+  // Core 3.0 F3 additions — safe defaults on hydrate.
+  rules?: Rule[];
+  runtimeEvents?: RuntimeEvent[];
+  cost?: CostSnapshot;
 };
 
 const WORKSPACE_NAV = [
@@ -137,6 +147,9 @@ function newSession(): Session {
     mode: "agent",
     versions: [],
     memory: { ...EMPTY_MEMORY },
+    rules: reconcileRules(undefined),
+    runtimeEvents: [],
+    cost: { ...EMPTY_COST },
   };
 }
 
@@ -192,7 +205,15 @@ function Index() {
     const parsed = safeGet<Session[]>(STORAGE_KEY);
     const activeRaw = safeGet<string>(ACTIVE_KEY);
     if (Array.isArray(parsed) && parsed.length) {
-      const normalized = parsed.map((s) => ({ ...s, mode: (s as Partial<Session>).mode ?? "agent", versions: Array.isArray(s.versions) ? s.versions : [], memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) } }));
+      const normalized = parsed.map((s) => ({
+        ...s,
+        mode: (s as Partial<Session>).mode ?? "agent",
+        versions: Array.isArray(s.versions) ? s.versions : [],
+        memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) },
+        rules: reconcileRules((s as Partial<Session>).rules),
+        runtimeEvents: [], // never persist runtime log — always fresh per session load
+        cost: { ...EMPTY_COST, ...((s as Partial<Session>).cost ?? {}) },
+      }));
       setSessions(normalized);
       const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
       setActiveId(id);
@@ -223,10 +244,42 @@ function Index() {
 
   const previewSrcDoc = useMemo(
     () =>
-      current.html ||
-      `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`,
+      injectRuntimeBridge(current.html ||
+        `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`),
     [current.html],
   );
+
+  // Runtime bridge — listen for sanitized preview events, bounded to 100 per session.
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    function onMsg(evt: MessageEvent) {
+      const iframe = iframeRef.current;
+      if (!iframe || evt.source !== iframe.contentWindow) return;
+      const parsed = parseRuntimeMessage(evt, iframe.contentWindow);
+      if (!parsed) return;
+      setSessions((all) => all.map((s) => s.id === activeId
+        ? { ...s, runtimeEvents: [...(s.runtimeEvents ?? []).slice(-99), parsed] }
+        : s));
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [activeId]);
+
+  // Clear runtime log whenever the previewed HTML changes (new run = fresh log).
+  useEffect(() => {
+    setSessions((all) => all.map((s) => s.id === activeId ? { ...s, runtimeEvents: [] } : s));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current.html]);
+
+  // Fold new lastMetrics into per-session cost snapshot exactly once.
+  const foldedMetricsRef = useRef<GenerationMetrics | null>(null);
+  useEffect(() => {
+    if (!lastMetrics || lastMetrics === foldedMetricsRef.current) return;
+    foldedMetricsRef.current = lastMetrics;
+    setSessions((all) => all.map((s) => s.id === activeId
+      ? { ...s, cost: foldMetrics(s.cost ?? EMPTY_COST, lastMetrics) }
+      : s));
+  }, [lastMetrics, activeId]);
 
   function updateCurrent(patch: Partial<Session>) {
     setSessions((all) => all.map((s) => (s.id === activeId ? { ...s, ...patch } : s)));
@@ -1146,6 +1199,7 @@ function Index() {
             <div className={"obs-preview-wrap " + (device === "mobile" ? "is-mobile" : "")}>
               {tab === "preview" ? (
                 <iframe
+                  ref={iframeRef}
                   title="Obsidian preview"
                   srcDoc={previewSrcDoc}
                   sandbox="allow-scripts"
@@ -1454,8 +1508,18 @@ function Index() {
             )}
 
             {/* Trust Dashboard — Obsidian Core 3.0 evidence-based confidence */}
-            <TrustDashboard html={current.html} />
-            <RulesPanel html={current.html} />
+            <TrustDashboard html={current.html} runtimeErrors={countRuntimeBlockers(current.runtimeEvents ?? [])} />
+            <ExecutionGraphPanel currentStage={stage} stageDetail={stageDetail} loading={loading} lastMetrics={lastMetrics} />
+            <RuntimePanel
+              events={current.runtimeEvents ?? []}
+              onClear={() => updateCurrent({ runtimeEvents: [] })}
+            />
+            <RulesPanel
+              html={current.html}
+              rules={current.rules ?? reconcileRules(undefined)}
+              onRulesChange={(rules) => updateCurrent({ rules })}
+            />
+            <CostPanel snapshot={current.cost ?? EMPTY_COST} />
 
             {/* Project Memory */}
             <div className="obs-card">
