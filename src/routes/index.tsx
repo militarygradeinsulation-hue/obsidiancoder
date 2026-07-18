@@ -33,8 +33,37 @@ const MODELS = [
   { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
   { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
   { id: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
+  { id: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna (fast)" },
+  { id: "openai/gpt-5.6-terra", label: "GPT-5.6 Terra (balanced)" },
+  { id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol (flagship)" },
 ] as const;
 type ModelId = (typeof MODELS)[number]["id"];
+
+const MODES = [
+  { id: "agent",  label: "Agent",  hint: "Autonomous — plans + builds in one pass." },
+  { id: "chat",   label: "Chat",   hint: "Planning & iteration, no code changes." },
+  { id: "plan",   label: "Plan",   hint: "Architecture-first outline before build." },
+  { id: "dev",    label: "Dev",    hint: "Direct code edits, minimal narration." },
+  { id: "visual", label: "Visual", hint: "Layout, spacing, color — micro tweaks." },
+] as const;
+type ModeId = (typeof MODES)[number]["id"];
+
+const MODE_PREFIX: Record<ModeId, string> = {
+  agent:  "",
+  chat:   "PLANNING MODE. Do not modify the current build's structure. Reply with a concise strategic plan rendered as a clean HTML page (headings + checklist). Ask no questions.",
+  plan:   "PLAN MODE. Output an architecture outline (sections, components, data, integrations) as a rendered checklist page. Do not implement features yet.",
+  dev:    "DEV MODE. Apply the smallest possible diff to the current HTML to satisfy the request. Preserve everything else byte-for-byte.",
+  visual: "VISUAL EDIT MODE. Only adjust layout, spacing, color, typography, and micro-interactions. Do not change copy, structure, or logic.",
+};
+
+const INTEGRATIONS = [
+  { id: "supabase", label: "Supabase",   sub: "Auth · Postgres · RLS", on: true  },
+  { id: "stripe",   label: "Stripe",     sub: "Payments & subs",       on: false },
+  { id: "resend",   label: "Resend",     sub: "Transactional email",   on: false },
+  { id: "meta",     label: "Meta Graph", sub: "Instagram · FB",        on: false },
+  { id: "apify",    label: "Apify",      sub: "Web scraping",          on: false },
+  { id: "n8n",      label: "n8n",        sub: "Workflow webhooks",     on: false },
+] as const;
 
 
 type Version = {
