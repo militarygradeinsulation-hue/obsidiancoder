@@ -3,7 +3,7 @@
 // Never invents readiness or issues. Never auto-executes.
 
 import type { ValidationReport } from "./validation";
-import type { ScanResults } from "./scanners";
+import type { ScanReport } from "./scanners";
 import type { ProjectPatterns } from "./project-patterns";
 import type { LedgerEvent } from "./adaptive-ledger";
 
@@ -24,7 +24,7 @@ const EFF_RANK = { quick: 3, medium: 2, deep: 1 } as const;
 
 export interface CoachInputs {
   validation?: ValidationReport;
-  scans?: ScanResults;
+  scans?: { security?: ScanReport; accessibility?: ScanReport; performance?: ScanReport; detective?: ScanReport };
   patterns?: ProjectPatterns;
   runtimeErrors?: number;
   recentEvents?: LedgerEvent[];
@@ -34,7 +34,7 @@ export function computeNextBestActions(inputs: CoachInputs, max = 3): CoachActio
   const actions: CoachAction[] = [];
 
   if (inputs.validation) {
-    const blockers = inputs.validation.issues.filter((i) => i.severity === "error");
+    const blockers = inputs.validation.issues.filter((i) => i.severity === "blocking");
     if (blockers.length) {
       actions.push({
         id: "fix-validation",
@@ -53,8 +53,8 @@ export function computeNextBestActions(inputs: CoachInputs, max = 3): CoachActio
       severity: "critical", effort: "medium", reversible: true, evidenceRefs: ["runtime"],
     });
   }
-  if (inputs.scans?.security?.findings?.some((f) => f.severity === "critical")) {
-    const f = inputs.scans.security.findings.find((x) => x.severity === "critical")!;
+  if (inputs.scans?.security?.findings?.some((f: { severity: string }) => f.severity === "critical")) {
+    const f = inputs.scans.security.findings.find((x: { severity: string }) => x.severity === "critical")!;
     actions.push({
       id: `sec:${f.id}`, title: `Address security issue: ${f.id}`, reason: f.message,
       severity: "critical", effort: "medium", reversible: true, evidenceRefs: [`sec:${f.id}`],
