@@ -405,6 +405,9 @@ function Index() {
 
 
   const kb = current.html ? (current.html.length / 1024).toFixed(1) : "0.0";
+  const userTurns = current.messages.filter((m) => m.role === "user").length;
+  const versionCount = current.versions?.length ?? 0;
+  const specTax = versionCount > 0 ? Math.max(0, Math.round(((userTurns - versionCount) / Math.max(1, userTurns)) * 100)) : 0;
 
   return (
     <main className="obs-shell">
