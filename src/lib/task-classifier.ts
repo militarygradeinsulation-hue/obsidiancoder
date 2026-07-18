@@ -14,13 +14,25 @@ export type TaskType =
   | "planning";
 
 export type ExecutionPath = "deterministic" | "low-cost-ai" | "advanced-ai";
+export type Strategy = "deterministic" | "ai-patch" | "full-generation" | "advisory";
 
 export type Classification = {
   taskType: TaskType;
   executionPath: ExecutionPath;
+  strategy: Strategy;
   confidence: number; // 0..1
   reason: string;
 };
+
+function strategyFor(taskType: TaskType, executionPath: ExecutionPath, hasHtml: boolean): Strategy {
+  if (taskType === "advisory-chat" || taskType === "planning") return "advisory";
+  if (executionPath === "deterministic") return "deterministic";
+  if (!hasHtml) return "full-generation";
+  if (taskType === "full-generation") return "full-generation";
+  // ordinary edits/bug-fix/features against existing doc → patch
+  return "ai-patch";
+}
+
 
 const STYLE_WORDS = /\b(color|colour|background|bg|font|size|larger|smaller|bigger|padding|margin|spacing|radius|rounded|border|width|height|align|center|centre|left|right|hide|show|visible|invisible|display|bold|italic|underline)\b/i;
 const LAYOUT_WORDS = /\b(grid|flex|column|row|stack|reorder|move|swap|top|bottom|sidebar|nav|header|footer|section)\b/i;
