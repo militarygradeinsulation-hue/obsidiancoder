@@ -14,6 +14,7 @@ import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPatchRouteImport } from './routes/api/patch'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
+import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
 
@@ -42,6 +43,11 @@ const ApiGenerateRoute = ApiGenerateRouteImport.update({
   path: '/api/generate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSelfTestRoute = ApiPublicSelfTestRouteImport.update({
+  id: '/api/public/self-test',
+  path: '/api/public/self-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
   id: '/api/public/builds',
   path: '/api/public/builds',
@@ -60,6 +66,7 @@ export interface FileRoutesByFullPath {
   '/api/generate': typeof ApiGenerateRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
 }
 export interface FileRoutesByTo {
@@ -69,6 +76,7 @@ export interface FileRoutesByTo {
   '/api/generate': typeof ApiGenerateRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
 }
 export interface FileRoutesById {
@@ -79,6 +87,7 @@ export interface FileRoutesById {
   '/api/generate': typeof ApiGenerateRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
 }
 export interface FileRouteTypes {
@@ -90,6 +99,7 @@ export interface FileRouteTypes {
     | '/api/generate'
     | '/api/patch'
     | '/api/public/builds'
+    | '/api/public/self-test'
     | '/api/public/builds/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -99,6 +109,7 @@ export interface FileRouteTypes {
     | '/api/generate'
     | '/api/patch'
     | '/api/public/builds'
+    | '/api/public/self-test'
     | '/api/public/builds/$id'
   id:
     | '__root__'
@@ -108,6 +119,7 @@ export interface FileRouteTypes {
     | '/api/generate'
     | '/api/patch'
     | '/api/public/builds'
+    | '/api/public/self-test'
     | '/api/public/builds/$id'
   fileRoutesById: FileRoutesById
 }
@@ -118,6 +130,7 @@ export interface RootRouteChildren {
   ApiGenerateRoute: typeof ApiGenerateRoute
   ApiPatchRoute: typeof ApiPatchRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
+  ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -157,6 +170,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiGenerateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/self-test': {
+      id: '/api/public/self-test'
+      path: '/api/public/self-test'
+      fullPath: '/api/public/self-test'
+      preLoaderRoute: typeof ApiPublicSelfTestRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/builds': {
       id: '/api/public/builds'
       path: '/api/public/builds'
@@ -193,6 +213,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateRoute: ApiGenerateRoute,
   ApiPatchRoute: ApiPatchRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
+  ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
