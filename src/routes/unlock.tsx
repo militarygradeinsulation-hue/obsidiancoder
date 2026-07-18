@@ -90,7 +90,7 @@ function Unlock() {
         backdropFilter: "blur(20px)",
       }}>
         <div style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 28, letterSpacing: -0.5, marginBottom: 6 }}>
-          Obsidian
+          Aetheris Obsidian
         </div>
         <div style={{ color: "#b6bcc8", fontSize: 14, marginBottom: 20 }}>
           Enter your access code to continue.
