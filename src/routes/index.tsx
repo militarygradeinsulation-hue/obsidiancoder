@@ -21,6 +21,7 @@ import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
 import { repairHtml } from "@/lib/repair";
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import { isAiErrorEnvelope, type AiErrorEnvelope } from "@/lib/ai-errors";
 import type { VersionMetadata, RepairAttempt } from "@/lib/version-metadata";
 import { MemoryPanel } from "@/components/panels/MemoryPanel";
 import { VersionHistoryPanel, type UiVersion } from "@/components/panels/VersionHistoryPanel";
