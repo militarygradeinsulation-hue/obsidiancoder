@@ -818,14 +818,26 @@ function Index() {
                   disabled={loading}
                   className="obs-composer-input"
                 />
-                <button
-                  type="submit"
-                  disabled={loading || (!input.trim() && pendingAttachments.length === 0)}
-                  aria-label="Send"
-                  className="obs-composer-send"
-                >
-                  {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ArrowRight className="h-3.5 w-3.5" />}
-                </button>
+                {loading ? (
+                  <button
+                    type="button"
+                    onClick={stopGeneration}
+                    aria-label="Stop"
+                    className="obs-composer-send"
+                    title="Stop"
+                  >
+                    <Square className="h-3.5 w-3.5" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={!input.trim() && pendingAttachments.length === 0}
+                    aria-label="Send"
+                    className="obs-composer-send"
+                  >
+                    <ArrowRight className="h-3.5 w-3.5" />
+                  </button>
+                )}
               </form>
 
             </div>
