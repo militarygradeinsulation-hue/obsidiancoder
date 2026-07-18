@@ -1292,6 +1292,10 @@ function Index() {
                     />
                   </label>
                 ))}
+              </div>
+            </div>
+
+
 
             {/* Terminal */}
             <div className="obs-card">
