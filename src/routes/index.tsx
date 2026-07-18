@@ -723,31 +723,11 @@ function Index() {
           } else {
             const applied = applyPatch(stableHtml, patchParsed.data);
             if (!applied.ok) {
-              // MUST NOT alter preview.
-              setSessions((all) => all.map((s) => s.id === sessionId
-                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch failed at op ${applied.failedAt} (${applied.op ?? "?"}): ${applied.error} — preview unchanged.` }] }
-                : s));
-              setTerminal((t) => [...t, `✗ Patch apply failed: ${applied.error.slice(0, 120)}`]);
-              const durationMs = performance.now() - t0;
-              setLastMetrics(metricsFromClassification(classification, {
-                usedAi: true,
-                model: pJson.model,
-                durationMs,
-                summary: `Patch rejected: ${applied.error.slice(0, 120)}`,
-                validation: { status: "failed", summary: applied.error, issues: [{ severity: "blocking", code: "patch-apply", level: "fail", message: applied.error }] },
-                documentChanged: false,
-                strategy: "ai-patch",
-                patchOperationCount: patchParsed.data.operations.length,
-                patchOperationTypes: patchParsed.data.operations.map(o => o.op),
-                patchOperationSummaries: [applied.error],
-                charactersAdded: 0,
-                charactersRemoved: 0,
-                fallbackUsed: pJson.fallbackUsed,
-              }));
-              setLoading(false); setStage(null);
+              setTerminal((t) => [...t, `✗ Patch apply failed (${applied.error.slice(0, 100)}) — falling back to full AI generation.`]);
               abortRef.current = null;
-              return;
+              break patchAttempt;
             }
+
             let validation = validateHtml(applied.html);
             let patchedHtml = applied.html;
             const patchRepairAttempts: RepairAttempt[] = [];
