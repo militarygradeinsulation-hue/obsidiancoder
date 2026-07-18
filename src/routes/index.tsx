@@ -1039,23 +1039,6 @@ function Index() {
 
   return (
     <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "")}>
-      {/* Amber particle-network backdrop */}
-      <Background />
-      {/* Ambient matrix backdrop */}
-      <div className="obs-matrix" aria-hidden="true">
-        {Array.from({ length: 14 }).map((_, i) => (
-          <span
-            key={i}
-            className="matrix-line"
-            style={{
-              left: `${(i * 7.3) % 100}%`,
-              animationDelay: `${(i * 1.7) % 12}s`,
-              animationDuration: `${14 + (i % 5) * 3}s`,
-              opacity: 0.3 + ((i * 13) % 40) / 200,
-            }}
-          />
-        ))}
-      </div>
 
       {sidebarOpen && <div className="obs-scrim" onClick={() => setSidebarOpen(false)} />}
 
