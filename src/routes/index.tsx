@@ -371,6 +371,7 @@ function Index() {
             : s));
           const durationMs = performance.now() - t0;
           setTerminal((t) => [...t, `✓ Deterministic edit in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
+          const detDiff = diffSummary(stableHtml, det.html);
           setLastMetrics(metricsFromClassification(classification, {
             usedAi: false,
             model: null,
@@ -378,6 +379,13 @@ function Index() {
             summary: det.summary,
             validation,
             documentChanged: true,
+            strategy: "deterministic",
+            patchOperationCount: 1,
+            patchOperationTypes: ["deterministic-edit"],
+            patchOperationSummaries: [det.summary],
+            charactersAdded: detDiff.charsAdded,
+            charactersRemoved: detDiff.charsRemoved,
+            fallbackUsed: false,
           }));
           setLoading(false);
           return;
