@@ -146,7 +146,15 @@ const TOOLS_NAV: { id: string; label: string; icon: typeof Sparkles; shortcut?: 
   { id: "playground", label: "Playground", icon: FlaskConical },
   { id: "git", label: "Git", icon: GitBranch },
   { id: "deploy", label: "Deploy", icon: Rocket },
+  { id: "settings", label: "Settings", icon: Settings, shortcut: "⌘ K" },
 ];
+
+const RAIL_GROUPS = [
+  { id: "agent", label: "Agent" },
+  { id: "build", label: "Build" },
+  { id: "ship",  label: "Ship"  },
+] as const;
+type RailGroupId = (typeof RAIL_GROUPS)[number]["id"] | "all";
 
 const SUGGESTIONS = [
   { icon: Calendar, label: "Add a hero with a call-to-action" },
