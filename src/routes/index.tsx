@@ -79,6 +79,7 @@ type Session = {
   messages: ChatMsg[];
   html: string;
   model: ModelId;
+  mode: ModeId;
   versions: Version[];
 };
 
