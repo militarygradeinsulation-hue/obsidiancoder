@@ -31,22 +31,22 @@
   --radius: 1rem;
 
   /* ===== Obsidian Design System palette (spec) ===== */
-  --obsidian-black: #0a0a0a;
-  --obsidian-black-soft: #0f0f0f;
-  --obsidian-panel: #111111;
-  --obsidian-panel-raised: #1a1a1a;
-  --obsidian-glass: rgba(20, 20, 20, 0.82);
-  --obsidian-border: #1a1a1a;
-  --obsidian-border-strong: #262626;
-  --obsidian-gold: #d4af37;
-  --obsidian-gold-light: #e6c76a;
-  --obsidian-gold-bright: #f2d97a;
-  --obsidian-gold-dark: #8a7020;
-  --obsidian-text: #ffffff;
-  --obsidian-text-soft: #a0a0a0;
-  --obsidian-text-muted: #666666;
+  --obsidian-black: #111317;
+  --obsidian-black-soft: #14171c;
+  --obsidian-panel: #171a1f;
+  --obsidian-panel-raised: #1c2027;
+  --obsidian-glass: rgba(23, 26, 31, 0.82);
+  --obsidian-border: #1f242c;
+  --obsidian-border-strong: #2a303a;
+  --obsidian-gold: #F4A125;
+  --obsidian-gold-light: #F6B458;
+  --obsidian-gold-bright: #FFC96B;
+  --obsidian-gold-dark: #DD9324;
+  --obsidian-text: #F5F6F8;
+  --obsidian-text-soft: #B6BCC8;
+  --obsidian-text-muted: #7A818E;
   --obsidian-success: #60c979;
-  --obsidian-warning: #e0ab4c;
+  --obsidian-warning: #F4A125;
   --obsidian-danger: #de625d;
   --obsidian-info: #5b9bd5;
   --chart-blue: #4a7c9e;
@@ -54,22 +54,23 @@
   --chart-green: #6b8e4e;
 
   /* Semantic tokens mapped to spec palette */
-  --background: #0a0a0a;
-  --foreground: #ffffff;
+  --background: #111317;
+  --foreground: #F5F6F8;
 
-  --card: #111111;
-  --card-foreground: #ffffff;
+  --card: #171a1f;
+  --card-foreground: #F5F6F8;
 
-  --muted: #1a1a1a;
-  --muted-foreground: #a0a0a0;
+  --muted: #1c2027;
+  --muted-foreground: #B6BCC8;
 
-  --primary: #d4af37;
-  --primary-foreground: #0a0a0a;
-  --accent: #d4af37;
-  --accent-foreground: #0a0a0a;
+  --primary: #F4A125;
+  --primary-foreground: #111317;
+  --accent: #DD9324;
+  --accent-foreground: #111317;
 
-  --border: #1a1a1a;
-  --ring: #d4af37;
+  --border: #1f242c;
+  --ring: #F4A125;
+
 
   --gradient-radial-amber: radial-gradient(
     circle at 72% 18%,
