@@ -142,6 +142,7 @@ function Index() {
     "→ Local: http://localhost:5173",
     "✓ No errors found",
   ]);
+  const [lastMetrics, setLastMetrics] = useState<GenerationMetrics | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
