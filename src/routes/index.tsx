@@ -1564,9 +1564,16 @@ function Index() {
             <div className="obs-card">
               <div className="obs-card-head">
                 <span className="obs-card-label">Context</span>
-                <button type="button" className="obs-add-tiny" aria-label="Add context">
+                <button
+                  type="button"
+                  className="obs-add-tiny"
+                  aria-label="Attach a file to context"
+                  title="Attach a file to context"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <Plus className="h-3 w-3" />
                 </button>
+
               </div>
               <ul className="obs-file-list">
                 {sessions.slice(0, 6).map((s) => (
