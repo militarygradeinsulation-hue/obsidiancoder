@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ApiPatchRouteImport } from './routes/api/patch'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
@@ -29,6 +30,11 @@ const GalleryRoute = GalleryRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPatchRoute = ApiPatchRouteImport.update({
+  id: '/api/patch',
+  path: '/api/patch',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiGenerateRoute = ApiGenerateRouteImport.update({
@@ -52,6 +58,7 @@ export interface FileRoutesByFullPath {
   '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
 }
@@ -60,6 +67,7 @@ export interface FileRoutesByTo {
   '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
 }
@@ -69,6 +77,7 @@ export interface FileRoutesById {
   '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
 }
@@ -79,6 +88,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/sitemap.xml'
     | '/api/generate'
+    | '/api/patch'
     | '/api/public/builds'
     | '/api/public/builds/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -87,6 +97,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/sitemap.xml'
     | '/api/generate'
+    | '/api/patch'
     | '/api/public/builds'
     | '/api/public/builds/$id'
   id:
@@ -95,6 +106,7 @@ export interface FileRouteTypes {
     | '/gallery'
     | '/sitemap.xml'
     | '/api/generate'
+    | '/api/patch'
     | '/api/public/builds'
     | '/api/public/builds/$id'
   fileRoutesById: FileRoutesById
@@ -104,6 +116,7 @@ export interface RootRouteChildren {
   GalleryRoute: typeof GalleryRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
+  ApiPatchRoute: typeof ApiPatchRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
 }
 
@@ -128,6 +141,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/patch': {
+      id: '/api/patch'
+      path: '/api/patch'
+      fullPath: '/api/patch'
+      preLoaderRoute: typeof ApiPatchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate': {
@@ -171,6 +191,7 @@ const rootRouteChildren: RootRouteChildren = {
   GalleryRoute: GalleryRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiGenerateRoute: ApiGenerateRoute,
+  ApiPatchRoute: ApiPatchRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
