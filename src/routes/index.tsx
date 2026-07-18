@@ -1602,6 +1602,57 @@ function Index() {
             />
             <CostPanel snapshot={current.cost ?? EMPTY_COST} />
 
+            {/* Core 3.1 — file explorer, inspector, flow runner, components, deployment, git-ready, templates */}
+            <FileExplorerPanel
+              project={current.project}
+              activeFileId={current.activeFileId}
+              onSelect={(id) => updateCurrent({ activeFileId: id })}
+            />
+            <InspectorPanel
+              selection={inspectorSelection}
+              enabled={inspectorEnabled}
+              onToggle={setInspectorEnabled}
+            />
+            <FlowPanel />
+            <ComponentLibraryPanel
+              components={current.components ?? []}
+              onDelete={(id) => updateCurrent({ components: (current.components ?? []).filter((c) => c.id !== id) })}
+              onDuplicate={(id) => {
+                const c = (current.components ?? []).find((x) => x.id === id);
+                if (!c) return;
+                const dup: ComponentEntry = { ...c, id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now())), name: `${c.name} copy`, createdAt: Date.now() };
+                updateCurrent({ components: [...(current.components ?? []), dup] });
+              }}
+            />
+            {(() => {
+              const ruleReport = current.html ? runRules(current.html, current.rules ?? []) : { blockers: [], warnings: [] };
+              return (
+                <DeploymentReadinessPanel
+                  html={current.html}
+                  validationStatus={current.versions[0]?.metadata?.validation.status ?? "unknown"}
+                  blockingRuleCount={ruleReport.blockers.length}
+                  runtimeErrorCount={countRuntimeBlockers(current.runtimeEvents ?? [])}
+                />
+              );
+            })()}
+            <GitReadyPanel
+              previousHtml={current.versions[0]?.html ?? ""}
+              currentHtml={current.html}
+              lastRequest={current.lastRequest}
+            />
+            <TemplatePanel
+              html={current.html}
+              templates={current.templates ?? []}
+              onSave={(t) => updateCurrent({ templates: [...(current.templates ?? []), t] })}
+              onDelete={(id) => updateCurrent({ templates: (current.templates ?? []).filter((t) => t.id !== id) })}
+              onClone={(t) => {
+                const s: Session = { ...newSession(), title: t.name.slice(0, 40), html: t.html };
+                setSessions((all) => [s, ...all]);
+                setActiveId(s.id);
+              }}
+            />
+
+
             {/* Project Memory */}
             <div className="obs-card">
               <div className="obs-card-head">
