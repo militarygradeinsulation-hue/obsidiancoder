@@ -25,7 +25,7 @@ OUTPUT: exactly one complete, production-grade standalone HTML document that sat
 Hard rules:
 - Return ONLY the raw HTML document, starting with <!doctype html>. No markdown fences, no prose.
 - Inline all CSS in a <style> tag and all JS in a <script> tag. No external CSS, no external JS, no external fonts.
-- Images ARE allowed and encouraged when they improve the design. Use inline SVG, https placeholder URLs (unsplash/picsum/dicebear), or any https URL the user provided. Set width, height, alt.
+- Images ARE allowed and encouraged when they improve the design. If GENERATED IMAGES are provided in system context, use those data URLs verbatim. Otherwise use inline SVG or an https placeholder (unsplash/picsum/dicebear). Set width, height, alt.
 - If the user attaches an image (data: URL or https URL) in the prompt, embed it exactly.
 - Accessibility: semantic HTML, WCAG AA contrast, keyboard focus, labels.
 - Responsive mobile-first, no horizontal scroll at 320px.
