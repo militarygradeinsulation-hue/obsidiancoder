@@ -1841,7 +1841,8 @@ function Index() {
 
 
             {/* Terminal */}
-            <div className="obs-card">
+            <div className="obs-card" id="rail-terminal">
+
               <div className="obs-card-head">
                 <span className="obs-card-label">Terminal</span>
                 <span className="obs-node">node <ChevronDown className="h-3 w-3 inline" /></span>
