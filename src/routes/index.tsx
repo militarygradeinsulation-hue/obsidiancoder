@@ -10,6 +10,11 @@ import {
 } from "lucide-react";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
+import { classifyTask } from "@/lib/task-classifier";
+import { tryDeterministicEdit } from "@/lib/deterministic-edits";
+import { validateHtml } from "@/lib/validation";
+import { metricsFromClassification, formatDuration, type GenerationMetrics } from "@/lib/generation-metrics";
+
 
 
 export const Route = createFileRoute("/")({
