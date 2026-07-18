@@ -816,13 +816,10 @@ function Index() {
           abortRef.current = null;
           return;
         }
-        setSessions((all) => all.map((s) => s.id === sessionId
-          ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch route error: ${(err as Error).message.slice(0, 160)} — preview unchanged.` }] }
-          : s));
-        setTerminal((t) => [...t, `✗ Patch route error: ${(err as Error).message.slice(0, 120)} — preview unchanged.`]);
-        setLoading(false); setStage(null);
+        setTerminal((t) => [...t, `✗ Patch route error: ${(err as Error).message.slice(0, 120)} — falling back to full AI generation.`]);
         abortRef.current = null;
-        return;
+        break patchAttempt;
+
 
       } finally {
         abortRef.current = null;
