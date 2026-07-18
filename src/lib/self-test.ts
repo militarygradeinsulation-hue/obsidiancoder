@@ -118,8 +118,9 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   results.push(assert(m3.audience === "devs", "memory: unlocked key merged"));
 
   // Patch engine — anchor ambiguity should fail atomically
-  const amb = { summary: "amb", operations: [{ op: "replace_text" as const, find: "x", replace: "y", allow_multiple: false }] };
-  const ambResult = applyPatch("<html><body>x x</body></html>", amb);
+  const ambJson = JSON.stringify({ summary: "amb", operations: [{ op: "replace_text", find: "x", replace: "y", allow_multiple: false }] });
+  const ambParsed = parsePatchResponse(ambJson);
+  const ambResult = ambParsed.ok ? applyPatch("<html><body>x x</body></html>", ambParsed.patch) : { ok: false as const };
   results.push(assert(!ambResult.ok, "patch engine: ambiguous anchor rejected"));
 
   const passed = results.filter((r) => r.ok).length;
