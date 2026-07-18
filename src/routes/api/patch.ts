@@ -7,6 +7,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { ALLOWED_MODEL_IDS, DEFAULT_MODEL } from "@/lib/models";
 import { parsePatchResponse, MAX_OPS } from "@/lib/patch-protocol";
+import { anchorsFromPrompt, snippetsAround, budgetSnippets, snippetsToPrompt } from "@/lib/context-manager";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
@@ -96,15 +97,25 @@ export const Route = createFileRoute("/api/patch")({
           `DOCUMENT SIZE: ${data.currentHtml.length} chars`,
         ].filter(Boolean).join("\n\n");
 
-        // Only include the full document when it's small enough that the outline alone
-        // may not disambiguate anchors. Otherwise rely on the outline.
+        // Staged context: try minimal anchor-scoped snippets first. Only ship
+        // the full document when it is small enough for the model to reason
+        // over cheaply.
         const includeFull = data.currentHtml.length < 40_000;
+        const anchors = anchorsFromPrompt(data.prompt);
+        const rawSnips = snippetsAround(data.currentHtml, anchors);
+        const snips = budgetSnippets(rawSnips);
+        const snippetBlock = snippetsToPrompt(snips);
+        const contextTier = includeFull ? "D-full-document" : snips.length ? "A-minimal" : "none";
+
         const userMsg = [
           `USER REQUEST:\n${data.prompt}`,
           "",
           context,
-          includeFull ? `\nCURRENT HTML (verbatim — pick exact substrings for anchors):\n\n${data.currentHtml}` : "\n(Full HTML omitted — use outline ids/headings for anchors.)",
-        ].join("\n");
+          snippetBlock ? `\nRELEVANT SNIPPETS (${snips.length}):\n${snippetBlock}` : "",
+          includeFull
+            ? `\nCURRENT HTML (verbatim — pick exact substrings for anchors):\n\n${data.currentHtml}`
+            : "\n(Full HTML omitted — use outline ids/headings and the snippets above.)",
+        ].filter(Boolean).join("\n");
 
         const baseMessages = [
           { role: "system", content: SYSTEM_PROMPT },
