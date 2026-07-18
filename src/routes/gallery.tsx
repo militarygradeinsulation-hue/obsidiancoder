@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 
 type Build = {
@@ -16,7 +16,8 @@ const TOKEN_KEY = "obs.gallery.admin_token";
 export const Route = createFileRoute("/gallery")({
   beforeLoad: async () => {
     const { ensureUnlocked } = await import("@/lib/gate.functions");
-    await ensureUnlocked();
+    const { unlocked } = await ensureUnlocked();
+    if (!unlocked) throw redirect({ to: "/unlock" });
   },
   head: () => ({
     meta: [

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
   Send, Eye, Code2, Loader2, Home, FolderOpen, FileText, Files, Code,
@@ -55,7 +55,8 @@ import Background from "@/components/Background";
 export const Route = createFileRoute("/")({
   beforeLoad: async () => {
     const { ensureUnlocked } = await import("@/lib/gate.functions");
-    await ensureUnlocked();
+    const { unlocked } = await ensureUnlocked();
+    if (!unlocked) throw redirect({ to: "/unlock" });
   },
   head: () => ({
     meta: [
