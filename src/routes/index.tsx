@@ -1254,8 +1254,15 @@ function Index() {
                   </button>
                 )}
               </form>
+              {stage && (
+                <div className="mt-2 text-[10px] uppercase tracking-wider opacity-70 flex items-center gap-2" aria-live="polite">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Stage: <b>{stage}</b>{stageDetail ? ` · ${stageDetail}` : ""}</span>
+                </div>
+              )}
 
             </div>
+
 
             {/* Context */}
             <div className="obs-card">
