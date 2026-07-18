@@ -31,8 +31,20 @@ import { RulesPanel, reconcileRules } from "@/components/panels/RulesPanel";
 import { RuntimePanel, countRuntimeBlockers } from "@/components/panels/RuntimePanel";
 import { CostPanel } from "@/components/panels/CostPanel";
 import { ExecutionGraphPanel } from "@/components/panels/ExecutionGraphPanel";
+import { FileExplorerPanel } from "@/components/panels/FileExplorerPanel";
+import { InspectorPanel, type InspectorSelection } from "@/components/panels/InspectorPanel";
+import { FlowPanel } from "@/components/panels/FlowPanel";
+import { ComponentLibraryPanel } from "@/components/panels/ComponentLibraryPanel";
+import { DeploymentReadinessPanel } from "@/components/panels/DeploymentReadinessPanel";
+import { GitReadyPanel } from "@/components/panels/GitReadyPanel";
+import { TemplatePanel, type Template } from "@/components/panels/TemplatePanel";
 import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/lib/runtime-bridge";
-import { EMPTY_COST, foldMetrics, type CostSnapshot } from "@/lib/cost-metrics";
+import { EMPTY_COST, foldMetrics, recordRestore, type CostSnapshot } from "@/lib/cost-metrics";
+import { evaluateCommit, type CommitSource } from "@/lib/commit-gate";
+import { stripPreviewOnly } from "@/lib/clean-export";
+import { migrateFromHtml, type Project } from "@/lib/project-model";
+import { record as recordFeedback, type FeedbackEvent } from "@/lib/failure-learning";
+import type { ComponentEntry } from "@/lib/component-library";
 import type { Rule } from "@/lib/rules-engine";
 
 
