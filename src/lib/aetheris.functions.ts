@@ -70,6 +70,7 @@ export const generateHtml = createServerFn({ method: "POST" })
       body: JSON.stringify({
         model: data.model,
         messages,
+        ...(data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
       }),
     });
 
