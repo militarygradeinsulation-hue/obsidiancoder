@@ -535,14 +535,27 @@ function Index() {
           | { ok: false; error: string; fallbackUsed: boolean; model: string };
 
         if (!pJson.ok) {
-          setTerminal((t) => [...t, `✗ Patch invalid: ${pJson.error.slice(0, 120)} — routing to full generation.`]);
-          // fall through to full generation
+          setSessions((all) => all.map((s) => s.id === sessionId
+            ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch could not be generated: ${pJson.error.slice(0, 160)} — preview unchanged.` }] }
+            : s));
+          setTerminal((t) => [...t, `✗ Patch invalid: ${pJson.error.slice(0, 120)} — preview unchanged.`]);
+          setLoading(false); setStage(null);
+          abortRef.current = null;
+          return;
         } else {
           const patchParsed = patchSchema.safeParse(pJson.patch);
           if (!patchParsed.success) {
-            setTerminal((t) => [...t, `✗ Patch schema rejected — falling back.`]);
+            setSessions((all) => all.map((s) => s.id === sessionId
+              ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch schema rejected — preview unchanged.` }] }
+              : s));
+            setTerminal((t) => [...t, `✗ Patch schema rejected — preview unchanged.`]);
+            setLoading(false); setStage(null);
+            abortRef.current = null;
+            return;
           } else if (patchParsed.data.operations.length === 0) {
+            // Legitimate escape hatch: model explicitly deferred to full generation.
             setTerminal((t) => [...t, `· Model deferred to full generation (empty patch).`]);
+
           } else {
             const applied = applyPatch(stableHtml, patchParsed.data);
             if (!applied.ok) {
