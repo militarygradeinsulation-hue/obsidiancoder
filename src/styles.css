@@ -929,10 +929,14 @@
 /* ============ MAIN ============ */
 .obs-main {
   display: flex; flex-direction: column;
-  min-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   min-width: 0;
+  min-height: 0;
+  overflow: hidden;
   background: #050607;
 }
+
 
 /* Topbar */
 .obs-topbar {
