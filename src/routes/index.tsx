@@ -779,11 +779,11 @@ function Index() {
           </button>
         </div>
 
-        <div className="obs-search">
+        <button type="button" className="obs-search" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
           <Search className="h-3.5 w-3.5 obs-search-icon" strokeWidth={1.6} />
-          <input placeholder="Search anything…" className="obs-search-input" />
+          <span className="obs-search-input" style={{ background: "transparent", border: 0, textAlign: "left", color: "inherit" }}>Search anything…</span>
           <kbd className="obs-kbd">⌘ K</kbd>
-        </div>
+        </button>
 
         <div className="obs-section-label">Workspace</div>
         <nav className="obs-nav">
