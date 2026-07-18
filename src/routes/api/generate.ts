@@ -113,6 +113,10 @@ export const Route = createFileRoute("/api/generate")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const { isUnlockedServer } = await import("@/lib/gate.functions");
+        if (!(await isUnlockedServer())) {
+          return new Response("Locked", { status: 401 });
+        }
         const apiKey = process.env.LOVABLE_API_KEY;
         if (!apiKey) return new Response("AI not configured", { status: 500 });
 
