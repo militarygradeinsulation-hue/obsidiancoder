@@ -101,6 +101,10 @@ type Session = {
   mode: ModeId;
   versions: Version[];
   memory: ProjectMemory;
+  // Core 3.0 F3 additions — safe defaults on hydrate.
+  rules?: Rule[];
+  runtimeEvents?: RuntimeEvent[];
+  cost?: CostSnapshot;
 };
 
 const WORKSPACE_NAV = [
