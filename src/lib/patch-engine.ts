@@ -119,7 +119,9 @@ function appendScript(html: string, code: string): { html: string; added: number
   return { html: html + `\n${block}`, added: block.length + 1 };
 }
 
-export function applyPatch(baseHtml: string, patch: Patch): ApplyResult {
+export type ApplyOptions = { dryRun?: boolean };
+
+export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions = {}): ApplyResult {
   let html = baseHtml;
   const applied: AppliedOp[] = [];
   let totalAdded = 0;
@@ -195,6 +197,156 @@ export function applyPatch(baseHtml: string, patch: Patch): ApplyResult {
           applied.push({ op: op.op, summary: `Appended script block (${op.code.length}c)`, charsAdded: r.added, charsRemoved: 0 });
           break;
         }
+        case "remove_element_by_id": {
+          const found = findElementById(html, op.id);
+          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          const removed = html.slice(found.start, found.end);
+          if (op.expected_prev && !removed.includes(op.expected_prev)) {
+            return { ok: false, failedAt: i + 1, op: op.op, error: `expected_prev mismatch on #${op.id}` };
+          }
+          html = html.slice(0, found.start) + html.slice(found.end);
+          applied.push({ op: op.op, summary: `Removed #${op.id}`, charsAdded: 0, charsRemoved: removed.length });
+          break;
+        }
+        case "remove_attribute": {
+          const found = findElementById(html, op.id);
+          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          const openTag = html.slice(found.start, found.openEnd);
+          const attrRe = new RegExp(`\\s${escapeRegex(op.attribute)}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, "i");
+          if (!attrRe.test(openTag)) return { ok: false, failedAt: i + 1, op: op.op, error: `attribute ${op.attribute} not present on #${op.id}` };
+          const newOpen = openTag.replace(attrRe, "");
+          html = html.slice(0, found.start) + newOpen + html.slice(found.openEnd);
+          applied.push({ op: op.op, summary: `Removed @${op.attribute} from #${op.id}`, charsAdded: 0, charsRemoved: openTag.length - newOpen.length });
+          break;
+        }
+        case "add_class":
+        case "remove_class": {
+          const found = findElementById(html, op.id);
+          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          const openTag = html.slice(found.start, found.openEnd);
+          const classRe = /\sclass\s*=\s*("([^"]*)"|'([^']*)')/i;
+          const m = classRe.exec(openTag);
+          const current = m ? (m[2] ?? m[3] ?? "") : "";
+          const set = new Set(current.split(/\s+/).filter(Boolean));
+          if (op.op === "add_class") set.add(op.class_name);
+          else {
+            if (!set.has(op.class_name)) return { ok: false, failedAt: i + 1, op: op.op, error: `class ${op.class_name} not present on #${op.id}` };
+            set.delete(op.class_name);
+          }
+          const nextClasses = Array.from(set).join(" ");
+          const newOpen = m
+            ? openTag.replace(classRe, nextClasses ? ` class="${nextClasses}"` : "")
+            : setAttribute(openTag, "class", nextClasses);
+          html = html.slice(0, found.start) + newOpen + html.slice(found.openEnd);
+          applied.push({ op: op.op, summary: `${op.op === "add_class" ? "Added" : "Removed"} class .${op.class_name} on #${op.id}`, charsAdded: Math.max(0, newOpen.length - openTag.length), charsRemoved: Math.max(0, openTag.length - newOpen.length) });
+          break;
+        }
+        case "insert_child": {
+          const found = findElementById(html, op.id);
+          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          const closeAt = closeStartOf(html, found);
+          const insertAt = op.position === "first" ? found.openEnd : closeAt;
+          html = html.slice(0, insertAt) + op.content + html.slice(insertAt);
+          applied.push({ op: op.op, summary: `Inserted ${op.position}-child in #${op.id}`, charsAdded: op.content.length, charsRemoved: 0 });
+          break;
+        }
+        case "update_inline_style": {
+          const found = findElementById(html, op.id);
+          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          const openTag = html.slice(found.start, found.openEnd);
+          const styleRe = /\sstyle\s*=\s*("([^"]*)"|'([^']*)')/i;
+          const m = styleRe.exec(openTag);
+          const current = m ? (m[2] ?? m[3] ?? "") : "";
+          const pairs = current.split(";").map((s) => s.trim()).filter(Boolean);
+          const next: string[] = [];
+          let replaced = false;
+          for (const p of pairs) {
+            const [k, ...rest] = p.split(":");
+            if (k && k.trim().toLowerCase() === op.property.toLowerCase()) {
+              if (op.value !== "") { next.push(`${op.property}: ${op.value}`); }
+              replaced = true;
+            } else {
+              next.push(`${k}:${rest.join(":")}`);
+            }
+          }
+          if (!replaced && op.value !== "") next.push(`${op.property}: ${op.value}`);
+          const nextStyle = next.join("; ");
+          const newOpen = m
+            ? openTag.replace(styleRe, nextStyle ? ` style="${nextStyle}"` : "")
+            : nextStyle ? setAttribute(openTag, "style", nextStyle) : openTag;
+          html = html.slice(0, found.start) + newOpen + html.slice(found.openEnd);
+          applied.push({ op: op.op, summary: `Set style ${op.property} on #${op.id}`, charsAdded: Math.max(0, newOpen.length - openTag.length), charsRemoved: Math.max(0, openTag.length - newOpen.length) });
+          break;
+        }
+        case "replace_css_rule": {
+          const styleRe = /<style\b[^>]*>([\s\S]*?)<\/style>/gi;
+          const selector = op.selector.trim();
+          const escSel = escapeRegex(selector);
+          const ruleRe = new RegExp(`${escSel}\\s*\\{[\\s\\S]*?\\}`, "g");
+          let replacedCount = 0;
+          html = html.replace(styleRe, (block, inner: string) => {
+            const updated = (inner as string).replace(ruleRe, () => {
+              replacedCount++;
+              return `${selector} { ${op.body.trim()} }`;
+            });
+            return block.replace(inner, updated);
+          });
+          if (replacedCount === 0) {
+            const r = appendCss(html, `${selector} { ${op.body.trim()} }`);
+            html = r.html;
+            applied.push({ op: op.op, summary: `Appended new CSS rule for ${selector}`, charsAdded: r.added, charsRemoved: 0 });
+          } else {
+            applied.push({ op: op.op, summary: `Replaced CSS rule(s) for ${selector} (${replacedCount})`, charsAdded: op.body.length, charsRemoved: 0 });
+          }
+          break;
+        }
+        case "replace_script_block": {
+          const marker = op.marker;
+          const scriptRe = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
+          let hit = false;
+          html = html.replace(scriptRe, (full, inner: string) => {
+            if (hit || !(inner as string).includes(marker)) return full;
+            hit = true;
+            return full.replace(inner as string, `\n${op.code}\n`);
+          });
+          if (!hit) return { ok: false, failedAt: i + 1, op: op.op, error: `no <script> block contains marker "${trunc(marker)}"` };
+          applied.push({ op: op.op, summary: `Replaced script block by marker (${trunc(marker)})`, charsAdded: op.code.length, charsRemoved: 0 });
+          break;
+        }
+        case "rename_id": {
+          const found = findElementById(html, op.from);
+          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.from} not found.` };
+          if (findElementById(html, op.to)) return { ok: false, failedAt: i + 1, op: op.op, error: `target id #${op.to} already exists.` };
+          const openTag = html.slice(found.start, found.openEnd);
+          const idRe = new RegExp(`(\\bid\\s*=\\s*["'])${escapeRegex(op.from)}(["'])`);
+          const newOpen = openTag.replace(idRe, `$1${op.to}$2`);
+          html = html.slice(0, found.start) + newOpen + html.slice(found.openEnd);
+          let refUpdates = 0;
+          if (op.update_references !== false) {
+            const hashRe = new RegExp(`(["'#])${escapeRegex(op.from)}(?=["'\\s#.\\[])`, "g");
+            html = html.replace(hashRe, (_m, p1: string) => { refUpdates++; return `${p1}${op.to}`; });
+          }
+          applied.push({ op: op.op, summary: `Renamed #${op.from} → #${op.to} (${refUpdates} refs)`, charsAdded: op.to.length, charsRemoved: op.from.length });
+          break;
+        }
+        case "update_json_block": {
+          try { JSON.parse(op.json); } catch (e) {
+            return { ok: false, failedAt: i + 1, op: op.op, error: `invalid JSON body: ${(e as Error).message}` };
+          }
+          const marker = op.marker;
+          const scriptRe = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+          let hit = false;
+          html = html.replace(scriptRe, (full, attrs: string, inner: string) => {
+            if (hit) return full;
+            const hasJsonType = /type\s*=\s*["']application\/json["']/i.test(attrs as string);
+            if (!hasJsonType || !(inner as string).includes(marker)) return full;
+            hit = true;
+            return full.replace(inner as string, `\n${op.json}\n`);
+          });
+          if (!hit) return { ok: false, failedAt: i + 1, op: op.op, error: `no <script type="application/json"> contains marker "${trunc(marker)}"` };
+          applied.push({ op: op.op, summary: `Updated JSON block (${trunc(marker)})`, charsAdded: op.json.length, charsRemoved: 0 });
+          break;
+        }
         default: {
           return { ok: false, failedAt: i + 1, op: null, error: "Unknown op type." };
         }
@@ -215,7 +367,18 @@ export function applyPatch(baseHtml: string, patch: Patch): ApplyResult {
   totalAdded = applied.reduce((s, a) => s + a.charsAdded, 0);
   totalRemoved = applied.reduce((s, a) => s + a.charsRemoved, 0);
 
-  return { ok: true, html, applied, charsAdded: totalAdded, charsRemoved: totalRemoved };
+  return {
+    ok: true,
+    html: options.dryRun ? baseHtml : html,
+    applied,
+    charsAdded: totalAdded,
+    charsRemoved: totalRemoved,
+  };
+}
+
+/** Preflight — apply as a dry-run to verify all ops resolve before mutating. */
+export function preflightPatch(baseHtml: string, patch: Patch): ApplyResult {
+  return applyPatch(baseHtml, patch, { dryRun: true });
 }
 
 function closeStartOf(html: string, found: { start: number; end: number; openEnd: number; tag: string }): number {

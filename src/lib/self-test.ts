@@ -12,6 +12,9 @@ import { extractOutline } from "./document-outline";
 import { repairHtml } from "./repair";
 import { extractDesignTokens, replaceColor, setCssVariable } from "./design-system";
 import { EMPTY_MEMORY, mergeMemory, lockKey } from "./project-memory";
+import { createPipeline } from "./pipeline";
+import { buildContext, nextTier } from "./staged-context";
+import { sanitizeErrorMessage, safeGet } from "./safe-storage";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
@@ -122,6 +125,85 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   const ambParsed = parsePatchResponse(ambJson);
   const ambResult = ambParsed.ok ? applyPatch("<html><body>x x</body></html>", ambParsed.patch) : { ok: false as const };
   results.push(assert(!ambResult.ok, "patch engine: ambiguous anchor rejected"));
+
+  // --- Patch engine V2 ops ---
+  const applyOp = (html: string, op: unknown) => {
+    const parsed = parsePatchResponse(JSON.stringify({ summary: "t", operations: [op] }));
+    if (!parsed.ok) return { ok: false as const, error: parsed.error };
+    return applyPatch(html, parsed.patch);
+  };
+  const removeRes = applyOp(SAMPLE_HTML, { op: "remove_element_by_id", id: "cta" });
+  results.push(assert(removeRes.ok && !removeRes.html.includes('id="cta"'), "patch v2: remove_element_by_id"));
+
+  const addClsRes = applyOp(SAMPLE_HTML, { op: "add_class", id: "hero", class_name: "big" });
+  results.push(assert(addClsRes.ok && /id="hero"[^>]*class="big"/.test(addClsRes.html), "patch v2: add_class"));
+
+  const withClass = '<!doctype html><html><body><h1 id="hero" class="big red">hi</h1></body></html>';
+  const rmClsRes = applyOp(withClass, { op: "remove_class", id: "hero", class_name: "red" });
+  results.push(assert(rmClsRes.ok && !/red/.test(rmClsRes.html), "patch v2: remove_class"));
+
+  const insChildRes = applyOp(SAMPLE_HTML, { op: "insert_child", id: "hero", position: "last", content: "<span>!</span>" });
+  results.push(assert(insChildRes.ok && insChildRes.html.includes("<span>!</span></h1>"), "patch v2: insert_child last"));
+
+  const styleRes = applyOp(SAMPLE_HTML, { op: "update_inline_style", id: "cta", property: "color", value: "red" });
+  results.push(assert(styleRes.ok && /style="color:\s*red"/.test(styleRes.html), "patch v2: update_inline_style"));
+
+  const cssHtml = '<!doctype html><html><head><style>.btn{color:blue}</style></head><body></body></html>';
+  const cssRes = applyOp(cssHtml, { op: "replace_css_rule", selector: ".btn", body: "color:green" });
+  results.push(assert(cssRes.ok && cssRes.html.includes("color:green") && !cssRes.html.includes("color:blue"), "patch v2: replace_css_rule"));
+
+  const scriptHtml = '<!doctype html><html><body><script>/*MARK-A*/ console.log(1)</script></body></html>';
+  const scriptRes = applyOp(scriptHtml, { op: "replace_script_block", marker: "MARK-A", code: "console.log(2)" });
+  results.push(assert(scriptRes.ok && scriptRes.html.includes("console.log(2)") && !scriptRes.html.includes("console.log(1)"), "patch v2: replace_script_block"));
+
+  const renameHtml = '<!doctype html><html><body><h1 id="hero">a</h1><a href="#hero">go</a></body></html>';
+  const renameRes = applyOp(renameHtml, { op: "rename_id", from: "hero", to: "banner" });
+  results.push(assert(renameRes.ok && /id="banner"/.test(renameRes.html) && /href="#banner"/.test(renameRes.html), "patch v2: rename_id updates refs"));
+
+  const jsonHtml = '<!doctype html><html><body><script type="application/json" id="d">/*MARK-CFG*/{"a":1}</script></body></html>';
+  const jsonRes = applyOp(jsonHtml, { op: "update_json_block", marker: "MARK-CFG", json: '{"a":2}' });
+  results.push(assert(jsonRes.ok && jsonRes.html.includes('{"a":2}'), "patch v2: update_json_block"));
+
+  const badJsonRes = applyOp(jsonHtml, { op: "update_json_block", marker: "MARK-CFG", json: "not json" });
+  results.push(assert(!badJsonRes.ok, "patch v2: invalid JSON rejected"));
+
+  // Dry-run does not mutate returned html
+  const preParsed = parsePatchResponse(JSON.stringify({ summary: "p", operations: [{ op: "remove_element_by_id", id: "cta" }] }));
+  if (preParsed.ok) {
+    const pre = applyPatch(SAMPLE_HTML, preParsed.patch, { dryRun: true });
+    results.push(assert(pre.ok && pre.html === SAMPLE_HTML && pre.applied.length === 1, "patch v2: dry-run preflight"));
+  }
+
+  // Transactional rollback: 2nd op fails → caller keeps original
+  const rbParsed = parsePatchResponse(JSON.stringify({
+    summary: "rb",
+    operations: [
+      { op: "replace_text", find: "Hello world", replace: "Hi" },
+      { op: "remove_element_by_id", id: "does-not-exist" },
+    ],
+  }));
+  if (rbParsed.ok) {
+    const rb = applyPatch(SAMPLE_HTML, rbParsed.patch);
+    results.push(assert(!rb.ok && !rb.ok && rb.failedAt === 2, "patch v2: transactional failure preserves stable doc"));
+  }
+
+  // --- Pipeline ---
+  const events: number[] = [];
+  const pipe = createPipeline((snap) => events.push(snap.filter((s) => s.status === "ok").length));
+  pipe.start("classify"); pipe.ok("classify");
+  pipe.start("plan"); pipe.ok("plan");
+  results.push(assert(events[events.length - 1] >= 2, "pipeline: emits stage snapshots"));
+
+  // --- Staged context ---
+  const bigHtml = '<!doctype html><html><body>' + 'lorem ipsum '.repeat(400) + '<h1 id="hero">Hello world</h1>' + 'dolor sit amet '.repeat(400) + '</body></html>';
+  const ctxMin = buildContext(bigHtml, 'change "Hello world"', "minimal");
+  const ctxFull = buildContext(bigHtml, 'change "Hello world"', "full");
+  results.push(assert(ctxMin.chars < ctxFull.chars && ctxMin.tier === "minimal", `staged-context: minimal(${ctxMin.chars}) < full(${ctxFull.chars})`));
+  results.push(assert(nextTier("minimal") === "nearby" && nextTier("full") === null, "staged-context: escalation order"));
+
+  // --- Safe storage ---
+  results.push(assert(sanitizeErrorMessage(new Error("Failed at https://x.co Bearer abc.def.ghi")).includes("[url]"), "safe: sanitize URL in error"));
+  results.push(assert(safeGet("__no_such_key__") === undefined, "safe: missing key returns undefined"));
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
