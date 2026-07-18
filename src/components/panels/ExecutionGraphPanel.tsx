@@ -61,7 +61,7 @@ export function ExecutionGraphPanel(props: {
               {m.model && <div className="obs-metric-row"><span>Model</span><b className="truncate">{m.model}</b></div>}
               {m.durationMs != null && <div className="obs-metric-row"><span>Duration</span><b><Clock className="inline h-3 w-3 mr-1" />{Math.round(m.durationMs)}ms</b></div>}
               <div className="obs-metric-row"><span>Cost tier</span><b>{m.costEstimate}</b></div>
-              <div className="obs-metric-row"><span>Validation</span><b className={m.validation?.status === "passed" ? "text-emerald-400" : m.validation?.status === "warn" ? "text-amber-300" : "text-red-400"}>{m.validation?.status ?? "—"}</b></div>
+              <div className="obs-metric-row"><span>Validation</span><b className={m.validation?.status === "passed" ? "text-emerald-400" : m.validation?.status === "warnings" ? "text-amber-300" : "text-red-400"}>{m.validation?.status ?? "—"}</b></div>
               <div className="obs-metric-row"><span>Doc changed</span><b>{m.documentChanged ? "yes" : "no"}</b></div>
               {m.patchOperationCount != null && <div className="obs-metric-row"><span>Patch ops</span><b>{m.patchOperationCount}</b></div>}
               {(m.charactersAdded != null || m.charactersRemoved != null) && (
