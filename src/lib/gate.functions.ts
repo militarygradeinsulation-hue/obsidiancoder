@@ -1,11 +1,9 @@
 import { createServerFn } from "@tanstack/react-start";
-import { redirect } from "@tanstack/react-router";
 
 export const ensureUnlocked = createServerFn({ method: "GET" }).handler(async () => {
   const { isUnlockedServer } = await import("./gate.server");
   const unlocked = await isUnlockedServer();
-  if (!unlocked) throw redirect({ to: "/unlock" });
-  return { unlocked: true as const };
+  return { unlocked };
 });
 
 export const unlockSite = createServerFn({ method: "POST" })
