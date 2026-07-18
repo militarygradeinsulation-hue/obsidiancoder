@@ -150,8 +150,23 @@ function Index() {
     "✓ No errors found",
   ]);
   const [lastMetrics, setLastMetrics] = useState<GenerationMetrics | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
+  const [paletteQuery, setPaletteQuery] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen((v) => !v);
+      } else if (e.key === "Escape") {
+        setPaletteOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   function stopGeneration() {
     abortRef.current?.abort();
@@ -764,11 +779,11 @@ function Index() {
           </button>
         </div>
 
-        <div className="obs-search">
+        <button type="button" className="obs-search" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
           <Search className="h-3.5 w-3.5 obs-search-icon" strokeWidth={1.6} />
-          <input placeholder="Search anything…" className="obs-search-input" />
+          <span className="obs-search-input" style={{ background: "transparent", border: 0, textAlign: "left", color: "inherit" }}>Search anything…</span>
           <kbd className="obs-kbd">⌘ K</kbd>
-        </div>
+        </button>
 
         <div className="obs-section-label">Workspace</div>
         <nav className="obs-nav">
@@ -1342,6 +1357,78 @@ function Index() {
           </div>
         </div>
       </section>
+
+      {paletteOpen && (
+        <div className="obs-palette-scrim" onClick={() => setPaletteOpen(false)}>
+          <div className="obs-palette" onClick={(e) => e.stopPropagation()} role="dialog" aria-label="Command palette">
+            <div className="obs-palette-head">
+              <Search className="h-4 w-4" strokeWidth={1.6} />
+              <input
+                autoFocus
+                value={paletteQuery}
+                onChange={(e) => setPaletteQuery(e.target.value)}
+                placeholder="Run a command, jump to a tab, or ask AI…"
+                className="obs-palette-input"
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && paletteQuery.trim()) {
+                    const q = paletteQuery.trim();
+                    setPaletteOpen(false);
+                    setPaletteQuery("");
+                    submit(q);
+                  }
+                }}
+              />
+              <kbd className="obs-kbd">ESC</kbd>
+            </div>
+            <div className="obs-palette-list">
+              {[
+                { label: "New tab", run: () => { setPaletteOpen(false); addSession(); } },
+                { label: "Clear this session", run: () => { setPaletteOpen(false); clearAll(); } },
+                { label: "Toggle Preview / Code", run: () => { setPaletteOpen(false); setTab(tab === "preview" ? "code" : "preview"); } },
+                { label: "Desktop view", run: () => { setPaletteOpen(false); setDevice("desktop"); } },
+                { label: "Mobile view", run: () => { setPaletteOpen(false); setDevice("mobile"); } },
+                { label: "Go Live (open current build)", run: () => {
+                  setPaletteOpen(false);
+                  if (!current.html) return;
+                  const blob = new Blob([current.html], { type: "text/html" });
+                  window.open(URL.createObjectURL(blob), "_blank", "noopener,noreferrer");
+                } },
+                ...MODES.map((m) => ({
+                  label: `Mode: ${m.label} — ${m.hint}`,
+                  run: () => { setPaletteOpen(false); updateCurrent({ mode: m.id }); },
+                })),
+                ...sessions.map((s) => ({
+                  label: `Jump to tab: ${s.title}`,
+                  run: () => { setPaletteOpen(false); setActiveId(s.id); },
+                })),
+              ]
+                .filter((c) => !paletteQuery || c.label.toLowerCase().includes(paletteQuery.toLowerCase()))
+                .slice(0, 12)
+                .map((c) => (
+                  <button key={c.label} type="button" className="obs-palette-item" onClick={c.run}>
+                    <span>{c.label}</span>
+                    <ArrowRight className="h-3 w-3 opacity-60" />
+                  </button>
+                ))}
+              {paletteQuery.trim() && (
+                <button
+                  type="button"
+                  className="obs-palette-item obs-palette-run"
+                  onClick={() => {
+                    const q = paletteQuery.trim();
+                    setPaletteOpen(false);
+                    setPaletteQuery("");
+                    submit(q);
+                  }}
+                >
+                  <span>Send to Obsidian AI: “{paletteQuery.trim().slice(0, 60)}”</span>
+                  <ArrowRight className="h-3 w-3" />
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </main>
   );
 }
