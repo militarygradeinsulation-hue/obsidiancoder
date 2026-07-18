@@ -2,6 +2,8 @@ import { createFileRoute, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { unlockSite } from "@/lib/gate.functions";
+import logoAsset from "@/assets/aetheris-logo.png.asset.json";
+
 
 export const Route = createFileRoute("/unlock")({
   head: () => ({
