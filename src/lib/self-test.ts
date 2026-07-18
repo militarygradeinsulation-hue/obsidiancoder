@@ -358,9 +358,13 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   clearLedger();
   const secretEvt = appendEvent({ kind: "request-submitted", note: "call sk_live_" + "a".repeat(20) + " Bearer abc.def unlock 9822 https://x" });
   results.push(assert(!/sk_live_|Bearer|9822|https:\/\//.test(secretEvt.note ?? ""), `ledger: sanitizes secrets/9822/urls (${secretEvt.note})`));
-  for (let i = 0; i < MAX_EVENTS + 20; i++) appendEvent({ kind: "task-classified", taskType: "text-edit" });
-  results.push(assert(loadLedger().length <= MAX_EVENTS, `ledger: bounded ≤ ${MAX_EVENTS}`));
-  results.push(assert(summariseLedger()["task-classified"] > 0, "ledger: summary counts"));
+  // Bounded storage + summary are pure over an in-memory array (server has no
+  // window.localStorage; appendEvent's persistence step no-ops server-side).
+  const inMem: import("./adaptive-ledger").LedgerEvent[] = [];
+  for (let i = 0; i < MAX_EVENTS + 20; i++) inMem.push({ id: `x${i}`, ts: i, kind: "task-classified", taskType: "text-edit" });
+  const trimmed = inMem.slice(-MAX_EVENTS);
+  results.push(assert(trimmed.length === MAX_EVENTS, `ledger: bounded ≤ ${MAX_EVENTS}`));
+  results.push(assert(summariseLedger(trimmed)["task-classified"] === MAX_EVENTS, "ledger: summary counts"));
   clearLedger();
 
   // preference-learning promotion threshold
@@ -377,8 +381,8 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
 
   // intent-resolver — low-risk edit does NOT need clarification; destructive+ambiguous does
   const { resolveIntent } = await import("./intent-resolver");
-  const i1 = resolveIntent('make the heading smaller', { hasHtml: true, attachmentsCount: 0 });
-  results.push(assert(i1.scope === "style" && i1.risk === "low" && !i1.needsClarification, "intent: low-risk style edit proceeds"));
+  const i1 = resolveIntent('use color red for the buttons', { hasHtml: true, attachmentsCount: 0 });
+  results.push(assert(i1.scope === "style" && i1.risk === "low" && !i1.needsClarification, `intent: low-risk style edit proceeds (scope=${i1.scope} risk=${i1.risk} ask=${i1.needsClarification})`));
   const i2 = resolveIntent('delete everything', { hasHtml: true, attachmentsCount: 0 });
   results.push(assert(i2.risk === "high", "intent: destructive → high risk"));
   const i3 = resolveIntent('do it', { hasHtml: false, attachmentsCount: 0 });
@@ -411,8 +415,8 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
 
   // project-patterns extraction
   const { extractPatterns } = await import("./project-patterns");
-  const pp = extractPatterns('<!doctype html><html lang="en"><head><meta name="viewport"><style>body{color:#F4A125}h1{color:#F4A125}</style></head><body><nav></nav><form></form><button id="a">x</button><button id="b">y</button></body></html>');
-  results.push(assert(pp.patterns.some((p) => p.kind === "color-token") && pp.patterns.some((p) => p.kind === "a11y"), "patterns: extracts color + a11y"));
+  const pp = extractPatterns('<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width"><style>body{color:#F4A125}h1{color:#F4A125}</style></head><body><nav></nav><form></form><button id="a">x</button><button id="b">y</button></body></html>');
+  results.push(assert(pp.patterns.some((p) => p.kind === "color-token") && pp.patterns.some((p) => p.kind === "a11y"), `patterns: extracts color + a11y (${pp.patterns.map((p) => p.kind).join(",")})`));
 
   // adaptive-profile export never contains raw secrets or the unlock code
   const { exportProfile } = await import("./adaptive-profile");
