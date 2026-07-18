@@ -10,12 +10,20 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
+import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
+import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -28,35 +36,75 @@ const ApiGenerateRoute = ApiGenerateRouteImport.update({
   path: '/api/generate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
+  id: '/api/public/builds',
+  path: '/api/public/builds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBuildsIdRoute = ApiPublicBuildsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiPublicBuildsRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sitemap.xml' | '/api/generate'
+  fullPaths:
+    | '/'
+    | '/gallery'
+    | '/sitemap.xml'
+    | '/api/generate'
+    | '/api/public/builds'
+    | '/api/public/builds/$id'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sitemap.xml' | '/api/generate'
-  id: '__root__' | '/' | '/sitemap.xml' | '/api/generate'
+  to:
+    | '/'
+    | '/gallery'
+    | '/sitemap.xml'
+    | '/api/generate'
+    | '/api/public/builds'
+    | '/api/public/builds/$id'
+  id:
+    | '__root__'
+    | '/'
+    | '/gallery'
+    | '/sitemap.xml'
+    | '/api/generate'
+    | '/api/public/builds'
+    | '/api/public/builds/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  GalleryRoute: typeof GalleryRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
+  ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -66,6 +114,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -82,13 +137,41 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiGenerateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/builds': {
+      id: '/api/public/builds'
+      path: '/api/public/builds'
+      fullPath: '/api/public/builds'
+      preLoaderRoute: typeof ApiPublicBuildsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/builds/$id': {
+      id: '/api/public/builds/$id'
+      path: '/$id'
+      fullPath: '/api/public/builds/$id'
+      preLoaderRoute: typeof ApiPublicBuildsIdRouteImport
+      parentRoute: typeof ApiPublicBuildsRoute
+    }
   }
 }
 
+interface ApiPublicBuildsRouteChildren {
+  ApiPublicBuildsIdRoute: typeof ApiPublicBuildsIdRoute
+}
+
+const ApiPublicBuildsRouteChildren: ApiPublicBuildsRouteChildren = {
+  ApiPublicBuildsIdRoute: ApiPublicBuildsIdRoute,
+}
+
+const ApiPublicBuildsRouteWithChildren = ApiPublicBuildsRoute._addFileChildren(
+  ApiPublicBuildsRouteChildren,
+)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  GalleryRoute: GalleryRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   ApiGenerateRoute: ApiGenerateRoute,
+  ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
