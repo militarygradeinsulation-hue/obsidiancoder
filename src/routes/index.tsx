@@ -684,7 +684,14 @@ function Index() {
           abortRef.current = null;
           return;
         }
-        setTerminal((t) => [...t, `✗ Patch route error: ${(err as Error).message.slice(0, 120)} — falling back.`]);
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch route error: ${(err as Error).message.slice(0, 160)} — preview unchanged.` }] }
+          : s));
+        setTerminal((t) => [...t, `✗ Patch route error: ${(err as Error).message.slice(0, 120)} — preview unchanged.`]);
+        setLoading(false); setStage(null);
+        abortRef.current = null;
+        return;
+
       } finally {
         abortRef.current = null;
       }
