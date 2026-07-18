@@ -432,6 +432,8 @@ function Index() {
       title: isFirstUserMsg ? (basePrompt || pendingAttachments[0]?.name || "Untitled").slice(0, 28) : current.title,
     });
     setLoading(true);
+    setStage("classify");
+    setStageDetail(classification.taskType);
     setTerminal((t) => [...t, `→ [${classification.taskType}] via ${classification.executionPath}`]);
     const sessionId = activeId;
 
