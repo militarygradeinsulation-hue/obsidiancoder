@@ -712,14 +712,11 @@ function Index() {
 
           const patchParsed = patchSchema.safeParse(pJson.patch);
           if (!patchParsed.success) {
-            setSessions((all) => all.map((s) => s.id === sessionId
-              ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch schema rejected — preview unchanged.` }] }
-              : s));
-            setTerminal((t) => [...t, `✗ Patch schema rejected — preview unchanged.`]);
-            setLoading(false); setStage(null);
+            setTerminal((t) => [...t, `✗ Patch schema rejected — falling back to full AI generation.`]);
             abortRef.current = null;
-            return;
+            break patchAttempt;
           } else if (patchParsed.data.operations.length === 0) {
+
             // Legitimate escape hatch: model explicitly deferred to full generation.
             setTerminal((t) => [...t, `· Model deferred to full generation (empty patch).`]);
 
