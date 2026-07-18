@@ -156,7 +156,16 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
         case "insert_before":
         case "insert_after": {
           const count = countOccurrences(html, op.anchor);
-          if (count === 0) return { ok: false, failedAt: i + 1, op: op.op, error: `${op.op} anchor not found: "${op.anchor.slice(0, 60)}"` };
+          if (count === 0) {
+            // Fallback: append content just before </body> so the patch still lands
+            const bodyClose = html.lastIndexOf("</body>");
+            if (bodyClose === -1) {
+              return { ok: false, failedAt: i + 1, op: op.op, error: `${op.op} anchor not found and no </body> fallback: "${op.anchor.slice(0, 60)}"` };
+            }
+            html = html.slice(0, bodyClose) + op.content + html.slice(bodyClose);
+            applied.push({ op: op.op, summary: `Anchor "${trunc(op.anchor)}" missing — appended content before </body>`, charsAdded: op.content.length, charsRemoved: 0 });
+            break;
+          }
           if (count > 1) return { ok: false, failedAt: i + 1, op: op.op, error: `${op.op} anchor is ambiguous (${count} matches).` };
           const idx = html.indexOf(op.anchor);
           if (op.op === "insert_before") {
@@ -168,6 +177,7 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
           applied.push({ op: op.op, summary: `${op.op === "insert_before" ? "Inserted before" : "Inserted after"} "${trunc(op.anchor)}"`, charsAdded: op.content.length, charsRemoved: 0 });
           break;
         }
+
         case "replace_element_by_id": {
           const found = findElementById(html, op.id);
           if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found (or unmatched tag).` };
