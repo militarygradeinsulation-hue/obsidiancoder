@@ -6,19 +6,26 @@ import {
   FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
-  History, RotateCcw, Trash2, Square,
+  Trash2, Square,
 } from "lucide-react";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { classifyTask } from "@/lib/task-classifier";
 import { tryDeterministicEdit } from "@/lib/deterministic-edits";
-import { validateHtml } from "@/lib/validation";
+import { validateHtml, blockingIssues } from "@/lib/validation";
 import { metricsFromClassification, formatDuration, type GenerationMetrics } from "@/lib/generation-metrics";
 import { extractOutline, outlineToPrompt } from "@/lib/document-outline";
 import { EMPTY_MEMORY, memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
-import { applyPatch } from "@/lib/patch-engine";
+import { applyPatch, preflightPatch } from "@/lib/patch-engine";
 import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
+import { repairHtml } from "@/lib/repair";
+import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import type { VersionMetadata, RepairAttempt } from "@/lib/version-metadata";
+import { MemoryPanel } from "@/components/panels/MemoryPanel";
+import { VersionHistoryPanel, type UiVersion } from "@/components/panels/VersionHistoryPanel";
+import { DesignSystemPanel } from "@/components/panels/DesignSystemPanel";
+import { createPipeline, type StageName, type StageState } from "@/lib/pipeline";
 
 
 
