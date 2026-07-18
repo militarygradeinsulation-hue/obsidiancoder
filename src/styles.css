@@ -1152,21 +1152,32 @@
 /* ---- Right rail ---- */
 .obs-rail {
   display: flex; flex-direction: column;
-  gap: 14px;
+  gap: 8px;
   min-width: 0;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding-right: 2px;
+  scrollbar-width: thin;
+  scrollbar-color: #1a1e28 transparent;
 }
+.obs-rail::-webkit-scrollbar { width: 6px; }
+.obs-rail::-webkit-scrollbar-thumb { background: #1a1e28; border-radius: 3px; }
+.obs-rail::-webkit-scrollbar-track { background: transparent; }
 .obs-card {
   background: #0A0C0F;
   border: 1px solid #141821;
   border-radius: 8px;
   display: flex; flex-direction: column;
   min-width: 0;
+  flex-shrink: 0;
 }
 .obs-card-head {
   display: flex; align-items: center; justify-content: space-between;
-  padding: 12px 14px;
+  padding: 8px 12px;
   border-bottom: 1px solid #141821;
 }
+
 .obs-card-label {
   font-size: 10px;
   letter-spacing: 0.14em;
