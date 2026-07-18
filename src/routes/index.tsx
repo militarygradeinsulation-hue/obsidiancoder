@@ -326,17 +326,24 @@ function Index() {
     setLoading(true);
     setTerminal((t) => [...t, `→ Building: "${(basePrompt || pendingAttachments[0]?.name || "attachment").slice(0, 40)}…"`]);
     const sessionId = activeId;
+    const activeMode = current.mode;
+    // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
+    const previewMode = activeMode !== "chat" && activeMode !== "plan";
+    const modelForServer = resolveModel(current.model);
     const t0 = performance.now();
+    const controller = new AbortController();
+    abortRef.current = controller;
     try {
       const res = await fetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          currentHtml: current.html,
+          currentHtml: previewMode ? current.html : "",
           history: current.messages.slice(-4),
-          model: current.model,
+          model: modelForServer,
         }),
+        signal: controller.signal,
       });
       if (!res.ok || !res.body) {
         const text = await res.text().catch(() => "AI request failed");
@@ -348,14 +355,15 @@ function Index() {
       let firstChunkAt = 0;
       // Throttle preview updates so we don't re-render the iframe on every token
       let lastPaint = 0;
-      const paint = (force = false) => {
+      const paintPreview = (force = false) => {
+        if (!previewMode) return;
         const now = performance.now();
         if (!force && now - lastPaint < 120) return;
         lastPaint = now;
         const cleaned = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
         setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: cleaned } : s));
       };
-      setTab("preview");
+      if (previewMode) setTab("preview");
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
@@ -364,8 +372,19 @@ function Index() {
           firstChunkAt = performance.now();
           setTerminal((t) => [...t, `→ First token in ${Math.round(firstChunkAt - t0)}ms`]);
         }
-        paint();
+        paintPreview();
       }
+
+      if (!previewMode) {
+        // Advisory reply — surface as an assistant chat message; do NOT touch the preview.
+        const reply = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim() || "(no response)";
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, messages: [...s.messages, { role: "assistant", content: reply }] }
+          : s));
+        setTerminal((t) => [...t, `✓ ${activeMode === "chat" ? "Chat" : "Plan"} response ready`]);
+        return;
+      }
+
       let finalHtml = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
       if (!/<!doctype|<html/i.test(finalHtml)) {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
@@ -387,7 +406,7 @@ function Index() {
         : s));
       const ms = Math.round(performance.now() - t0);
       setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
-      // Auto-save every build to the shared gallery (cross-browser, cross-IP)
+      // Auto-save every build to the private gallery (admin-gated read).
       try {
         let clientId = localStorage.getItem("obs.client_id");
         if (!clientId) {
@@ -401,23 +420,31 @@ function Index() {
             title: versionLabel,
             prompt: basePrompt,
             html: finalHtml,
-            model: current.model,
+            model: modelForServer,
             session_id: sessionId,
             client_id: clientId,
           }),
         })
           .then((r) => (r.ok ? r.json() : null))
-          .then((d) => d?.id && setTerminal((t) => [...t, `✓ Saved to gallery (${String(d.id).slice(0, 8)})`]))
+          .then((d) => d?.id && setTerminal((t) => [...t, `✓ Saved (${String(d.id).slice(0, 8)})`]))
           .catch(() => {});
       } catch {}
     } catch (err) {
-      const msg = err instanceof Error ? err.message : "Something went wrong.";
-      setError(msg);
-      setSessions((all) => all.map((s) => s.id === sessionId
-        ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ ${msg}` }] }
-        : s));
-      setTerminal((t) => [...t, `✗ ${msg}`]);
+      if ((err as { name?: string })?.name === "AbortError") {
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, messages: [...s.messages, { role: "assistant", content: "■ Stopped." }] }
+          : s));
+        setTerminal((t) => [...t, "■ Stopped by user"]);
+      } else {
+        const msg = err instanceof Error ? err.message : "Something went wrong.";
+        setError(msg);
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ ${msg}` }] }
+          : s));
+        setTerminal((t) => [...t, `✗ ${msg}`]);
+      }
     } finally {
+      abortRef.current = null;
       setLoading(false);
     }
   }
