@@ -1127,13 +1127,15 @@
 .obs-preview-wrap {
   flex: 1;
   min-height: 0;
-  background: #0d0f12;
+  background: #050607;
   border: 1px solid #141821;
   border-radius: 8px;
   overflow: hidden;
   position: relative;
   transition: max-width .3s ease;
   isolation: isolate;
+  padding: 14px;
+  display: flex;
 }
 .obs-preview-wrap.is-mobile {
   max-width: 420px;
@@ -1141,10 +1143,19 @@
   width: 100%;
 }
 .obs-preview-wrap > canvas,
-.obs-preview-wrap > .obs-matrix { z-index: 0; }
+.obs-preview-wrap > .obs-matrix {
+  position: absolute; inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
 .obs-preview-wrap > .obs-preview,
 .obs-preview-wrap > .obs-code,
-.obs-preview-wrap > .obs-preview-empty { position: relative; z-index: 2; }
+.obs-preview-wrap > .obs-preview-empty {
+  position: relative; z-index: 2;
+  flex: 1;
+  border-radius: 6px;
+  box-shadow: 0 0 0 1px #141821, 0 20px 60px rgba(0,0,0,0.55);
+}
 .obs-preview-wrap > .obs-preview-loading { z-index: 3; }
 .obs-preview { width: 100%; height: 100%; min-height: 0; border: 0; display: block; background: #fff; }
 .obs-preview-empty {
