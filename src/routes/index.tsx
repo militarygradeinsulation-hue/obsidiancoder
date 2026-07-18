@@ -477,7 +477,6 @@ function Index() {
 
           const durationMs = performance.now() - t0;
           setTerminal((t) => [...t, `✓ Deterministic edit in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
-          const detDiff = diffSummary(stableHtml, det.html);
           setLastMetrics(metricsFromClassification(classification, {
             usedAi: false,
             model: null,
