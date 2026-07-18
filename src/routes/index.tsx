@@ -345,19 +345,57 @@ function Index() {
   }
 
   // Deterministic bounded repair — one pass. Returns repaired html + attempt record.
-  function tryLocalRepair(html: string, reason: string): { html: string; attempt: RepairAttempt } {
-    const t = performance.now();
-    const r = repairHtml(html);
+  function tryLocalRepair(html: string, issues: ReturnType<typeof validateHtml>["issues"]): { html: string; attempt: RepairAttempt; passed: boolean } {
+    const r = repairHtml(html, issues);
     const v = validateHtml(r.html);
     return {
       html: r.html,
-      attempt: {
-        source: "deterministic",
-        appliedFixes: r.appliedFixes,
-        reason,
-        durationMs: performance.now() - t,
-        succeeded: v.status !== "failed",
+      passed: v.status !== "failed",
+      attempt: { kind: "deterministic", fixes: r.fixes, usedCredits: false },
+    };
+  }
+
+  function buildMetadata(input: {
+    request: string;
+    classification: ReturnType<typeof classifyTask>;
+    strategy: VersionMetadata["strategy"];
+    model: string;
+    durationMs: number;
+    contextTier?: VersionMetadata["contextTier"];
+    contextChars?: number;
+    patchOperations?: number;
+    charsAdded: number;
+    charsRemoved: number;
+    changed: boolean;
+    validation: ReturnType<typeof validateHtml>;
+    repairAttempts?: RepairAttempt[];
+  }): VersionMetadata {
+    const bIssues = blockingIssues(input.validation.issues);
+    const warnings = input.validation.issues.filter((i) => i.severity === "warning").length;
+    const info = input.validation.issues.filter((i) => i.severity === "info").length;
+    return {
+      id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
+      createdAt: Date.now(),
+      request: input.request,
+      taskType: input.classification.taskType,
+      strategy: input.strategy,
+      model: input.model,
+      tier: input.classification.recommendedTier ?? "flagship",
+      durationMs: Math.round(input.durationMs),
+      contextTier: input.contextTier ?? "none",
+      contextChars: input.contextChars ?? 0,
+      patchOperations: input.patchOperations,
+      charsAdded: input.charsAdded,
+      charsRemoved: input.charsRemoved,
+      changed: input.changed,
+      validation: {
+        status: input.validation.status,
+        summary: input.validation.summary,
+        blocking: bIssues.length,
+        warnings,
+        info,
       },
+      repairAttempts: input.repairAttempts ?? [],
     };
   }
 
