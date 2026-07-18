@@ -323,6 +323,35 @@ function Index() {
     setSessions((all) => all.map((s) => (s.id === activeId ? { ...s, ...patch } : s)));
   }
 
+  function scrollRailTo(anchorId: string) {
+    requestAnimationFrame(() => {
+      document.getElementById(anchorId)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
+
+  function handleNav(id: string) {
+    setActiveNav(id);
+    setSidebarOpen(false);
+    switch (id) {
+      case "home":       setTab("preview"); break;
+      case "projects":   setPaletteOpen(true); setPaletteQuery("Jump to tab:"); break;
+      case "notes":      setRailGroup("agent"); scrollRailTo("rail-memory"); break;
+      case "files":      setRailGroup("build"); scrollRailTo("rail-files"); break;
+      case "code":       setTab("code"); break;
+      case "snippets":   setRailGroup("build"); scrollRailTo("rail-components"); break;
+      case "agents":     setRailGroup("agent"); scrollRailTo("rail-agent"); break;
+      case "tasks":      setRailGroup("build"); scrollRailTo("rail-flow"); break;
+      case "databases":  break; // disabled; no connector
+      case "ai-chat":    setRailGroup("agent"); scrollRailTo("rail-agent"); requestAnimationFrame(() => composerRef.current?.focus()); break;
+      case "code-assist": setTab("code"); updateCurrent({ mode: "dev" }); break;
+      case "terminal":   setRailGroup("agent"); scrollRailTo("rail-terminal"); break;
+      case "playground": setTab("preview"); break;
+      case "git":        setRailGroup("ship"); scrollRailTo("rail-git"); break;
+      case "deploy":     setRailGroup("ship"); scrollRailTo("rail-deploy"); break;
+      case "settings":   setPaletteOpen(true); break;
+    }
+  }
+
   function addSession() {
     const s = newSession();
     setSessions((all) => [...all, s]);
