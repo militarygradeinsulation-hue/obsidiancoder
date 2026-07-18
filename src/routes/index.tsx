@@ -1199,6 +1199,7 @@ function Index() {
             <div className={"obs-preview-wrap " + (device === "mobile" ? "is-mobile" : "")}>
               {tab === "preview" ? (
                 <iframe
+                  ref={iframeRef}
                   title="Obsidian preview"
                   srcDoc={previewSrcDoc}
                   sandbox="allow-scripts"
