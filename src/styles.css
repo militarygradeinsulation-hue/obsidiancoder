@@ -29,6 +29,7 @@
 
 :root {
   --radius: 1rem;
+  --amber-glow: 36 90% 55%;
 
   /* ===== Obsidian Design System palette (spec) ===== */
   --obsidian-black: #050607;
