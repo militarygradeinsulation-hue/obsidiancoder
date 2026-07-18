@@ -1508,8 +1508,18 @@ function Index() {
             )}
 
             {/* Trust Dashboard — Obsidian Core 3.0 evidence-based confidence */}
-            <TrustDashboard html={current.html} />
-            <RulesPanel html={current.html} />
+            <TrustDashboard html={current.html} runtimeErrors={countRuntimeBlockers(current.runtimeEvents ?? [])} />
+            <ExecutionGraphPanel currentStage={stage} stageDetail={stageDetail} loading={loading} lastMetrics={lastMetrics} />
+            <RuntimePanel
+              events={current.runtimeEvents ?? []}
+              onClear={() => updateCurrent({ runtimeEvents: [] })}
+            />
+            <RulesPanel
+              html={current.html}
+              rules={current.rules ?? reconcileRules(undefined)}
+              onRulesChange={(rules) => updateCurrent({ rules })}
+            />
+            <CostPanel snapshot={current.cost ?? EMPTY_COST} />
 
             {/* Project Memory */}
             <div className="obs-card">
