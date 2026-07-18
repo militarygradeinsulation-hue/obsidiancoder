@@ -36,13 +36,26 @@ Hard rules:
 
 type PlannedImage = { slot: string; prompt: string; url: string };
 
+const VISUAL_KEYWORDS = /\b(image|images|photo|photos|picture|pictures|illustration|logo|banner|hero|portfolio|gallery|avatar|thumbnail|artwork|painting|poster|screenshot)\b/i;
+
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const t = setTimeout(() => reject(new Error("timeout")), ms);
+    p.then((v) => { clearTimeout(t); resolve(v); }, (e) => { clearTimeout(t); reject(e); });
+  });
+}
+
 async function planAndGenerateImages(
   apiKey: string,
   prompt: string,
   currentHtml: string,
 ): Promise<PlannedImage[]> {
+  // Fast gate: skip the planner unless the prompt clearly wants visuals.
+  // This alone eliminates ~15s of upstream calls on most requests and
+  // prevents the edge from 502'ing on time-to-first-byte.
+  if (!VISUAL_KEYWORDS.test(prompt)) return [];
   try {
-    const planRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    const planRes = await withTimeout(fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
@@ -51,7 +64,7 @@ async function planAndGenerateImages(
           {
             role: "system",
             content:
-              'Decide if this web build needs real generated images. Return ONLY JSON: {"images":[{"slot":"hero|card|logo|bg|icon","prompt":"detailed visual prompt, no text-in-image"}]}. Include images ONLY if the user explicitly asks for a visual (image, photo, picture, illustration, logo, banner, hero) OR the build is inherently visual (portfolio, gallery, product landing). Otherwise {"images":[]}. Max 3.',
+              'Decide if this web build needs real generated images. Return ONLY JSON: {"images":[{"slot":"hero|card|logo|bg|icon","prompt":"detailed visual prompt, no text-in-image"}]}. Include images ONLY if the user explicitly asks for a visual OR the build is inherently visual (portfolio, gallery, product landing). Otherwise {"images":[]}. Max 2.',
           },
           {
             role: "user",
@@ -60,19 +73,19 @@ async function planAndGenerateImages(
         ],
         response_format: { type: "json_object" },
       }),
-    });
+    }), 4000);
     if (!planRes.ok) return [];
     const planJson = (await planRes.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const parsed = JSON.parse(planJson.choices?.[0]?.message?.content ?? "{}");
     const plans: Array<{ slot?: string; prompt: string }> = Array.isArray(parsed.images)
-      ? parsed.images.filter((x: unknown) => !!x && typeof (x as { prompt?: unknown }).prompt === "string").slice(0, 3)
+      ? parsed.images.filter((x: unknown) => !!x && typeof (x as { prompt?: unknown }).prompt === "string").slice(0, 2)
       : [];
     if (!plans.length) return [];
 
     const results = await Promise.all(
       plans.map(async (p): Promise<PlannedImage | null> => {
         try {
-          const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+          const r = await withTimeout(fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
             method: "POST",
             headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
             body: JSON.stringify({
@@ -80,7 +93,7 @@ async function planAndGenerateImages(
               messages: [{ role: "user", content: p.prompt }],
               modalities: ["image", "text"],
             }),
-          });
+          }), 8000);
           if (!r.ok) return null;
           const j = (await r.json()) as { data?: Array<{ b64_json?: string }> };
           const b64 = j.data?.[0]?.b64_json;
