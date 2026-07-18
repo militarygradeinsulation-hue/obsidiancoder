@@ -705,14 +705,11 @@ function Index() {
           | { ok: false; error: string; fallbackUsed: boolean; model: string };
 
         if (!pJson.ok) {
-          setSessions((all) => all.map((s) => s.id === sessionId
-            ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch could not be generated: ${pJson.error.slice(0, 160)} — preview unchanged.` }] }
-            : s));
-          setTerminal((t) => [...t, `✗ Patch invalid: ${pJson.error.slice(0, 120)} — preview unchanged.`]);
-          setLoading(false); setStage(null);
+          setTerminal((t) => [...t, `✗ Patch invalid: ${pJson.error.slice(0, 120)} — falling back to full AI generation.`]);
           abortRef.current = null;
-          return;
+          break patchAttempt;
         } else {
+
           const patchParsed = patchSchema.safeParse(pJson.patch);
           if (!patchParsed.success) {
             setSessions((all) => all.map((s) => s.id === sessionId
