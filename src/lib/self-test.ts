@@ -309,7 +309,7 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   lib = renameComponent(lib, cc1.id, "Hero1");
   lib = deleteComponent(lib, cc1.id);
   results.push(assert(lib.length === 1 && lib[0].name === "Hero copy", "components: rename + delete"));
-  results.push(assert(!insertMarkup(lib[0]).includes("<style>"), "components: insertMarkup handles no css"));
+  results.push(assert(insertMarkup(lib[0]).includes("<section>Hi</section>"), "components: insertMarkup emits html"));
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
