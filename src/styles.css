@@ -1214,11 +1214,12 @@
 
 /* Chat inside AI Agent card */
 .obs-chat {
-  padding: 12px 14px;
-  display: flex; flex-direction: column; gap: 8px;
-  max-height: 240px;
+  padding: 10px 12px;
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 180px;
   overflow-y: auto;
 }
+
 .obs-msg {
   padding: 9px 12px;
   font-size: 12.5px;
