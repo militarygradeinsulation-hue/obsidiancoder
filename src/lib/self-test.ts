@@ -41,7 +41,7 @@ const SAMPLE_HTML = `<!doctype html><html><head><title>Sample</title></head><bod
 <button id="cta">Click me</button>
 </body></html>`;
 
-export function runSelfTests(): { results: TestResult[]; passed: number; failed: number } {
+export async function runSelfTests(): Promise<{ results: TestResult[]; passed: number; failed: number }> {
   const results: TestResult[] = [];
 
   // Classifier
