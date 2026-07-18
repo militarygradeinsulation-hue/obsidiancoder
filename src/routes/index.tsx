@@ -196,19 +196,19 @@ function Index() {
   const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [terminal, setTerminal] = useState<string[]>([
-    "✓ Compiled successfully in 842ms",
-    "✓ Preview ready",
-    "→ Local: http://localhost:5173",
-    "✓ No errors found",
+    "· Sandbox ready — no build yet",
   ]);
   const [lastMetrics, setLastMetrics] = useState<GenerationMetrics | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
   const [stage, setStage] = useState<StageName | null>(null);
   const [stageDetail, setStageDetail] = useState<string>("");
+  const [railGroup, setRailGroup] = useState<RailGroupId>("all");
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const composerRef = useRef<HTMLInputElement>(null);
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
   const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection>(null);
 
