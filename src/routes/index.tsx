@@ -859,6 +859,8 @@ function Index() {
     } finally {
       abortRef.current = null;
       setLoading(false);
+      setStage(null);
+      setStageDetail("");
     }
   }
 
