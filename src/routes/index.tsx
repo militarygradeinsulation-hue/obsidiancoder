@@ -1088,7 +1088,7 @@ function Index() {
   const specTax = versionCount > 0 ? Math.max(0, Math.round(((userTurns - versionCount) / Math.max(1, userTurns)) * 100)) : 0;
 
   return (
-    <main className="obs-shell">
+    <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "")}>
       {/* Ambient matrix backdrop */}
       <div className="obs-matrix" aria-hidden="true">
         {Array.from({ length: 14 }).map((_, i) => (
