@@ -44,15 +44,42 @@ function Unlock() {
 
   return (
     <div style={{
+      position: "relative",
       minHeight: "100dvh",
       display: "grid",
       placeItems: "center",
-      background: "radial-gradient(ellipse at 50% 20%, #1a1611 0%, #050607 60%)",
+      background: "#050607",
       color: "#f2eee7",
       fontFamily: "Inter, system-ui, sans-serif",
       padding: 24,
+      overflow: "hidden",
     }}>
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          backgroundImage: `url(${logoAsset.url})`,
+          backgroundRepeat: "no-repeat",
+          backgroundPosition: "center",
+          backgroundSize: "min(720px, 90vmin)",
+          opacity: 0.12,
+          filter: "blur(0.5px)",
+          pointerEvents: "none",
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: "absolute",
+          inset: 0,
+          background:
+            "radial-gradient(ellipse at 50% 20%, rgba(244,161,37,0.10) 0%, rgba(5,6,7,0) 60%)",
+          pointerEvents: "none",
+        }}
+      />
       <form onSubmit={onSubmit} style={{
+        position: "relative",
         width: "100%",
         maxWidth: 380,
         background: "rgba(20,18,15,0.85)",
