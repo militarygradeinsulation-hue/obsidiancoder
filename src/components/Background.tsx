@@ -26,8 +26,9 @@ export default function Background() {
     let particles: P[] = [];
 
     function resize() {
-      width = window.innerWidth;
-      height = window.innerHeight;
+      const parent = canvas!.parentElement;
+      width = parent?.clientWidth || window.innerWidth;
+      height = parent?.clientHeight || window.innerHeight;
       dpr = Math.max(1, Math.min(2, window.devicePixelRatio || 1));
       canvas!.width = Math.floor(width * dpr);
       canvas!.height = Math.floor(height * dpr);
