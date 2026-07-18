@@ -1,20 +1,26 @@
-// Structured result returned from the classify → execute → validate pipeline,
-// plus the shape rendered in the UI's "last operation" panel.
-import type { Classification, ExecutionPath, TaskType } from "./task-classifier";
+// Structured result returned from the classify → execute → validate pipeline.
+import type { Classification, ExecutionPath, Strategy, TaskType } from "./task-classifier";
 import type { ValidationReport } from "./validation";
 
 export type GenerationMetrics = {
   taskType: TaskType;
   executionPath: ExecutionPath;
+  strategy: Strategy;
   usedAi: boolean;
-  model: string | null;      // null when no AI was used
+  model: string | null;
   durationMs: number;
   summary: string;
   validation: ValidationReport;
   documentChanged: boolean;
-  // Relative cost bucket — we do NOT invent token counts.
   costEstimate: "none" | "low" | "advanced";
-  reason: string;            // why this path was chosen
+  reason: string;
+  // Phase 2 telemetry
+  patchOperationCount: number;
+  patchOperationTypes: string[];
+  patchOperationSummaries: string[];
+  charactersAdded: number;
+  charactersRemoved: number;
+  fallbackUsed: boolean;
 };
 
 export function costEstimateFor(path: ExecutionPath, usedAi: boolean): GenerationMetrics["costEstimate"] {
@@ -31,11 +37,19 @@ export function metricsFromClassification(
     summary: string;
     validation: ValidationReport;
     documentChanged: boolean;
+    strategy?: Strategy;
+    patchOperationCount?: number;
+    patchOperationTypes?: string[];
+    patchOperationSummaries?: string[];
+    charactersAdded?: number;
+    charactersRemoved?: number;
+    fallbackUsed?: boolean;
   },
 ): GenerationMetrics {
   return {
     taskType: c.taskType,
     executionPath: c.executionPath,
+    strategy: args.strategy ?? c.strategy,
     usedAi: args.usedAi,
     model: args.usedAi ? args.model : null,
     durationMs: args.durationMs,
@@ -44,6 +58,12 @@ export function metricsFromClassification(
     documentChanged: args.documentChanged,
     costEstimate: costEstimateFor(c.executionPath, args.usedAi),
     reason: c.reason,
+    patchOperationCount: args.patchOperationCount ?? 0,
+    patchOperationTypes: args.patchOperationTypes ?? [],
+    patchOperationSummaries: args.patchOperationSummaries ?? [],
+    charactersAdded: args.charactersAdded ?? 0,
+    charactersRemoved: args.charactersRemoved ?? 0,
+    fallbackUsed: args.fallbackUsed ?? false,
   };
 }
 
