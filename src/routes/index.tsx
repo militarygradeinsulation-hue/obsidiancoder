@@ -900,6 +900,7 @@ function Index() {
             <span className="obs-muted"><GitBranch className="h-3 w-3 inline mr-1" />main</span>
             <span className="obs-ok"><Check className="h-3 w-3 inline" /> Up to date</span>
             <span className="obs-muted">Prettier <span className="obs-status-dot" /></span>
+            <span className="obs-muted" title="Rework ratio: user turns per saved version (SocialMize 'specification tax')">Spec-tax {specTax}%</span>
             <span className="obs-muted">{kb} KB</span>
           </div>
         </div>
