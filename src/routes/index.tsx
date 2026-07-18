@@ -840,6 +840,26 @@ function Index() {
             </div>
 
 
+            {/* Integrations */}
+            <div className="obs-card">
+              <div className="obs-card-head">
+                <span className="obs-card-label">Integrations</span>
+                <span className="obs-node">{INTEGRATIONS.filter((i) => i.on).length}/{INTEGRATIONS.length}</span>
+              </div>
+              <ul className="obs-integ-list">
+                {INTEGRATIONS.map((it) => (
+                  <li key={it.id} className={"obs-integ " + (it.on ? "is-on" : "")}>
+                    <span className="obs-integ-dot" />
+                    <div className="obs-integ-meta">
+                      <span className="obs-integ-name">{it.label}</span>
+                      <span className="obs-integ-sub">{it.sub}</span>
+                    </div>
+                    <span className="obs-integ-state">{it.on ? "Linked" : "Add"}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             {/* Terminal */}
             <div className="obs-card">
               <div className="obs-card-head">
