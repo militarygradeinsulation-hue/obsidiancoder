@@ -1455,6 +1455,7 @@ function Index() {
 
             {/* Trust Dashboard — Obsidian Core 3.0 evidence-based confidence */}
             <TrustDashboard html={current.html} />
+            <RulesPanel html={current.html} />
 
             {/* Project Memory */}
             <div className="obs-card">
