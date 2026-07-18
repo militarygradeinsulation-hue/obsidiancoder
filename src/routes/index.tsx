@@ -561,33 +561,44 @@ function Index() {
               abortRef.current = null;
               return;
             }
-            const validation = validateHtml(applied.html);
+            let validation = validateHtml(applied.html);
+            let patchedHtml = applied.html;
+            const patchRepairAttempts: RepairAttempt[] = [];
             if (validation.status === "failed") {
-              // preserve stableHtml; do not commit
-              setSessions((all) => all.map((s) => s.id === sessionId
-                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patched document failed validation: ${validation.issues.map(i => i.message).join(" ")} — preview unchanged.` }] }
-                : s));
-              setTerminal((t) => [...t, `✗ Patch validation failed — kept stable version.`]);
-              const durationMs = performance.now() - t0;
-              setLastMetrics(metricsFromClassification(classification, {
-                usedAi: true,
-                model: pJson.model,
-                durationMs,
-                summary: "Patch produced invalid HTML; kept last stable version.",
-                validation,
-                documentChanged: false,
-                strategy: "ai-patch",
-                patchOperationCount: applied.applied.length,
-                patchOperationTypes: applied.applied.map(a => a.op),
-                patchOperationSummaries: applied.applied.map(a => a.summary),
-                charactersAdded: applied.charsAdded,
-                charactersRemoved: applied.charsRemoved,
-                fallbackUsed: pJson.fallbackUsed,
-              }));
-              setLoading(false);
-              abortRef.current = null;
-              return;
+              const rep = tryLocalRepair(patchedHtml, validation.issues);
+              patchRepairAttempts.push(rep.attempt);
+              if (rep.passed) {
+                patchedHtml = rep.html;
+                validation = validateHtml(patchedHtml);
+                setTerminal((t) => [...t, `↺ Deterministic repair (${rep.attempt.fixes.length} fix${rep.attempt.fixes.length === 1 ? "" : "es"}) — commit continued.`]);
+              } else {
+                // preserve stableHtml; do not commit
+                setSessions((all) => all.map((s) => s.id === sessionId
+                  ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patched document failed validation and could not be auto-repaired: ${validation.issues.map(i => i.message).join(" ")} — preview unchanged.` }] }
+                  : s));
+                setTerminal((t) => [...t, `✗ Patch validation failed (repair inconclusive) — kept stable version.`]);
+                const durationMs = performance.now() - t0;
+                setLastMetrics(metricsFromClassification(classification, {
+                  usedAi: true,
+                  model: pJson.model,
+                  durationMs,
+                  summary: "Patch produced invalid HTML; kept last stable version.",
+                  validation,
+                  documentChanged: false,
+                  strategy: "ai-patch",
+                  patchOperationCount: applied.applied.length,
+                  patchOperationTypes: applied.applied.map(a => a.op),
+                  patchOperationSummaries: applied.applied.map(a => a.summary),
+                  charactersAdded: applied.charsAdded,
+                  charactersRemoved: applied.charsRemoved,
+                  fallbackUsed: pJson.fallbackUsed,
+                }));
+                setLoading(false);
+                abortRef.current = null;
+                return;
+              }
             }
+
             // COMMIT — success
             const versionLabel = (patchParsed.data.summary || basePrompt).slice(0, 48);
             const newVersion: Version = {
