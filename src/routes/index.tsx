@@ -370,7 +370,7 @@ function Index() {
     validation: ReturnType<typeof validateHtml>;
     repairAttempts?: RepairAttempt[];
   }): VersionMetadata {
-    const bIssues = blockingIssues(input.validation.issues);
+    const bIssues = blockingIssues(input.validation);
     const warnings = input.validation.issues.filter((i) => i.severity === "warning").length;
     const info = input.validation.issues.filter((i) => i.severity === "info").length;
     return {
