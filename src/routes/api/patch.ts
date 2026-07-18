@@ -8,6 +8,9 @@ import { z } from "zod";
 import { ALLOWED_MODEL_IDS, DEFAULT_MODEL } from "@/lib/models";
 import { parsePatchResponse, MAX_OPS } from "@/lib/patch-protocol";
 import { buildContext, nextTier, type ContextTier } from "@/lib/staged-context";
+import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
+import { aiFetch } from "@/lib/ai-fetch";
+import { readGuarded } from "@/lib/upstream-guard";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
