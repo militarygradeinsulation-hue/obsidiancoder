@@ -569,6 +569,16 @@ function Index() {
             changed: true,
             validation,
           });
+          const gateBlockers = checkCommitGate(stableHtml, det.html, "deterministic");
+          if (gateBlockers) {
+            setSessions((all) => all.map((s) => s.id === sessionId
+              ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Blocked by rule: ${gateBlockers.join("; ").slice(0, 200)} — preview unchanged.` }] }
+              : s));
+            setTerminal((t) => [...t, `✗ Rule gate rejected deterministic edit: ${gateBlockers[0].slice(0, 120)}`]);
+            pushFeedback(sessionId, { taskType: classification.taskType, strategy: "deterministic", model: null, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockers[0] });
+            setLoading(false); setStage(null);
+            return;
+          }
           const newVersion: Version = makeVersion(det.html, versionLabel, detMeta);
           setSessions((all) => all.map((s) => s.id === sessionId
             ? {
