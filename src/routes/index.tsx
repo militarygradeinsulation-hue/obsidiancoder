@@ -224,15 +224,23 @@ function Index() {
     const parsed = safeGet<Session[]>(STORAGE_KEY);
     const activeRaw = safeGet<string>(ACTIVE_KEY);
     if (Array.isArray(parsed) && parsed.length) {
-      const normalized = parsed.map((s) => ({
-        ...s,
-        mode: (s as Partial<Session>).mode ?? "agent",
-        versions: Array.isArray(s.versions) ? s.versions : [],
-        memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) },
-        rules: reconcileRules((s as Partial<Session>).rules),
-        runtimeEvents: [], // never persist runtime log — always fresh per session load
-        cost: { ...EMPTY_COST, ...((s as Partial<Session>).cost ?? {}) },
-      }));
+      const normalized: Session[] = parsed.map((s) => {
+        const partial = s as Partial<Session>;
+        return {
+          ...s,
+          mode: partial.mode ?? "agent",
+          versions: Array.isArray(s.versions) ? s.versions : [],
+          memory: { ...EMPTY_MEMORY, ...(partial.memory ?? {}) },
+          rules: reconcileRules(partial.rules),
+          runtimeEvents: [], // never persist runtime log — always fresh per session load
+          cost: { ...EMPTY_COST, ...(partial.cost ?? {}) },
+          // Lazy-migrate legacy sessions — only touch when field is missing.
+          project: partial.project ?? (s.html ? migrateFromHtml(s.html) : undefined),
+          feedback: Array.isArray(partial.feedback) ? partial.feedback : [],
+          components: Array.isArray(partial.components) ? partial.components : [],
+          templates: Array.isArray(partial.templates) ? partial.templates : [],
+        };
+      });
       setSessions(normalized);
       const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
       setActiveId(id);
