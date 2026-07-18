@@ -10,6 +10,11 @@ import {
 } from "lucide-react";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
+import { classifyTask } from "@/lib/task-classifier";
+import { tryDeterministicEdit } from "@/lib/deterministic-edits";
+import { validateHtml } from "@/lib/validation";
+import { metricsFromClassification, formatDuration, type GenerationMetrics } from "@/lib/generation-metrics";
+
 
 
 export const Route = createFileRoute("/")({
@@ -137,6 +142,7 @@ function Index() {
     "→ Local: http://localhost:5173",
     "✓ No errors found",
   ]);
+  const [lastMetrics, setLastMetrics] = useState<GenerationMetrics | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
 
@@ -304,7 +310,78 @@ function Index() {
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
-    const modePrefix = MODE_PREFIX[current.mode] ? `[${current.mode.toUpperCase()} MODE] ${MODE_PREFIX[current.mode]}\n\n` : "";
+    const activeMode = current.mode;
+    // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
+    const previewMode = activeMode !== "chat" && activeMode !== "plan";
+    // Stable snapshot: never let a failed edit corrupt the last good HTML.
+    const stableHtml = current.html;
+
+    // 1. Classify.
+    const classification = classifyTask(basePrompt, { mode: activeMode, hasHtml: !!stableHtml });
+    const t0 = performance.now();
+
+    setError(null);
+    setInput("");
+    setPendingAttachments([]);
+    const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: basePrompt || "(attachment only)" }];
+    const isFirstUserMsg = !current.messages.some((m) => m.role === "user");
+    updateCurrent({
+      messages: nextHistory,
+      title: isFirstUserMsg ? (basePrompt || pendingAttachments[0]?.name || "Untitled").slice(0, 28) : current.title,
+    });
+    setLoading(true);
+    setTerminal((t) => [...t, `→ [${classification.taskType}] via ${classification.executionPath}`]);
+    const sessionId = activeId;
+
+    // 2. Deterministic fast-path (Agent/Dev/Visual, when classifier says so, and no attachments).
+    if (
+      previewMode &&
+      classification.executionPath === "deterministic" &&
+      pendingAttachments.length === 0 &&
+      stableHtml
+    ) {
+      const det = tryDeterministicEdit(basePrompt, stableHtml);
+      if (det.ok) {
+        const validation = validateHtml(det.html);
+        if (validation.status === "failed") {
+          setTerminal((t) => [...t, `✗ Validation failed — reverted, falling back to AI.`]);
+          // fall through to AI path (do NOT overwrite stableHtml)
+        } else {
+          const versionLabel = basePrompt.slice(0, 48) || "Deterministic edit";
+          const newVersion: Version = {
+            id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
+            ts: Date.now(),
+            html: det.html,
+            label: versionLabel,
+          };
+          setSessions((all) => all.map((s) => s.id === sessionId
+            ? {
+                ...s,
+                html: det.html,
+                messages: [...s.messages, { role: "assistant", content: `✓ ${det.summary}  _(No AI credits used.)_` }],
+                versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
+              }
+            : s));
+          const durationMs = performance.now() - t0;
+          setTerminal((t) => [...t, `✓ Deterministic edit in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
+          setLastMetrics(metricsFromClassification(classification, {
+            usedAi: false,
+            model: null,
+            durationMs,
+            summary: det.summary,
+            validation,
+            documentChanged: true,
+          }));
+          setLoading(false);
+          return;
+        }
+      } else {
+        setTerminal((t) => [...t, `· Deterministic pass declined: ${det.reason.slice(0, 90)} — routing to AI.`]);
+      }
+    }
+
+    // 3. AI path (streaming).
+    const modePrefix = MODE_PREFIX[activeMode] ? `[${activeMode.toUpperCase()} MODE] ${MODE_PREFIX[activeMode]}\n\n` : "";
     let prompt = modePrefix + (basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : ""));
     for (const att of pendingAttachments) {
       if (att.kind === "image") {
@@ -314,23 +391,7 @@ function Index() {
         prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
       }
     }
-    setError(null);
-    setInput("");
-    setPendingAttachments([]);
-    const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: prompt }];
-    const isFirstUserMsg = !current.messages.some((m) => m.role === "user");
-    updateCurrent({
-      messages: nextHistory,
-      title: isFirstUserMsg ? (basePrompt || pendingAttachments[0]?.name || "Untitled").slice(0, 28) : current.title,
-    });
-    setLoading(true);
-    setTerminal((t) => [...t, `→ Building: "${(basePrompt || pendingAttachments[0]?.name || "attachment").slice(0, 40)}…"`]);
-    const sessionId = activeId;
-    const activeMode = current.mode;
-    // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
-    const previewMode = activeMode !== "chat" && activeMode !== "plan";
     const modelForServer = resolveModel(current.model);
-    const t0 = performance.now();
     const controller = new AbortController();
     abortRef.current = controller;
     try {
@@ -339,7 +400,7 @@ function Index() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          currentHtml: previewMode ? current.html : "",
+          currentHtml: previewMode ? stableHtml : "",
           history: current.messages.slice(-4),
           model: modelForServer,
         }),
@@ -353,7 +414,6 @@ function Index() {
       const decoder = new TextDecoder();
       let acc = "";
       let firstChunkAt = 0;
-      // Throttle preview updates so we don't re-render the iframe on every token
       let lastPaint = 0;
       const paintPreview = (force = false) => {
         if (!previewMode) return;
@@ -376,12 +436,20 @@ function Index() {
       }
 
       if (!previewMode) {
-        // Advisory reply — surface as an assistant chat message; do NOT touch the preview.
         const reply = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim() || "(no response)";
         setSessions((all) => all.map((s) => s.id === sessionId
           ? { ...s, messages: [...s.messages, { role: "assistant", content: reply }] }
           : s));
+        const durationMs = performance.now() - t0;
         setTerminal((t) => [...t, `✓ ${activeMode === "chat" ? "Chat" : "Plan"} response ready`]);
+        setLastMetrics(metricsFromClassification(classification, {
+          usedAi: true,
+          model: modelForServer,
+          durationMs,
+          summary: `Advisory ${activeMode} reply`,
+          validation: { status: "passed", issues: [] },
+          documentChanged: false,
+        }));
         return;
       }
 
@@ -389,6 +457,26 @@ function Index() {
       if (!/<!doctype|<html/i.test(finalHtml)) {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
       }
+
+      // 4. Validate AI output. Failed => revert to stable snapshot.
+      const validation = validateHtml(finalHtml);
+      if (validation.status === "failed") {
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Generated document failed validation: ${validation.issues.map(i => i.message).join(" ")} — reverted to last stable version.` }] }
+          : s));
+        const durationMs = performance.now() - t0;
+        setTerminal((t) => [...t, `✗ Validation failed — reverted.`]);
+        setLastMetrics(metricsFromClassification(classification, {
+          usedAi: true,
+          model: modelForServer,
+          durationMs,
+          summary: "AI output rejected by validator; reverted to stable version.",
+          validation,
+          documentChanged: false,
+        }));
+        return;
+      }
+
       const versionLabel = (basePrompt || pendingAttachments[0]?.name || "Update").slice(0, 48);
       const newVersion: Version = {
         id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
@@ -404,9 +492,17 @@ function Index() {
             versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
           }
         : s));
-      const ms = Math.round(performance.now() - t0);
-      setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
-      // Auto-save every build to the private gallery (admin-gated read).
+      const durationMs = performance.now() - t0;
+      setTerminal((t) => [...t, `✓ Compiled in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
+      setLastMetrics(metricsFromClassification(classification, {
+        usedAi: true,
+        model: modelForServer,
+        durationMs,
+        summary: versionLabel,
+        validation,
+        documentChanged: true,
+      }));
+      // Auto-save to gallery (admin-gated read).
       try {
         let clientId = localStorage.getItem("obs.client_id");
         if (!clientId) {
@@ -430,9 +526,11 @@ function Index() {
           .catch(() => {});
       } catch {}
     } catch (err) {
+      // Never overwrite the stable snapshot on error.
+      setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: stableHtml } : s));
       if ((err as { name?: string })?.name === "AbortError") {
         setSessions((all) => all.map((s) => s.id === sessionId
-          ? { ...s, messages: [...s.messages, { role: "assistant", content: "■ Stopped." }] }
+          ? { ...s, messages: [...s.messages, { role: "assistant", content: "■ Stopped — reverted to last stable version." }] }
           : s));
         setTerminal((t) => [...t, "■ Stopped by user"]);
       } else {
@@ -927,6 +1025,45 @@ function Index() {
                 ))}
               </ul>
             </div>
+
+            {/* Last operation metrics */}
+            {lastMetrics && (
+              <div className="obs-card">
+                <div className="obs-card-head">
+                  <span className="obs-card-label">Last operation</span>
+                  <span className={
+                    "obs-node " +
+                    (lastMetrics.validation.status === "passed" ? "text-emerald-400"
+                      : lastMetrics.validation.status === "warnings" ? "text-amber-300"
+                      : "text-red-400")
+                  }>{lastMetrics.validation.status}</span>
+                </div>
+                <div className="obs-metrics">
+                  <div className="obs-metric-row"><span>Task</span><b>{lastMetrics.taskType}</b></div>
+                  <div className="obs-metric-row"><span>Path</span><b>{lastMetrics.executionPath}</b></div>
+                  <div className="obs-metric-row">
+                    <span>AI used</span>
+                    <b>{lastMetrics.usedAi ? "Yes" : "No — no AI credits used"}</b>
+                  </div>
+                  {lastMetrics.usedAi && lastMetrics.model && (
+                    <div className="obs-metric-row"><span>Model</span><b>{lastMetrics.model}</b></div>
+                  )}
+                  <div className="obs-metric-row"><span>Cost</span><b>{lastMetrics.costEstimate}</b></div>
+                  <div className="obs-metric-row"><span>Duration</span><b>{formatDuration(lastMetrics.durationMs)}</b></div>
+                  <div className="obs-metric-row"><span>Changed</span><b>{lastMetrics.documentChanged ? "Yes" : "No"}</b></div>
+                  <div className="obs-metric-note">{lastMetrics.summary}</div>
+                  {lastMetrics.validation.issues.length > 0 && (
+                    <ul className="obs-metric-issues">
+                      {lastMetrics.validation.issues.slice(0, 4).map((i, idx) => (
+                        <li key={idx} className={i.level === "fail" ? "text-red-400" : "text-amber-300"}>
+                          {i.level === "fail" ? "✗" : "!"} {i.message}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Terminal */}
             <div className="obs-card">
