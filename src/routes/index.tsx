@@ -117,6 +117,13 @@ type Session = {
   rules?: Rule[];
   runtimeEvents?: RuntimeEvent[];
   cost?: CostSnapshot;
+  // Core 3.1 additions — lazy-migrated on load; all optional.
+  project?: Project;
+  activeFileId?: string;
+  feedback?: FeedbackEvent[];
+  components?: ComponentEntry[];
+  templates?: Template[];
+  lastRequest?: string;
 };
 
 const WORKSPACE_NAV = [
