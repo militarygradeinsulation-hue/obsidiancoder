@@ -1,108 +1,64 @@
-# Obsidian AI Reliability Hardening
+# Obsidian Core 4.0 — Adaptive Intelligence & Intuitive Builder
 
-Goal: make it impossible for an upstream error page (Cloudflare 502, proxy HTML, empty body, truncated JSON) to be interpreted as generated code. Preserve the current UI, commit gate, rollback, sandbox, runtime bridge, sessions, streaming, uploads, versions, model selection, and exports.
+This is a very large, multi-system merge (16 sections, ~15+ new modules, UI additions, reliability fixes, and a full test/verification pass). To land it responsibly on top of `f1f08b6` without regressing the reliability layer we just shipped, I propose executing it in four sequenced phases inside this single turn's follow-ups. I want your sign-off on the plan and phase order before I start writing code.
 
-## Scope
+## Guiding invariants (applied to every phase)
+- Explicit user choices always win over learned behavior.
+- Learning is local, sanitized, bounded, reversible, exportable.
+- Never learn from secrets, attachments, provider error bodies, the unlock code `9822`, or rejected HTML.
+- Commit gate, reliability boundary, auth, clean export, runtime bridge — untouched except to strengthen.
+- No duplicate intelligence systems: extend `project-memory.ts`, `failure-learning.ts`, `orchestrator.ts`, `model-router.ts`, `staged-context.ts`, `commit-gate.ts`, `safe-storage.ts`.
 
-Touches only the AI request boundary and the client submit path. Does not change the shell layout, panels, sidebars, gallery, auth gate, or generation prompts.
+## Phase 1 — Reliability corrections (section 14)
+Land these first so adaptive layers build on a correct foundation.
+- `src/routes/api/patch.ts`: transport errors (including retryable) return an error envelope; caller (index.tsx) must NOT fall through to full generation on transport failure. Full-gen only on deliberate empty-ops deferral or explicit user request.
+- `src/lib/ai-fetch.ts` / `/api/generate`: treat streamed responses with zero valid HTML as `ai_upstream_empty`; do not mark circuit success until first valid payload received.
+- Circuit breaker: `ai_unauthorized` and config errors do NOT increment failure counters.
+- `src/routes/index.tsx` retry handler: replay original attachments + prompt, not prompt alone.
+- `src/components/BuilderErrorBoundary.tsx`: production shows stable message + requestId only; sanitized internals dev-only.
+- Remove/gate `x-obs-mock-upstream` to `NODE_ENV !== 'production'`.
+- `/api/health`: audit output — only booleans + breaker names/states.
 
-## New / changed files
+## Phase 2 — Core intelligence primitives (sections 1–7)
+New pure modules, no UI yet:
+- `src/lib/adaptive-ledger.ts` — bounded typed sanitized event log (safe-storage backed, ~500 events / 512KB cap, corruption recovery).
+- `src/lib/preference-learning.ts` + `src/lib/adaptive-profile.ts` — evidence → confidence promotion (threshold ≥3 with agreement, or 1 explicit confirm). Locked memory always wins.
+- Extend `failure-learning.ts` with correction-pair detection and restore-reason capture (structured feedback enums, no free text sent to models).
+- `src/lib/performance-model.ts` — success/restore/validation/runtime/cost/latency stats per (taskType × strategy × model × contextTier × sizeBucket).
+- `src/lib/adaptive-router.ts` — wraps `orchestrator.planFor`, produces `RoutingDecision { chosen, why, alternatives, signalsUsed, signalsIgnored }`. Deterministic > structured patch > AI patch > full-gen (explicit only) > advisory.
+- `src/lib/intent-resolver.ts` — compact `ResolvedIntent { outcome, scope, mustPreserve, likelyTargets, risk, ambiguity, needsClarification }` grounded in selected element / recent op / active file / version diff.
+- `src/lib/project-patterns.ts` — extract components/tokens/nav/form/naming patterns; status observed|confirmed|locked.
+- Smart Context v2: extend `staged-context.ts` to consume intent + patterns + protected set; hard-exclude rejected/secret material.
 
-**New**
-- `src/lib/ai-errors.ts` — error codes, `AiError`, `sanitizeErrorMessage`, `AiErrorEnvelope` type.
-- `src/lib/upstream-guard.ts` — `validateUpstream(response)` and `readTextSafely` (rejects `text/html`, Cloudflare/nginx signatures, empty, oversize, truncated).
-- `src/lib/ai-fetch.ts` — `aiFetch(url, init, { totalTimeoutMs, attemptTimeoutMs, retries, signal, breakerKey })` — bounded retries, jitter, `Retry-After`, AbortController plumbing, breaker integration.
-- `src/lib/circuit-breaker.ts` — in-memory per-`provider/model` breaker (`closed | open | half-open`), rolling failure window, cooldown, `snapshot()` for /api/health.
-- `src/routes/api/health.ts` — 200 JSON with route booleans, provider config booleans, breaker snapshot, timestamp.
-- `src/components/BuilderErrorBoundary.tsx` — app-level boundary around the builder shell.
-- `src/lib/__tests__/ai-pipeline.test.ts` — unit tests (vitest) for guard, sanitizer, breaker, envelope.
+## Phase 3 — Coach, self-check, explainability (sections 8, 10–12)
+- `src/lib/next-best-action.ts` — deterministic ranked actions from real evidence (validation blockers, runtime errors, repeated restores, token candidates, unused component reuse). Max 3 suggestions post-build.
+- Pre-commit adaptive checklist inside `commit-gate.ts` (additive `AdaptiveChecks` — warnings by default; blocks only on locked/rule/regression, never on low-confidence prefs).
+- Extend `generation-report.ts` / `version-metadata.ts` with `interpretation`, `strategyRationale`, `signalsApplied`, `newLearning`, `rollbackPointId`.
 
-**Changed**
-- `src/routes/api/generate.ts` — respond with `AiErrorEnvelope` on every failure (never upstream body); use `aiFetch`; buffer stream and validate first chunk; wrap image plan/gen the same way.
-- `src/routes/api/patch.ts` — same envelope + `aiFetch`.
-- `src/routes/index.tsx` — submit path branches on `content-type` + envelope; discards non-JSON error bodies; keeps prior HTML/version untouched; adds inline error card (Retry, Copy request ID); resets stage/abort correctly; never enters full-gen fallback on transient failure of a targeted patch.
-- `src/routes/__root.tsx` — mount `BuilderErrorBoundary`.
-- `src/routes/api/public/self-test.ts` — extend assertions to cover new invariants.
+## Phase 4 — Adaptive UI + privacy controls + tests (sections 9, 13, 15, 16)
+- `src/components/panels/IntelligencePanel.tsx` (right-rail tab): current interpretation, confidence bars, strategy recommendation, context summary, recent learning.
+- `src/components/panels/LearningPanel.tsx`: list learned items with Confirm / Correct / Lock / Forget; Reset & Export/Import (sanitized JSON, schema-validated).
+- `src/components/panels/StrategyExplanation.tsx`: "Why this strategy?" + "What Obsidian learned" drawers.
+- Wire into `src/routes/index.tsx` right rail with collapse persistence in localStorage.
+- Restore feedback micro-prompt (structured reasons, dismissible).
+- Privacy toggles: learning on/off per project, retention slider, wipe button, export/import.
+- Tests: extend `src/lib/self-test.ts` + add `/api/public/self-test` cases covering every bullet in section 15. Add a Playwright script under `/tmp/browser/core4/` for the learning panel flow.
+- Final verification: tsgo noEmit, self-test totals, `/api/health` + `/api/public/self-test` status, browser walkthrough, confirm export contains no secrets/`9822`/provider bodies.
 
-## Error contract (JSON only, `application/json`)
+## Files created (est.)
+adaptive-ledger.ts, preference-learning.ts, adaptive-profile.ts, performance-model.ts, adaptive-router.ts, intent-resolver.ts, project-patterns.ts, next-best-action.ts, IntelligencePanel.tsx, LearningPanel.tsx, StrategyExplanation.tsx (+ ~6 modified: patch.ts, generate.ts, ai-fetch.ts, circuit-breaker.ts, commit-gate.ts, staged-context.ts, orchestrator.ts, generation-report.ts, index.tsx, BuilderErrorBoundary.tsx, self-test.ts, health.ts).
 
-```ts
-type AiErrorEnvelope = {
-  ok: false;
-  code:
-    | "ai_rate_limited"       // 429
-    | "ai_unauthorized"       // 401/403 or missing key
-    | "ai_bad_request"        // 400 / validation
-    | "ai_upstream_html"      // proxy/error HTML detected
-    | "ai_upstream_malformed" // JSON parse / schema / truncated
-    | "ai_upstream_empty"
-    | "ai_upstream_5xx"       // 500/502/503/504
-    | "ai_timeout"
-    | "ai_cancelled"
-    | "ai_circuit_open"
-    | "ai_internal";
-  message: string;   // sanitized, <= 240 chars
-  retryable: boolean;
-  requestId: string; // crypto.randomUUID
-  stage: "plan" | "image" | "generate" | "patch" | "validate";
-  retryAfterMs?: number;
-};
-```
+## Assumptions I'll make unless you correct me
+1. All learning stays in `localStorage` under a versioned key (`obs.core4.v1.*`) — no new Supabase tables.
+2. Preference promotion threshold = 3 consistent observations OR 1 explicit "Confirm".
+3. Restore feedback is optional; skipping it still records the raw restore signal.
+4. Intelligence panel becomes the default right-rail tab only on first run after this ship; existing users keep their current tab.
+5. Export/import JSON schema is versioned; unknown versions refuse to import.
+6. No new external dependencies.
 
-Success remains the current streamed HTML body with `content-type: text/plain; charset=utf-8`. Clients that see anything else treat it as failure.
+## What I need from you
+- Approve the phase order (1→4 in one continuous execution), OR tell me to reorder / drop a phase.
+- Confirm the six assumptions above (or override).
+- Confirm you want this shipped as one merge (I will not stop between phases unless a phase fails verification).
 
-## Retry / timeout / breaker settings
-
-- Attempt timeout: 45s per upstream fetch.
-- Total budget: 90s across attempts.
-- Retries: up to 2 (3 attempts total), only on `429`, `502`, `503`, `504`, `ECONNRESET`, `ai_upstream_html`, `ai_upstream_empty`.
-- Backoff: `min(retryAfter, 500ms * 2^n) + jitter(0..250ms)`.
-- Never retried: `ai_unauthorized`, `ai_bad_request`, `ai_cancelled`, validation failures, missing config.
-- Circuit breaker per `provider/model`: opens after 4 transient failures in 30s window, cooldown 20s, half-open probes 1 request.
-
-## Client submit path
-
-- Read `content-type` before touching the body. Non-JSON error → drop body, show "Something went wrong upstream" with request ID.
-- JSON envelope → render inline error card (message, Retry, Copy ID). Preserve original prompt and attachments in state.
-- On any failure: `currentHtml`, `versions`, iframe `srcDoc`, chat context all untouched. Only a single terminal-log line + error card are appended (never the raw body).
-- Duplicate-send guard: disable submit while `stage !== idle`; abort resets stage in `finally`.
-- Targeted patch failure with `retryable: false` no longer escalates to full-generation fallback (per requirement 5). Full-gen fallback stays gated to patch-engine failures unrelated to AI transport.
-
-## App shell boundary
-
-`BuilderErrorBoundary` catches render errors in the builder tree only. Fallback shows "Builder hit an internal error", `Reload preview` (soft) and `Reset session` (hard) — no stack, no raw error text.
-
-## Health endpoint
-
-`GET /api/health` returns
-```json
-{
-  "ok": true,
-  "timestamp": "...",
-  "routes": { "generate": true, "patch": true, "gallery": true },
-  "providers": { "lovable_ai": true, "supabase": true },
-  "breakers": [{ "key": "lovable/generate", "state": "closed", "failures": 0 }]
-}
-```
-No secrets, no request counts, no user data. Publicly reachable (behind unlock gate is unnecessary — it exposes only booleans).
-
-## Verification
-
-- `bunx vitest run` — new suite must pass; existing self-test must still pass.
-- `tsgo` typecheck.
-- Playwright script under `/tmp/browser/` mocks `/api/generate` to return a Cloudflare 502 HTML page and asserts: current HTML unchanged, no new version, error card visible, request ID present, Retry works after mock flips to success.
-- `invoke-server-function` hits `/api/health` and `/api/public/self-test`.
-
-## Out of scope
-
-- Prompt content, model catalog, image pipeline behavior, gallery, auth gate, styles.
-- Persistent breaker state (in-memory per-worker is sufficient for the current single-region deploy).
-
-## Technical notes
-
-- Streamed HTML is buffered up to the first 4 KB before flushing to the client so we can reject an HTML proxy page that arrives with a 200. After first-chunk validation passes, we pass through unchanged (no added latency for good responses beyond the first frame).
-- `sanitizeErrorMessage` strips tags, collapses whitespace, and truncates to 240 chars; already-existing `safe-storage.sanitizeErrorMessage` is extended and reused rather than duplicated.
-- `AiError` extends `Error`, carries `code`/`stage`/`retryable`/`requestId`, and serializes via `toEnvelope()`.
-- No changes to `patch-engine`, `commit-gate`, `runtime-bridge`, `version-history`, or `clean-export` — those already treat failed generations as no-ops once the transport layer stops handing them poison HTML.
-
-Deliverable after approval: file diffs, test totals, mocked-502 Playwright evidence, health-endpoint snapshot, and any remaining risks.
+Once you approve, I'll execute all four phases and report the full verification block at the end.
