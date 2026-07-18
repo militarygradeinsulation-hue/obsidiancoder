@@ -1,63 +1,108 @@
+# Obsidian AI Reliability Hardening
 
-## Obsidian UI Overhaul — Plan
+Goal: make it impossible for an upstream error page (Cloudflare 502, proxy HTML, empty body, truncated JSON) to be interpreted as generated code. Preserve the current UI, commit gate, rollback, sandbox, runtime bridge, sessions, streaming, uploads, versions, model selection, and exports.
 
-A full visual redesign of the current builder into a premium dark IDE shell, while preserving every working capability and auditing all controls.
+## Scope
 
-### Phase 1 — Audit (read-only)
-- Read `src/routes/index.tsx` end-to-end to inventory every state slice, action, panel mount, and control.
-- Read `src/styles.css` to catalog current tokens and utility classes (`obs-card`, `obs-chip`, etc.).
-- Read all `src/components/panels/*.tsx` to confirm props and behavior.
-- Read `src/lib/{commit-gate,clean-export,runtime-bridge,orchestrator,pipeline,staged-context}.ts` to confirm the safe-commit path stays intact.
-- Read `src/routes/gallery.tsx` and `src/routes/api/*` to confirm nothing routes through UI-only state.
-- Deliverable: internal control inventory + gap list (dead buttons, missing wiring, duplicates).
+Touches only the AI request boundary and the client submit path. Does not change the shell layout, panels, sidebars, gallery, auth gate, or generation prompts.
 
-### Phase 2 — Design system
-Update `src/styles.css` with the token palette:
-- Surfaces `#050607 / #0A0C0F / #111318`, text `#E7E3DB / #8E9095`, gold `#D9A84E` (bright variant for focus), success green sparingly.
-- Borders `rgba(255,255,255,0.06–0.10)`, gold active border `rgba(217,168,78,0.35)`, radii 6–10px, subtle shadows + gold glow on active only, 120–180ms transitions.
-- New utilities: `.obs-shell`, `.obs-rail-l`, `.obs-rail-r`, `.obs-topbar`, `.obs-tab`, `.obs-tab.is-active`, `.obs-navrow`, `.obs-navrow.is-active`, `.obs-section-label`, `.obs-statusbar`, `.obs-glow-gold`.
-- Keep every legacy class (`obs-card`, `obs-chip`, `obs-list`, `obs-empty`) working — restyle in place, do not rename.
+## New / changed files
 
-### Phase 3 — Shell modularization
-Extract layout out of `src/routes/index.tsx` into thin presentational components (state stays in the route):
-- `src/components/shell/ObsidianShell.tsx` — 3-column grid + status bar slot.
-- `src/components/shell/LeftRail.tsx` — logo, wordmark, palette search, Workspace nav, Tools nav, workspace chip.
-- `src/components/shell/TopBar.tsx` — sidebar toggle, back/forward (no-op safely disabled with tooltip), tab strip, `+ New`, right actions (Run/Preview/Code, device selector, search, overflow).
-- `src/components/shell/StatusBar.tsx` — sandbox ready, route/preview state, device, validation, "Local only" for git.
-- `src/components/shell/CenterWorkspace.tsx` — preview/code tab switch + composer host (still uses existing handlers/refs passed as props).
+**New**
+- `src/lib/ai-errors.ts` — error codes, `AiError`, `sanitizeErrorMessage`, `AiErrorEnvelope` type.
+- `src/lib/upstream-guard.ts` — `validateUpstream(response)` and `readTextSafely` (rejects `text/html`, Cloudflare/nginx signatures, empty, oversize, truncated).
+- `src/lib/ai-fetch.ts` — `aiFetch(url, init, { totalTimeoutMs, attemptTimeoutMs, retries, signal, breakerKey })` — bounded retries, jitter, `Retry-After`, AbortController plumbing, breaker integration.
+- `src/lib/circuit-breaker.ts` — in-memory per-`provider/model` breaker (`closed | open | half-open`), rolling failure window, cooldown, `snapshot()` for /api/health.
+- `src/routes/api/health.ts` — 200 JSON with route booleans, provider config booleans, breaker snapshot, timestamp.
+- `src/components/BuilderErrorBoundary.tsx` — app-level boundary around the builder shell.
+- `src/lib/__tests__/ai-pipeline.test.ts` — unit tests (vitest) for guard, sanitizer, breaker, envelope.
 
-### Phase 4 — Left rail wiring (no dead nav)
-Map target labels to real behavior:
-- **Home** → focus/create empty session. **Projects** → sessions list drawer. **Files** → scroll-to `FileExplorerPanel`. **Code** → toggle center to code view. **Snippets** → scroll-to `ComponentLibraryPanel`. **Agents** → open mode selector. **Tasks** → scroll-to `FlowPanel`. **Databases** → disabled with tooltip "Not connected in this workspace".
-- **AI Chat** → focus composer. **Code Assist** → set mode `code`. **Terminal** → scroll-to Runtime panel. **Playground** → focus preview. **Git** → scroll-to `GitReadyPanel`. **Deploy** → scroll-to `DeploymentReadinessPanel`. **Settings** → open command palette settings view.
-- Active state = translucent gold row + thin gold border + edge glow.
+**Changed**
+- `src/routes/api/generate.ts` — respond with `AiErrorEnvelope` on every failure (never upstream body); use `aiFetch`; buffer stream and validate first chunk; wrap image plan/gen the same way.
+- `src/routes/api/patch.ts` — same envelope + `aiFetch`.
+- `src/routes/index.tsx` — submit path branches on `content-type` + envelope; discards non-JSON error bodies; keeps prior HTML/version untouched; adds inline error card (Retry, Copy request ID); resets stage/abort correctly; never enters full-gen fallback on transient failure of a targeted patch.
+- `src/routes/__root.tsx` — mount `BuilderErrorBoundary`.
+- `src/routes/api/public/self-test.ts` — extend assertions to cover new invariants.
 
-### Phase 5 — Top bar wiring
-- Sidebar toggle drives mobile drawer + desktop rail collapse.
-- Tabs = existing sessions (active dot in gold, file-type badge from primary language detected in HTML).
-- `+` = existing new-session handler.
-- Right: Run (regenerate), Preview/Code split toggle, device selector (desktop/tablet/mobile — sets preview width), search (opens command palette), overflow (export/clear/version restore).
+## Error contract (JSON only, `application/json`)
 
-### Phase 6 — Right rail reorg
-Collapsible sections in order: **AI Agent** (status dot from real streaming state, current instruction, mode, model) → Context → File Explorer → Execution Graph → Trust Dashboard → Runtime → Rules → Cost → Memory → Design System → Version History → Integrations → Validation/Repair. All existing panel components reused as-is; only wrapper/header restyled.
+```ts
+type AiErrorEnvelope = {
+  ok: false;
+  code:
+    | "ai_rate_limited"       // 429
+    | "ai_unauthorized"       // 401/403 or missing key
+    | "ai_bad_request"        // 400 / validation
+    | "ai_upstream_html"      // proxy/error HTML detected
+    | "ai_upstream_malformed" // JSON parse / schema / truncated
+    | "ai_upstream_empty"
+    | "ai_upstream_5xx"       // 500/502/503/504
+    | "ai_timeout"
+    | "ai_cancelled"
+    | "ai_circuit_open"
+    | "ai_internal";
+  message: string;   // sanitized, <= 240 chars
+  retryable: boolean;
+  requestId: string; // crypto.randomUUID
+  stage: "plan" | "image" | "generate" | "patch" | "validate";
+  retryAfterMs?: number;
+};
+```
 
-### Phase 7 — Control audit + fixes
-Walk the inventory from Phase 1; for each control: verify it fires a real action, disable with tooltip, or remove. Log fixes.
+Success remains the current streamed HTML body with `content-type: text/plain; charset=utf-8`. Clients that see anything else treat it as failure.
 
-### Phase 8 — QA
-- `tsgo --noEmit`
-- Self-test suite via `/api/public/self-test` (expect ≥73 pre-existing; add wiring tests where cheap).
-- Playwright: home route 200, click each left nav row, tab switch, device selector, send/cancel, version restore, export → verify `containsPreviewOnly(html) === false`.
-- Confirm mobile drawer, focus rings, keyboard nav on nav rows and tabs.
+## Retry / timeout / breaker settings
 
-### Guardrails (unchanged)
-- Do not modify `commit-gate.ts`, `clean-export.ts`, `runtime-bridge.ts`, `patch-engine.ts`, `orchestrator.ts`, `pipeline.ts`, `validation.ts`, `repair.ts`, `models.ts`, generated Supabase files, or `.env`.
-- No new full-regeneration fallback paths.
-- No preview-only scripts in exports/versions/gallery/templates.
+- Attempt timeout: 45s per upstream fetch.
+- Total budget: 90s across attempts.
+- Retries: up to 2 (3 attempts total), only on `429`, `502`, `503`, `504`, `ECONNRESET`, `ai_upstream_html`, `ai_upstream_empty`.
+- Backoff: `min(retryAfter, 500ms * 2^n) + jitter(0..250ms)`.
+- Never retried: `ai_unauthorized`, `ai_bad_request`, `ai_cancelled`, validation failures, missing config.
+- Circuit breaker per `provider/model`: opens after 4 transient failures in 30s window, cooldown 20s, half-open probes 1 request.
 
-### Deferred (called out explicitly if hit)
-- True git connection (kept as "Local only" chip).
-- Databases panel (disabled entry with tooltip).
-- Any target label that has no plausible real mapping — will be removed rather than faked.
+## Client submit path
 
-Estimated file touches: `src/styles.css`, `src/routes/index.tsx` (layout swap only), 5 new files under `src/components/shell/`. No panel rewrites.
+- Read `content-type` before touching the body. Non-JSON error → drop body, show "Something went wrong upstream" with request ID.
+- JSON envelope → render inline error card (message, Retry, Copy ID). Preserve original prompt and attachments in state.
+- On any failure: `currentHtml`, `versions`, iframe `srcDoc`, chat context all untouched. Only a single terminal-log line + error card are appended (never the raw body).
+- Duplicate-send guard: disable submit while `stage !== idle`; abort resets stage in `finally`.
+- Targeted patch failure with `retryable: false` no longer escalates to full-generation fallback (per requirement 5). Full-gen fallback stays gated to patch-engine failures unrelated to AI transport.
+
+## App shell boundary
+
+`BuilderErrorBoundary` catches render errors in the builder tree only. Fallback shows "Builder hit an internal error", `Reload preview` (soft) and `Reset session` (hard) — no stack, no raw error text.
+
+## Health endpoint
+
+`GET /api/health` returns
+```json
+{
+  "ok": true,
+  "timestamp": "...",
+  "routes": { "generate": true, "patch": true, "gallery": true },
+  "providers": { "lovable_ai": true, "supabase": true },
+  "breakers": [{ "key": "lovable/generate", "state": "closed", "failures": 0 }]
+}
+```
+No secrets, no request counts, no user data. Publicly reachable (behind unlock gate is unnecessary — it exposes only booleans).
+
+## Verification
+
+- `bunx vitest run` — new suite must pass; existing self-test must still pass.
+- `tsgo` typecheck.
+- Playwright script under `/tmp/browser/` mocks `/api/generate` to return a Cloudflare 502 HTML page and asserts: current HTML unchanged, no new version, error card visible, request ID present, Retry works after mock flips to success.
+- `invoke-server-function` hits `/api/health` and `/api/public/self-test`.
+
+## Out of scope
+
+- Prompt content, model catalog, image pipeline behavior, gallery, auth gate, styles.
+- Persistent breaker state (in-memory per-worker is sufficient for the current single-region deploy).
+
+## Technical notes
+
+- Streamed HTML is buffered up to the first 4 KB before flushing to the client so we can reject an HTML proxy page that arrives with a 200. After first-chunk validation passes, we pass through unchanged (no added latency for good responses beyond the first frame).
+- `sanitizeErrorMessage` strips tags, collapses whitespace, and truncates to 240 chars; already-existing `safe-storage.sanitizeErrorMessage` is extended and reused rather than duplicated.
+- `AiError` extends `Error`, carries `code`/`stage`/`retryable`/`requestId`, and serializes via `toEnvelope()`.
+- No changes to `patch-engine`, `commit-gate`, `runtime-bridge`, `version-history`, or `clean-export` — those already treat failed generations as no-ops once the transport layer stops handing them poison HTML.
+
+Deliverable after approval: file diffs, test totals, mocked-502 Playwright evidence, health-endpoint snapshot, and any remaining risks.
