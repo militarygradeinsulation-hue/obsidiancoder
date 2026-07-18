@@ -1711,3 +1711,5 @@
 .obs-metric-row b { color: var(--foreground); font-weight: 500; text-align: right; }
 .obs-metric-note { margin-top: 6px; padding-top: 6px; border-top: 1px solid color-mix(in oklab, var(--foreground) 10%, transparent); color: color-mix(in oklab, var(--foreground) 75%, transparent); font-style: italic; }
 .obs-metric-issues { margin: 6px 0 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 2px; font-size: 11px; }
+.obs-memory-input { width: 100%; background: color-mix(in oklab, var(--foreground) 4%, transparent); border: 1px solid color-mix(in oklab, var(--foreground) 12%, transparent); border-radius: 6px; padding: 6px 8px; font-size: 11px; color: var(--foreground); font-family: inherit; resize: vertical; min-height: 34px; }
+.obs-memory-input:focus { outline: none; border-color: color-mix(in oklab, var(--primary) 60%, transparent); }
