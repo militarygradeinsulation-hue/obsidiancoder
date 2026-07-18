@@ -168,6 +168,8 @@ export const Route = createFileRoute("/api/patch")({
           patch: parsed2.patch,
           model: modelUsed,
           fallbackUsed: true,
+          contextTier,
+          contextChars: snippetBlock.length,
         });
       },
     },
