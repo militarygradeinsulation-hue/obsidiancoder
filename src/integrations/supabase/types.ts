@@ -21,12 +21,10 @@ export type Database = {
           created_at: string
           html: string
           id: string
-          ip: string | null
           model: string | null
           prompt: string
           session_id: string | null
           title: string
-          user_agent: string | null
         }
         Insert: {
           byte_size?: number
@@ -34,12 +32,10 @@ export type Database = {
           created_at?: string
           html: string
           id?: string
-          ip?: string | null
           model?: string | null
           prompt?: string
           session_id?: string | null
           title?: string
-          user_agent?: string | null
         }
         Update: {
           byte_size?: number
@@ -47,12 +43,10 @@ export type Database = {
           created_at?: string
           html?: string
           id?: string
-          ip?: string | null
           model?: string | null
           prompt?: string
           session_id?: string | null
           title?: string
-          user_agent?: string | null
         }
         Relationships: []
       }
