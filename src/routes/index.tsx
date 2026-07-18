@@ -120,6 +120,7 @@ function newSession(): Session {
     messages: [{ role: "assistant", content: "Obsidian is ready. Tell me what to build." }],
     html: "",
     model: "google/gemini-3.1-flash-lite",
+    mode: "agent",
     versions: [],
   };
 }
