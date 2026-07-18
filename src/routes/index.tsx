@@ -292,7 +292,7 @@ function Index() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [current.messages, loading, activeId]);
+  }, [current.messages, loading, activeId, input, pendingAttachments.length]);
 
   const previewSrcDoc = useMemo(
     () =>
