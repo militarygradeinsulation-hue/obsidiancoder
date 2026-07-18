@@ -32,9 +32,11 @@ export function FlowPanel() {
         </ul>
       )}
       <ul className="obs-list">
-        {parsed.steps.map((s: FlowStep, i) => (
-          <li key={i} className="obs-list-item"><code>{s.op}</code> {s.selector ?? ""} {s.value ?? ""}</li>
-        ))}
+        {parsed.steps.map((s: FlowStep, i) => {
+          const detail = "selector" in s ? s.selector : "url" in s ? s.url : "ms" in s ? String(s.ms) : "";
+          const value = "text" in s ? ` "${s.text}"` : "";
+          return <li key={i} className="obs-list-item"><code>{s.op}</code> {detail}{value}</li>;
+        })}
       </ul>
     </div>
   );
