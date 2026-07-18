@@ -21,6 +21,7 @@ import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
 import { repairHtml } from "@/lib/repair";
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import { isAiErrorEnvelope, type AiErrorEnvelope } from "@/lib/ai-errors";
 import type { VersionMetadata, RepairAttempt } from "@/lib/version-metadata";
 import { MemoryPanel } from "@/components/panels/MemoryPanel";
 import { VersionHistoryPanel, type UiVersion } from "@/components/panels/VersionHistoryPanel";
@@ -198,6 +199,8 @@ function Index() {
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastAiError, setLastAiError] = useState<AiErrorEnvelope | null>(null);
+  const lastSubmitRef = useRef<{ prompt: string } | null>(null);
   const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -586,6 +589,8 @@ function Index() {
     const t0 = performance.now();
 
     setError(null);
+    setLastAiError(null);
+    lastSubmitRef.current = { prompt: basePrompt };
     setInput("");
     setPendingAttachments([]);
     const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: basePrompt || "(attachment only)" }];
@@ -700,13 +705,34 @@ function Index() {
             model: modelForPatch,
           }),
         });
-        if (!pRes.ok) {
-          const t = await pRes.text().catch(() => "");
-          throw new Error(t || `Patch request failed (${pRes.status})`);
+        const pCtype = (pRes.headers.get("content-type") || "").toLowerCase();
+        let pJson:
+          | { ok: true; patch: unknown; model: string; fallbackUsed: boolean; requestId?: string }
+          | { ok: false; error: string; fallbackUsed: boolean; model: string; requestId?: string }
+          | AiErrorEnvelope;
+        if (pCtype.includes("application/json")) {
+          pJson = await pRes.json();
+        } else {
+          // Non-JSON body from /api/patch is treated as an upstream transport failure.
+          // The stable HTML stays untouched; fall through to full generation.
+          setTerminal((t) => [...t, `✗ Patch route returned non-JSON — falling back to full AI generation.`]);
+          abortRef.current = null;
+          break patchAttempt;
         }
-        const pJson = await pRes.json() as
-          | { ok: true; patch: unknown; model: string; fallbackUsed: boolean }
-          | { ok: false; error: string; fallbackUsed: boolean; model: string };
+        if (isAiErrorEnvelope(pJson)) {
+          // Non-retryable envelopes surface directly to the user; retryable ones fall through.
+          if (!pJson.retryable) {
+            setLastAiError(pJson);
+            setError(pJson.message);
+            setTerminal((t) => [...t, `✗ Patch: ${pJson.message} (id ${pJson.requestId})`]);
+            abortRef.current = null;
+            setLoading(false); setStage(null);
+            return;
+          }
+          setTerminal((t) => [...t, `✗ Patch upstream failed (${pJson.code}) — falling back to full AI generation.`]);
+          abortRef.current = null;
+          break patchAttempt;
+        }
 
         if (!pJson.ok) {
           setTerminal((t) => [...t, `✗ Patch invalid: ${pJson.error.slice(0, 120)} — falling back to full AI generation.`]);
@@ -856,9 +882,20 @@ function Index() {
         }),
         signal: controller.signal,
       });
+      const ctype = (res.headers.get("content-type") || "").toLowerCase();
+      // AI error envelope arrives as JSON — never treat it as generated code.
+      if (ctype.includes("application/json")) {
+        let envelope: unknown = null;
+        try { envelope = await res.json(); } catch { envelope = null; }
+        if (isAiErrorEnvelope(envelope)) {
+          setLastAiError(envelope);
+          throw new Error(envelope.message);
+        }
+        throw new Error(`AI request failed (${res.status})`);
+      }
+      // Only accept an actual streaming body. Never fall back to res.text() as HTML.
       if (!res.ok || !res.body) {
-        const text = await res.text().catch(() => "AI request failed");
-        throw new Error(text || `AI request failed (${res.status})`);
+        throw new Error(`AI request failed (${res.status})`);
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -905,6 +942,18 @@ function Index() {
       }
 
       let finalHtml = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      // Safety net: if the "stream" was actually a JSON error envelope smuggled
+      // as text/plain, treat it as a failure instead of wrapping it as HTML.
+      const trimmedStart = finalHtml.slice(0, 200).trimStart();
+      if (trimmedStart.startsWith("{") && /"ok"\s*:\s*false/.test(trimmedStart)) {
+        try {
+          const env = JSON.parse(finalHtml);
+          if (isAiErrorEnvelope(env)) { setLastAiError(env); throw new Error(env.message); }
+        } catch (parseErr) {
+          if (parseErr instanceof Error && parseErr.message) throw parseErr;
+        }
+        throw new Error("Upstream returned an error envelope instead of HTML.");
+      }
       if (!/<!doctype|<html/i.test(finalHtml)) {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
       }
@@ -1412,7 +1461,47 @@ function Index() {
                 </div>
               )}
             </div>
-            {error && <p className="obs-error">{error}</p>}
+            {(error || lastAiError) && (
+              <div className="obs-error-card" role="alert" data-testid="ai-error-card">
+                <div className="obs-error-card-row">
+                  <span className="obs-error-card-label">
+                    {lastAiError ? lastAiError.code.replace(/_/g, " ") : "error"}
+                  </span>
+                  {lastAiError?.requestId && (
+                    <span className="obs-error-card-id" title="Request ID">id {lastAiError.requestId.slice(0, 8)}</span>
+                  )}
+                </div>
+                <p className="obs-error-card-msg">{lastAiError?.message ?? error}</p>
+                <div className="obs-error-card-actions">
+                  {(lastAiError?.retryable ?? true) && (
+                    <button
+                      type="button"
+                      className="obs-btn is-sm"
+                      onClick={() => {
+                        const p = lastSubmitRef.current?.prompt;
+                        if (p) { setError(null); setLastAiError(null); void submit(p); }
+                      }}
+                      data-testid="ai-error-retry"
+                    >Retry</button>
+                  )}
+                  {lastAiError?.requestId && (
+                    <button
+                      type="button"
+                      className="obs-btn is-sm is-ghost"
+                      onClick={() => {
+                        try { void navigator.clipboard.writeText(lastAiError.requestId); } catch { /* ignore */ }
+                      }}
+                      data-testid="ai-error-copy-id"
+                    >Copy request ID</button>
+                  )}
+                  <button
+                    type="button"
+                    className="obs-btn is-sm is-ghost"
+                    onClick={() => { setError(null); setLastAiError(null); }}
+                  >Dismiss</button>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* ========== RIGHT RAIL ========== */}

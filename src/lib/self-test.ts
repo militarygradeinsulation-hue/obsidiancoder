@@ -25,6 +25,9 @@ import { EMPTY_COST, foldMetrics, recordRestore } from "./cost-metrics";
 import { record, buildRoutingStats, preferredModel, type FeedbackEvent } from "./failure-learning";
 import { parseFlow } from "./flow-parser";
 import { createComponent, renameComponent, deleteComponent, duplicateComponent, insertMarkup } from "./component-library";
+import { AiError, isAiErrorEnvelope, newRequestId, sanitizeUpstreamMessage } from "./ai-errors";
+import { looksLikeHtml, looksLikeProxyError, readGuarded, firstChunkLooksBad } from "./upstream-guard";
+import { canAttempt, recordFailure, recordSuccess, resetBreaker, BREAKER_CONFIG } from "./circuit-breaker";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
@@ -38,7 +41,7 @@ const SAMPLE_HTML = `<!doctype html><html><head><title>Sample</title></head><bod
 <button id="cta">Click me</button>
 </body></html>`;
 
-export function runSelfTests(): { results: TestResult[]; passed: number; failed: number } {
+export async function runSelfTests(): Promise<{ results: TestResult[]; passed: number; failed: number }> {
   const results: TestResult[] = [];
 
   // Classifier
@@ -310,6 +313,44 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   lib = deleteComponent(lib, cc1.id);
   results.push(assert(lib.length === 1 && lib[0].name === "Hero copy", "components: rename + delete"));
   results.push(assert(insertMarkup(lib[0]).includes("<section>Hi</section>"), "components: insertMarkup emits html"));
+
+  // ---- Reliability transport ----
+  // ai-errors: envelope contract + sanitizer strip stack/URLs
+  const env = new AiError({ code: "ai_upstream_html", stage: "generate", requestId: "req_test" }).toEnvelope();
+  results.push(assert(isAiErrorEnvelope(env) && env.retryable === true && env.code === "ai_upstream_html", "ai-errors: envelope contract"));
+  results.push(assert(!isAiErrorEnvelope({ ok: true }) && !isAiErrorEnvelope("<html>"), "ai-errors: envelope guard rejects non-envelope"));
+  const sanitized = sanitizeUpstreamMessage("<html><body>error 502 at https://internal.upstream/xyz Bearer abc.def.ghi</body></html>", "fallback");
+  results.push(assert(!sanitized.includes("https://") && !sanitized.includes("Bearer abc") && !sanitized.includes("<"), "ai-errors: sanitize strips tags/urls/tokens"));
+  results.push(assert(typeof newRequestId() === "string" && newRequestId().length >= 8, "ai-errors: requestId"));
+
+  // upstream-guard: HTML detection on 200 + proxy signatures + streaming first chunk
+  results.push(assert(looksLikeHtml("text/html", ""), "guard: html by content-type"));
+  results.push(assert(looksLikeHtml(null, "<!DOCTYPE html><html>"), "guard: html by leading bytes"));
+  results.push(assert(!looksLikeHtml("application/json", "{\"ok\":true}"), "guard: json is not html"));
+  results.push(assert(looksLikeProxyError("<html><body>Cloudflare Bad gateway 502</body></html>"), "guard: proxy signature"));
+  const okRes = new Response(JSON.stringify({ hi: 1 }), { headers: { "content-type": "application/json" } });
+  const okGuard = await readGuarded(okRes);
+  results.push(assert(okGuard.ok, "guard: pass valid JSON"));
+  const htmlRes = new Response("<!DOCTYPE html><html><body>oops</body></html>", { status: 200, headers: { "content-type": "text/html" } });
+  const htmlGuard = await readGuarded(htmlRes);
+  results.push(assert(!htmlGuard.ok && htmlGuard.reason === "html_body", "guard: reject 200 HTML body"));
+  const emptyRes = new Response("", { status: 200, headers: { "content-type": "application/json" } });
+  const emptyGuard = await readGuarded(emptyRes);
+  results.push(assert(!emptyGuard.ok && emptyGuard.reason === "empty", "guard: reject empty body"));
+  results.push(assert(firstChunkLooksBad("<!doctype html>", "text/html").bad, "guard: first-chunk html"));
+  results.push(assert(!firstChunkLooksBad('data: {"choices":[{"delta":{"content":"<!"}}]}\n', "text/event-stream").bad, "guard: sse first chunk ok"));
+
+  // circuit-breaker: opens after threshold, half-open probe after cooldown
+  resetBreaker("test:cb");
+  for (let i = 0; i < BREAKER_CONFIG.FAILURE_THRESHOLD; i++) recordFailure("test:cb");
+  const denied = canAttempt("test:cb");
+  results.push(assert(!denied.allowed && denied.state === "open", "breaker: opens after threshold"));
+  const laterAllowed = canAttempt("test:cb", Date.now() + BREAKER_CONFIG.COOLDOWN_MS + 1);
+  results.push(assert(laterAllowed.allowed && laterAllowed.state === "half-open", "breaker: half-open after cooldown"));
+  recordSuccess("test:cb");
+  const closed = canAttempt("test:cb");
+  results.push(assert(closed.allowed && closed.state === "closed", "breaker: closes on success"));
+  resetBreaker("test:cb");
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
