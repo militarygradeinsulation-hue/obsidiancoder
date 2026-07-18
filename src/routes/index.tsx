@@ -14,6 +14,11 @@ import { classifyTask } from "@/lib/task-classifier";
 import { tryDeterministicEdit } from "@/lib/deterministic-edits";
 import { validateHtml } from "@/lib/validation";
 import { metricsFromClassification, formatDuration, type GenerationMetrics } from "@/lib/generation-metrics";
+import { extractOutline, outlineToPrompt } from "@/lib/document-outline";
+import { EMPTY_MEMORY, memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
+import { applyPatch } from "@/lib/patch-engine";
+import { patchSchema } from "@/lib/patch-protocol";
+import { diffSummary } from "@/lib/diff-summary";
 
 
 
