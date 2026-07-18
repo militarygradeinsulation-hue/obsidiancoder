@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as IndexRouteImport } from './routes/index'
@@ -18,6 +19,11 @@ import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
 
+const UnlockRoute = UnlockRouteImport.update({
+  id: '/unlock',
+  path: '/unlock',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
@@ -63,6 +69,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/unlock': typeof UnlockRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
@@ -73,6 +80,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/unlock': typeof UnlockRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
@@ -84,6 +92,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/unlock': typeof UnlockRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
@@ -96,6 +105,7 @@ export interface FileRouteTypes {
     | '/'
     | '/gallery'
     | '/sitemap.xml'
+    | '/unlock'
     | '/api/generate'
     | '/api/patch'
     | '/api/public/builds'
@@ -106,6 +116,7 @@ export interface FileRouteTypes {
     | '/'
     | '/gallery'
     | '/sitemap.xml'
+    | '/unlock'
     | '/api/generate'
     | '/api/patch'
     | '/api/public/builds'
@@ -116,6 +127,7 @@ export interface FileRouteTypes {
     | '/'
     | '/gallery'
     | '/sitemap.xml'
+    | '/unlock'
     | '/api/generate'
     | '/api/patch'
     | '/api/public/builds'
@@ -127,6 +139,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   GalleryRoute: typeof GalleryRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  UnlockRoute: typeof UnlockRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
   ApiPatchRoute: typeof ApiPatchRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
@@ -135,6 +148,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/unlock': {
+      id: '/unlock'
+      path: '/unlock'
+      fullPath: '/unlock'
+      preLoaderRoute: typeof UnlockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
@@ -210,6 +230,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GalleryRoute: GalleryRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  UnlockRoute: UnlockRoute,
   ApiGenerateRoute: ApiGenerateRoute,
   ApiPatchRoute: ApiPatchRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
