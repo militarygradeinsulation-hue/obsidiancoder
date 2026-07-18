@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useRef, useState, useEffect } from "react";
 import {
   Send, Eye, Code2, Loader2, Home, FolderOpen, FileText, Files, Code,
