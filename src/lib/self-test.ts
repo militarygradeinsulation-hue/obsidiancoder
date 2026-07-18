@@ -18,6 +18,13 @@ import { sanitizeErrorMessage, safeGet } from "./safe-storage";
 import { buildGraph } from "./knowledge-graph";
 import { scanAll } from "./scanners";
 import { computeConfidence } from "./confidence";
+import { migrateFromHtml, createFile, renameFile, duplicateFile, deleteFile, updateContent, toJSON, isProject } from "./project-model";
+import { DEFAULT_RULES, runRules, blockingViolations } from "./rules-engine";
+import { injectRuntimeBridge, parseRuntimeMessage } from "./runtime-bridge";
+import { EMPTY_COST, foldMetrics, recordRestore } from "./cost-metrics";
+import { record, buildRoutingStats, preferredModel, type FeedbackEvent } from "./failure-learning";
+import { parseFlow } from "./flow-parser";
+import { createComponent, renameComponent, deleteComponent, duplicateComponent, insertMarkup } from "./component-library";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
