@@ -80,6 +80,8 @@ type Version = {
   ts: number;
   html: string;
   label: string;
+  protected?: boolean;
+  metadata?: VersionMetadata;
 };
 
 type Session = {
