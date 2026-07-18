@@ -437,6 +437,26 @@ function Index() {
     };
   }
 
+  // Central commit gate — runs rules (already-validated candidate) and
+  // returns null if the candidate is clear to commit, or the list of
+  // blocking reasons if the caller must keep the stable HTML.
+  function checkCommitGate(prev: string, candidate: string, source: CommitSource): string[] | null {
+    const report = evaluateCommit({
+      previousHtml: prev,
+      candidateHtml: candidate,
+      source,
+      rules: current.rules ?? [],
+      allowRepair: false, // callers already ran repair; gate is rule-only here
+    });
+    if (report.ok) return null;
+    return report.blockers;
+  }
+
+  function pushFeedback(sessionId: string, evt: Omit<FeedbackEvent, "ts">) {
+    setSessions((all) => all.map((s) => s.id === sessionId
+      ? { ...s, feedback: recordFeedback(s.feedback ?? [], { ...evt, ts: Date.now() }) }
+      : s));
+
   function buildMetadata(input: {
     request: string;
     classification: ReturnType<typeof classifyTask>;
