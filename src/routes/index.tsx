@@ -52,6 +52,10 @@ import Background from "@/components/Background";
 
 
 export const Route = createFileRoute("/")({
+  beforeLoad: async () => {
+    const { ensureUnlocked } = await import("@/lib/gate.functions");
+    await ensureUnlocked();
+  },
   head: () => ({
     meta: [
       { title: "Obsidian — Vibe coding, elevated" },
