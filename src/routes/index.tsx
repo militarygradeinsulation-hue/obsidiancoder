@@ -1626,12 +1626,15 @@ function Index() {
               }}
             />
             {(() => {
-              const ruleReport = current.html ? runRules(current.html, current.rules ?? []) : { blockers: [], warnings: [] };
+              const violations: RuleViolation[] = current.html
+                ? runRules(current.rules ?? [], current.html, buildGraph(current.html))
+                : [];
+              const blockingRuleCount = violations.filter((v) => v.severity === "blocking").length;
               return (
                 <DeploymentReadinessPanel
                   html={current.html}
                   validationStatus={current.versions[0]?.metadata?.validation.status ?? "unknown"}
-                  blockingRuleCount={ruleReport.blockers.length}
+                  blockingRuleCount={blockingRuleCount}
                   runtimeErrorCount={countRuntimeBlockers(current.runtimeEvents ?? [])}
                 />
               );
