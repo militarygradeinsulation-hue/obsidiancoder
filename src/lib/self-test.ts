@@ -12,6 +12,9 @@ import { extractOutline } from "./document-outline";
 import { repairHtml } from "./repair";
 import { extractDesignTokens, replaceColor, setCssVariable } from "./design-system";
 import { EMPTY_MEMORY, mergeMemory, lockKey } from "./project-memory";
+import { createPipeline } from "./pipeline";
+import { buildContext, nextTier } from "./staged-context";
+import { sanitizeErrorMessage, safeGet } from "./safe-storage";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
