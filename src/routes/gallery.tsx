@@ -14,6 +14,10 @@ type Build = {
 const TOKEN_KEY = "obs.gallery.admin_token";
 
 export const Route = createFileRoute("/gallery")({
+  beforeLoad: async () => {
+    const { ensureUnlocked } = await import("@/lib/gate.functions");
+    await ensureUnlocked();
+  },
   head: () => ({
     meta: [
       { title: "Vibe Coder Gallery — admin" },
