@@ -670,12 +670,13 @@ function Index() {
     }
 
     // 2b. AI-patch path — targeted edit against an existing document.
-    if (
+    patchAttempt: if (
       previewMode &&
       classification.strategy === "ai-patch" &&
       stableHtml &&
       pendingAttachments.length === 0
     ) {
+
       const modelForPatch = resolveModel(current.model);
       const outline = outlineToPrompt(extractOutline(stableHtml));
       const memoryStr = memoryToPrompt(current.memory);
@@ -704,55 +705,29 @@ function Index() {
           | { ok: false; error: string; fallbackUsed: boolean; model: string };
 
         if (!pJson.ok) {
-          setSessions((all) => all.map((s) => s.id === sessionId
-            ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch could not be generated: ${pJson.error.slice(0, 160)} — preview unchanged.` }] }
-            : s));
-          setTerminal((t) => [...t, `✗ Patch invalid: ${pJson.error.slice(0, 120)} — preview unchanged.`]);
-          setLoading(false); setStage(null);
+          setTerminal((t) => [...t, `✗ Patch invalid: ${pJson.error.slice(0, 120)} — falling back to full AI generation.`]);
           abortRef.current = null;
-          return;
+          break patchAttempt;
         } else {
+
           const patchParsed = patchSchema.safeParse(pJson.patch);
           if (!patchParsed.success) {
-            setSessions((all) => all.map((s) => s.id === sessionId
-              ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch schema rejected — preview unchanged.` }] }
-              : s));
-            setTerminal((t) => [...t, `✗ Patch schema rejected — preview unchanged.`]);
-            setLoading(false); setStage(null);
+            setTerminal((t) => [...t, `✗ Patch schema rejected — falling back to full AI generation.`]);
             abortRef.current = null;
-            return;
+            break patchAttempt;
           } else if (patchParsed.data.operations.length === 0) {
+
             // Legitimate escape hatch: model explicitly deferred to full generation.
             setTerminal((t) => [...t, `· Model deferred to full generation (empty patch).`]);
 
           } else {
             const applied = applyPatch(stableHtml, patchParsed.data);
             if (!applied.ok) {
-              // MUST NOT alter preview.
-              setSessions((all) => all.map((s) => s.id === sessionId
-                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch failed at op ${applied.failedAt} (${applied.op ?? "?"}): ${applied.error} — preview unchanged.` }] }
-                : s));
-              setTerminal((t) => [...t, `✗ Patch apply failed: ${applied.error.slice(0, 120)}`]);
-              const durationMs = performance.now() - t0;
-              setLastMetrics(metricsFromClassification(classification, {
-                usedAi: true,
-                model: pJson.model,
-                durationMs,
-                summary: `Patch rejected: ${applied.error.slice(0, 120)}`,
-                validation: { status: "failed", summary: applied.error, issues: [{ severity: "blocking", code: "patch-apply", level: "fail", message: applied.error }] },
-                documentChanged: false,
-                strategy: "ai-patch",
-                patchOperationCount: patchParsed.data.operations.length,
-                patchOperationTypes: patchParsed.data.operations.map(o => o.op),
-                patchOperationSummaries: [applied.error],
-                charactersAdded: 0,
-                charactersRemoved: 0,
-                fallbackUsed: pJson.fallbackUsed,
-              }));
-              setLoading(false); setStage(null);
+              setTerminal((t) => [...t, `✗ Patch apply failed (${applied.error.slice(0, 100)}) — falling back to full AI generation.`]);
               abortRef.current = null;
-              return;
+              break patchAttempt;
             }
+
             let validation = validateHtml(applied.html);
             let patchedHtml = applied.html;
             const patchRepairAttempts: RepairAttempt[] = [];
@@ -764,31 +739,11 @@ function Index() {
                 validation = validateHtml(patchedHtml);
                 setTerminal((t) => [...t, `↺ Deterministic repair (${rep.attempt.fixes.length} fix${rep.attempt.fixes.length === 1 ? "" : "es"}) — commit continued.`]);
               } else {
-                // preserve stableHtml; do not commit
-                setSessions((all) => all.map((s) => s.id === sessionId
-                  ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patched document failed validation and could not be auto-repaired: ${validation.issues.map(i => i.message).join(" ")} — preview unchanged.` }] }
-                  : s));
-                setTerminal((t) => [...t, `✗ Patch validation failed (repair inconclusive) — kept stable version.`]);
-                const durationMs = performance.now() - t0;
-                setLastMetrics(metricsFromClassification(classification, {
-                  usedAi: true,
-                  model: pJson.model,
-                  durationMs,
-                  summary: "Patch produced invalid HTML; kept last stable version.",
-                  validation,
-                  documentChanged: false,
-                  strategy: "ai-patch",
-                  patchOperationCount: applied.applied.length,
-                  patchOperationTypes: applied.applied.map(a => a.op),
-                  patchOperationSummaries: applied.applied.map(a => a.summary),
-                  charactersAdded: applied.charsAdded,
-                  charactersRemoved: applied.charsRemoved,
-                  fallbackUsed: pJson.fallbackUsed,
-                }));
-                setLoading(false); setStage(null);
+                setTerminal((t) => [...t, `✗ Patch validation failed (repair inconclusive) — falling back to full AI generation.`]);
                 abortRef.current = null;
-                return;
+                break patchAttempt;
               }
+
             }
 
             // COMMIT — success
@@ -809,15 +764,12 @@ function Index() {
             });
             const gateBlockersP = checkCommitGate(stableHtml, patchedHtml, "ai-patch");
             if (gateBlockersP) {
-              setSessions((all) => all.map((s) => s.id === sessionId
-                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Blocked by rule: ${gateBlockersP.join("; ").slice(0, 200)} — preview unchanged.` }] }
-                : s));
-              setTerminal((t) => [...t, `✗ Rule gate rejected patch: ${gateBlockersP[0].slice(0, 120)}`]);
+              setTerminal((t) => [...t, `✗ Rule gate rejected patch: ${gateBlockersP[0].slice(0, 100)} — falling back to full AI generation.`]);
               pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockersP[0] });
-              setLoading(false); setStage(null);
               abortRef.current = null;
-              return;
+              break patchAttempt;
             }
+
             const newVersion: Version = makeVersion(patchedHtml, versionLabel, commitMeta);
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
@@ -864,13 +816,10 @@ function Index() {
           abortRef.current = null;
           return;
         }
-        setSessions((all) => all.map((s) => s.id === sessionId
-          ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch route error: ${(err as Error).message.slice(0, 160)} — preview unchanged.` }] }
-          : s));
-        setTerminal((t) => [...t, `✗ Patch route error: ${(err as Error).message.slice(0, 120)} — preview unchanged.`]);
-        setLoading(false); setStage(null);
+        setTerminal((t) => [...t, `✗ Patch route error: ${(err as Error).message.slice(0, 120)} — falling back to full AI generation.`]);
         abortRef.current = null;
-        return;
+        break patchAttempt;
+
 
       } finally {
         abortRef.current = null;
