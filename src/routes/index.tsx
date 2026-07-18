@@ -667,6 +667,7 @@ function Index() {
         : s));
       const durationMs = performance.now() - t0;
       setTerminal((t) => [...t, `✓ Compiled in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
+      const fullDiff = diffSummary(stableHtml, finalHtml);
       setLastMetrics(metricsFromClassification(classification, {
         usedAi: true,
         model: modelForServer,
@@ -674,6 +675,12 @@ function Index() {
         summary: versionLabel,
         validation,
         documentChanged: true,
+        strategy: "full-generation",
+        patchOperationCount: 1,
+        patchOperationTypes: ["full-generation"],
+        patchOperationSummaries: [`Rewrote document (${finalHtml.length} chars)`],
+        charactersAdded: fullDiff.charsAdded,
+        charactersRemoved: fullDiff.charsRemoved,
       }));
       // Auto-save to gallery (admin-gated read).
       try {
