@@ -7,16 +7,21 @@ import { buildPerformanceModel, scoreAll, best, type Score } from "./performance
 import { loadLedger } from "./adaptive-ledger";
 import { loadPreferences, preferenceFor } from "./preference-learning";
 import { loadSettings } from "./adaptive-profile";
+import { ALLOWED_MODEL_IDS, type ModelId } from "./models";
 
 export interface RoutingDecision {
   plan: Plan;
-  chosenModel: string;
+  chosenModel: ModelId;
   chosenStrategy: string;
   why: string;
   alternatives: Array<{ model: string; strategy: string; successRate: number }>;
   signalsUsed: string[];
   signalsIgnored: string[];
   explicitOverride: boolean;
+}
+
+function asModelId(v: string, fallback: ModelId): ModelId {
+  return (ALLOWED_MODEL_IDS as readonly string[]).includes(v) ? (v as ModelId) : fallback;
 }
 
 export function decide(input: PlanInput): RoutingDecision {
@@ -26,7 +31,7 @@ export function decide(input: PlanInput): RoutingDecision {
   const signalsIgnored: string[] = [];
 
   const explicit = !!input.pickerModel && input.pickerModel !== "auto";
-  let chosenModel = plan.model;
+  let chosenModel: ModelId = plan.model;
   const chosenStrategy = plan.classification.strategy;
 
   if (!settings.enabled) {
