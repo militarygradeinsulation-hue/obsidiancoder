@@ -27,7 +27,13 @@ import { VersionHistoryPanel, type UiVersion } from "@/components/panels/Version
 import { DesignSystemPanel } from "@/components/panels/DesignSystemPanel";
 import { createPipeline, type StageName, type StageState } from "@/lib/pipeline";
 import { TrustDashboard } from "@/components/panels/TrustDashboard";
-import { RulesPanel } from "@/components/panels/RulesPanel";
+import { RulesPanel, reconcileRules } from "@/components/panels/RulesPanel";
+import { RuntimePanel, countRuntimeBlockers } from "@/components/panels/RuntimePanel";
+import { CostPanel } from "@/components/panels/CostPanel";
+import { ExecutionGraphPanel } from "@/components/panels/ExecutionGraphPanel";
+import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/lib/runtime-bridge";
+import { EMPTY_COST, foldMetrics, type CostSnapshot } from "@/lib/cost-metrics";
+import type { Rule } from "@/lib/rules-engine";
 
 
 
