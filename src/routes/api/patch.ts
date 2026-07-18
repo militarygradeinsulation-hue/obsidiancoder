@@ -135,6 +135,8 @@ export const Route = createFileRoute("/api/patch")({
               patch: parsed.patch,
               model: modelUsed,
               fallbackUsed: false,
+              contextTier,
+              contextChars: snippetBlock.length,
             });
           }
           parseErr = parsed.error;
