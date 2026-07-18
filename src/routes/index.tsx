@@ -390,6 +390,29 @@ function Index() {
         : s));
       const ms = Math.round(performance.now() - t0);
       setTerminal((t) => [...t, `✓ Compiled in ${ms}ms`, "✓ Preview ready"]);
+      // Auto-save every build to the shared gallery (cross-browser, cross-IP)
+      try {
+        let clientId = localStorage.getItem("obs.client_id");
+        if (!clientId) {
+          clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+          localStorage.setItem("obs.client_id", clientId);
+        }
+        fetch("/api/public/builds", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            title: versionLabel,
+            prompt: basePrompt,
+            html: finalHtml,
+            model: current.model,
+            session_id: sessionId,
+            client_id: clientId,
+          }),
+        })
+          .then((r) => (r.ok ? r.json() : null))
+          .then((d) => d?.id && setTerminal((t) => [...t, `✓ Saved to gallery (${String(d.id).slice(0, 8)})`]))
+          .catch(() => {});
+      } catch {}
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Something went wrong.";
       setError(msg);
