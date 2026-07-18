@@ -18,6 +18,13 @@ import { sanitizeErrorMessage, safeGet } from "./safe-storage";
 import { buildGraph } from "./knowledge-graph";
 import { scanAll } from "./scanners";
 import { computeConfidence } from "./confidence";
+import { migrateFromHtml, createFile, renameFile, duplicateFile, deleteFile, updateContent, toJSON, isProject } from "./project-model";
+import { DEFAULT_RULES, runRules, blockingViolations } from "./rules-engine";
+import { injectRuntimeBridge, parseRuntimeMessage } from "./runtime-bridge";
+import { EMPTY_COST, foldMetrics, recordRestore } from "./cost-metrics";
+import { record, buildRoutingStats, preferredModel, type FeedbackEvent } from "./failure-learning";
+import { parseFlow } from "./flow-parser";
+import { createComponent, renameComponent, deleteComponent, duplicateComponent, insertMarkup } from "./component-library";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
@@ -229,6 +236,80 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   // --- Confidence ---
   const conf = computeConfidence({ validation: validateHtml(kgHtml), security: scans.security, accessibility: scans.accessibility, performance: scans.performance, detective: scans.detective, runtimeErrors: 0 });
   results.push(assert(conf.score >= 0 && conf.score <= 100 && conf.evidence.length >= 5, `confidence: composite score (${conf.score}, ${conf.evidence.length} signals)`));
+
+  // --- Project model (Core 3.0 F2) ---
+  const proj0 = migrateFromHtml("<!doctype html><html><body>hi</body></html>");
+  results.push(assert(isProject(proj0) && proj0.files.length === 1 && proj0.files[0].protected === true, "project: migrate → 1 protected entry"));
+  const created = createFile(proj0, "assets/logo.svg", "<svg/>"); if (!created.ok) throw new Error(created.error);
+  results.push(assert(created.project.files.length === 2, "project: createFile"));
+  const badPath = createFile(created.project, "../oops.txt");
+  results.push(assert(!badPath.ok, "project: rejects path traversal"));
+  const delEntry = deleteFile(created.project, proj0.entryFileId);
+  results.push(assert(!delEntry.ok, "project: entry file undeletable"));
+  const dup = duplicateFile(created.project, created.fileId); if (!dup.ok) throw new Error("dup failed");
+  results.push(assert(dup.project.files.some((f) => f.path === "assets/logo-copy.svg"), "project: duplicate → -copy"));
+  const ren = renameFile(dup.project, dup.fileId, "assets/renamed.svg"); if (!ren.ok) throw new Error("rename failed");
+  const del = deleteFile(ren.project, dup.fileId); if (!del.ok) throw new Error("delete failed");
+  results.push(assert(del.project.files.length === 2, "project: rename + delete"));
+  const updated = updateContent(del.project, del.project.files[0].id, "<!doctype html><body>new</body>");
+  results.push(assert(updated.files[0].content.includes("new"), "project: updateContent"));
+  results.push(assert(toJSON(updated).includes("\"version\": 1"), "project: JSON export"));
+
+  // --- Rules engine ---
+  const rulesHtml = `<!doctype html><html><body><nav><button></button></nav><script>eval("x")</script></body></html>`;
+  const vs = runRules(DEFAULT_RULES, rulesHtml, buildGraph(rulesHtml));
+  results.push(assert(blockingViolations(vs).length >= 2, `rules: blocks nav-no-viewport + eval (${blockingViolations(vs).length})`));
+  results.push(assert(vs.some((v) => v.ruleId === "accessible-labels"), "rules: warn on empty button"));
+
+  // --- Runtime bridge ---
+  const injected = injectRuntimeBridge("<html><head></head><body></body></html>");
+  results.push(assert(injected.includes("obsidian.runtime") && injected.includes("</head>"), "runtime: bridge injected before </head>"));
+  const goodMsg = parseRuntimeMessage({ data: { ns: "obsidian.runtime", kind: "console-error", message: "boom" } } as MessageEvent);
+  results.push(assert(goodMsg?.kind === "console-error" && goodMsg?.message === "boom", "runtime: parse valid message"));
+  const badMsg = parseRuntimeMessage({ data: { ns: "other", kind: "console-error", message: "x" } } as MessageEvent);
+  results.push(assert(badMsg === null, "runtime: reject foreign namespace"));
+  const bogusKind = parseRuntimeMessage({ data: { ns: "obsidian.runtime", kind: "eval-code", message: "x" } } as MessageEvent);
+  results.push(assert(bogusKind === null, "runtime: reject unknown kind"));
+
+  // --- Cost metrics ---
+  const cs1 = foldMetrics(EMPTY_COST, {
+    taskType: "text-edit", executionPath: "low-cost-ai", strategy: "ai-patch",
+    usedAi: true, model: "openai/gpt-5.5", durationMs: 1200, summary: "",
+    validation: { status: "passed", issues: [], summary: "" },
+    documentChanged: true, costEstimate: "low", reason: "",
+    patchOperationCount: 2, patchOperationTypes: [], patchOperationSummaries: [],
+    charactersAdded: 400, charactersRemoved: 100, fallbackUsed: false,
+  });
+  results.push(assert(cs1.aiCalls === 1 && cs1.estimatedCostUsd > 0 && cs1.byModel["openai/gpt-5.5"] === 1, "cost: fold AI call"));
+  const cs2 = recordRestore(cs1);
+  results.push(assert(cs2.restores === 1, "cost: recordRestore"));
+
+  // --- Failure learning ---
+  let fbEvents: FeedbackEvent[] = [];
+  for (let i = 0; i < 4; i++) fbEvents = record(fbEvents, { ts: Date.now(), taskType: "text-edit", strategy: "ai-patch", model: "modelA", validationStatus: "passed", runtimeErrors: 0, outcome: "kept" });
+  for (let i = 0; i < 4; i++) fbEvents = record(fbEvents, { ts: Date.now(), taskType: "text-edit", strategy: "ai-patch", model: "modelB", validationStatus: "failed", runtimeErrors: 2, outcome: "rejected" });
+  const routingStats = buildRoutingStats(fbEvents);
+  results.push(assert(preferredModel(routingStats, "text-edit") === "modelA", "learning: prefer kept-heavy model"));
+
+  // --- Flow parser ---
+  const flow = parseFlow(`open\nclick #cta\ntype input[name=email] "a@b.com"\nwait 500\nassertText h1 "Hello"\nassertNoConsoleErrors\n# comment\nbogus x`);
+  results.push(assert(flow.steps.length === 6 && flow.errors.length === 1 && flow.errors[0].message.includes("unknown op"), `flow: 6 steps + 1 error (got ${flow.steps.length}/${flow.errors.length})`));
+  const badFlow = parseFlow(`type foo bar\nwait notanumber`);
+  results.push(assert(badFlow.errors.length === 2, "flow: reject malformed"));
+
+  // --- Component library ---
+  const libEmpty: import("./component-library").ComponentEntry[] = [];
+  const cc1 = createComponent(libEmpty, { name: "Hero", html: "<section>Hi</section>", css: "section{color:red}" });
+  if (!cc1.ok) throw new Error(cc1.error);
+  let lib = cc1.list;
+  const cc2 = createComponent(lib, { name: "hero", html: "<section/>" });
+  results.push(assert(!cc2.ok, "components: reject duplicate name"));
+  lib = duplicateComponent(lib, cc1.id);
+  results.push(assert(lib.length === 2 && lib[1].name === "Hero copy", "components: duplicate"));
+  lib = renameComponent(lib, cc1.id, "Hero1");
+  lib = deleteComponent(lib, cc1.id);
+  results.push(assert(lib.length === 1 && lib[0].name === "Hero copy", "components: rename + delete"));
+  results.push(assert(insertMarkup(lib[0]).includes("<section>Hi</section>"), "components: insertMarkup emits html"));
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
