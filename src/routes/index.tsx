@@ -47,6 +47,7 @@ import { record as recordFeedback, type FeedbackEvent } from "@/lib/failure-lear
 import type { ComponentEntry } from "@/lib/component-library";
 import { runRules, type Rule, type RuleViolation } from "@/lib/rules-engine";
 import { buildGraph } from "@/lib/knowledge-graph";
+import Background from "@/components/Background";
 
 
 
