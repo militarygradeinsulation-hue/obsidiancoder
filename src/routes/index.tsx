@@ -467,7 +467,7 @@ function Index() {
                 model: pJson.model,
                 durationMs,
                 summary: `Patch rejected: ${applied.error.slice(0, 120)}`,
-                validation: { status: "failed", issues: [{ level: "fail", message: applied.error }] },
+                validation: { status: "failed", summary: applied.error, issues: [{ severity: "blocking", code: "patch-apply", level: "fail", message: applied.error }] },
                 documentChanged: false,
                 strategy: "ai-patch",
                 patchOperationCount: patchParsed.data.operations.length,
@@ -633,7 +633,7 @@ function Index() {
           model: modelForServer,
           durationMs,
           summary: `Advisory ${activeMode} reply`,
-          validation: { status: "passed", issues: [] },
+          validation: { status: "passed", summary: "All checks passed.", issues: [] },
           documentChanged: false,
           strategy: "advisory",
         }));

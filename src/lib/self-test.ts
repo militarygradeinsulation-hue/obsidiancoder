@@ -3,12 +3,15 @@
 
 import { classifyTask } from "./task-classifier";
 import { tryDeterministicEdit } from "./deterministic-edits";
-import { validateHtml } from "./validation";
+import { validateHtml, blockingIssues } from "./validation";
 import { applyPatch } from "./patch-engine";
 import { parsePatchResponse } from "./patch-protocol";
 import { planFor } from "./orchestrator";
 import { anchorsFromPrompt, budgetSnippets, snippetsAround } from "./context-manager";
 import { extractOutline } from "./document-outline";
+import { repairHtml } from "./repair";
+import { extractDesignTokens, replaceColor, setCssVariable } from "./design-system";
+import { EMPTY_MEMORY, mergeMemory, lockKey } from "./project-memory";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
@@ -80,6 +83,45 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   const outline = extractOutline(SAMPLE_HTML);
   results.push(assert(outline.headings.length === 1 && outline.buttons.length === 1,
     "outline: headings & buttons"));
+
+  // Validation v2 — severities
+  const sev = validateHtml('<!doctype html><html><body><button></button><a href="#missing">x</a><img src=""></body></html>');
+  results.push(assert(sev.issues.some((i) => i.severity === "warning"), "validation v2: severity present"));
+  const bad2 = validateHtml("<html><body><style>.a{ color:red;</style>");
+  results.push(assert(bad2.status === "failed" && blockingIssues(bad2).length > 0, "validation v2: css imbalance blocks"));
+
+  // Auto-repair
+  const secretHtml = '<!doctype html><html><body>key=sk_live_abcdefghij1234567890</body></html>';
+  const secretReport = validateHtml(secretHtml);
+  const repaired = repairHtml(secretHtml, secretReport.issues);
+  results.push(assert(!/sk_live_abcdefghij/.test(repaired.html) && repaired.fixes.length > 0, "repair: secret redaction"));
+  const brokenHtml = "<!doctype html><html><body><h1>hi</h1>";
+  const brokenReport = validateHtml(brokenHtml);
+  const repaired2 = repairHtml(brokenHtml, brokenReport.issues);
+  results.push(assert(/<\/html>/i.test(repaired2.html), "repair: appends missing </html>"));
+
+  // Design system
+  const dsHtml = '<!doctype html><html><head><style>body{color:#F4A125;font-family:Inter;border-radius:8px;padding:16px;box-shadow:0 1px 2px #000}</style></head><body></body></html>';
+  const tokens = extractDesignTokens(dsHtml);
+  results.push(assert(tokens.colors.includes("#F4A125") && tokens.fonts.some((f) => /Inter/.test(f)), "design: extract tokens"));
+  const rc = replaceColor(dsHtml, "#F4A125", "#DD9324");
+  results.push(assert(rc.changes === 1 && rc.html.includes("#DD9324"), "design: replace color"));
+  const setv = setCssVariable(dsHtml, "brand", "#000");
+  results.push(assert(setv.changed && /--brand:\s*#000/.test(setv.html), "design: set css var"));
+
+  // Project memory v2 locks
+  const m0 = { ...EMPTY_MEMORY, purpose: "landing" };
+  const m1 = lockKey(m0, "purpose");
+  const m2 = mergeMemory(m1, { purpose: "different" });
+  results.push(assert(m2.purpose === "landing", "memory: locked key preserved"));
+  const m3 = mergeMemory(m1, { audience: "devs" });
+  results.push(assert(m3.audience === "devs", "memory: unlocked key merged"));
+
+  // Patch engine — anchor ambiguity should fail atomically
+  const ambJson = JSON.stringify({ summary: "amb", operations: [{ op: "replace_text", find: "x", replace: "y", allow_multiple: false }] });
+  const ambParsed = parsePatchResponse(ambJson);
+  const ambResult = ambParsed.ok ? applyPatch("<html><body>x x</body></html>", ambParsed.patch) : { ok: false as const };
+  results.push(assert(!ambResult.ok, "patch engine: ambiguous anchor rejected"));
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
