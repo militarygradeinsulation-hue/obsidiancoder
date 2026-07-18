@@ -199,6 +199,8 @@ function Index() {
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastAiError, setLastAiError] = useState<AiErrorEnvelope | null>(null);
+  const lastSubmitRef = useRef<{ prompt: string } | null>(null);
   const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
