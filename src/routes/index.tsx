@@ -882,9 +882,20 @@ function Index() {
         }),
         signal: controller.signal,
       });
+      const ctype = (res.headers.get("content-type") || "").toLowerCase();
+      // AI error envelope arrives as JSON — never treat it as generated code.
+      if (ctype.includes("application/json")) {
+        let envelope: unknown = null;
+        try { envelope = await res.json(); } catch { envelope = null; }
+        if (isAiErrorEnvelope(envelope)) {
+          setLastAiError(envelope);
+          throw new Error(envelope.message);
+        }
+        throw new Error(`AI request failed (${res.status})`);
+      }
+      // Only accept an actual streaming body. Never fall back to res.text() as HTML.
       if (!res.ok || !res.body) {
-        const text = await res.text().catch(() => "AI request failed");
-        throw new Error(text || `AI request failed (${res.status})`);
+        throw new Error(`AI request failed (${res.status})`);
       }
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
