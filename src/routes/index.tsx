@@ -380,7 +380,7 @@ function Index() {
       taskType: input.classification.taskType,
       strategy: input.strategy,
       model: input.model,
-      tier: input.classification.recommendedTier ?? "flagship",
+      tier: "balanced",
       durationMs: Math.round(input.durationMs),
       contextTier: input.contextTier ?? "none",
       contextChars: input.contextChars ?? 0,
