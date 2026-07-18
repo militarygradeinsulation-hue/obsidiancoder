@@ -59,9 +59,9 @@ export const Route = createFileRoute("/")({
   },
   head: () => ({
     meta: [
-      { title: "Obsidian — Vibe coding, elevated" },
+      { title: "Aetheris Obsidian — Vibe coding, elevated" },
       { name: "description", content: "A premium prompt-to-page workspace. Deep space palette, warm gold accents, live preview." },
-      { property: "og:title", content: "Obsidian — Vibe coding, elevated" },
+      { property: "og:title", content: "Aetheris Obsidian — Vibe coding, elevated" },
       { property: "og:description", content: "A premium prompt-to-page workspace. Deep space palette, warm gold accents, live preview." },
       { property: "og:type", content: "website" },
     ],
@@ -175,7 +175,7 @@ function newSession(): Session {
   return {
     id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
     title: "Untitled",
-    messages: [{ role: "assistant", content: "Obsidian is ready. Tell me what to build." }],
+    messages: [{ role: "assistant", content: "Aetheris Obsidian is ready. Tell me what to build." }],
     html: "",
     model: "auto",
     mode: "agent",
@@ -1161,7 +1161,7 @@ function Index() {
           <div className="obs-user">
             <div className="obs-avatar">A</div>
             <div className="obs-user-meta">
-              <div className="obs-user-name">Obsidian Dev</div>
+              <div className="obs-user-name">Aetheris Obsidian</div>
               <div className="obs-user-sub">Pro Workspace</div>
             </div>
             <button
@@ -1431,14 +1431,14 @@ function Index() {
                 current.html ? (
                   <iframe
                     ref={iframeRef}
-                    title="Obsidian preview"
+                    title="Aetheris Obsidian preview"
                     srcDoc={previewSrcDoc}
                     sandbox="allow-scripts"
                     className="obs-preview"
                   />
                 ) : (
                   <div className="obs-preview-empty">
-                    <p>Ask Obsidian to build something.</p>
+                    <p>Ask Aetheris Obsidian to build something.</p>
                     <span>Your sandbox preview will appear here.</span>
                   </div>
                 )
@@ -1608,7 +1608,7 @@ function Index() {
                   ref={composerRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…" : "Ask Obsidian AI…"}
+                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…" : "Ask Aetheris Obsidian…"}
                   disabled={loading}
                   className="obs-composer-input"
                   data-testid="composer-input"
@@ -2041,7 +2041,7 @@ function Index() {
                     submit(q);
                   }}
                 >
-                  <span>Send to Obsidian AI: “{paletteQuery.trim().slice(0, 60)}”</span>
+                  <span>Send to Aetheris Obsidian: “{paletteQuery.trim().slice(0, 60)}”</span>
                   <ArrowRight className="h-3 w-3" />
                 </button>
               )}
