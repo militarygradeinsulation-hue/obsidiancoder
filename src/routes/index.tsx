@@ -942,6 +942,18 @@ function Index() {
       }
 
       let finalHtml = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      // Safety net: if the "stream" was actually a JSON error envelope smuggled
+      // as text/plain, treat it as a failure instead of wrapping it as HTML.
+      const trimmedStart = finalHtml.slice(0, 200).trimStart();
+      if (trimmedStart.startsWith("{") && /"ok"\s*:\s*false/.test(trimmedStart)) {
+        try {
+          const env = JSON.parse(finalHtml);
+          if (isAiErrorEnvelope(env)) { setLastAiError(env); throw new Error(env.message); }
+        } catch (parseErr) {
+          if (parseErr instanceof Error && parseErr.message) throw parseErr;
+        }
+        throw new Error("Upstream returned an error envelope instead of HTML.");
+      }
       if (!/<!doctype|<html/i.test(finalHtml)) {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
       }
