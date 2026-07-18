@@ -195,9 +195,10 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   results.push(assert(events[events.length - 1] >= 2, "pipeline: emits stage snapshots"));
 
   // --- Staged context ---
-  const ctxMin = buildContext(SAMPLE_HTML, 'change "Hello world"', "minimal");
-  const ctxFull = buildContext(SAMPLE_HTML, 'change "Hello world"', "full");
-  results.push(assert(ctxMin.chars < ctxFull.chars && ctxMin.tier === "minimal", "staged-context: minimal < full"));
+  const bigHtml = '<!doctype html><html><body>' + 'lorem ipsum '.repeat(400) + '<h1 id="hero">Hello world</h1>' + 'dolor sit amet '.repeat(400) + '</body></html>';
+  const ctxMin = buildContext(bigHtml, 'change "Hello world"', "minimal");
+  const ctxFull = buildContext(bigHtml, 'change "Hello world"', "full");
+  results.push(assert(ctxMin.chars < ctxFull.chars && ctxMin.tier === "minimal", `staged-context: minimal(${ctxMin.chars}) < full(${ctxFull.chars})`));
   results.push(assert(nextTier("minimal") === "nearby" && nextTier("full") === null, "staged-context: escalation order"));
 
   // --- Safe storage ---
