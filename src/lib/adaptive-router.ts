@@ -62,7 +62,7 @@ export function decide(input: PlanInput): RoutingDecision {
   const modelPref = preferenceFor(prefs, `model.${plan.classification.taskType}`);
   if (modelPref) {
     signalsUsed.push(`preference:${modelPref.key}`);
-    chosenModel = modelPref.value;
+    chosenModel = asModelId(modelPref.value, chosenModel);
   }
 
   // Performance-model recommendation: only if confidence >= 0.5 AND clearly
@@ -73,7 +73,7 @@ export function decide(input: PlanInput): RoutingDecision {
     const [, , recommendedModel] = parts;
     if (recommendedModel && recommendedModel !== "any" && recommendedModel !== chosenModel && bestScore.successRate > 0.7) {
       signalsUsed.push(`perf-model:${bestScore.successRate.toFixed(2)}`);
-      chosenModel = recommendedModel;
+      chosenModel = asModelId(recommendedModel, chosenModel);
     } else if (recommendedModel === chosenModel) {
       signalsUsed.push(`perf-confirms-default`);
     }
