@@ -125,6 +125,7 @@ function newSession(): Session {
     model: "auto",
     mode: "agent",
     versions: [],
+    memory: { ...EMPTY_MEMORY },
   };
 }
 
