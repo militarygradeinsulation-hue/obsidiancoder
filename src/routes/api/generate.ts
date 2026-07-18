@@ -113,7 +113,7 @@ export const Route = createFileRoute("/api/generate")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const { isUnlockedServer } = await import("@/lib/gate.functions");
+        const { isUnlockedServer } = await import("@/lib/gate.server");
         if (!(await isUnlockedServer())) {
           return new Response("Locked", { status: 401 });
         }
