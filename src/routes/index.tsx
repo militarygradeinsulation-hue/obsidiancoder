@@ -746,41 +746,60 @@ function Index() {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
       }
 
-      // 4. Validate AI output. Failed => revert to stable snapshot.
-      const validation = validateHtml(finalHtml);
+      // 4. Validate AI output. Failed => try bounded deterministic repair; else revert.
+      let validation = validateHtml(finalHtml);
+      const fullRepairAttempts: RepairAttempt[] = [];
       if (validation.status === "failed") {
-        setSessions((all) => all.map((s) => s.id === sessionId
-          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Generated document failed validation: ${validation.issues.map(i => i.message).join(" ")} — reverted to last stable version.` }] }
-          : s));
-        const durationMs = performance.now() - t0;
-        setTerminal((t) => [...t, `✗ Validation failed — reverted.`]);
-        setLastMetrics(metricsFromClassification(classification, {
-          usedAi: true,
-          model: modelForServer,
-          durationMs,
-          summary: "AI output rejected by validator; reverted to stable version.",
-          validation,
-          documentChanged: false,
-          strategy: "full-generation",
-        }));
-        return;
+        const rep = tryLocalRepair(finalHtml, validation.issues);
+        fullRepairAttempts.push(rep.attempt);
+        if (rep.passed) {
+          finalHtml = rep.html;
+          validation = validateHtml(finalHtml);
+          setTerminal((t) => [...t, `↺ Deterministic repair (${rep.attempt.fixes.length} fix${rep.attempt.fixes.length === 1 ? "" : "es"}) — commit continued.`]);
+        } else {
+          setSessions((all) => all.map((s) => s.id === sessionId
+            ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Generated document failed validation and could not be auto-repaired: ${validation.issues.map(i => i.message).join(" ")} — reverted to last stable version.` }] }
+            : s));
+          const durationMs = performance.now() - t0;
+          setTerminal((t) => [...t, `✗ Validation failed (repair inconclusive) — reverted.`]);
+          setLastMetrics(metricsFromClassification(classification, {
+            usedAi: true,
+            model: modelForServer,
+            durationMs,
+            summary: "AI output rejected by validator; reverted to stable version.",
+            validation,
+            documentChanged: false,
+            strategy: "full-generation",
+          }));
+          return;
+        }
       }
 
       const versionLabel = (basePrompt || pendingAttachments[0]?.name || "Update").slice(0, 48);
-      const newVersion: Version = {
-        id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
-        ts: Date.now(),
-        html: finalHtml,
-        label: versionLabel,
-      };
+      const durationMsGen = performance.now() - t0;
+      const fullDiff = diffSummary(stableHtml, finalHtml);
+      const genMeta = buildMetadata({
+        request: basePrompt,
+        classification,
+        strategy: "full-generation",
+        model: modelForServer,
+        durationMs: durationMsGen,
+        charsAdded: fullDiff.charsAdded,
+        charsRemoved: fullDiff.charsRemoved,
+        changed: true,
+        validation,
+        repairAttempts: fullRepairAttempts,
+      });
+      const newVersion: Version = makeVersion(finalHtml, versionLabel, genMeta);
       setSessions((all) => all.map((s) => s.id === sessionId
         ? {
             ...s,
             html: finalHtml,
-            messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }],
+            messages: [...s.messages, { role: "assistant", content: fullRepairAttempts.length ? "Done — updated the preview (auto-repaired minor issues)." : "Done — updated the preview." }],
             versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
           }
         : s));
+
       const durationMs = performance.now() - t0;
       setTerminal((t) => [...t, `✓ Compiled in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
       const fullDiff = diffSummary(stableHtml, finalHtml);
