@@ -1420,16 +1420,8 @@ function Index() {
           </div>
 
           {/* ========== RIGHT RAIL ========== */}
-          <aside className="obs-rail" data-active-group={railGroup}>
+          <aside className="obs-rail">
             <div className="obs-rail-tabs" role="tablist" aria-label="Rail sections">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={railGroup === "all"}
-                className={"obs-rail-tab " + (railGroup === "all" ? "is-on" : "")}
-                onClick={() => setRailGroup("all")}
-                data-testid="rail-tab-all"
-              >All</button>
               {RAIL_GROUPS.map((g) => (
                 <button
                   key={g.id}
@@ -1437,17 +1429,16 @@ function Index() {
                   role="tab"
                   aria-selected={railGroup === g.id}
                   className={"obs-rail-tab " + (railGroup === g.id ? "is-on" : "")}
-                  onClick={() => setRailGroup(g.id)}
+                  onClick={() => { setRailGroup(g.id); scrollRailTo(`rail-${g.id}`); }}
                   data-testid={`rail-tab-${g.id}`}
                 >{g.label}</button>
               ))}
             </div>
 
-            {/* --- Group: AGENT --- */}
-            <div className="obs-rail-group" data-group="agent">
-            <div className="obs-rail-heading" id="rail-agent">Agent</div>
+            <div className="obs-rail-heading" id="rail-agent">Agent · chat, context, trust</div>
             {/* AI Agent */}
             <div className="obs-card">
+
 
               <div className="obs-card-head">
                 <span className="obs-card-label">AI Agent</span>
