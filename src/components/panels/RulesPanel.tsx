@@ -1,8 +1,8 @@
-// Rules panel — visible enable/disable toggles for the protected architecture
-// rules engine. Runs deterministic checks over the current preview and shows
-// live violations. Blocking violations should be enforced at the commit site.
+// Rules panel — controlled from parent so per-session toggles persist.
+// Blocking violations should be enforced at the commit site by the caller
+// via onBlockingChange.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Shield, ChevronDown, ChevronRight } from "lucide-react";
 import { DEFAULT_RULES, runRules, type Rule, type RuleSeverity } from "@/lib/rules-engine";
 import { buildGraph } from "@/lib/knowledge-graph";
@@ -13,8 +13,19 @@ const SEV_COLOR: Record<RuleSeverity, string> = {
   info: "text-white/60",
 };
 
-export function RulesPanel(props: { html: string }) {
-  const [rules, setRules] = useState<Rule[]>(DEFAULT_RULES);
+export function reconcileRules(saved: Rule[] | undefined): Rule[] {
+  const byId = new Map((saved ?? []).map((r) => [r.id, r]));
+  return DEFAULT_RULES.map((d) => ({ ...d, enabled: byId.get(d.id)?.enabled ?? d.enabled }));
+}
+
+export function RulesPanel(props: {
+  html: string;
+  rules?: Rule[];
+  onRulesChange?: (rules: Rule[]) => void;
+  onBlockingChange?: (blockingCount: number) => void;
+}) {
+  const [localRules, setLocalRules] = useState<Rule[]>(props.rules ?? DEFAULT_RULES);
+  const rules = props.rules ?? localRules;
   const [open, setOpen] = useState(false);
 
   const violations = useMemo(() => {
@@ -24,8 +35,14 @@ export function RulesPanel(props: { html: string }) {
 
   const blocking = violations.filter((v) => v.severity === "blocking").length;
 
+  useEffect(() => {
+    props.onBlockingChange?.(blocking);
+  }, [blocking, props]);
+
   function toggle(id: string) {
-    setRules((rs) => rs.map((r) => r.id === id ? { ...r, enabled: !r.enabled } : r));
+    const next = rules.map((r) => r.id === id ? { ...r, enabled: !r.enabled } : r);
+    if (props.onRulesChange) props.onRulesChange(next);
+    else setLocalRules(next);
   }
 
   return (
