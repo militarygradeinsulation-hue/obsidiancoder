@@ -395,7 +395,163 @@ function Index() {
       }
     }
 
-    // 3. AI path (streaming).
+    // 2b. AI-patch path — targeted edit against an existing document.
+    if (
+      previewMode &&
+      classification.strategy === "ai-patch" &&
+      stableHtml &&
+      pendingAttachments.length === 0
+    ) {
+      const modelForPatch = resolveModel(current.model);
+      const outline = outlineToPrompt(extractOutline(stableHtml));
+      const memoryStr = memoryToPrompt(current.memory);
+      const patchController = new AbortController();
+      abortRef.current = patchController;
+      try {
+        setTerminal((t) => [...t, `→ Patch mode → ${modelForPatch}`]);
+        const pRes = await fetch("/api/patch", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: patchController.signal,
+          body: JSON.stringify({
+            prompt: basePrompt,
+            currentHtml: stableHtml,
+            outline,
+            memory: memoryStr,
+            model: modelForPatch,
+          }),
+        });
+        if (!pRes.ok) {
+          const t = await pRes.text().catch(() => "");
+          throw new Error(t || `Patch request failed (${pRes.status})`);
+        }
+        const pJson = await pRes.json() as
+          | { ok: true; patch: unknown; model: string; fallbackUsed: boolean }
+          | { ok: false; error: string; fallbackUsed: boolean; model: string };
+
+        if (!pJson.ok) {
+          setTerminal((t) => [...t, `✗ Patch invalid: ${pJson.error.slice(0, 120)} — routing to full generation.`]);
+          // fall through to full generation
+        } else {
+          const patchParsed = patchSchema.safeParse(pJson.patch);
+          if (!patchParsed.success) {
+            setTerminal((t) => [...t, `✗ Patch schema rejected — falling back.`]);
+          } else if (patchParsed.data.operations.length === 0) {
+            setTerminal((t) => [...t, `· Model deferred to full generation (empty patch).`]);
+          } else {
+            const applied = applyPatch(stableHtml, patchParsed.data);
+            if (!applied.ok) {
+              // MUST NOT alter preview.
+              setSessions((all) => all.map((s) => s.id === sessionId
+                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patch failed at op ${applied.failedAt} (${applied.op ?? "?"}): ${applied.error} — preview unchanged.` }] }
+                : s));
+              setTerminal((t) => [...t, `✗ Patch apply failed: ${applied.error.slice(0, 120)}`]);
+              const durationMs = performance.now() - t0;
+              setLastMetrics(metricsFromClassification(classification, {
+                usedAi: true,
+                model: pJson.model,
+                durationMs,
+                summary: `Patch rejected: ${applied.error.slice(0, 120)}`,
+                validation: { status: "failed", issues: [{ level: "fail", message: applied.error }] },
+                documentChanged: false,
+                strategy: "ai-patch",
+                patchOperationCount: patchParsed.data.operations.length,
+                patchOperationTypes: patchParsed.data.operations.map(o => o.op),
+                patchOperationSummaries: [applied.error],
+                charactersAdded: 0,
+                charactersRemoved: 0,
+                fallbackUsed: pJson.fallbackUsed,
+              }));
+              setLoading(false);
+              abortRef.current = null;
+              return;
+            }
+            const validation = validateHtml(applied.html);
+            if (validation.status === "failed") {
+              // preserve stableHtml; do not commit
+              setSessions((all) => all.map((s) => s.id === sessionId
+                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patched document failed validation: ${validation.issues.map(i => i.message).join(" ")} — preview unchanged.` }] }
+                : s));
+              setTerminal((t) => [...t, `✗ Patch validation failed — kept stable version.`]);
+              const durationMs = performance.now() - t0;
+              setLastMetrics(metricsFromClassification(classification, {
+                usedAi: true,
+                model: pJson.model,
+                durationMs,
+                summary: "Patch produced invalid HTML; kept last stable version.",
+                validation,
+                documentChanged: false,
+                strategy: "ai-patch",
+                patchOperationCount: applied.applied.length,
+                patchOperationTypes: applied.applied.map(a => a.op),
+                patchOperationSummaries: applied.applied.map(a => a.summary),
+                charactersAdded: applied.charsAdded,
+                charactersRemoved: applied.charsRemoved,
+                fallbackUsed: pJson.fallbackUsed,
+              }));
+              setLoading(false);
+              abortRef.current = null;
+              return;
+            }
+            // COMMIT — success
+            const versionLabel = (patchParsed.data.summary || basePrompt).slice(0, 48);
+            const newVersion: Version = {
+              id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
+              ts: Date.now(),
+              html: applied.html,
+              label: versionLabel,
+            };
+            setSessions((all) => all.map((s) => s.id === sessionId
+              ? {
+                  ...s,
+                  html: applied.html,
+                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"})_` }],
+                  versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
+                }
+              : s));
+            const durationMs = performance.now() - t0;
+            setTerminal((t) => [
+              ...t,
+              `✓ Patched in ${Math.round(durationMs)}ms (${applied.applied.length} ops, +${applied.charsAdded}/-${applied.charsRemoved})`,
+              `✓ Validation: ${validation.status}`,
+            ]);
+            setLastMetrics(metricsFromClassification(classification, {
+              usedAi: true,
+              model: pJson.model,
+              durationMs,
+              summary: patchParsed.data.summary,
+              validation,
+              documentChanged: true,
+              strategy: "ai-patch",
+              patchOperationCount: applied.applied.length,
+              patchOperationTypes: applied.applied.map(a => a.op),
+              patchOperationSummaries: applied.applied.map(a => a.summary),
+              charactersAdded: applied.charsAdded,
+              charactersRemoved: applied.charsRemoved,
+              fallbackUsed: pJson.fallbackUsed,
+            }));
+            setLoading(false);
+            abortRef.current = null;
+            return;
+          }
+        }
+      } catch (err) {
+        if ((err as { name?: string })?.name === "AbortError") {
+          setSessions((all) => all.map((s) => s.id === sessionId
+            ? { ...s, messages: [...s.messages, { role: "assistant", content: "■ Stopped — preview unchanged." }] }
+            : s));
+          setTerminal((t) => [...t, "■ Patch stopped by user"]);
+          setLoading(false);
+          abortRef.current = null;
+          return;
+        }
+        setTerminal((t) => [...t, `✗ Patch route error: ${(err as Error).message.slice(0, 120)} — falling back.`]);
+      } finally {
+        abortRef.current = null;
+      }
+    }
+
+    // 3. Full-generation AI path (streaming).
     const modePrefix = MODE_PREFIX[activeMode] ? `[${activeMode.toUpperCase()} MODE] ${MODE_PREFIX[activeMode]}\n\n` : "";
     let prompt = modePrefix + (basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : ""));
     for (const att of pendingAttachments) {
