@@ -704,10 +704,22 @@
   color: #ffffff;
   font-family: var(--font-sans);
   overflow: hidden;
+  transition: grid-template-columns 200ms ease;
+}
+@media (min-width: 901px) {
+  .obs-shell.is-sidebar-collapsed { grid-template-columns: 0 1fr; }
+  .obs-shell.is-sidebar-collapsed > .obs-sidebar {
+    width: 0; min-width: 0; padding: 0; border: 0; overflow: hidden; opacity: 0; pointer-events: none;
+  }
+}
+.obs-shell.is-rail-collapsed .obs-body { grid-template-columns: minmax(0,1fr) 0 !important; }
+.obs-shell.is-rail-collapsed .obs-rail {
+  width: 0; min-width: 0; padding: 0; border: 0; overflow: hidden; opacity: 0; pointer-events: none;
 }
 
 @media (max-width: 900px) {
-  .obs-shell { grid-template-columns: 1fr; }
+  .obs-shell,
+  .obs-shell.is-sidebar-collapsed { grid-template-columns: 1fr; }
 }
 
 /* Ambient matrix rain */

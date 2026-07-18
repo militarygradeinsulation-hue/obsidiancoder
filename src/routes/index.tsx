@@ -195,6 +195,20 @@ function Index() {
   const [error, setError] = useState<string | null>(null);
   const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("obs.sidebarCollapsed") === "1";
+  });
+  const [railCollapsed, setRailCollapsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("obs.railCollapsed") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.sidebarCollapsed", sidebarCollapsed ? "1" : "0"); } catch {}
+  }, [sidebarCollapsed]);
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.railCollapsed", railCollapsed ? "1" : "0"); } catch {}
+  }, [railCollapsed]);
   const [terminal, setTerminal] = useState<string[]>([
     "· Sandbox ready — no build yet",
   ]);
@@ -278,7 +292,7 @@ function Index() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [current.messages, loading, activeId]);
+  }, [current.messages, loading, activeId, input]);
 
   const previewSrcDoc = useMemo(
     () =>
@@ -1074,7 +1088,7 @@ function Index() {
   const specTax = versionCount > 0 ? Math.max(0, Math.round(((userTurns - versionCount) / Math.max(1, userTurns)) * 100)) : 0;
 
   return (
-    <main className="obs-shell">
+    <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "")}>
       {/* Ambient matrix backdrop */}
       <div className="obs-matrix" aria-hidden="true">
         {Array.from({ length: 14 }).map((_, i) => (
@@ -1182,12 +1196,31 @@ function Index() {
         {/* Topbar */}
         <div className="obs-topbar">
           <div className="obs-topbar-left">
-            <button type="button" className="obs-icon-btn" aria-label="Menu" onClick={() => setSidebarOpen(true)}>
+            <button
+              type="button"
+              className="obs-icon-btn"
+              aria-label={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              title={sidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+              onClick={() => {
+                if (typeof window !== "undefined" && window.matchMedia("(max-width: 900px)").matches) {
+                  setSidebarOpen(true);
+                } else {
+                  setSidebarCollapsed((v) => !v);
+                }
+              }}
+            >
               <Menu className="h-4 w-4" />
             </button>
             <img src={aetherisLogo.url} alt="Aetheris" className="obs-mark obs-mark-img obs-topbar-logo" />
-            <button type="button" className="obs-icon-btn" aria-label="Back" disabled title="History navigation not available"><ChevronLeft className="h-4 w-4" /></button>
-            <button type="button" className="obs-icon-btn" aria-label="Forward" disabled title="History navigation not available"><ChevronRight className="h-4 w-4" /></button>
+            <button
+              type="button"
+              className="obs-icon-btn obs-rail-toggle-btn"
+              aria-label={railCollapsed ? "Show right panel" : "Hide right panel"}
+              title={railCollapsed ? "Show right panel" : "Hide right panel"}
+              onClick={() => setRailCollapsed((v) => !v)}
+            >
+              {railCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
+            </button>
             <div className="obs-tabs">
               {sessions.map((s) => {
                 const isActive = s.id === activeId;
