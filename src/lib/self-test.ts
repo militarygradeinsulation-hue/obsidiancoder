@@ -25,6 +25,9 @@ import { EMPTY_COST, foldMetrics, recordRestore } from "./cost-metrics";
 import { record, buildRoutingStats, preferredModel, type FeedbackEvent } from "./failure-learning";
 import { parseFlow } from "./flow-parser";
 import { createComponent, renameComponent, deleteComponent, duplicateComponent, insertMarkup } from "./component-library";
+import { AiError, isAiErrorEnvelope, newRequestId, sanitizeUpstreamMessage } from "./ai-errors";
+import { looksLikeHtml, looksLikeProxyError, readGuarded, firstChunkLooksBad } from "./upstream-guard";
+import { canAttempt, recordFailure, recordSuccess, resetBreaker, BREAKER_CONFIG } from "./circuit-breaker";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
