@@ -201,7 +201,7 @@ function Index() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastAiError, setLastAiError] = useState<AiErrorEnvelope | null>(null);
-  const lastSubmitRef = useRef<{ prompt: string } | null>(null);
+  const lastSubmitRef = useRef<{ prompt: string; attachments: Attachment[] } | null>(null);
   const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -591,7 +591,7 @@ function Index() {
 
     setError(null);
     setLastAiError(null);
-    lastSubmitRef.current = { prompt: basePrompt };
+    lastSubmitRef.current = { prompt: basePrompt, attachments: [...pendingAttachments] };
     setInput("");
     setPendingAttachments([]);
     const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: basePrompt || "(attachment only)" }];
@@ -714,25 +714,27 @@ function Index() {
         if (pCtype.includes("application/json")) {
           pJson = await pRes.json();
         } else {
-          // Non-JSON body from /api/patch is treated as an upstream transport failure.
-          // The stable HTML stays untouched; fall through to full generation.
-          setTerminal((t) => [...t, `✗ Patch route returned non-JSON — falling back to full AI generation.`]);
-          abortRef.current = null;
-          break patchAttempt;
+          // Non-JSON body from /api/patch is a transport failure. Preserve
+          // stable HTML and surface the error — never fall through to a full
+          // regeneration on transport errors (that could destroy work the user
+          // already had).
+          const envelope: AiErrorEnvelope = {
+            ok: false, code: "ai_upstream_malformed", stage: "patch",
+            message: "Patch service returned a non-JSON body. Your last stable build is preserved.",
+            retryable: true, requestId: `local_${Date.now().toString(36)}`,
+          };
+          setLastAiError(envelope); setError(envelope.message);
+          setTerminal((t) => [...t, `✗ Patch transport: non-JSON body (stable HTML preserved).`]);
+          abortRef.current = null; setLoading(false); setStage(null);
+          return;
         }
         if (isAiErrorEnvelope(pJson)) {
-          // Non-retryable envelopes surface directly to the user; retryable ones fall through.
-          if (!pJson.retryable) {
-            setLastAiError(pJson);
-            setError(pJson.message);
-            setTerminal((t) => [...t, `✗ Patch: ${pJson.message} (id ${pJson.requestId})`]);
-            abortRef.current = null;
-            setLoading(false); setStage(null);
-            return;
-          }
-          setTerminal((t) => [...t, `✗ Patch upstream failed (${pJson.code}) — falling back to full AI generation.`]);
-          abortRef.current = null;
-          break patchAttempt;
+          // Transport-layer failure — retryable or not, DO NOT silently
+          // fall through to full generation. Surface it; user can Retry.
+          setLastAiError(pJson); setError(pJson.message);
+          setTerminal((t) => [...t, `✗ Patch: ${pJson.message} (id ${pJson.requestId})`]);
+          abortRef.current = null; setLoading(false); setStage(null);
+          return;
         }
 
         if (!pJson.ok) {
@@ -1479,8 +1481,12 @@ function Index() {
                       type="button"
                       className="obs-btn is-sm"
                       onClick={() => {
-                        const p = lastSubmitRef.current?.prompt;
-                        if (p) { setError(null); setLastAiError(null); void submit(p); }
+                        const last = lastSubmitRef.current;
+                        if (!last) return;
+                        setError(null); setLastAiError(null);
+                        // Restore attachments so retry replays the ORIGINAL request.
+                        if (last.attachments.length) setPendingAttachments(last.attachments);
+                        void submit(last.prompt);
                       }}
                       data-testid="ai-error-retry"
                     >Retry</button>
