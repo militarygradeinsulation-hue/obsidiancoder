@@ -6,9 +6,10 @@ import {
   FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
-  History, RotateCcw, Trash2,
+  History, RotateCcw, Trash2, Square,
 } from "lucide-react";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
+import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 
 
 export const Route = createFileRoute("/")({
@@ -27,17 +28,8 @@ export const Route = createFileRoute("/")({
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
-const MODELS = [
-  { id: "google/gemini-3.1-flash-lite", label: "Gemini 3.1 Flash Lite (fastest)" },
-  { id: "google/gemini-3.5-flash", label: "Gemini 3.5 Flash" },
-  { id: "google/gemini-3.1-pro-preview", label: "Gemini 3.1 Pro" },
-  { id: "google/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
-  { id: "openai/gpt-5.4-mini", label: "GPT-5.4 Mini" },
-  { id: "openai/gpt-5.6-luna", label: "GPT-5.6 Luna (fast)" },
-  { id: "openai/gpt-5.6-terra", label: "GPT-5.6 Terra (balanced)" },
-  { id: "openai/gpt-5.6-sol", label: "GPT-5.6 Sol (flagship)" },
-] as const;
-type ModelId = (typeof MODELS)[number]["id"];
+// Client-side model picker id: registry id, or "auto" (resolves to DEFAULT_MODEL server-side).
+type PickerModelId = ModelId | "auto";
 
 const MODES = [
   { id: "agent",  label: "Agent",  hint: "Autonomous — plans + builds in one pass." },
