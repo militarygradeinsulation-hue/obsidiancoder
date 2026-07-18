@@ -945,6 +945,15 @@ function Index() {
         validation,
         repairAttempts: fullRepairAttempts,
       });
+      const gateBlockersG = checkCommitGate(stableHtml, finalHtml, "full-generation");
+      if (gateBlockersG) {
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Blocked by rule: ${gateBlockersG.join("; ").slice(0, 200)} — reverted to last stable version.` }] }
+          : s));
+        setTerminal((t) => [...t, `✗ Rule gate rejected generation: ${gateBlockersG[0].slice(0, 120)}`]);
+        pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockersG[0] });
+        return;
+      }
       const newVersion: Version = makeVersion(finalHtml, versionLabel, genMeta);
       setSessions((all) => all.map((s) => s.id === sessionId
         ? {
