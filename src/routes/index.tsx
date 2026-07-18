@@ -1587,13 +1587,21 @@ function Index() {
                   <span className="obs-file-name">obsidian.css</span>
                 </li>
               </ul>
-              <button type="button" className="obs-add-context">
+              <button
+                type="button"
+                className="obs-add-context"
+                onClick={() => fileInputRef.current?.click()}
+                data-testid="context-add"
+              >
                 <Paperclip className="h-3.5 w-3.5" /> Add Context
               </button>
             </div>
 
+            <div className="obs-rail-heading" id="rail-build">Build · files, versions, design</div>
+
             {/* Version History V2 */}
             <VersionHistoryPanel
+
               versions={current.versions as UiVersion[]}
               currentHtml={current.html}
               disabled={loading}
