@@ -484,7 +484,7 @@ function Index() {
             charactersRemoved: detDiff.charsRemoved,
             fallbackUsed: false,
           }));
-          setLoading(false);
+          setLoading(false); setStage(null);
           return;
         }
       } else {
@@ -559,7 +559,7 @@ function Index() {
                 charactersRemoved: 0,
                 fallbackUsed: pJson.fallbackUsed,
               }));
-              setLoading(false);
+              setLoading(false); setStage(null);
               abortRef.current = null;
               return;
             }
@@ -595,7 +595,7 @@ function Index() {
                   charactersRemoved: applied.charsRemoved,
                   fallbackUsed: pJson.fallbackUsed,
                 }));
-                setLoading(false);
+                setLoading(false); setStage(null);
                 abortRef.current = null;
                 return;
               }
@@ -648,7 +648,7 @@ function Index() {
               charactersRemoved: applied.charsRemoved,
               fallbackUsed: pJson.fallbackUsed,
             }));
-            setLoading(false);
+            setLoading(false); setStage(null);
             abortRef.current = null;
             return;
           }
@@ -659,7 +659,7 @@ function Index() {
             ? { ...s, messages: [...s.messages, { role: "assistant", content: "■ Stopped — preview unchanged." }] }
             : s));
           setTerminal((t) => [...t, "■ Patch stopped by user"]);
-          setLoading(false);
+          setLoading(false); setStage(null);
           abortRef.current = null;
           return;
         }
@@ -858,7 +858,7 @@ function Index() {
       }
     } finally {
       abortRef.current = null;
-      setLoading(false);
+      setLoading(false); setStage(null);
       setStage(null);
       setStageDetail("");
     }
