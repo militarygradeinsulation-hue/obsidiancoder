@@ -1240,45 +1240,60 @@ function Index() {
               </button>
             </div>
 
-            {/* Version History */}
-            <div className="obs-card">
-              <div className="obs-card-head">
-                <span className="obs-card-label">
-                  <History className="h-3.5 w-3.5 inline mr-1" /> Version History
-                </span>
-                <span className="obs-node">{current.versions?.length ?? 0}</span>
-              </div>
-              {(current.versions?.length ?? 0) === 0 ? (
-                <p className="obs-history-empty">Each build is saved here. Revert anytime.</p>
-              ) : (
-                <ul className="obs-history-list">
-                  {current.versions.map((v, i) => {
-                    const isCurrent = v.html === current.html;
-                    const d = new Date(v.ts);
-                    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                    return (
-                      <li key={v.id} className={"obs-history-item " + (isCurrent ? "is-current" : "")}>
-                        <div className="obs-history-meta">
-                          <span className="obs-history-idx">v{(current.versions.length - i).toString().padStart(2, "0")}</span>
-                          <span className="obs-history-label" title={v.label}>{v.label}</span>
-                          <span className="obs-history-time">{time}</span>
-                        </div>
-                        <button
-                          type="button"
-                          className="obs-history-revert"
-                          onClick={() => revertTo(v)}
-                          disabled={loading || isCurrent}
-                          title={isCurrent ? "This is the current version" : "Revert to this version"}
-                        >
-                          <RotateCcw className="h-3 w-3" />
-                          {isCurrent ? "Current" : "Revert"}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+            {/* Version History V2 */}
+            <VersionHistoryPanel
+              versions={current.versions as UiVersion[]}
+              currentHtml={current.html}
+              disabled={loading}
+              onRevert={(v) => revertTo(v as Version)}
+              onRename={(id, label) =>
+                updateCurrent({
+                  versions: current.versions.map((v) => (v.id === id ? { ...v, label } : v)),
+                })
+              }
+              onToggleProtect={(id) =>
+                updateCurrent({
+                  versions: current.versions.map((v) => (v.id === id ? { ...v, protected: !v.protected } : v)),
+                })
+              }
+              onDelete={(id) =>
+                updateCurrent({ versions: current.versions.filter((v) => v.id !== id) })
+              }
+            />
+
+            {/* Memory V2 */}
+            <MemoryPanel
+              memory={current.memory}
+              currentHtml={current.html}
+              onChange={(m) => updateCurrent({ memory: m })}
+            />
+
+            {/* Design System */}
+            <DesignSystemPanel
+              html={current.html}
+              disabled={loading || !current.html}
+              onApply={(next) => {
+                const meta = buildMetadata({
+                  request: "Design system update",
+                  classification: classifyTask("update design tokens", { mode: current.mode, hasHtml: true }),
+                  strategy: "deterministic",
+                  model: "deterministic",
+                  durationMs: 0,
+                  charsAdded: Math.max(0, next.length - current.html.length),
+                  charsRemoved: Math.max(0, current.html.length - next.length),
+                  changed: next !== current.html,
+                  validation: validateHtml(next),
+                });
+                const v = makeVersion(next, "Design tokens", meta);
+                updateCurrent({
+                  html: next,
+                  versions: [v, ...current.versions].slice(0, 25),
+                  messages: [...current.messages, { role: "assistant", content: "✓ Applied design token update (deterministic, no AI credits)." }],
+                });
+                setTerminal((t) => [...t, "✓ Design system updated"]);
+              }}
+            />
+
 
 
             {/* Integrations */}
