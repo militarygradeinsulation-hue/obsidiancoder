@@ -200,6 +200,8 @@ function Index() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [inspectorEnabled, setInspectorEnabled] = useState(false);
+  const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
