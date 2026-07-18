@@ -1110,16 +1110,21 @@ function Index() {
         </button>
 
         <div className="obs-section-label">Workspace</div>
-        <nav className="obs-nav">
+        <nav className="obs-nav" aria-label="Workspace">
           {WORKSPACE_NAV.map((item) => {
             const Icon = item.icon;
             const isActive = activeNav === item.id;
+            const isDisabled = item.id === "databases";
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActiveNav(item.id)}
-                className={"obs-nav-item " + (isActive ? "is-active" : "")}
+                onClick={() => handleNav(item.id)}
+                disabled={isDisabled}
+                title={isDisabled ? "No database connector linked to this workspace" : item.label}
+                aria-disabled={isDisabled || undefined}
+                data-testid={`nav-${item.id}`}
+                className={"obs-nav-item " + (isActive ? "is-active " : "") + (isDisabled ? "is-disabled" : "")}
               >
                 <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
                 <span>{item.label}</span>
@@ -1129,11 +1134,19 @@ function Index() {
         </nav>
 
         <div className="obs-section-label">Tools</div>
-        <nav className="obs-nav">
+        <nav className="obs-nav" aria-label="Tools">
           {TOOLS_NAV.map((item) => {
             const Icon = item.icon;
+            const isActive = activeNav === item.id;
             return (
-              <button key={item.id} type="button" className="obs-nav-item">
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleNav(item.id)}
+                data-testid={`nav-${item.id}`}
+                title={item.label}
+                className={"obs-nav-item " + (isActive ? "is-active" : "")}
+              >
                 <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
                 <span>{item.label}</span>
                 {item.shortcut && <kbd className="obs-kbd obs-kbd-nav">{item.shortcut}</kbd>}
@@ -1149,12 +1162,20 @@ function Index() {
               <div className="obs-user-name">Obsidian Dev</div>
               <div className="obs-user-sub">Pro Workspace</div>
             </div>
-            <button type="button" className="obs-icon-btn" aria-label="Settings">
+            <button
+              type="button"
+              className="obs-icon-btn"
+              aria-label="Open command palette (settings)"
+              title="Command palette"
+              data-testid="footer-settings"
+              onClick={() => setPaletteOpen(true)}
+            >
               <Settings className="h-4 w-4" strokeWidth={1.5} />
             </button>
           </div>
         </div>
       </aside>
+
 
       {/* ========== MAIN ========== */}
       <section className="obs-main">
