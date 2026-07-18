@@ -37,11 +37,112 @@ Hard rules:
 - Never remove previously-built features unless explicitly asked.
 - Safe: no third-party scripts, no tracking, no network calls beyond loading the images described above.`;
 
+export const generateImage = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ prompt: z.string().min(1).max(2000) }).parse(data),
+  )
+  .handler(async ({ data }) => {
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) throw new Error("AI is not configured yet.");
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-image",
+        messages: [{ role: "user", content: data.prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+    if (!res.ok) {
+      const t = await res.text();
+      if (res.status === 429) throw new Error("Rate limit reached.");
+      if (res.status === 402) throw new Error("AI credits exhausted.");
+      throw new Error(`Image generation failed (${res.status}): ${t.slice(0, 200)}`);
+    }
+    const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+    const b64 = json.data?.[0]?.b64_json;
+    if (!b64) throw new Error("No image returned.");
+    return { dataUrl: `data:image/png;base64,${b64}` };
+  });
+
+async function planImages(apiKey: string, prompt: string, currentHtml: string) {
+  // Cheap planning call: ask for up to 4 image prompts as JSON.
+  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: "google/gemini-3.1-flash-lite",
+      messages: [
+        {
+          role: "system",
+          content:
+            'You decide whether a web build needs generated images. Return ONLY compact JSON: {"images":[{"slot":"hero|card|logo|bg|icon","prompt":"..."}]}. Include an image ONLY if the user explicitly asks for visuals (image, photo, picture, illustration, logo, banner, hero) or the build is clearly visual (portfolio, gallery, landing page hero). Otherwise return {"images":[]}. Max 4 items. Each prompt: concrete, detailed, style-rich, no text-in-image.',
+        },
+        {
+          role: "user",
+          content: `USER REQUEST: ${prompt}\n\nCURRENT HTML (may be empty): ${currentHtml.slice(0, 2000)}`,
+        },
+      ],
+      response_format: { type: "json_object" },
+    }),
+  });
+  if (!res.ok) return [];
+  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+  try {
+    const parsed = JSON.parse(json.choices?.[0]?.message?.content ?? "{}");
+    const imgs = Array.isArray(parsed.images) ? parsed.images : [];
+    return imgs
+      .filter((i: unknown): i is { slot?: string; prompt: string } =>
+        !!i && typeof (i as { prompt?: unknown }).prompt === "string",
+      )
+      .slice(0, 4);
+  } catch {
+    return [];
+  }
+}
+
+async function generateOneImage(apiKey: string, prompt: string): Promise<string | null> {
+  try {
+    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-image",
+        messages: [{ role: "user", content: prompt }],
+        modalities: ["image", "text"],
+      }),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+    const b64 = json.data?.[0]?.b64_json;
+    return b64 ? `data:image/png;base64,${b64}` : null;
+  } catch {
+    return null;
+  }
+}
+
 export const generateHtml = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
     if (!apiKey) throw new Error("AI is not configured yet.");
+
+    // Plan + generate any visuals in parallel with the main call setup.
+    const plans = await planImages(apiKey, data.prompt, data.currentHtml);
+    const generated = plans.length
+      ? await Promise.all(
+          plans.map(async (p: { slot?: string; prompt: string }, i: number) => {
+            const url = await generateOneImage(apiKey, p.prompt);
+            return url ? { id: `gen-${i}`, slot: p.slot ?? "image", prompt: p.prompt, url } : null;
+          }),
+        )
+      : [];
+    const images = generated.filter(Boolean) as Array<{
+      id: string;
+      slot: string;
+      prompt: string;
+      url: string;
+    }>;
 
     const messages: Array<{ role: string; content: string }> = [
       { role: "system", content: SYSTEM_PROMPT },
@@ -53,14 +154,25 @@ export const generateHtml = createServerFn({ method: "POST" })
         content: `The current HTML document is:\n\n${data.currentHtml}\n\nBuild upon it.`,
       });
     }
+    if (images.length) {
+      const list = images
+        .map(
+          (img) =>
+            `- slot=${img.slot} | prompt="${img.prompt}" | URL: ${img.url.slice(0, 80)}…(base64 truncated for readability, use the FULL URL provided in the tag below)`,
+        )
+        .join("\n");
+      messages.push({
+        role: "system",
+        content:
+          `GENERATED IMAGES ARE AVAILABLE. You MUST embed each of them as <img src="..."> using the exact data:image/png;base64 URLs listed here. Do NOT swap them for Unsplash or placeholders. Choose sensible sizes and object-fit.\n\n${list}\n\nEXACT URLS (copy verbatim into src attributes):\n` +
+          images.map((img) => `[${img.id}] ${img.url}`).join("\n\n"),
+      });
+    }
     messages.push({ role: "user", content: data.prompt });
 
     const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
         model: data.model,
         messages,
@@ -79,13 +191,12 @@ export const generateHtml = createServerFn({ method: "POST" })
       choices?: Array<{ message?: { content?: string } }>;
     };
     let html = json.choices?.[0]?.message?.content?.trim() ?? "";
-
-    // strip accidental markdown fences
     html = html.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
 
     if (!html.toLowerCase().includes("<!doctype") && !html.toLowerCase().includes("<html")) {
       html = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${html}</body></html>`;
     }
 
-    return { html };
+    return { html, generatedImages: images.length };
   });
+
