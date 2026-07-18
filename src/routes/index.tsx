@@ -1656,10 +1656,11 @@ function Index() {
             />
 
 
-
+            <div className="obs-rail-heading" id="rail-ship">Ship · integrations, cost, deploy</div>
 
             {/* Integrations */}
-            <div className="obs-card">
+            <div className="obs-card" id="rail-integrations">
+
               <div className="obs-card-head">
                 <span className="obs-card-label">Integrations</span>
                 <span className="obs-node">{INTEGRATIONS.filter((i) => i.on).length}/{INTEGRATIONS.length}</span>
