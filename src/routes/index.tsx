@@ -670,12 +670,13 @@ function Index() {
     }
 
     // 2b. AI-patch path — targeted edit against an existing document.
-    if (
+    patchAttempt: if (
       previewMode &&
       classification.strategy === "ai-patch" &&
       stableHtml &&
       pendingAttachments.length === 0
     ) {
+
       const modelForPatch = resolveModel(current.model);
       const outline = outlineToPrompt(extractOutline(stableHtml));
       const memoryStr = memoryToPrompt(current.memory);
