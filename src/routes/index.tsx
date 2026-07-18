@@ -764,15 +764,12 @@ function Index() {
             });
             const gateBlockersP = checkCommitGate(stableHtml, patchedHtml, "ai-patch");
             if (gateBlockersP) {
-              setSessions((all) => all.map((s) => s.id === sessionId
-                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Blocked by rule: ${gateBlockersP.join("; ").slice(0, 200)} — preview unchanged.` }] }
-                : s));
-              setTerminal((t) => [...t, `✗ Rule gate rejected patch: ${gateBlockersP[0].slice(0, 120)}`]);
+              setTerminal((t) => [...t, `✗ Rule gate rejected patch: ${gateBlockersP[0].slice(0, 100)} — falling back to full AI generation.`]);
               pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockersP[0] });
-              setLoading(false); setStage(null);
               abortRef.current = null;
-              return;
+              break patchAttempt;
             }
+
             const newVersion: Version = makeVersion(patchedHtml, versionLabel, commitMeta);
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
