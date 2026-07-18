@@ -144,28 +144,39 @@ export const generateHtml = createServerFn({ method: "POST" })
       url: string;
     }>;
 
+    // Context budget guardrails — keep well under the gateway's 1M-token cap.
+    const MAX_HTML_CHARS = 120_000; // ~30K tokens
+    const MAX_HISTORY = 6;
+    const truncatedHtml = data.currentHtml && data.currentHtml.length > MAX_HTML_CHARS
+      ? data.currentHtml.slice(0, MAX_HTML_CHARS) + "\n<!-- …truncated for context budget… -->"
+      : data.currentHtml;
+    const trimmedHistory = data.history.slice(-MAX_HISTORY).map((m) => ({
+      role: m.role,
+      content: typeof m.content === "string" && m.content.length > 4000
+        ? m.content.slice(0, 4000) + "…"
+        : m.content,
+    }));
+
     const messages: Array<{ role: string; content: string }> = [
       { role: "system", content: SYSTEM_PROMPT },
-      ...data.history,
+      ...trimmedHistory,
     ];
-    if (data.currentHtml) {
+    if (truncatedHtml) {
       messages.push({
         role: "system",
-        content: `The current HTML document is:\n\n${data.currentHtml}\n\nBuild upon it.`,
+        content: `The current HTML document is:\n\n${truncatedHtml}\n\nBuild upon it.`,
       });
     }
+    // Reference images by short placeholder tokens; substitute the real data URLs
+    // into the model output afterwards. This keeps base64 blobs out of the prompt.
     if (images.length) {
       const list = images
-        .map(
-          (img) =>
-            `- slot=${img.slot} | prompt="${img.prompt}" | URL: ${img.url.slice(0, 80)}…(base64 truncated for readability, use the FULL URL provided in the tag below)`,
-        )
+        .map((img) => `- ${img.id} · slot=${img.slot} · "${img.prompt}"`)
         .join("\n");
       messages.push({
         role: "system",
         content:
-          `GENERATED IMAGES ARE AVAILABLE. You MUST embed each of them as <img src="..."> using the exact data:image/png;base64 URLs listed here. Do NOT swap them for Unsplash or placeholders. Choose sensible sizes and object-fit.\n\n${list}\n\nEXACT URLS (copy verbatim into src attributes):\n` +
-          images.map((img) => `[${img.id}] ${img.url}`).join("\n\n"),
+          `Generated images are available. Embed them with <img src="{{IMAGE:<id>}}" alt="..."> using the placeholder tokens below. Do NOT swap in Unsplash or invent URLs — the placeholders will be replaced with the real data URLs after generation. Choose sensible sizes and object-fit.\n\n${list}`,
       });
     }
     messages.push({ role: "user", content: data.prompt });
@@ -192,6 +203,11 @@ export const generateHtml = createServerFn({ method: "POST" })
     };
     let html = json.choices?.[0]?.message?.content?.trim() ?? "";
     html = html.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+
+    // Substitute {{IMAGE:<id>}} placeholders with the real base64 data URLs.
+    for (const img of images) {
+      html = html.split(`{{IMAGE:${img.id}}}`).join(img.url);
+    }
 
     if (!html.toLowerCase().includes("<!doctype") && !html.toLowerCase().includes("<html")) {
       html = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${html}</body></html>`;
