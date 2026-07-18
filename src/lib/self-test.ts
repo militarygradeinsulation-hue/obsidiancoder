@@ -242,8 +242,8 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   results.push(assert(isProject(proj0) && proj0.files.length === 1 && proj0.files[0].protected === true, "project: migrate → 1 protected entry"));
   const created = createFile(proj0, "assets/logo.svg", "<svg/>"); if (!created.ok) throw new Error(created.error);
   results.push(assert(created.project.files.length === 2, "project: createFile"));
-  const bad = createFile(created.project, "../oops.txt");
-  results.push(assert(!bad.ok, "project: rejects path traversal"));
+  const badPath = createFile(created.project, "../oops.txt");
+  results.push(assert(!badPath.ok, "project: rejects path traversal"));
   const delEntry = deleteFile(created.project, proj0.entryFileId);
   results.push(assert(!delEntry.ok, "project: entry file undeletable"));
   const dup = duplicateFile(created.project, created.fileId); if (!dup.ok) throw new Error("dup failed");
@@ -272,17 +272,24 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   results.push(assert(bogusKind === null, "runtime: reject unknown kind"));
 
   // --- Cost metrics ---
-  const cs1 = foldMetrics(EMPTY_COST, { taskType: "modify", executionPath: "ai-patch", strategy: "ai-patch", usedAi: true, model: "openai/gpt-5.5", durationMs: 1200, summary: "", validation: { status: "passed", issues: [], summary: "" }, documentChanged: true, costEstimate: "low", reason: "", patchOperationCount: 2, patchOperationTypes: [], patchOperationSummaries: [], charactersAdded: 400, charactersRemoved: 100, fallbackUsed: false });
+  const cs1 = foldMetrics(EMPTY_COST, {
+    taskType: "text-edit", executionPath: "low-cost-ai", strategy: "ai-patch",
+    usedAi: true, model: "openai/gpt-5.5", durationMs: 1200, summary: "",
+    validation: { status: "passed", issues: [], summary: "" },
+    documentChanged: true, costEstimate: "low", reason: "",
+    patchOperationCount: 2, patchOperationTypes: [], patchOperationSummaries: [],
+    charactersAdded: 400, charactersRemoved: 100, fallbackUsed: false,
+  });
   results.push(assert(cs1.aiCalls === 1 && cs1.estimatedCostUsd > 0 && cs1.byModel["openai/gpt-5.5"] === 1, "cost: fold AI call"));
   const cs2 = recordRestore(cs1);
   results.push(assert(cs2.restores === 1, "cost: recordRestore"));
 
   // --- Failure learning ---
-  let events: FeedbackEvent[] = [];
-  for (let i = 0; i < 4; i++) events = record(events, { ts: Date.now(), taskType: "modify", strategy: "ai-patch", model: "modelA", validationStatus: "passed", runtimeErrors: 0, outcome: "kept" });
-  for (let i = 0; i < 4; i++) events = record(events, { ts: Date.now(), taskType: "modify", strategy: "ai-patch", model: "modelB", validationStatus: "failed", runtimeErrors: 2, outcome: "rejected" });
-  const stats = buildRoutingStats(events);
-  results.push(assert(preferredModel(stats, "modify") === "modelA", "learning: prefer kept-heavy model"));
+  let fbEvents: FeedbackEvent[] = [];
+  for (let i = 0; i < 4; i++) fbEvents = record(fbEvents, { ts: Date.now(), taskType: "text-edit", strategy: "ai-patch", model: "modelA", validationStatus: "passed", runtimeErrors: 0, outcome: "kept" });
+  for (let i = 0; i < 4; i++) fbEvents = record(fbEvents, { ts: Date.now(), taskType: "text-edit", strategy: "ai-patch", model: "modelB", validationStatus: "failed", runtimeErrors: 2, outcome: "rejected" });
+  const routingStats = buildRoutingStats(fbEvents);
+  results.push(assert(preferredModel(routingStats, "text-edit") === "modelA", "learning: prefer kept-heavy model"));
 
   // --- Flow parser ---
   const flow = parseFlow(`open\nclick #cta\ntype input[name=email] "a@b.com"\nwait 500\nassertText h1 "Hello"\nassertNoConsoleErrors\n# comment\nbogus x`);
@@ -291,17 +298,18 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   results.push(assert(badFlow.errors.length === 2, "flow: reject malformed"));
 
   // --- Component library ---
-  let lib: ReturnType<typeof createComponent> extends { list: infer L } ? L : never = [] as never;
-  const c1 = createComponent(lib, { name: "Hero", html: "<section>Hi</section>", css: "section{color:red}" }); if (!c1.ok) throw new Error(c1.error);
-  lib = c1.list;
-  const c2 = createComponent(lib, { name: "hero", html: "<section/>" });
-  results.push(assert(!c2.ok, "components: reject duplicate name"));
-  lib = duplicateComponent(lib, c1.id);
+  const libEmpty: import("./component-library").ComponentEntry[] = [];
+  const cc1 = createComponent(libEmpty, { name: "Hero", html: "<section>Hi</section>", css: "section{color:red}" });
+  if (!cc1.ok) throw new Error(cc1.error);
+  let lib = cc1.list;
+  const cc2 = createComponent(lib, { name: "hero", html: "<section/>" });
+  results.push(assert(!cc2.ok, "components: reject duplicate name"));
+  lib = duplicateComponent(lib, cc1.id);
   results.push(assert(lib.length === 2 && lib[1].name === "Hero copy", "components: duplicate"));
-  lib = renameComponent(lib, c1.id, "Hero1");
-  lib = deleteComponent(lib, c1.id);
+  lib = renameComponent(lib, cc1.id, "Hero1");
+  lib = deleteComponent(lib, cc1.id);
   results.push(assert(lib.length === 1 && lib[0].name === "Hero copy", "components: rename + delete"));
-  results.push(assert(insertMarkup(lib[0]).includes("<style>") === false, "components: insertMarkup handles no css"));
+  results.push(assert(!insertMarkup(lib[0]).includes("<style>"), "components: insertMarkup handles no css"));
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
