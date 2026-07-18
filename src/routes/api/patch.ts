@@ -62,29 +62,67 @@ Hard rules:
 - If the request truly cannot be a small patch, return {"summary":"needs full generation","operations":[]}.
 - Preserve every feature that already worked.`;
 
-async function callGateway(apiKey: string, model: string, messages: Array<{ role: string; content: string }>): Promise<{ ok: true; text: string } | { ok: false; status: number; text: string }> {
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      Authorization: `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      stream: false,
-      response_format: { type: "json_object" },
-      ...(model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
-    }),
-  });
-  const text = await res.text();
-  if (!res.ok) return { ok: false, status: res.status, text };
+async function callGateway(
+  apiKey: string,
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  requestId: string,
+  signal: AbortSignal,
+): Promise<{ ok: true; text: string } | { ok: false; error: AiError }> {
   try {
-    const j = JSON.parse(text);
-    const content = j.choices?.[0]?.message?.content ?? "";
-    return { ok: true, text: String(content) };
-  } catch {
-    return { ok: false, status: 502, text: "Malformed gateway response" };
+    const { response } = await aiFetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model,
+          messages,
+          stream: false,
+          response_format: { type: "json_object" },
+          ...(model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
+        }),
+      },
+      { breakerKey: `lovable/patch:${model}`, stage: "patch", requestId, signal },
+    );
+    const guarded = await readGuarded(response, { expected: "application/json" });
+    if (!guarded.ok) {
+      const code =
+        guarded.reason === "html_body" || guarded.reason === "proxy_error"
+          ? "ai_upstream_html"
+          : guarded.reason === "empty"
+            ? "ai_upstream_empty"
+            : "ai_upstream_malformed";
+      return {
+        ok: false,
+        error: new AiError({
+          code,
+          stage: "patch",
+          requestId,
+          message: sanitizeUpstreamMessage(guarded.sample, "Upstream response was rejected."),
+        }),
+      };
+    }
+    try {
+      const j = JSON.parse(guarded.text);
+      const content = j.choices?.[0]?.message?.content ?? "";
+      return { ok: true, text: String(content) };
+    } catch {
+      return {
+        ok: false,
+        error: new AiError({
+          code: "ai_upstream_malformed",
+          stage: "patch",
+          requestId,
+          message: "Malformed gateway response.",
+        }),
+      };
+    }
+  } catch (err) {
+    const aiErr = err instanceof AiError
+      ? err
+      : new AiError({ code: "ai_internal", stage: "patch", requestId, message: (err as Error)?.message });
+    return { ok: false, error: aiErr };
   }
 }
 
@@ -92,93 +130,121 @@ export const Route = createFileRoute("/api/patch")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env.LOVABLE_API_KEY;
-        if (!apiKey) return new Response("AI not configured", { status: 500 });
-
-        let data: z.infer<typeof inputSchema>;
+        const requestId = newRequestId();
         try {
-          data = inputSchema.parse(await request.json());
-        } catch (err) {
-          return new Response(err instanceof Error ? err.message : "Bad input", { status: 400 });
-        }
+          const { isUnlockedServer } = await import("@/lib/gate.server");
+          if (!(await isUnlockedServer())) {
+            throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "Session is locked." });
+          }
+          const apiKey = process.env.LOVABLE_API_KEY;
+          if (!apiKey) {
+            throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "AI is not configured." });
+          }
 
-        // Staged context — respect client tier request; escalate once server-side
-        // if that tier is empty (no anchors matched).
-        let tier: ContextTier = data.contextTier;
-        let ctx = buildContext(data.currentHtml, data.prompt, tier, data.selectedAnchor);
-        if (ctx.chars === 0 && tier !== "full") {
-          const nx = nextTier(tier);
-          if (nx) { tier = nx; ctx = buildContext(data.currentHtml, data.prompt, tier, data.selectedAnchor); }
-        }
-
-        const contextBlock = [
-          data.memory ? `PROJECT MEMORY:\n${data.memory}` : "",
-          `DOCUMENT OUTLINE:\n${data.outline || "(none)"}`,
-          `DOCUMENT SIZE: ${data.currentHtml.length} chars`,
-          ctx.text ? `\nSTAGED CONTEXT (tier=${ctx.tier}, ${ctx.chars}c, saved ~${Math.round(ctx.savings * 100)}%):\n${ctx.text}` : "",
-          tier === "full" && data.currentHtml.length < 40_000
-            ? `\nCURRENT HTML (verbatim — pick exact substrings for anchors):\n\n${data.currentHtml}`
-            : "",
-        ].filter(Boolean).join("\n\n");
-
-        const userMsg = `USER REQUEST:\n${data.prompt}\n\n${contextBlock}`;
-
-        const baseMessages = [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMsg },
-        ];
-
-        let usedFallback = false;
-        let modelUsed = data.model;
-        const attempt = await callGateway(apiKey, data.model, baseMessages);
-        let parseErr: string | null = null;
-
-        if (attempt.ok) {
-          const parsed = parsePatchResponse(attempt.text);
-          if (parsed.ok) {
-            return Response.json({
-              ok: true,
-              patch: parsed.patch,
-              model: modelUsed,
-              fallbackUsed: false,
-              contextTier: ctx.tier,
-              contextChars: ctx.chars,
-              contextSavings: ctx.savings,
+          let data: z.infer<typeof inputSchema>;
+          try {
+            data = inputSchema.parse(await request.json());
+          } catch (err) {
+            throw new AiError({
+              code: "ai_bad_request",
+              stage: "validate",
+              requestId,
+              message: err instanceof Error ? err.message : "Bad input.",
             });
           }
-          parseErr = parsed.error;
-        } else {
-          if (attempt.status === 429) return new Response("Rate limit reached. Try again in a moment.", { status: 429 });
-          if (attempt.status === 402) return new Response("AI credits exhausted for this workspace.", { status: 402 });
-          parseErr = `Gateway ${attempt.status}: ${attempt.text.slice(0, 200)}`;
-        }
 
-        // ONE repair attempt on the cheap model.
-        usedFallback = true;
-        modelUsed = CHEAP_REPAIR_MODEL;
-        const repairMessages = [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMsg },
-          { role: "assistant", content: attempt.ok ? attempt.text.slice(0, 4000) : "(previous attempt failed to reach the gateway)" },
-          { role: "user", content: `Your previous response was invalid: ${parseErr}. Return ONLY a valid JSON patch document matching the schema. No prose, no fences.` },
-        ];
-        const repair = await callGateway(apiKey, CHEAP_REPAIR_MODEL, repairMessages);
-        if (!repair.ok) {
-          return Response.json({ ok: false, error: `Repair failed: ${repair.text.slice(0, 200)}`, fallbackUsed: usedFallback, model: modelUsed }, { status: 200 });
+          let tier: ContextTier = data.contextTier;
+          let ctx = buildContext(data.currentHtml, data.prompt, tier, data.selectedAnchor);
+          if (ctx.chars === 0 && tier !== "full") {
+            const nx = nextTier(tier);
+            if (nx) { tier = nx; ctx = buildContext(data.currentHtml, data.prompt, tier, data.selectedAnchor); }
+          }
+
+          const contextBlock = [
+            data.memory ? `PROJECT MEMORY:\n${data.memory}` : "",
+            `DOCUMENT OUTLINE:\n${data.outline || "(none)"}`,
+            `DOCUMENT SIZE: ${data.currentHtml.length} chars`,
+            ctx.text ? `\nSTAGED CONTEXT (tier=${ctx.tier}, ${ctx.chars}c, saved ~${Math.round(ctx.savings * 100)}%):\n${ctx.text}` : "",
+            tier === "full" && data.currentHtml.length < 40_000
+              ? `\nCURRENT HTML (verbatim — pick exact substrings for anchors):\n\n${data.currentHtml}`
+              : "",
+          ].filter(Boolean).join("\n\n");
+
+          const userMsg = `USER REQUEST:\n${data.prompt}\n\n${contextBlock}`;
+          const baseMessages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userMsg },
+          ];
+
+          let modelUsed = data.model;
+          const attempt = await callGateway(apiKey, data.model, baseMessages, requestId, request.signal);
+
+          if (attempt.ok) {
+            const parsed = parsePatchResponse(attempt.text);
+            if (parsed.ok) {
+              return Response.json({
+                ok: true,
+                patch: parsed.patch,
+                model: modelUsed,
+                fallbackUsed: false,
+                requestId,
+                contextTier: ctx.tier,
+                contextChars: ctx.chars,
+                contextSavings: ctx.savings,
+              }, { headers: { "X-Request-Id": requestId } });
+            }
+          }
+
+          // If the first attempt died on a transport-level, non-retryable error,
+          // do not attempt a "repair" — surface the error envelope directly.
+          if (!attempt.ok && !attempt.error.retryable && attempt.error.code !== "ai_upstream_malformed") {
+            throw attempt.error;
+          }
+
+          // ONE repair attempt on the cheap model.
+          modelUsed = CHEAP_REPAIR_MODEL;
+          const parseErr = attempt.ok ? "invalid patch schema" : attempt.error.message;
+          const repairMessages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userMsg },
+            { role: "assistant", content: attempt.ok ? attempt.text.slice(0, 4000) : "(previous attempt failed to reach the gateway)" },
+            { role: "user", content: `Your previous response was invalid: ${parseErr}. Return ONLY a valid JSON patch document matching the schema. No prose, no fences.` },
+          ];
+          const repair = await callGateway(apiKey, CHEAP_REPAIR_MODEL, repairMessages, requestId, request.signal);
+          if (!repair.ok) {
+            return Response.json(
+              { ok: false, error: repair.error.message, code: repair.error.code, fallbackUsed: true, model: modelUsed, requestId },
+              { status: 200, headers: { "X-Request-Id": requestId } },
+            );
+          }
+          const parsed2 = parsePatchResponse(repair.text);
+          if (!parsed2.ok) {
+            return Response.json(
+              { ok: false, error: `Patch invalid after repair: ${parsed2.error}`, fallbackUsed: true, model: modelUsed, requestId },
+              { status: 200, headers: { "X-Request-Id": requestId } },
+            );
+          }
+          return Response.json({
+            ok: true,
+            patch: parsed2.patch,
+            model: modelUsed,
+            fallbackUsed: true,
+            requestId,
+            contextTier: ctx.tier,
+            contextChars: ctx.chars,
+            contextSavings: ctx.savings,
+          }, { headers: { "X-Request-Id": requestId } });
+        } catch (err) {
+          const aiErr = err instanceof AiError
+            ? err
+            : new AiError({
+                code: "ai_internal",
+                stage: "patch",
+                requestId,
+                message: err instanceof Error ? err.message : "Unexpected error.",
+              });
+          return aiErr.toResponse();
         }
-        const parsed2 = parsePatchResponse(repair.text);
-        if (!parsed2.ok) {
-          return Response.json({ ok: false, error: `Patch invalid after repair: ${parsed2.error}`, fallbackUsed: usedFallback, model: modelUsed }, { status: 200 });
-        }
-        return Response.json({
-          ok: true,
-          patch: parsed2.patch,
-          model: modelUsed,
-          fallbackUsed: true,
-          contextTier: ctx.tier,
-          contextChars: ctx.chars,
-          contextSavings: ctx.savings,
-        });
       },
     },
   },
