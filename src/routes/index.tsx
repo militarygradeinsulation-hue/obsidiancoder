@@ -6,19 +6,26 @@ import {
   FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
-  History, RotateCcw, Trash2, Square,
+  Trash2, Square,
 } from "lucide-react";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { classifyTask } from "@/lib/task-classifier";
 import { tryDeterministicEdit } from "@/lib/deterministic-edits";
-import { validateHtml } from "@/lib/validation";
+import { validateHtml, blockingIssues } from "@/lib/validation";
 import { metricsFromClassification, formatDuration, type GenerationMetrics } from "@/lib/generation-metrics";
 import { extractOutline, outlineToPrompt } from "@/lib/document-outline";
 import { EMPTY_MEMORY, memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
-import { applyPatch } from "@/lib/patch-engine";
+import { applyPatch, preflightPatch } from "@/lib/patch-engine";
 import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
+import { repairHtml } from "@/lib/repair";
+import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import type { VersionMetadata, RepairAttempt } from "@/lib/version-metadata";
+import { MemoryPanel } from "@/components/panels/MemoryPanel";
+import { VersionHistoryPanel, type UiVersion } from "@/components/panels/VersionHistoryPanel";
+import { DesignSystemPanel } from "@/components/panels/DesignSystemPanel";
+import { createPipeline, type StageName, type StageState } from "@/lib/pipeline";
 
 
 
@@ -73,6 +80,8 @@ type Version = {
   ts: number;
   html: string;
   label: string;
+  protected?: boolean;
+  metadata?: VersionMetadata;
 };
 
 type Session = {
@@ -152,8 +161,11 @@ function Index() {
   const [lastMetrics, setLastMetrics] = useState<GenerationMetrics | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
+  const [stage, setStage] = useState<StageName | null>(null);
+  const [stageDetail, setStageDetail] = useState<string>("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -175,29 +187,32 @@ function Index() {
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      const activeRaw = window.localStorage.getItem(ACTIVE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Session[];
-        if (Array.isArray(parsed) && parsed.length) {
-          const normalized = parsed.map((s) => ({ ...s, mode: (s as Partial<Session>).mode ?? "agent", versions: Array.isArray(s.versions) ? s.versions : [], memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) } }));
-          setSessions(normalized);
-          const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
-          setActiveId(id);
-        }
-      }
-    } catch { /* ignore */ }
+    const parsed = safeGet<Session[]>(STORAGE_KEY);
+    const activeRaw = safeGet<string>(ACTIVE_KEY);
+    if (Array.isArray(parsed) && parsed.length) {
+      const normalized = parsed.map((s) => ({ ...s, mode: (s as Partial<Session>).mode ?? "agent", versions: Array.isArray(s.versions) ? s.versions : [], memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) } }));
+      setSessions(normalized);
+      const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
+      setActiveId(id);
+    }
     setHydrated(true);
   }, []);
 
+  // Debounced persistence — quota failures surface once via terminal, non-destructive.
   useEffect(() => {
     if (!hydrated) return;
-    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); } catch { /* ignore */ }
+    if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
+    writeTimerRef.current = setTimeout(() => {
+      const ok = safeSet(STORAGE_KEY, sessions);
+      if (!ok) setTerminal((t) => (t[t.length - 1]?.includes("Storage quota") ? t : [...t, "! Storage quota exceeded — session not persisted"]));
+    }, 250);
+    return () => { if (writeTimerRef.current) clearTimeout(writeTimerRef.current); };
   }, [sessions, hydrated]);
   useEffect(() => {
     if (!hydrated) return;
-    try { window.localStorage.setItem(ACTIVE_KEY, activeId); } catch { /* ignore */ }
+    safeSet(ACTIVE_KEY, activeId);
+    // Cancel any stale in-flight request when the active session changes.
+    abortRef.current?.abort();
   }, [activeId, hydrated]);
 
   useEffect(() => {
@@ -329,6 +344,71 @@ function Index() {
     setPendingAttachments((a) => a.filter((_, i) => i !== idx));
   }
 
+  // Deterministic bounded repair — one pass. Returns repaired html + attempt record.
+  function tryLocalRepair(html: string, issues: ReturnType<typeof validateHtml>["issues"]): { html: string; attempt: RepairAttempt; passed: boolean } {
+    const r = repairHtml(html, issues);
+    const v = validateHtml(r.html);
+    return {
+      html: r.html,
+      passed: v.status !== "failed",
+      attempt: { kind: "deterministic", fixes: r.fixes, usedCredits: false },
+    };
+  }
+
+  function buildMetadata(input: {
+    request: string;
+    classification: ReturnType<typeof classifyTask>;
+    strategy: VersionMetadata["strategy"];
+    model: string;
+    durationMs: number;
+    contextTier?: VersionMetadata["contextTier"];
+    contextChars?: number;
+    patchOperations?: number;
+    charsAdded: number;
+    charsRemoved: number;
+    changed: boolean;
+    validation: ReturnType<typeof validateHtml>;
+    repairAttempts?: RepairAttempt[];
+  }): VersionMetadata {
+    const bIssues = blockingIssues(input.validation);
+    const warnings = input.validation.issues.filter((i) => i.severity === "warning").length;
+    const info = input.validation.issues.filter((i) => i.severity === "info").length;
+    return {
+      id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
+      createdAt: Date.now(),
+      request: input.request,
+      taskType: input.classification.taskType,
+      strategy: input.strategy,
+      model: input.model,
+      tier: "balanced",
+      durationMs: Math.round(input.durationMs),
+      contextTier: input.contextTier ?? "none",
+      contextChars: input.contextChars ?? 0,
+      patchOperations: input.patchOperations,
+      charsAdded: input.charsAdded,
+      charsRemoved: input.charsRemoved,
+      changed: input.changed,
+      validation: {
+        status: input.validation.status,
+        summary: input.validation.summary,
+        blocking: bIssues.length,
+        warnings,
+        info,
+      },
+      repairAttempts: input.repairAttempts ?? [],
+    };
+  }
+
+  function makeVersion(html: string, label: string, meta: VersionMetadata): Version {
+    return {
+      id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
+      ts: Date.now(),
+      html,
+      label,
+      metadata: meta,
+    };
+  }
+
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
@@ -352,6 +432,8 @@ function Index() {
       title: isFirstUserMsg ? (basePrompt || pendingAttachments[0]?.name || "Untitled").slice(0, 28) : current.title,
     });
     setLoading(true);
+    setStage("classify");
+    setStageDetail(classification.taskType);
     setTerminal((t) => [...t, `→ [${classification.taskType}] via ${classification.executionPath}`]);
     const sessionId = activeId;
 
@@ -370,12 +452,20 @@ function Index() {
           // fall through to AI path (do NOT overwrite stableHtml)
         } else {
           const versionLabel = basePrompt.slice(0, 48) || "Deterministic edit";
-          const newVersion: Version = {
-            id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
-            ts: Date.now(),
-            html: det.html,
-            label: versionLabel,
-          };
+          const detDiff = diffSummary(stableHtml, det.html);
+          const detMeta = buildMetadata({
+            request: basePrompt,
+            classification,
+            strategy: "deterministic",
+            model: "deterministic",
+            durationMs: performance.now() - t0,
+            patchOperations: 1,
+            charsAdded: detDiff.charsAdded,
+            charsRemoved: detDiff.charsRemoved,
+            changed: true,
+            validation,
+          });
+          const newVersion: Version = makeVersion(det.html, versionLabel, detMeta);
           setSessions((all) => all.map((s) => s.id === sessionId
             ? {
                 ...s,
@@ -384,9 +474,9 @@ function Index() {
                 versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
               }
             : s));
+
           const durationMs = performance.now() - t0;
           setTerminal((t) => [...t, `✓ Deterministic edit in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
-          const detDiff = diffSummary(stableHtml, det.html);
           setLastMetrics(metricsFromClassification(classification, {
             usedAi: false,
             model: null,
@@ -402,7 +492,7 @@ function Index() {
             charactersRemoved: detDiff.charsRemoved,
             fallbackUsed: false,
           }));
-          setLoading(false);
+          setLoading(false); setStage(null);
           return;
         }
       } else {
@@ -477,53 +567,74 @@ function Index() {
                 charactersRemoved: 0,
                 fallbackUsed: pJson.fallbackUsed,
               }));
-              setLoading(false);
+              setLoading(false); setStage(null);
               abortRef.current = null;
               return;
             }
-            const validation = validateHtml(applied.html);
+            let validation = validateHtml(applied.html);
+            let patchedHtml = applied.html;
+            const patchRepairAttempts: RepairAttempt[] = [];
             if (validation.status === "failed") {
-              // preserve stableHtml; do not commit
-              setSessions((all) => all.map((s) => s.id === sessionId
-                ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patched document failed validation: ${validation.issues.map(i => i.message).join(" ")} — preview unchanged.` }] }
-                : s));
-              setTerminal((t) => [...t, `✗ Patch validation failed — kept stable version.`]);
-              const durationMs = performance.now() - t0;
-              setLastMetrics(metricsFromClassification(classification, {
-                usedAi: true,
-                model: pJson.model,
-                durationMs,
-                summary: "Patch produced invalid HTML; kept last stable version.",
-                validation,
-                documentChanged: false,
-                strategy: "ai-patch",
-                patchOperationCount: applied.applied.length,
-                patchOperationTypes: applied.applied.map(a => a.op),
-                patchOperationSummaries: applied.applied.map(a => a.summary),
-                charactersAdded: applied.charsAdded,
-                charactersRemoved: applied.charsRemoved,
-                fallbackUsed: pJson.fallbackUsed,
-              }));
-              setLoading(false);
-              abortRef.current = null;
-              return;
+              const rep = tryLocalRepair(patchedHtml, validation.issues);
+              patchRepairAttempts.push(rep.attempt);
+              if (rep.passed) {
+                patchedHtml = rep.html;
+                validation = validateHtml(patchedHtml);
+                setTerminal((t) => [...t, `↺ Deterministic repair (${rep.attempt.fixes.length} fix${rep.attempt.fixes.length === 1 ? "" : "es"}) — commit continued.`]);
+              } else {
+                // preserve stableHtml; do not commit
+                setSessions((all) => all.map((s) => s.id === sessionId
+                  ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Patched document failed validation and could not be auto-repaired: ${validation.issues.map(i => i.message).join(" ")} — preview unchanged.` }] }
+                  : s));
+                setTerminal((t) => [...t, `✗ Patch validation failed (repair inconclusive) — kept stable version.`]);
+                const durationMs = performance.now() - t0;
+                setLastMetrics(metricsFromClassification(classification, {
+                  usedAi: true,
+                  model: pJson.model,
+                  durationMs,
+                  summary: "Patch produced invalid HTML; kept last stable version.",
+                  validation,
+                  documentChanged: false,
+                  strategy: "ai-patch",
+                  patchOperationCount: applied.applied.length,
+                  patchOperationTypes: applied.applied.map(a => a.op),
+                  patchOperationSummaries: applied.applied.map(a => a.summary),
+                  charactersAdded: applied.charsAdded,
+                  charactersRemoved: applied.charsRemoved,
+                  fallbackUsed: pJson.fallbackUsed,
+                }));
+                setLoading(false); setStage(null);
+                abortRef.current = null;
+                return;
+              }
             }
+
             // COMMIT — success
             const versionLabel = (patchParsed.data.summary || basePrompt).slice(0, 48);
-            const newVersion: Version = {
-              id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
-              ts: Date.now(),
-              html: applied.html,
-              label: versionLabel,
-            };
+            const durationMsCommit = performance.now() - t0;
+            const commitMeta = buildMetadata({
+              request: basePrompt,
+              classification,
+              strategy: "ai-patch",
+              model: pJson.model,
+              durationMs: durationMsCommit,
+              patchOperations: applied.applied.length,
+              charsAdded: applied.charsAdded,
+              charsRemoved: applied.charsRemoved,
+              changed: true,
+              validation,
+              repairAttempts: patchRepairAttempts,
+            });
+            const newVersion: Version = makeVersion(patchedHtml, versionLabel, commitMeta);
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
                   ...s,
-                  html: applied.html,
-                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"})_` }],
+                  html: patchedHtml,
+                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"}${patchRepairAttempts.length ? " · repaired" : ""})_` }],
                   versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
                 }
               : s));
+
             const durationMs = performance.now() - t0;
             setTerminal((t) => [
               ...t,
@@ -545,7 +656,7 @@ function Index() {
               charactersRemoved: applied.charsRemoved,
               fallbackUsed: pJson.fallbackUsed,
             }));
-            setLoading(false);
+            setLoading(false); setStage(null);
             abortRef.current = null;
             return;
           }
@@ -556,7 +667,7 @@ function Index() {
             ? { ...s, messages: [...s.messages, { role: "assistant", content: "■ Stopped — preview unchanged." }] }
             : s));
           setTerminal((t) => [...t, "■ Patch stopped by user"]);
-          setLoading(false);
+          setLoading(false); setStage(null);
           abortRef.current = null;
           return;
         }
@@ -645,48 +756,65 @@ function Index() {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
       }
 
-      // 4. Validate AI output. Failed => revert to stable snapshot.
-      const validation = validateHtml(finalHtml);
+      // 4. Validate AI output. Failed => try bounded deterministic repair; else revert.
+      let validation = validateHtml(finalHtml);
+      const fullRepairAttempts: RepairAttempt[] = [];
       if (validation.status === "failed") {
-        setSessions((all) => all.map((s) => s.id === sessionId
-          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Generated document failed validation: ${validation.issues.map(i => i.message).join(" ")} — reverted to last stable version.` }] }
-          : s));
-        const durationMs = performance.now() - t0;
-        setTerminal((t) => [...t, `✗ Validation failed — reverted.`]);
-        setLastMetrics(metricsFromClassification(classification, {
-          usedAi: true,
-          model: modelForServer,
-          durationMs,
-          summary: "AI output rejected by validator; reverted to stable version.",
-          validation,
-          documentChanged: false,
-          strategy: "full-generation",
-        }));
-        return;
+        const rep = tryLocalRepair(finalHtml, validation.issues);
+        fullRepairAttempts.push(rep.attempt);
+        if (rep.passed) {
+          finalHtml = rep.html;
+          validation = validateHtml(finalHtml);
+          setTerminal((t) => [...t, `↺ Deterministic repair (${rep.attempt.fixes.length} fix${rep.attempt.fixes.length === 1 ? "" : "es"}) — commit continued.`]);
+        } else {
+          setSessions((all) => all.map((s) => s.id === sessionId
+            ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Generated document failed validation and could not be auto-repaired: ${validation.issues.map(i => i.message).join(" ")} — reverted to last stable version.` }] }
+            : s));
+          const durationMs = performance.now() - t0;
+          setTerminal((t) => [...t, `✗ Validation failed (repair inconclusive) — reverted.`]);
+          setLastMetrics(metricsFromClassification(classification, {
+            usedAi: true,
+            model: modelForServer,
+            durationMs,
+            summary: "AI output rejected by validator; reverted to stable version.",
+            validation,
+            documentChanged: false,
+            strategy: "full-generation",
+          }));
+          return;
+        }
       }
 
       const versionLabel = (basePrompt || pendingAttachments[0]?.name || "Update").slice(0, 48);
-      const newVersion: Version = {
-        id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
-        ts: Date.now(),
-        html: finalHtml,
-        label: versionLabel,
-      };
+      const durationMsGen = performance.now() - t0;
+      const fullDiff = diffSummary(stableHtml, finalHtml);
+      const genMeta = buildMetadata({
+        request: basePrompt,
+        classification,
+        strategy: "full-generation",
+        model: modelForServer,
+        durationMs: durationMsGen,
+        charsAdded: fullDiff.charsAdded,
+        charsRemoved: fullDiff.charsRemoved,
+        changed: true,
+        validation,
+        repairAttempts: fullRepairAttempts,
+      });
+      const newVersion: Version = makeVersion(finalHtml, versionLabel, genMeta);
       setSessions((all) => all.map((s) => s.id === sessionId
         ? {
             ...s,
             html: finalHtml,
-            messages: [...s.messages, { role: "assistant", content: "Done — updated the preview." }],
+            messages: [...s.messages, { role: "assistant", content: fullRepairAttempts.length ? "Done — updated the preview (auto-repaired minor issues)." : "Done — updated the preview." }],
             versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
           }
         : s));
-      const durationMs = performance.now() - t0;
-      setTerminal((t) => [...t, `✓ Compiled in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
-      const fullDiff = diffSummary(stableHtml, finalHtml);
+
+      setTerminal((t) => [...t, `✓ Compiled in ${Math.round(durationMsGen)}ms`, `✓ Validation: ${validation.status}`]);
       setLastMetrics(metricsFromClassification(classification, {
         usedAi: true,
         model: modelForServer,
-        durationMs,
+        durationMs: durationMsGen,
         summary: versionLabel,
         validation,
         documentChanged: true,
@@ -738,7 +866,9 @@ function Index() {
       }
     } finally {
       abortRef.current = null;
-      setLoading(false);
+      setLoading(false); setStage(null);
+      setStage(null);
+      setStageDetail("");
     }
   }
 
@@ -1132,8 +1262,15 @@ function Index() {
                   </button>
                 )}
               </form>
+              {stage && (
+                <div className="mt-2 text-[10px] uppercase tracking-wider opacity-70 flex items-center gap-2" aria-live="polite">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  <span>Stage: <b>{stage}</b>{stageDetail ? ` · ${stageDetail}` : ""}</span>
+                </div>
+              )}
 
             </div>
+
 
             {/* Context */}
             <div className="obs-card">
@@ -1160,45 +1297,62 @@ function Index() {
               </button>
             </div>
 
-            {/* Version History */}
-            <div className="obs-card">
-              <div className="obs-card-head">
-                <span className="obs-card-label">
-                  <History className="h-3.5 w-3.5 inline mr-1" /> Version History
-                </span>
-                <span className="obs-node">{current.versions?.length ?? 0}</span>
-              </div>
-              {(current.versions?.length ?? 0) === 0 ? (
-                <p className="obs-history-empty">Each build is saved here. Revert anytime.</p>
-              ) : (
-                <ul className="obs-history-list">
-                  {current.versions.map((v, i) => {
-                    const isCurrent = v.html === current.html;
-                    const d = new Date(v.ts);
-                    const time = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-                    return (
-                      <li key={v.id} className={"obs-history-item " + (isCurrent ? "is-current" : "")}>
-                        <div className="obs-history-meta">
-                          <span className="obs-history-idx">v{(current.versions.length - i).toString().padStart(2, "0")}</span>
-                          <span className="obs-history-label" title={v.label}>{v.label}</span>
-                          <span className="obs-history-time">{time}</span>
-                        </div>
-                        <button
-                          type="button"
-                          className="obs-history-revert"
-                          onClick={() => revertTo(v)}
-                          disabled={loading || isCurrent}
-                          title={isCurrent ? "This is the current version" : "Revert to this version"}
-                        >
-                          <RotateCcw className="h-3 w-3" />
-                          {isCurrent ? "Current" : "Revert"}
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ul>
-              )}
-            </div>
+            {/* Version History V2 */}
+            <VersionHistoryPanel
+              versions={current.versions as UiVersion[]}
+              currentHtml={current.html}
+              disabled={loading}
+              onRevert={(v) => revertTo(v as Version)}
+              onRename={(id, label) =>
+                updateCurrent({
+                  versions: current.versions.map((v) => (v.id === id ? { ...v, label } : v)),
+                })
+              }
+              onToggleProtect={(id) =>
+                updateCurrent({
+                  versions: current.versions.map((v) => (v.id === id ? { ...v, protected: !v.protected } : v)),
+                })
+              }
+              onDelete={(id) =>
+                updateCurrent({ versions: current.versions.filter((v) => v.id !== id) })
+              }
+            />
+
+            {/* Memory V2 */}
+            <MemoryPanel
+              memory={current.memory}
+              html={current.html}
+              onChange={(m) => updateCurrent({ memory: m })}
+            />
+
+            {/* Design System */}
+            <DesignSystemPanel
+              html={current.html}
+              disabled={loading || !current.html}
+              onApply={(result) => {
+                const next = result.html;
+                const meta = buildMetadata({
+                  request: result.label,
+                  classification: classifyTask("update design tokens", { mode: current.mode, hasHtml: true }),
+                  strategy: "deterministic",
+                  model: "deterministic",
+                  durationMs: 0,
+                  charsAdded: Math.max(0, next.length - current.html.length),
+                  charsRemoved: Math.max(0, current.html.length - next.length),
+                  changed: next !== current.html,
+                  validation: validateHtml(next),
+                });
+                const v = makeVersion(next, result.label, meta);
+                updateCurrent({
+                  html: next,
+                  versions: [v, ...current.versions].slice(0, 25),
+                  messages: [...current.messages, { role: "assistant", content: `✓ ${result.label} (${result.changes} change${result.changes === 1 ? "" : "s"}, no AI credits).` }],
+                });
+                setTerminal((t) => [...t, `✓ ${result.label}`]);
+              }}
+            />
+
+
 
 
             {/* Integrations */}

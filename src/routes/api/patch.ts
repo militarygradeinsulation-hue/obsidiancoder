@@ -7,7 +7,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { ALLOWED_MODEL_IDS, DEFAULT_MODEL } from "@/lib/models";
 import { parsePatchResponse, MAX_OPS } from "@/lib/patch-protocol";
-import { anchorsFromPrompt, snippetsAround, budgetSnippets, snippetsToPrompt } from "@/lib/context-manager";
+import { buildContext, nextTier, type ContextTier } from "@/lib/staged-context";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
@@ -16,39 +16,47 @@ const inputSchema = z.object({
   currentHtml: z.string().min(1).max(6_000_000),
   outline: z.string().max(20_000).optional().default(""),
   memory: z.string().max(4_000).optional().default(""),
+  selectedAnchor: z.string().max(400).optional(),
   model: z
     .string()
     .refine((m) => (ALLOWED_MODEL_IDS as readonly string[]).includes(m), "unsupported model")
     .optional()
     .default(DEFAULT_MODEL),
+  contextTier: z.enum(["minimal", "nearby", "sections", "full"]).optional().default("minimal"),
 });
 
-const SYSTEM_PROMPT = `You are Aetheris Coder's PATCH engine. You edit a single existing HTML document by returning a JSON patch — never regenerating the whole document.
+const SYSTEM_PROMPT = `You are Obsidian's PATCH engine. You edit a single existing HTML document by returning a JSON patch — never regenerating the whole document.
 
 OUTPUT: JSON only. No markdown fences, no prose, no comments. Shape:
-{
-  "summary": "one short human sentence",
-  "operations": [ ...ops ]
-}
+{ "summary": "one short sentence", "operations": [ ...ops ] }
 
-Supported ops (each an object with "op": <name>):
+Supported ops (each an object with "op": <name>). Emit ONLY these:
 - {"op":"replace_text","find":"exact substring","replace":"new text","allow_multiple":false}
 - {"op":"delete_text","find":"exact substring","allow_multiple":false}
-- {"op":"insert_before","anchor":"exact unique substring","content":"html to insert"}
-- {"op":"insert_after","anchor":"exact unique substring","content":"html to insert"}
+- {"op":"insert_before","anchor":"unique substring","content":"html to insert"}
+- {"op":"insert_after","anchor":"unique substring","content":"html to insert"}
 - {"op":"replace_element_by_id","id":"myId","content":"new inner HTML"}
 - {"op":"set_attribute","id":"myId","attribute":"class","value":"..."}
 - {"op":"append_css_rule","rule":".foo{color:red}"}
-- {"op":"append_script","code":"document.querySelector('#x').addEventListener(...)"}
+- {"op":"append_script","code":"..."}
+- {"op":"remove_element_by_id","id":"myId","expected_prev":"optional first ~200 chars"}
+- {"op":"remove_attribute","id":"myId","attribute":"data-x"}
+- {"op":"add_class","id":"myId","class_name":"active"}
+- {"op":"remove_class","id":"myId","class_name":"active"}
+- {"op":"insert_child","id":"parentId","position":"first"|"last","content":"..."}
+- {"op":"update_inline_style","id":"myId","property":"color","value":"#fff"}
+- {"op":"replace_css_rule","selector":".btn","body":"color:red; padding:8px"}
+- {"op":"replace_script_block","marker":"unique marker inside script","code":"..."}
+- {"op":"rename_id","from":"old","to":"new","update_references":true}
+- {"op":"update_json_block","marker":"unique marker in JSON","json":"{...valid JSON...}"}
 
 Hard rules:
-- Return VALID JSON. Escape newlines inside strings as \\n. Escape quotes as \\".
-- Every "find" and "anchor" MUST appear EXACTLY ONCE in the document (unless allow_multiple).
-- Use the document outline to pick unique, precise anchors. Prefer replace_element_by_id when the target has an id.
-- Keep operations MINIMAL — do only what the user asked. Do not restyle unrelated things.
+- Return VALID JSON. Escape newlines as \\n and quotes as \\".
+- Every "find"/"anchor"/"marker" MUST appear EXACTLY ONCE (unless allow_multiple).
+- Prefer id-based ops when the target has an id. Never invent ids the outline does not list.
+- Keep operations MINIMAL — do only what the user asked.
 - At most ${MAX_OPS} operations.
-- If the request truly cannot be expressed as a small patch (rebuild, redesign from scratch), return {"summary":"needs full generation","operations":[]}.
-- Never invent ids the outline does not list.
+- If the request truly cannot be a small patch, return {"summary":"needs full generation","operations":[]}.
 - Preserve every feature that already worked.`;
 
 async function callGateway(apiKey: string, model: string, messages: Array<{ role: string; content: string }>): Promise<{ ok: true; text: string } | { ok: false; status: number; text: string }> {
@@ -91,31 +99,26 @@ export const Route = createFileRoute("/api/patch")({
           return new Response(err instanceof Error ? err.message : "Bad input", { status: 400 });
         }
 
-        const context = [
+        // Staged context — respect client tier request; escalate once server-side
+        // if that tier is empty (no anchors matched).
+        let tier: ContextTier = data.contextTier;
+        let ctx = buildContext(data.currentHtml, data.prompt, tier, data.selectedAnchor);
+        if (ctx.chars === 0 && tier !== "full") {
+          const nx = nextTier(tier);
+          if (nx) { tier = nx; ctx = buildContext(data.currentHtml, data.prompt, tier, data.selectedAnchor); }
+        }
+
+        const contextBlock = [
           data.memory ? `PROJECT MEMORY:\n${data.memory}` : "",
-          `DOCUMENT OUTLINE:\n${data.outline || "(no outline provided)"}`,
+          `DOCUMENT OUTLINE:\n${data.outline || "(none)"}`,
           `DOCUMENT SIZE: ${data.currentHtml.length} chars`,
+          ctx.text ? `\nSTAGED CONTEXT (tier=${ctx.tier}, ${ctx.chars}c, saved ~${Math.round(ctx.savings * 100)}%):\n${ctx.text}` : "",
+          tier === "full" && data.currentHtml.length < 40_000
+            ? `\nCURRENT HTML (verbatim — pick exact substrings for anchors):\n\n${data.currentHtml}`
+            : "",
         ].filter(Boolean).join("\n\n");
 
-        // Staged context: try minimal anchor-scoped snippets first. Only ship
-        // the full document when it is small enough for the model to reason
-        // over cheaply.
-        const includeFull = data.currentHtml.length < 40_000;
-        const anchors = anchorsFromPrompt(data.prompt);
-        const rawSnips = snippetsAround(data.currentHtml, anchors);
-        const snips = budgetSnippets(rawSnips);
-        const snippetBlock = snippetsToPrompt(snips);
-        const contextTier = includeFull ? "D-full-document" : snips.length ? "A-minimal" : "none";
-
-        const userMsg = [
-          `USER REQUEST:\n${data.prompt}`,
-          "",
-          context,
-          snippetBlock ? `\nRELEVANT SNIPPETS (${snips.length}):\n${snippetBlock}` : "",
-          includeFull
-            ? `\nCURRENT HTML (verbatim — pick exact substrings for anchors):\n\n${data.currentHtml}`
-            : "\n(Full HTML omitted — use outline ids/headings and the snippets above.)",
-        ].filter(Boolean).join("\n");
+        const userMsg = `USER REQUEST:\n${data.prompt}\n\n${contextBlock}`;
 
         const baseMessages = [
           { role: "system", content: SYSTEM_PROMPT },
@@ -124,7 +127,7 @@ export const Route = createFileRoute("/api/patch")({
 
         let usedFallback = false;
         let modelUsed = data.model;
-        let attempt = await callGateway(apiKey, data.model, baseMessages);
+        const attempt = await callGateway(apiKey, data.model, baseMessages);
         let parseErr: string | null = null;
 
         if (attempt.ok) {
@@ -135,8 +138,9 @@ export const Route = createFileRoute("/api/patch")({
               patch: parsed.patch,
               model: modelUsed,
               fallbackUsed: false,
-              contextTier,
-              contextChars: snippetBlock.length,
+              contextTier: ctx.tier,
+              contextChars: ctx.chars,
+              contextSavings: ctx.savings,
             });
           }
           parseErr = parsed.error;
@@ -168,8 +172,9 @@ export const Route = createFileRoute("/api/patch")({
           patch: parsed2.patch,
           model: modelUsed,
           fallbackUsed: true,
-          contextTier,
-          contextChars: snippetBlock.length,
+          contextTier: ctx.tier,
+          contextChars: ctx.chars,
+          contextSavings: ctx.savings,
         });
       },
     },
