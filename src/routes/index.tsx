@@ -456,6 +456,8 @@ function Index() {
     setSessions((all) => all.map((s) => s.id === sessionId
       ? { ...s, feedback: recordFeedback(s.feedback ?? [], { ...evt, ts: Date.now() }) }
       : s));
+  }
+
 
   function buildMetadata(input: {
     request: string;
