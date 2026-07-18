@@ -130,14 +130,19 @@ export async function aiFetch(url: string, init: RequestInit, opts: AiFetchOptio
 
     const retryAfterMs = parseRetryAfter(res.headers.get("retry-after"));
 
+    // Auth / config / billing failures are NOT transient. Do not count them
+    // toward the transient circuit breaker (that would trip the breaker on a
+    // stable config problem and hide it as a "cooldown").
     if (res.status === 401 || res.status === 403) {
-      recordFailure(opts.breakerKey);
+      try { await res.body?.cancel(); } catch { /* ignore */ }
       throw new AiError({ code: "ai_unauthorized", stage: opts.stage, requestId });
     }
     if (res.status === 400) {
+      try { await res.body?.cancel(); } catch { /* ignore */ }
       throw new AiError({ code: "ai_bad_request", stage: opts.stage, requestId });
     }
     if (res.status === 402) {
+      try { await res.body?.cancel(); } catch { /* ignore */ }
       throw new AiError({
         code: "ai_unauthorized",
         stage: opts.stage,

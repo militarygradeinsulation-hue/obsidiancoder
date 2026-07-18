@@ -158,22 +158,24 @@ export const Route = createFileRoute("/api/generate")({
             });
           }
 
-          // TEST HOOK — never call upstream when the client is exercising the
-          // failure boundary. Header is only honoured server-side.
-          const mock = request.headers.get("x-obs-mock-upstream");
-          if (mock === "cf-502") {
-            throw new AiError({
-              code: "ai_upstream_html",
-              stage: "generate",
-              requestId,
-              message: "Mock: Cloudflare 502 HTML page.",
-            });
-          }
-          if (mock === "empty") {
-            throw new AiError({ code: "ai_upstream_empty", stage: "generate", requestId });
-          }
-          if (mock === "unauthorized") {
-            throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId });
+          // TEST HOOK — honoured only outside production so it can't be abused
+          // against the live deployment.
+          if (process.env.NODE_ENV !== "production") {
+            const mock = request.headers.get("x-obs-mock-upstream");
+            if (mock === "cf-502") {
+              throw new AiError({
+                code: "ai_upstream_html",
+                stage: "generate",
+                requestId,
+                message: "Mock: Cloudflare 502 HTML page.",
+              });
+            }
+            if (mock === "empty") {
+              throw new AiError({ code: "ai_upstream_empty", stage: "generate", requestId });
+            }
+            if (mock === "unauthorized") {
+              throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId });
+            }
           }
 
           const clientAbort = request.signal;
