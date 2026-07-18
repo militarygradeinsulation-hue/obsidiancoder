@@ -14,6 +14,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ApiPatchRouteImport } from './routes/api/patch'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
@@ -44,6 +45,11 @@ const ApiPatchRoute = ApiPatchRouteImport.update({
   path: '/api/patch',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiGenerateRoute = ApiGenerateRouteImport.update({
   id: '/api/generate',
   path: '/api/generate',
@@ -71,6 +77,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unlock': typeof UnlockRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -82,6 +89,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unlock': typeof UnlockRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unlock': typeof UnlockRoute
   '/api/generate': typeof ApiGenerateRoute
+  '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -107,6 +116,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/unlock'
     | '/api/generate'
+    | '/api/health'
     | '/api/patch'
     | '/api/public/builds'
     | '/api/public/self-test'
@@ -118,6 +128,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/unlock'
     | '/api/generate'
+    | '/api/health'
     | '/api/patch'
     | '/api/public/builds'
     | '/api/public/self-test'
@@ -129,6 +140,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/unlock'
     | '/api/generate'
+    | '/api/health'
     | '/api/patch'
     | '/api/public/builds'
     | '/api/public/self-test'
@@ -141,6 +153,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   UnlockRoute: typeof UnlockRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
+  ApiHealthRoute: typeof ApiHealthRoute
   ApiPatchRoute: typeof ApiPatchRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
@@ -181,6 +194,13 @@ declare module '@tanstack/react-router' {
       path: '/api/patch'
       fullPath: '/api/patch'
       preLoaderRoute: typeof ApiPatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/generate': {
@@ -232,6 +252,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   UnlockRoute: UnlockRoute,
   ApiGenerateRoute: ApiGenerateRoute,
+  ApiHealthRoute: ApiHealthRoute,
   ApiPatchRoute: ApiPatchRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
