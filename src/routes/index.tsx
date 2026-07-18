@@ -146,7 +146,15 @@ const TOOLS_NAV: { id: string; label: string; icon: typeof Sparkles; shortcut?: 
   { id: "playground", label: "Playground", icon: FlaskConical },
   { id: "git", label: "Git", icon: GitBranch },
   { id: "deploy", label: "Deploy", icon: Rocket },
+  { id: "settings", label: "Settings", icon: Settings, shortcut: "⌘ K" },
 ];
+
+const RAIL_GROUPS = [
+  { id: "agent", label: "Agent" },
+  { id: "build", label: "Build" },
+  { id: "ship",  label: "Ship"  },
+] as const;
+type RailGroupId = (typeof RAIL_GROUPS)[number]["id"] | "all";
 
 const SUGGESTIONS = [
   { icon: Calendar, label: "Add a hero with a call-to-action" },
@@ -188,19 +196,19 @@ function Index() {
   const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [terminal, setTerminal] = useState<string[]>([
-    "✓ Compiled successfully in 842ms",
-    "✓ Preview ready",
-    "→ Local: http://localhost:5173",
-    "✓ No errors found",
+    "· Sandbox ready — no build yet",
   ]);
   const [lastMetrics, setLastMetrics] = useState<GenerationMetrics | null>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [paletteQuery, setPaletteQuery] = useState("");
   const [stage, setStage] = useState<StageName | null>(null);
   const [stageDetail, setStageDetail] = useState<string>("");
+  const [railGroup, setRailGroup] = useState<RailGroupId>("all");
+  const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const composerRef = useRef<HTMLInputElement>(null);
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
   const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection>(null);
 
@@ -313,6 +321,35 @@ function Index() {
 
   function updateCurrent(patch: Partial<Session>) {
     setSessions((all) => all.map((s) => (s.id === activeId ? { ...s, ...patch } : s)));
+  }
+
+  function scrollRailTo(anchorId: string) {
+    requestAnimationFrame(() => {
+      document.getElementById(anchorId)?.scrollIntoView({ block: "start", behavior: "smooth" });
+    });
+  }
+
+  function handleNav(id: string) {
+    setActiveNav(id);
+    setSidebarOpen(false);
+    switch (id) {
+      case "home":       setTab("preview"); break;
+      case "projects":   setPaletteOpen(true); setPaletteQuery("Jump to tab:"); break;
+      case "notes":      setRailGroup("agent"); scrollRailTo("rail-memory"); break;
+      case "files":      setRailGroup("build"); scrollRailTo("rail-files"); break;
+      case "code":       setTab("code"); break;
+      case "snippets":   setRailGroup("build"); scrollRailTo("rail-components"); break;
+      case "agents":     setRailGroup("agent"); scrollRailTo("rail-agent"); break;
+      case "tasks":      setRailGroup("build"); scrollRailTo("rail-flow"); break;
+      case "databases":  break; // disabled; no connector
+      case "ai-chat":    setRailGroup("agent"); scrollRailTo("rail-agent"); requestAnimationFrame(() => composerRef.current?.focus()); break;
+      case "code-assist": setTab("code"); updateCurrent({ mode: "dev" }); break;
+      case "terminal":   setRailGroup("agent"); scrollRailTo("rail-terminal"); break;
+      case "playground": setTab("preview"); break;
+      case "git":        setRailGroup("ship"); scrollRailTo("rail-git"); break;
+      case "deploy":     setRailGroup("ship"); scrollRailTo("rail-deploy"); break;
+      case "settings":   setPaletteOpen(true); break;
+    }
   }
 
   function addSession() {
@@ -1073,16 +1110,21 @@ function Index() {
         </button>
 
         <div className="obs-section-label">Workspace</div>
-        <nav className="obs-nav">
+        <nav className="obs-nav" aria-label="Workspace">
           {WORKSPACE_NAV.map((item) => {
             const Icon = item.icon;
             const isActive = activeNav === item.id;
+            const isDisabled = item.id === "databases";
             return (
               <button
                 key={item.id}
                 type="button"
-                onClick={() => setActiveNav(item.id)}
-                className={"obs-nav-item " + (isActive ? "is-active" : "")}
+                onClick={() => handleNav(item.id)}
+                disabled={isDisabled}
+                title={isDisabled ? "No database connector linked to this workspace" : item.label}
+                aria-disabled={isDisabled || undefined}
+                data-testid={`nav-${item.id}`}
+                className={"obs-nav-item " + (isActive ? "is-active " : "") + (isDisabled ? "is-disabled" : "")}
               >
                 <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
                 <span>{item.label}</span>
@@ -1092,11 +1134,19 @@ function Index() {
         </nav>
 
         <div className="obs-section-label">Tools</div>
-        <nav className="obs-nav">
+        <nav className="obs-nav" aria-label="Tools">
           {TOOLS_NAV.map((item) => {
             const Icon = item.icon;
+            const isActive = activeNav === item.id;
             return (
-              <button key={item.id} type="button" className="obs-nav-item">
+              <button
+                key={item.id}
+                type="button"
+                onClick={() => handleNav(item.id)}
+                data-testid={`nav-${item.id}`}
+                title={item.label}
+                className={"obs-nav-item " + (isActive ? "is-active" : "")}
+              >
                 <Icon className="h-[18px] w-[18px]" strokeWidth={1.5} />
                 <span>{item.label}</span>
                 {item.shortcut && <kbd className="obs-kbd obs-kbd-nav">{item.shortcut}</kbd>}
@@ -1112,12 +1162,20 @@ function Index() {
               <div className="obs-user-name">Obsidian Dev</div>
               <div className="obs-user-sub">Pro Workspace</div>
             </div>
-            <button type="button" className="obs-icon-btn" aria-label="Settings">
+            <button
+              type="button"
+              className="obs-icon-btn"
+              aria-label="Open command palette (settings)"
+              title="Command palette"
+              data-testid="footer-settings"
+              onClick={() => setPaletteOpen(true)}
+            >
               <Settings className="h-4 w-4" strokeWidth={1.5} />
             </button>
           </div>
         </div>
       </aside>
+
 
       {/* ========== MAIN ========== */}
       <section className="obs-main">
@@ -1128,8 +1186,8 @@ function Index() {
               <Menu className="h-4 w-4" />
             </button>
             <img src={aetherisLogo.url} alt="Aetheris" className="obs-mark obs-mark-img obs-topbar-logo" />
-            <button type="button" className="obs-icon-btn" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
-            <button type="button" className="obs-icon-btn" aria-label="Forward"><ChevronRight className="h-4 w-4" /></button>
+            <button type="button" className="obs-icon-btn" aria-label="Back" disabled title="History navigation not available"><ChevronLeft className="h-4 w-4" /></button>
+            <button type="button" className="obs-icon-btn" aria-label="Forward" disabled title="History navigation not available"><ChevronRight className="h-4 w-4" /></button>
             <div className="obs-tabs">
               {sessions.map((s) => {
                 const isActive = s.id === activeId;
@@ -1225,7 +1283,59 @@ function Index() {
             >
               <FolderOpen className="h-3.5 w-3.5" /> Gallery
             </a>
-            <button type="button" className="obs-icon-btn" aria-label="More"><MoreHorizontal className="h-4 w-4" /></button>
+            <div className="obs-overflow-wrap">
+              <button
+                type="button"
+                className="obs-icon-btn"
+                aria-label="More actions"
+                aria-haspopup="menu"
+                aria-expanded={overflowOpen}
+                data-testid="topbar-overflow"
+                onClick={() => setOverflowOpen((v) => !v)}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {overflowOpen && (
+                <div className="obs-overflow-menu" role="menu" onMouseLeave={() => setOverflowOpen(false)}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    disabled={!current.html}
+                    onClick={() => {
+                      setOverflowOpen(false);
+                      if (!current.html) return;
+                      const clean = stripPreviewOnly(current.html);
+                      const blob = new Blob([clean], { type: "text/html" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url; a.download = `${(current.title || "obsidian").replace(/\s+/g, "-")}.html`; a.click();
+                      URL.revokeObjectURL(url);
+                      setTerminal((t) => [...t, `→ Exported clean HTML (${(clean.length / 1024).toFixed(1)} KB)`]);
+                    }}
+                  >Export clean HTML</button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    onClick={() => { setOverflowOpen(false); setPaletteOpen(true); }}
+                  >Command palette (⌘ K)</button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    disabled={loading}
+                    onClick={() => { setOverflowOpen(false); clearAll(); }}
+                  >Clear this session</button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    onClick={() => { setOverflowOpen(false); handleNav("git"); }}
+                  >Show Git-ready panel</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -1311,8 +1421,25 @@ function Index() {
 
           {/* ========== RIGHT RAIL ========== */}
           <aside className="obs-rail">
+            <div className="obs-rail-tabs" role="tablist" aria-label="Rail sections">
+              {RAIL_GROUPS.map((g) => (
+                <button
+                  key={g.id}
+                  type="button"
+                  role="tab"
+                  aria-selected={railGroup === g.id}
+                  className={"obs-rail-tab " + (railGroup === g.id ? "is-on" : "")}
+                  onClick={() => { setRailGroup(g.id); scrollRailTo(`rail-${g.id}`); }}
+                  data-testid={`rail-tab-${g.id}`}
+                >{g.label}</button>
+              ))}
+            </div>
+
+            <div className="obs-rail-heading" id="rail-agent">Agent · chat, context, trust</div>
             {/* AI Agent */}
             <div className="obs-card">
+
+
               <div className="obs-card-head">
                 <span className="obs-card-label">AI Agent</span>
                 <span className="obs-status">
@@ -1393,12 +1520,15 @@ function Index() {
                   <Paperclip className="h-3.5 w-3.5" />
                 </button>
                 <input
+                  ref={composerRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder={pendingAttachments.length ? "Describe how to use the attached materials…" : "Ask Obsidian AI…"}
                   disabled={loading}
                   className="obs-composer-input"
+                  data-testid="composer-input"
                 />
+
                 {loading ? (
                   <button
                     type="button"
@@ -1434,9 +1564,16 @@ function Index() {
             <div className="obs-card">
               <div className="obs-card-head">
                 <span className="obs-card-label">Context</span>
-                <button type="button" className="obs-add-tiny" aria-label="Add context">
+                <button
+                  type="button"
+                  className="obs-add-tiny"
+                  aria-label="Attach a file to context"
+                  title="Attach a file to context"
+                  onClick={() => fileInputRef.current?.click()}
+                >
                   <Plus className="h-3 w-3" />
                 </button>
+
               </div>
               <ul className="obs-file-list">
                 {sessions.slice(0, 6).map((s) => (
@@ -1450,13 +1587,21 @@ function Index() {
                   <span className="obs-file-name">obsidian.css</span>
                 </li>
               </ul>
-              <button type="button" className="obs-add-context">
+              <button
+                type="button"
+                className="obs-add-context"
+                onClick={() => fileInputRef.current?.click()}
+                data-testid="context-add"
+              >
                 <Paperclip className="h-3.5 w-3.5" /> Add Context
               </button>
             </div>
 
+            <div className="obs-rail-heading" id="rail-build">Build · files, versions, design</div>
+
             {/* Version History V2 */}
             <VersionHistoryPanel
+
               versions={current.versions as UiVersion[]}
               currentHtml={current.html}
               disabled={loading}
@@ -1511,10 +1656,11 @@ function Index() {
             />
 
 
-
+            <div className="obs-rail-heading" id="rail-ship">Ship · integrations, cost, deploy</div>
 
             {/* Integrations */}
-            <div className="obs-card">
+            <div className="obs-card" id="rail-integrations">
+
               <div className="obs-card-head">
                 <span className="obs-card-label">Integrations</span>
                 <span className="obs-node">{INTEGRATIONS.filter((i) => i.on).length}/{INTEGRATIONS.length}</span>
@@ -1604,18 +1750,18 @@ function Index() {
             <CostPanel snapshot={current.cost ?? EMPTY_COST} />
 
             {/* Core 3.1 — file explorer, inspector, flow runner, components, deployment, git-ready, templates */}
-            <FileExplorerPanel
+            <div id="rail-files"><FileExplorerPanel
               project={current.project}
               activeFileId={current.activeFileId}
               onSelect={(id) => updateCurrent({ activeFileId: id })}
-            />
+            /></div>
             <InspectorPanel
               selection={inspectorSelection}
               enabled={inspectorEnabled}
               onToggle={setInspectorEnabled}
             />
-            <FlowPanel />
-            <ComponentLibraryPanel
+            <div id="rail-flow"><FlowPanel /></div>
+            <div id="rail-components"><ComponentLibraryPanel
               components={current.components ?? []}
               onDelete={(id) => updateCurrent({ components: (current.components ?? []).filter((c) => c.id !== id) })}
               onDuplicate={(id) => {
@@ -1624,26 +1770,27 @@ function Index() {
                 const dup: ComponentEntry = { ...c, id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now())), name: `${c.name} copy`, createdAt: Date.now() };
                 updateCurrent({ components: [...(current.components ?? []), dup] });
               }}
-            />
+            /></div>
             {(() => {
               const violations: RuleViolation[] = current.html
                 ? runRules(current.rules ?? [], current.html, buildGraph(current.html))
                 : [];
               const blockingRuleCount = violations.filter((v) => v.severity === "blocking").length;
               return (
-                <DeploymentReadinessPanel
+                <div id="rail-deploy"><DeploymentReadinessPanel
                   html={current.html}
                   validationStatus={current.versions[0]?.metadata?.validation.status ?? "unknown"}
                   blockingRuleCount={blockingRuleCount}
                   runtimeErrorCount={countRuntimeBlockers(current.runtimeEvents ?? [])}
-                />
+                /></div>
               );
             })()}
-            <GitReadyPanel
+            <div id="rail-git"><GitReadyPanel
               previousHtml={current.versions[0]?.html ?? ""}
               currentHtml={current.html}
               lastRequest={current.lastRequest}
-            />
+            /></div>
+
             <TemplatePanel
               html={current.html}
               templates={current.templates ?? []}
@@ -1658,7 +1805,8 @@ function Index() {
 
 
             {/* Project Memory */}
-            <div className="obs-card">
+            <div className="obs-card" id="rail-memory">
+
               <div className="obs-card-head">
                 <span className="obs-card-label">Project memory</span>
                 <span className="obs-node opacity-60">context for AI</span>
@@ -1693,7 +1841,8 @@ function Index() {
 
 
             {/* Terminal */}
-            <div className="obs-card">
+            <div className="obs-card" id="rail-terminal">
+
               <div className="obs-card-head">
                 <span className="obs-card-label">Terminal</span>
                 <span className="obs-node">node <ChevronDown className="h-3 w-3 inline" /></span>
@@ -1722,20 +1871,26 @@ function Index() {
         </div>
 
         {/* Bottom status bar */}
-        <div className="obs-status-bar">
+        <div className="obs-status-bar" role="status">
           <div className="obs-status-left">
             <span className="obs-badge-gold">Sandbox</span>
-            <span>Ready</span>
-            <span className="obs-muted">localhost:5173</span>
+            <span data-testid="status-state">
+              {loading ? (stage || "Working…") : error ? "Error" : current.html ? "Ready" : "Idle"}
+            </span>
+            <span className="obs-muted">{current.mode.toUpperCase()} · {current.model.split("/").pop()}</span>
           </div>
           <div className="obs-status-right">
-            <span className="obs-muted"><GitBranch className="h-3 w-3 inline mr-1" />main</span>
-            <span className="obs-ok"><Check className="h-3 w-3 inline" /> Up to date</span>
-            <span className="obs-muted">Prettier <span className="obs-status-dot" /></span>
-            <span className="obs-muted" title="Rework ratio: user turns per saved version (SocialMize 'specification tax')">Spec-tax {specTax}%</span>
+            <span className="obs-muted">{current.versions.length} version{current.versions.length === 1 ? "" : "s"}</span>
+            {current.html ? (
+              <span className="obs-ok"><Check className="h-3 w-3 inline" /> Build attached</span>
+            ) : (
+              <span className="obs-muted">No build yet</span>
+            )}
+            <span className="obs-muted" title="Rework ratio: user turns per saved version (specification tax)">Spec-tax {specTax}%</span>
             <span className="obs-muted">{kb} KB</span>
           </div>
         </div>
+
       </section>
 
       {paletteOpen && (
