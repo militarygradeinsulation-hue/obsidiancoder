@@ -160,11 +160,11 @@ export function runSelfTests(): { results: TestResult[]; passed: number; failed:
   const renameRes = applyOp(renameHtml, { op: "rename_id", from: "hero", to: "banner" });
   results.push(assert(renameRes.ok && /id="banner"/.test(renameRes.html) && /href="#banner"/.test(renameRes.html), "patch v2: rename_id updates refs"));
 
-  const jsonHtml = '<!doctype html><html><body><script type="application/json" id="d">/*CFG*/{"a":1}</script></body></html>';
-  const jsonRes = applyOp(jsonHtml, { op: "update_json_block", marker: "CFG", json: '{"a":2}' });
+  const jsonHtml = '<!doctype html><html><body><script type="application/json" id="d">/*MARK-CFG*/{"a":1}</script></body></html>';
+  const jsonRes = applyOp(jsonHtml, { op: "update_json_block", marker: "MARK-CFG", json: '{"a":2}' });
   results.push(assert(jsonRes.ok && jsonRes.html.includes('{"a":2}'), "patch v2: update_json_block"));
 
-  const badJsonRes = applyOp(jsonHtml, { op: "update_json_block", marker: "CFG", json: "not json" });
+  const badJsonRes = applyOp(jsonHtml, { op: "update_json_block", marker: "MARK-CFG", json: "not json" });
   results.push(assert(!badJsonRes.ok, "patch v2: invalid JSON rejected"));
 
   // Dry-run does not mutate returned html
