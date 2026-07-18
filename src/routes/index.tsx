@@ -644,12 +644,12 @@ function Index() {
               <div className="obs-page-meta">
                 <select
                   value={current.model}
-                  onChange={(e) => updateCurrent({ model: e.target.value as ModelId })}
+                  onChange={(e) => updateCurrent({ model: e.target.value as PickerModelId })}
                   disabled={loading}
                   className="obs-model"
                   aria-label="Model"
                 >
-                  {MODELS.map((m) => (
+                  {MODEL_PICKER_OPTIONS.map((m) => (
                     <option key={m.id} value={m.id}>{m.label}</option>
                   ))}
                 </select>
