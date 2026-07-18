@@ -1283,7 +1283,59 @@ function Index() {
             >
               <FolderOpen className="h-3.5 w-3.5" /> Gallery
             </a>
-            <button type="button" className="obs-icon-btn" aria-label="More"><MoreHorizontal className="h-4 w-4" /></button>
+            <div className="obs-overflow-wrap">
+              <button
+                type="button"
+                className="obs-icon-btn"
+                aria-label="More actions"
+                aria-haspopup="menu"
+                aria-expanded={overflowOpen}
+                data-testid="topbar-overflow"
+                onClick={() => setOverflowOpen((v) => !v)}
+              >
+                <MoreHorizontal className="h-4 w-4" />
+              </button>
+              {overflowOpen && (
+                <div className="obs-overflow-menu" role="menu" onMouseLeave={() => setOverflowOpen(false)}>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    disabled={!current.html}
+                    onClick={() => {
+                      setOverflowOpen(false);
+                      if (!current.html) return;
+                      const clean = stripPreviewOnly(current.html);
+                      const blob = new Blob([clean], { type: "text/html" });
+                      const url = URL.createObjectURL(blob);
+                      const a = document.createElement("a");
+                      a.href = url; a.download = `${(current.title || "obsidian").replace(/\s+/g, "-")}.html`; a.click();
+                      URL.revokeObjectURL(url);
+                      setTerminal((t) => [...t, `→ Exported clean HTML (${(clean.length / 1024).toFixed(1)} KB)`]);
+                    }}
+                  >Export clean HTML</button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    onClick={() => { setOverflowOpen(false); setPaletteOpen(true); }}
+                  >Command palette (⌘ K)</button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    disabled={loading}
+                    onClick={() => { setOverflowOpen(false); clearAll(); }}
+                  >Clear this session</button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    onClick={() => { setOverflowOpen(false); handleNav("git"); }}
+                  >Show Git-ready panel</button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
