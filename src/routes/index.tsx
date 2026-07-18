@@ -344,6 +344,33 @@ function Index() {
     setPendingAttachments((a) => a.filter((_, i) => i !== idx));
   }
 
+  // Deterministic bounded repair — one pass. Returns repaired html + attempt record.
+  function tryLocalRepair(html: string, reason: string): { html: string; attempt: RepairAttempt } {
+    const t = performance.now();
+    const r = repairHtml(html);
+    const v = validateHtml(r.html);
+    return {
+      html: r.html,
+      attempt: {
+        source: "deterministic",
+        appliedFixes: r.appliedFixes,
+        reason,
+        durationMs: performance.now() - t,
+        succeeded: v.status !== "failed",
+      },
+    };
+  }
+
+  function makeVersion(html: string, label: string, meta: VersionMetadata): Version {
+    return {
+      id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
+      ts: Date.now(),
+      html,
+      label,
+      metadata: meta,
+    };
+  }
+
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
