@@ -34,6 +34,68 @@ Hard rules:
 - No third-party scripts, no tracking, no external network calls beyond image URLs.
 - Speed matters: begin streaming the <!doctype html> immediately. No preamble.`;
 
+type PlannedImage = { slot: string; prompt: string; url: string };
+
+async function planAndGenerateImages(
+  apiKey: string,
+  prompt: string,
+  currentHtml: string,
+): Promise<PlannedImage[]> {
+  try {
+    const planRes = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+      body: JSON.stringify({
+        model: "google/gemini-3.1-flash-lite",
+        messages: [
+          {
+            role: "system",
+            content:
+              'Decide if this web build needs real generated images. Return ONLY JSON: {"images":[{"slot":"hero|card|logo|bg|icon","prompt":"detailed visual prompt, no text-in-image"}]}. Include images ONLY if the user explicitly asks for a visual (image, photo, picture, illustration, logo, banner, hero) OR the build is inherently visual (portfolio, gallery, product landing). Otherwise {"images":[]}. Max 3.',
+          },
+          {
+            role: "user",
+            content: `USER REQUEST: ${prompt}\n\nCURRENT HTML: ${currentHtml.slice(0, 1500)}`,
+          },
+        ],
+        response_format: { type: "json_object" },
+      }),
+    });
+    if (!planRes.ok) return [];
+    const planJson = (await planRes.json()) as { choices?: Array<{ message?: { content?: string } }> };
+    const parsed = JSON.parse(planJson.choices?.[0]?.message?.content ?? "{}");
+    const plans: Array<{ slot?: string; prompt: string }> = Array.isArray(parsed.images)
+      ? parsed.images.filter((x: unknown) => !!x && typeof (x as { prompt?: unknown }).prompt === "string").slice(0, 3)
+      : [];
+    if (!plans.length) return [];
+
+    const results = await Promise.all(
+      plans.map(async (p): Promise<PlannedImage | null> => {
+        try {
+          const r = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+            body: JSON.stringify({
+              model: "google/gemini-3.1-flash-image",
+              messages: [{ role: "user", content: p.prompt }],
+              modalities: ["image", "text"],
+            }),
+          });
+          if (!r.ok) return null;
+          const j = (await r.json()) as { data?: Array<{ b64_json?: string }> };
+          const b64 = j.data?.[0]?.b64_json;
+          return b64 ? { slot: p.slot ?? "image", prompt: p.prompt, url: `data:image/png;base64,${b64}` } : null;
+        } catch {
+          return null;
+        }
+      }),
+    );
+    return results.filter((x): x is PlannedImage => !!x);
+  } catch {
+    return [];
+  }
+}
+
 export const Route = createFileRoute("/api/generate")({
   server: {
     handlers: {
