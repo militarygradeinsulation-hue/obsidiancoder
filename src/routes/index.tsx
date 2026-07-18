@@ -307,7 +307,8 @@ function Index() {
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
-    let prompt = basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : "");
+    const modePrefix = MODE_PREFIX[current.mode] ? `[${current.mode.toUpperCase()} MODE] ${MODE_PREFIX[current.mode]}\n\n` : "";
+    let prompt = modePrefix + (basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : ""));
     for (const att of pendingAttachments) {
       if (att.kind === "image") {
         prompt += `\n\n[Attached image — embed exactly, do not replace]\nfilename: ${att.name}\nsrc: ${att.dataUrl}`;
