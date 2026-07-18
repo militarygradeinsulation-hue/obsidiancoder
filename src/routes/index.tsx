@@ -1186,8 +1186,8 @@ function Index() {
               <Menu className="h-4 w-4" />
             </button>
             <img src={aetherisLogo.url} alt="Aetheris" className="obs-mark obs-mark-img obs-topbar-logo" />
-            <button type="button" className="obs-icon-btn" aria-label="Back"><ChevronLeft className="h-4 w-4" /></button>
-            <button type="button" className="obs-icon-btn" aria-label="Forward"><ChevronRight className="h-4 w-4" /></button>
+            <button type="button" className="obs-icon-btn" aria-label="Back" disabled title="History navigation not available"><ChevronLeft className="h-4 w-4" /></button>
+            <button type="button" className="obs-icon-btn" aria-label="Forward" disabled title="History navigation not available"><ChevronRight className="h-4 w-4" /></button>
             <div className="obs-tabs">
               {sessions.map((s) => {
                 const isActive = s.id === activeId;
