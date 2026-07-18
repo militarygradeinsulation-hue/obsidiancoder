@@ -8,8 +8,8 @@ import logoAsset from "@/assets/aetheris-logo.png.asset.json";
 export const Route = createFileRoute("/unlock")({
   head: () => ({
     meta: [
-      { title: "Unlock — Obsidian" },
-      { name: "description", content: "Enter your access code to open Obsidian." },
+      { title: "Unlock — Aetheris Obsidian" },
+      { name: "description", content: "Enter your access code to open Aetheris Obsidian." },
       { name: "robots", content: "noindex,nofollow" },
     ],
   }),
