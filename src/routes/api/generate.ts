@@ -51,6 +51,9 @@ export const Route = createFileRoute("/api/generate")({
           );
         }
 
+        // Plan + generate images before we start streaming HTML.
+        const images = await planAndGenerateImages(apiKey, data.prompt, data.currentHtml);
+
         const messages: Array<{ role: string; content: string }> = [
           { role: "system", content: SYSTEM_PROMPT },
           ...data.history,
@@ -61,7 +64,18 @@ export const Route = createFileRoute("/api/generate")({
             content: `The current HTML document is:\n\n${data.currentHtml}\n\nBuild upon it.`,
           });
         }
+        if (images.length) {
+          messages.push({
+            role: "system",
+            content:
+              `GENERATED IMAGES AVAILABLE — embed each as <img src="..."> using the EXACT data URLs below. Do NOT swap for Unsplash/placeholders.\n\n` +
+              images
+                .map((img, i) => `[image ${i + 1} — slot=${img.slot}] prompt: ${img.prompt}\nURL: ${img.url}`)
+                .join("\n\n"),
+          });
+        }
         messages.push({ role: "user", content: data.prompt });
+
 
         const upstream = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
           method: "POST",
