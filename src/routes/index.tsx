@@ -147,6 +147,9 @@ function newSession(): Session {
     mode: "agent",
     versions: [],
     memory: { ...EMPTY_MEMORY },
+    rules: reconcileRules(undefined),
+    runtimeEvents: [],
+    cost: { ...EMPTY_COST },
   };
 }
 
