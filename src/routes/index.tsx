@@ -1090,6 +1090,8 @@ function Index() {
 
   return (
     <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "")}>
+      {/* Amber particle-network backdrop */}
+      <Background />
       {/* Ambient matrix backdrop */}
       <div className="obs-matrix" aria-hidden="true">
         {Array.from({ length: 14 }).map((_, i) => (
