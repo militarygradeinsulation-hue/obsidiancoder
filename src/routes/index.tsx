@@ -452,12 +452,20 @@ function Index() {
           // fall through to AI path (do NOT overwrite stableHtml)
         } else {
           const versionLabel = basePrompt.slice(0, 48) || "Deterministic edit";
-          const newVersion: Version = {
-            id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
-            ts: Date.now(),
-            html: det.html,
-            label: versionLabel,
-          };
+          const detDiff = diffSummary(stableHtml, det.html);
+          const detMeta = buildMetadata({
+            request: basePrompt,
+            classification,
+            strategy: "deterministic",
+            model: "deterministic",
+            durationMs: performance.now() - t0,
+            patchOperations: 1,
+            charsAdded: detDiff.charsAdded,
+            charsRemoved: detDiff.charsRemoved,
+            changed: true,
+            validation,
+          });
+          const newVersion: Version = makeVersion(det.html, versionLabel, detMeta);
           setSessions((all) => all.map((s) => s.id === sessionId
             ? {
                 ...s,
@@ -466,6 +474,7 @@ function Index() {
                 versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
               }
             : s));
+
           const durationMs = performance.now() - t0;
           setTerminal((t) => [...t, `✓ Deterministic edit in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
           const detDiff = diffSummary(stableHtml, det.html);
