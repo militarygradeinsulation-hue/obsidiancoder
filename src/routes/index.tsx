@@ -601,20 +601,30 @@ function Index() {
 
             // COMMIT — success
             const versionLabel = (patchParsed.data.summary || basePrompt).slice(0, 48);
-            const newVersion: Version = {
-              id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random())),
-              ts: Date.now(),
-              html: applied.html,
-              label: versionLabel,
-            };
+            const durationMsCommit = performance.now() - t0;
+            const commitMeta = buildMetadata({
+              request: basePrompt,
+              classification,
+              strategy: "ai-patch",
+              model: pJson.model,
+              durationMs: durationMsCommit,
+              patchOperations: applied.applied.length,
+              charsAdded: applied.charsAdded,
+              charsRemoved: applied.charsRemoved,
+              changed: true,
+              validation,
+              repairAttempts: patchRepairAttempts,
+            });
+            const newVersion: Version = makeVersion(patchedHtml, versionLabel, commitMeta);
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
                   ...s,
-                  html: applied.html,
-                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"})_` }],
+                  html: patchedHtml,
+                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"}${patchRepairAttempts.length ? " · repaired" : ""})_` }],
                   versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
                 }
               : s));
+
             const durationMs = performance.now() - t0;
             setTerminal((t) => [
               ...t,
