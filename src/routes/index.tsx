@@ -244,10 +244,42 @@ function Index() {
 
   const previewSrcDoc = useMemo(
     () =>
-      current.html ||
-      `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`,
+      injectRuntimeBridge(current.html ||
+        `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`),
     [current.html],
   );
+
+  // Runtime bridge — listen for sanitized preview events, bounded to 100 per session.
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  useEffect(() => {
+    function onMsg(evt: MessageEvent) {
+      const iframe = iframeRef.current;
+      if (!iframe || evt.source !== iframe.contentWindow) return;
+      const parsed = parseRuntimeMessage(evt, iframe.contentWindow);
+      if (!parsed) return;
+      setSessions((all) => all.map((s) => s.id === activeId
+        ? { ...s, runtimeEvents: [...(s.runtimeEvents ?? []).slice(-99), parsed] }
+        : s));
+    }
+    window.addEventListener("message", onMsg);
+    return () => window.removeEventListener("message", onMsg);
+  }, [activeId]);
+
+  // Clear runtime log whenever the previewed HTML changes (new run = fresh log).
+  useEffect(() => {
+    setSessions((all) => all.map((s) => s.id === activeId ? { ...s, runtimeEvents: [] } : s));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current.html]);
+
+  // Fold new lastMetrics into per-session cost snapshot exactly once.
+  const foldedMetricsRef = useRef<GenerationMetrics | null>(null);
+  useEffect(() => {
+    if (!lastMetrics || lastMetrics === foldedMetricsRef.current) return;
+    foldedMetricsRef.current = lastMetrics;
+    setSessions((all) => all.map((s) => s.id === activeId
+      ? { ...s, cost: foldMetrics(s.cost ?? EMPTY_COST, lastMetrics) }
+      : s));
+  }, [lastMetrics, activeId]);
 
   function updateCurrent(patch: Partial<Session>) {
     setSessions((all) => all.map((s) => (s.id === activeId ? { ...s, ...patch } : s)));
