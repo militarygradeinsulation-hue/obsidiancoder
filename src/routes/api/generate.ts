@@ -158,22 +158,24 @@ export const Route = createFileRoute("/api/generate")({
             });
           }
 
-          // TEST HOOK — never call upstream when the client is exercising the
-          // failure boundary. Header is only honoured server-side.
-          const mock = request.headers.get("x-obs-mock-upstream");
-          if (mock === "cf-502") {
-            throw new AiError({
-              code: "ai_upstream_html",
-              stage: "generate",
-              requestId,
-              message: "Mock: Cloudflare 502 HTML page.",
-            });
-          }
-          if (mock === "empty") {
-            throw new AiError({ code: "ai_upstream_empty", stage: "generate", requestId });
-          }
-          if (mock === "unauthorized") {
-            throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId });
+          // TEST HOOK — honoured only outside production so it can't be abused
+          // against the live deployment.
+          if (process.env.NODE_ENV !== "production") {
+            const mock = request.headers.get("x-obs-mock-upstream");
+            if (mock === "cf-502") {
+              throw new AiError({
+                code: "ai_upstream_html",
+                stage: "generate",
+                requestId,
+                message: "Mock: Cloudflare 502 HTML page.",
+              });
+            }
+            if (mock === "empty") {
+              throw new AiError({ code: "ai_upstream_empty", stage: "generate", requestId });
+            }
+            if (mock === "unauthorized") {
+              throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId });
+            }
           }
 
           const clientAbort = request.signal;
@@ -265,12 +267,16 @@ export const Route = createFileRoute("/api/generate")({
             });
           }
 
-          recordSuccess(`lovable/generate:${data.model}`);
+          // Do NOT recordSuccess yet — only after the stream has produced at
+          // least one valid content delta. A stream that emits zero content is
+          // treated as ai_upstream_empty and counts as a breaker failure.
+          const breakerKeyGen = `lovable/generate:${data.model}`;
 
           // Compose an SSE parser over the buffered sniff bytes + rest of the stream.
           const stream = new ReadableStream<Uint8Array>({
             async start(controller) {
               let buffer = sniffBuffer;
+              let emittedBytes = 0;
               try {
                 const drain = () => {
                   let idx;
@@ -279,11 +285,21 @@ export const Route = createFileRoute("/api/generate")({
                     buffer = buffer.slice(idx + 1);
                     if (!line.startsWith("data:")) continue;
                     const payload = line.slice(5).trim();
-                    if (payload === "[DONE]") { controller.close(); return true; }
+                    if (payload === "[DONE]") {
+                      if (emittedBytes === 0) {
+                        recordFailure(breakerKeyGen);
+                        controller.error(new Error("ai_upstream_empty"));
+                        return true;
+                      }
+                      recordSuccess(breakerKeyGen);
+                      controller.close();
+                      return true;
+                    }
                     try {
                       const j = JSON.parse(payload);
                       const delta = j.choices?.[0]?.delta?.content;
                       if (typeof delta === "string" && delta.length) {
+                        emittedBytes += delta.length;
                         controller.enqueue(encoder.encode(delta));
                       }
                     } catch { /* skip malformed */ }
@@ -291,15 +307,31 @@ export const Route = createFileRoute("/api/generate")({
                   return false;
                 };
                 if (drain()) return;
-                if (firstChunk?.done) { controller.close(); return; }
+                if (firstChunk?.done) {
+                  if (emittedBytes === 0) {
+                    recordFailure(breakerKeyGen);
+                    controller.error(new Error("ai_upstream_empty"));
+                  } else {
+                    recordSuccess(breakerKeyGen);
+                    controller.close();
+                  }
+                  return;
+                }
                 while (true) {
                   const { done, value } = await reader.read();
                   if (done) break;
                   buffer += decoder.decode(value, { stream: true });
                   if (drain()) return;
                 }
-                controller.close();
+                if (emittedBytes === 0) {
+                  recordFailure(breakerKeyGen);
+                  controller.error(new Error("ai_upstream_empty"));
+                } else {
+                  recordSuccess(breakerKeyGen);
+                  controller.close();
+                }
               } catch (err) {
+                recordFailure(breakerKeyGen);
                 controller.error(err);
               }
             },

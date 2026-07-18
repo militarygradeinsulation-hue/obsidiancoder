@@ -34,6 +34,9 @@ import { CostPanel } from "@/components/panels/CostPanel";
 import { ExecutionGraphPanel } from "@/components/panels/ExecutionGraphPanel";
 import { FileExplorerPanel } from "@/components/panels/FileExplorerPanel";
 import { InspectorPanel, type InspectorSelection } from "@/components/panels/InspectorPanel";
+import { IntelligencePanel } from "@/components/panels/IntelligencePanel";
+import { LearningPanel } from "@/components/panels/LearningPanel";
+import { StrategyExplanation } from "@/components/panels/StrategyExplanation";
 import { FlowPanel } from "@/components/panels/FlowPanel";
 import { ComponentLibraryPanel } from "@/components/panels/ComponentLibraryPanel";
 import { DeploymentReadinessPanel } from "@/components/panels/DeploymentReadinessPanel";
@@ -201,7 +204,7 @@ function Index() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [lastAiError, setLastAiError] = useState<AiErrorEnvelope | null>(null);
-  const lastSubmitRef = useRef<{ prompt: string } | null>(null);
+  const lastSubmitRef = useRef<{ prompt: string; attachments: Attachment[] } | null>(null);
   const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
@@ -227,6 +230,7 @@ function Index() {
   const [stage, setStage] = useState<StageName | null>(null);
   const [stageDetail, setStageDetail] = useState<string>("");
   const [railGroup, setRailGroup] = useState<RailGroupId>("all");
+  const [intelligenceTick, setIntelligenceTick] = useState<number>(0);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -591,7 +595,7 @@ function Index() {
 
     setError(null);
     setLastAiError(null);
-    lastSubmitRef.current = { prompt: basePrompt };
+    lastSubmitRef.current = { prompt: basePrompt, attachments: [...pendingAttachments] };
     setInput("");
     setPendingAttachments([]);
     const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: basePrompt || "(attachment only)" }];
@@ -714,25 +718,27 @@ function Index() {
         if (pCtype.includes("application/json")) {
           pJson = await pRes.json();
         } else {
-          // Non-JSON body from /api/patch is treated as an upstream transport failure.
-          // The stable HTML stays untouched; fall through to full generation.
-          setTerminal((t) => [...t, `✗ Patch route returned non-JSON — falling back to full AI generation.`]);
-          abortRef.current = null;
-          break patchAttempt;
+          // Non-JSON body from /api/patch is a transport failure. Preserve
+          // stable HTML and surface the error — never fall through to a full
+          // regeneration on transport errors (that could destroy work the user
+          // already had).
+          const envelope: AiErrorEnvelope = {
+            ok: false, code: "ai_upstream_malformed", stage: "patch",
+            message: "Patch service returned a non-JSON body. Your last stable build is preserved.",
+            retryable: true, requestId: `local_${Date.now().toString(36)}`,
+          };
+          setLastAiError(envelope); setError(envelope.message);
+          setTerminal((t) => [...t, `✗ Patch transport: non-JSON body (stable HTML preserved).`]);
+          abortRef.current = null; setLoading(false); setStage(null);
+          return;
         }
         if (isAiErrorEnvelope(pJson)) {
-          // Non-retryable envelopes surface directly to the user; retryable ones fall through.
-          if (!pJson.retryable) {
-            setLastAiError(pJson);
-            setError(pJson.message);
-            setTerminal((t) => [...t, `✗ Patch: ${pJson.message} (id ${pJson.requestId})`]);
-            abortRef.current = null;
-            setLoading(false); setStage(null);
-            return;
-          }
-          setTerminal((t) => [...t, `✗ Patch upstream failed (${pJson.code}) — falling back to full AI generation.`]);
-          abortRef.current = null;
-          break patchAttempt;
+          // Transport-layer failure — retryable or not, DO NOT silently
+          // fall through to full generation. Surface it; user can Retry.
+          setLastAiError(pJson); setError(pJson.message);
+          setTerminal((t) => [...t, `✗ Patch: ${pJson.message} (id ${pJson.requestId})`]);
+          abortRef.current = null; setLoading(false); setStage(null);
+          return;
         }
 
         if (!pJson.ok) {
@@ -1479,8 +1485,12 @@ function Index() {
                       type="button"
                       className="obs-btn is-sm"
                       onClick={() => {
-                        const p = lastSubmitRef.current?.prompt;
-                        if (p) { setError(null); setLastAiError(null); void submit(p); }
+                        const last = lastSubmitRef.current;
+                        if (!last) return;
+                        setError(null); setLastAiError(null);
+                        // Restore attachments so retry replays the ORIGINAL request.
+                        if (last.attachments.length) setPendingAttachments(last.attachments);
+                        void submit(last.prompt);
                       }}
                       data-testid="ai-error-retry"
                     >Retry</button>
@@ -1682,6 +1692,11 @@ function Index() {
                 <Paperclip className="h-3.5 w-3.5" /> Add Context
               </button>
             </div>
+
+            {/* Core 4.0 — Adaptive Intelligence */}
+            <IntelligencePanel refreshKey={intelligenceTick} />
+            <StrategyExplanation />
+            <LearningPanel onChange={() => setIntelligenceTick((n) => n + 1)} />
 
             <div className="obs-rail-heading" id="rail-build">Build · files, versions, design</div>
 

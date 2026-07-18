@@ -27,19 +27,24 @@ export class BuilderErrorBoundary extends React.Component<Props, State> {
 
   render() {
     if (!this.state.err) return this.props.children;
-    const msg = sanitizeErrorMessage(this.state.err, "The workspace hit an unexpected error.");
+    // Only expose sanitized internal detail outside production. In production
+    // show a stable safe message + a client-generated correlation id.
+    const isDev = typeof process !== "undefined" && process.env?.NODE_ENV !== "production";
+    const msg = isDev
+      ? sanitizeErrorMessage(this.state.err, "The workspace hit an unexpected error.")
+      : "The workspace hit an unexpected error. Your last stable build is preserved.";
+    let corrId = "";
+    try {
+      corrId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now())).slice(0, 8);
+    } catch { corrId = String(Date.now()).slice(-8); }
     return (
       <div
         role="alert"
         data-testid="builder-error-boundary"
         style={{
-          padding: "24px",
-          minHeight: "100dvh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          background: "#050607",
-          color: "#f2eee7",
+          padding: "24px", minHeight: "100dvh", display: "flex",
+          alignItems: "center", justifyContent: "center",
+          background: "#050607", color: "#f2eee7",
           fontFamily: "Inter, system-ui, sans-serif",
         }}
       >
@@ -48,34 +53,17 @@ export class BuilderErrorBoundary extends React.Component<Props, State> {
             WORKSPACE ERROR
           </div>
           <h1 style={{ fontSize: 22, margin: "0 0 12px" }}>Something went wrong in the builder shell.</h1>
-          <p style={{ opacity: 0.8, margin: "0 0 20px", lineHeight: 1.5 }}>{msg}</p>
+          <p style={{ opacity: 0.8, margin: "0 0 12px", lineHeight: 1.5 }}>{msg}</p>
+          <p style={{ opacity: 0.5, margin: "0 0 20px", fontSize: 12 }}>ref {corrId}</p>
           <div style={{ display: "flex", gap: 8 }}>
             <button
               onClick={this.reset}
-              style={{
-                padding: "10px 16px",
-                border: "1px solid #c9953d",
-                background: "transparent",
-                color: "#f2eee7",
-                borderRadius: 8,
-                cursor: "pointer",
-              }}
-            >
-              Try again
-            </button>
+              style={{ padding: "10px 16px", border: "1px solid #c9953d", background: "transparent", color: "#f2eee7", borderRadius: 8, cursor: "pointer" }}
+            >Try again</button>
             <button
               onClick={() => { if (typeof window !== "undefined") window.location.reload(); }}
-              style={{
-                padding: "10px 16px",
-                border: "1px solid rgba(255,255,255,0.15)",
-                background: "transparent",
-                color: "#f2eee7",
-                borderRadius: 8,
-                cursor: "pointer",
-              }}
-            >
-              Reload workspace
-            </button>
+              style={{ padding: "10px 16px", border: "1px solid rgba(255,255,255,0.15)", background: "transparent", color: "#f2eee7", borderRadius: 8, cursor: "pointer" }}
+            >Reload workspace</button>
           </div>
         </div>
       </div>

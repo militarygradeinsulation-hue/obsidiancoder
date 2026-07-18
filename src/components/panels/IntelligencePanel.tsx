@@ -1,0 +1,69 @@
+// Intelligence panel — shows current interpretation, applied preferences,
+// strategy recommendation, and recent learning. All data is local.
+
+import * as React from "react";
+import { loadProfile, type AdaptiveProfile } from "@/lib/adaptive-profile";
+import type { ResolvedIntent } from "@/lib/intent-resolver";
+import type { RoutingDecision } from "@/lib/adaptive-router";
+
+interface Props {
+  intent?: ResolvedIntent;
+  decision?: RoutingDecision;
+  refreshKey?: number;
+}
+
+export function IntelligencePanel({ intent, decision, refreshKey = 0 }: Props) {
+  const [profile, setProfile] = React.useState<AdaptiveProfile | null>(null);
+
+  React.useEffect(() => {
+    setProfile(loadProfile());
+  }, [refreshKey]);
+
+  return (
+    <div className="obs-card" id="rail-intelligence" data-testid="intelligence-panel">
+      <div className="obs-card-head">
+        <span>Intelligence</span>
+        <span className="obs-card-meta">{profile?.applied.length ?? 0} learned · {profile?.recentEvents.length ?? 0} recent</span>
+      </div>
+      <div className="obs-card-body" style={{ display: "flex", flexDirection: "column", gap: 10, fontSize: 12 }}>
+        <section>
+          <div style={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 1, fontSize: 10, marginBottom: 4 }}>Interpretation</div>
+          {intent ? (
+            <div>
+              <div>{intent.outcome.slice(0, 90)}</div>
+              <div style={{ opacity: 0.7, marginTop: 4 }}>
+                scope: {intent.scope} · risk: {intent.risk} · ambiguity: {intent.ambiguity.toFixed(2)}
+                {intent.needsClarification && <span style={{ color: "#c9953d" }}> · asks clarifying question</span>}
+              </div>
+              {intent.likelyTargets.length > 0 && (
+                <div style={{ opacity: 0.7, marginTop: 2 }}>targets: {intent.likelyTargets.slice(0, 4).join(", ")}</div>
+              )}
+            </div>
+          ) : <div style={{ opacity: 0.5 }}>No pending request.</div>}
+        </section>
+        <section>
+          <div style={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 1, fontSize: 10, marginBottom: 4 }}>Strategy</div>
+          {decision ? (
+            <div>
+              <div>{decision.chosenStrategy} · {decision.chosenModel}{decision.explicitOverride ? " (explicit)" : ""}</div>
+              <div style={{ opacity: 0.7, marginTop: 4 }}>{decision.why}</div>
+              {decision.signalsUsed.length > 0 && (
+                <div style={{ opacity: 0.7, marginTop: 2 }}>signals: {decision.signalsUsed.join(", ")}</div>
+              )}
+            </div>
+          ) : <div style={{ opacity: 0.5 }}>No routing decision yet.</div>}
+        </section>
+        <section>
+          <div style={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 1, fontSize: 10, marginBottom: 4 }}>Applied preferences</div>
+          {profile && profile.applied.length ? (
+            <ul style={{ margin: 0, paddingLeft: 14 }}>
+              {profile.applied.slice(0, 6).map((p) => (
+                <li key={p.id}>{p.key} → {p.value} <span style={{ opacity: 0.5 }}>({(p.confidence * 100).toFixed(0)}%)</span></li>
+              ))}
+            </ul>
+          ) : <div style={{ opacity: 0.5 }}>Nothing learned yet. Confirm changes to teach Obsidian.</div>}
+        </section>
+      </div>
+    </div>
+  );
+}

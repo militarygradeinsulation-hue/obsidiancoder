@@ -352,6 +352,85 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   results.push(assert(closed.allowed && closed.state === "closed", "breaker: closes on success"));
   resetBreaker("test:cb");
 
+  // ---- Core 4.0: Adaptive Intelligence ----
+  // adaptive-ledger sanitization + bounded storage
+  const { appendEvent, clearLedger, loadLedger, summariseLedger, MAX_EVENTS } = await import("./adaptive-ledger");
+  clearLedger();
+  const secretEvt = appendEvent({ kind: "request-submitted", note: "call sk_live_" + "a".repeat(20) + " Bearer abc.def unlock 9822 https://x" });
+  results.push(assert(!/sk_live_|Bearer|9822|https:\/\//.test(secretEvt.note ?? ""), `ledger: sanitizes secrets/9822/urls (${secretEvt.note})`));
+  // Bounded storage + summary are pure over an in-memory array (server has no
+  // window.localStorage; appendEvent's persistence step no-ops server-side).
+  const inMem: import("./adaptive-ledger").LedgerEvent[] = [];
+  for (let i = 0; i < MAX_EVENTS + 20; i++) inMem.push({ id: `x${i}`, ts: i, kind: "task-classified", taskType: "text-edit" });
+  const trimmed = inMem.slice(-MAX_EVENTS);
+  results.push(assert(trimmed.length === MAX_EVENTS, `ledger: bounded ≤ ${MAX_EVENTS}`));
+  results.push(assert(summariseLedger(trimmed)["task-classified"] === MAX_EVENTS, "ledger: summary counts"));
+  clearLedger();
+
+  // preference-learning promotion threshold
+  const { observe, confirmPreference, forgetPreference, preferenceFor, PROMOTION_THRESHOLD } = await import("./preference-learning");
+  let plist: import("./preference-learning").LearnedPreference[] = [];
+  plist = observe(plist, { key: "editing.strategy", value: "ai-patch", source: "test" });
+  results.push(assert(plist[0].status === "observed" && !preferenceFor(plist, "editing.strategy"), "prefs: one obs does not promote"));
+  for (let i = 1; i < PROMOTION_THRESHOLD; i++) plist = observe(plist, { key: "editing.strategy", value: "ai-patch", source: "test" });
+  results.push(assert(plist[0].status === "confirmed" && !!preferenceFor(plist, "editing.strategy"), "prefs: promotes at threshold"));
+  const fresh = observe([], { key: "k", value: "v", source: "test" });
+  const confirmed = confirmPreference(fresh, fresh[0].id);
+  results.push(assert(confirmed[0].status === "confirmed" && confirmed[0].confidence === 1, "prefs: explicit confirm overrides threshold"));
+  results.push(assert(forgetPreference(confirmed, confirmed[0].id).length === 0, "prefs: forget removes"));
+
+  // intent-resolver — low-risk edit does NOT need clarification; destructive+ambiguous does
+  const { resolveIntent } = await import("./intent-resolver");
+  const i1 = resolveIntent('use color red for the buttons', { hasHtml: true, attachmentsCount: 0 });
+  results.push(assert(i1.scope === "style" && i1.risk === "low" && !i1.needsClarification, `intent: low-risk style edit proceeds (scope=${i1.scope} risk=${i1.risk} ask=${i1.needsClarification})`));
+  const i2 = resolveIntent('delete everything', { hasHtml: true, attachmentsCount: 0 });
+  results.push(assert(i2.risk === "high", "intent: destructive → high risk"));
+  const i3 = resolveIntent('do it', { hasHtml: false, attachmentsCount: 0 });
+  results.push(assert(i3.ambiguity > 0.5, "intent: vague short prompt → ambiguous"));
+
+  // adaptive-router — explicit model wins
+  const { decide } = await import("./adaptive-router");
+  const dec = decide({ prompt: 'change "Hi" to "Hello"', hasHtml: true, mode: "agent", pickerModel: "google/gemini-3.5-flash", hasAttachments: false });
+  results.push(assert(dec.explicitOverride && dec.chosenModel === "google/gemini-3.5-flash", "router: explicit model wins"));
+  results.push(assert(dec.signalsIgnored.includes("explicit-model-selection"), "router: explains ignored signals"));
+
+  // performance-model — dedupes and scores
+  const { buildPerformanceModel, scoreAll } = await import("./performance-model");
+  const evs = [
+    { id: "1", ts: 1, kind: "patch-accepted", taskType: "text-edit", strategy: "ai-patch", model: "m", contextTier: "minimal", outcome: "kept", validationStatus: "passed", durationMs: 100 },
+    { id: "1", ts: 1, kind: "patch-accepted", taskType: "text-edit", strategy: "ai-patch", model: "m", contextTier: "minimal", outcome: "kept", validationStatus: "passed", durationMs: 100 },
+    { id: "2", ts: 2, kind: "version-restored", taskType: "text-edit", strategy: "ai-patch", model: "m", contextTier: "minimal", outcome: "restored" },
+  ] as import("./adaptive-ledger").LedgerEvent[];
+  const perf = buildPerformanceModel(evs);
+  const scores = scoreAll(perf);
+  results.push(assert(scores.length === 1 && scores[0].attempts === 2, `perf: dedupes ids (attempts=${scores[0]?.attempts})`));
+
+  // next-best-action — deterministic + evidence-cited
+  const { computeNextBestActions } = await import("./next-best-action");
+  const acts = computeNextBestActions({
+    validation: { status: "failed", summary: "", issues: [{ severity: "blocking", code: "x", message: "unterminated tag", level: "fail" }] },
+    runtimeErrors: 2,
+  });
+  results.push(assert(acts[0].severity === "critical" && acts[0].evidenceRefs.length > 0, "coach: critical first with evidence"));
+
+  // project-patterns extraction
+  const { extractPatterns } = await import("./project-patterns");
+  const pp = extractPatterns('<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width"><style>body{color:#F4A125}h1{color:#F4A125}</style></head><body><nav></nav><form></form><button id="a">x</button><button id="b">y</button></body></html>');
+  results.push(assert(pp.patterns.some((p) => p.kind === "color-token") && pp.patterns.some((p) => p.kind === "a11y"), `patterns: extracts color + a11y (${pp.patterns.map((p) => p.kind).join(",")})`));
+
+  // adaptive-profile export never contains raw secrets or the unlock code
+  const { exportProfile } = await import("./adaptive-profile");
+  appendEvent({ kind: "request-submitted", note: "prompt with sk_live_" + "b".repeat(20) + " and 9822" });
+  const exported = exportProfile();
+  results.push(assert(!/sk_live_bb|9822/.test(exported), "profile: export scrubs secrets/9822"));
+  clearLedger();
+
+  // Corrupted storage recovery — feeding junk should not throw
+  const { safeSet } = await import("./safe-storage");
+  safeSet("obs.core4.v1.ledger", ["not-an-event", { bad: true }, null]);
+  results.push(assert(Array.isArray(loadLedger()), "ledger: corrupted storage recovers"));
+  clearLedger();
+
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };
