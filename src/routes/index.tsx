@@ -645,6 +645,7 @@ function Index() {
           summary: "AI output rejected by validator; reverted to stable version.",
           validation,
           documentChanged: false,
+          strategy: "full-generation",
         }));
         return;
       }
