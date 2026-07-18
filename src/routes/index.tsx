@@ -230,6 +230,7 @@ function Index() {
   const [stage, setStage] = useState<StageName | null>(null);
   const [stageDetail, setStageDetail] = useState<string>("");
   const [railGroup, setRailGroup] = useState<RailGroupId>("all");
+  const [intelligenceTick, setIntelligenceTick] = useState<number>(0);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
