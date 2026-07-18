@@ -698,12 +698,14 @@
   position: relative;
   display: grid;
   grid-template-columns: 230px 1fr;
-  min-height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
   background: #050607;
   color: #ffffff;
   font-family: var(--font-sans);
   overflow: hidden;
 }
+
 @media (max-width: 900px) {
   .obs-shell { grid-template-columns: 1fr; }
 }
