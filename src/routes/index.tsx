@@ -1750,18 +1750,18 @@ function Index() {
             <CostPanel snapshot={current.cost ?? EMPTY_COST} />
 
             {/* Core 3.1 — file explorer, inspector, flow runner, components, deployment, git-ready, templates */}
-            <FileExplorerPanel
+            <div id="rail-files"><FileExplorerPanel
               project={current.project}
               activeFileId={current.activeFileId}
               onSelect={(id) => updateCurrent({ activeFileId: id })}
-            />
+            /></div>
             <InspectorPanel
               selection={inspectorSelection}
               enabled={inspectorEnabled}
               onToggle={setInspectorEnabled}
             />
-            <FlowPanel />
-            <ComponentLibraryPanel
+            <div id="rail-flow"><FlowPanel /></div>
+            <div id="rail-components"><ComponentLibraryPanel
               components={current.components ?? []}
               onDelete={(id) => updateCurrent({ components: (current.components ?? []).filter((c) => c.id !== id) })}
               onDuplicate={(id) => {
@@ -1770,26 +1770,27 @@ function Index() {
                 const dup: ComponentEntry = { ...c, id: (globalThis.crypto?.randomUUID?.() ?? String(Date.now())), name: `${c.name} copy`, createdAt: Date.now() };
                 updateCurrent({ components: [...(current.components ?? []), dup] });
               }}
-            />
+            /></div>
             {(() => {
               const violations: RuleViolation[] = current.html
                 ? runRules(current.rules ?? [], current.html, buildGraph(current.html))
                 : [];
               const blockingRuleCount = violations.filter((v) => v.severity === "blocking").length;
               return (
-                <DeploymentReadinessPanel
+                <div id="rail-deploy"><DeploymentReadinessPanel
                   html={current.html}
                   validationStatus={current.versions[0]?.metadata?.validation.status ?? "unknown"}
                   blockingRuleCount={blockingRuleCount}
                   runtimeErrorCount={countRuntimeBlockers(current.runtimeEvents ?? [])}
-                />
+                /></div>
               );
             })()}
-            <GitReadyPanel
+            <div id="rail-git"><GitReadyPanel
               previousHtml={current.versions[0]?.html ?? ""}
               currentHtml={current.html}
               lastRequest={current.lastRequest}
-            />
+            /></div>
+
             <TemplatePanel
               html={current.html}
               templates={current.templates ?? []}
