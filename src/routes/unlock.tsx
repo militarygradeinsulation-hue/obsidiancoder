@@ -140,6 +140,22 @@ function Unlock() {
           {busy ? "Unlocking…" : "Unlock"}
         </button>
       </form>
+      <div
+        style={{
+          position: "absolute",
+          bottom: 20,
+          left: 0,
+          right: 0,
+          textAlign: "center",
+          fontFamily: "Fraunces, Georgia, serif",
+          fontSize: 13,
+          letterSpacing: 3,
+          textTransform: "uppercase",
+          color: "rgba(244,161,37,0.7)",
+        }}
+      >
+        Aetheris.Technology
+      </div>
     </div>
   );
 }
