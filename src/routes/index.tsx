@@ -1264,7 +1264,7 @@ function Index() {
             {/* Memory V2 */}
             <MemoryPanel
               memory={current.memory}
-              currentHtml={current.html}
+              html={current.html}
               onChange={(m) => updateCurrent({ memory: m })}
             />
 
@@ -1272,9 +1272,10 @@ function Index() {
             <DesignSystemPanel
               html={current.html}
               disabled={loading || !current.html}
-              onApply={(next) => {
+              onApply={(result) => {
+                const next = result.html;
                 const meta = buildMetadata({
-                  request: "Design system update",
+                  request: result.label,
                   classification: classifyTask("update design tokens", { mode: current.mode, hasHtml: true }),
                   strategy: "deterministic",
                   model: "deterministic",
@@ -1284,15 +1285,16 @@ function Index() {
                   changed: next !== current.html,
                   validation: validateHtml(next),
                 });
-                const v = makeVersion(next, "Design tokens", meta);
+                const v = makeVersion(next, result.label, meta);
                 updateCurrent({
                   html: next,
                   versions: [v, ...current.versions].slice(0, 25),
-                  messages: [...current.messages, { role: "assistant", content: "✓ Applied design token update (deterministic, no AI credits)." }],
+                  messages: [...current.messages, { role: "assistant", content: `✓ ${result.label} (${result.changes} change${result.changes === 1 ? "" : "s"}, no AI credits).` }],
                 });
-                setTerminal((t) => [...t, "✓ Design system updated"]);
+                setTerminal((t) => [...t, `✓ ${result.label}`]);
               }}
             />
+
 
 
 
