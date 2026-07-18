@@ -187,29 +187,32 @@ function Index() {
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
   useEffect(() => {
-    try {
-      const raw = window.localStorage.getItem(STORAGE_KEY);
-      const activeRaw = window.localStorage.getItem(ACTIVE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Session[];
-        if (Array.isArray(parsed) && parsed.length) {
-          const normalized = parsed.map((s) => ({ ...s, mode: (s as Partial<Session>).mode ?? "agent", versions: Array.isArray(s.versions) ? s.versions : [], memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) } }));
-          setSessions(normalized);
-          const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
-          setActiveId(id);
-        }
-      }
-    } catch { /* ignore */ }
+    const parsed = safeGet<Session[]>(STORAGE_KEY);
+    const activeRaw = safeGet<string>(ACTIVE_KEY);
+    if (Array.isArray(parsed) && parsed.length) {
+      const normalized = parsed.map((s) => ({ ...s, mode: (s as Partial<Session>).mode ?? "agent", versions: Array.isArray(s.versions) ? s.versions : [], memory: { ...EMPTY_MEMORY, ...((s as Partial<Session>).memory ?? {}) } }));
+      setSessions(normalized);
+      const id = activeRaw && parsed.find((s) => s.id === activeRaw) ? activeRaw : parsed[0].id;
+      setActiveId(id);
+    }
     setHydrated(true);
   }, []);
 
+  // Debounced persistence — quota failures surface once via terminal, non-destructive.
   useEffect(() => {
     if (!hydrated) return;
-    try { window.localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions)); } catch { /* ignore */ }
+    if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
+    writeTimerRef.current = setTimeout(() => {
+      const ok = safeSet(STORAGE_KEY, sessions);
+      if (!ok) setTerminal((t) => (t[t.length - 1]?.includes("Storage quota") ? t : [...t, "! Storage quota exceeded — session not persisted"]));
+    }, 250);
+    return () => { if (writeTimerRef.current) clearTimeout(writeTimerRef.current); };
   }, [sessions, hydrated]);
   useEffect(() => {
     if (!hydrated) return;
-    try { window.localStorage.setItem(ACTIVE_KEY, activeId); } catch { /* ignore */ }
+    safeSet(ACTIVE_KEY, activeId);
+    // Cancel any stale in-flight request when the active session changes.
+    abortRef.current?.abort();
   }, [activeId, hydrated]);
 
   useEffect(() => {
