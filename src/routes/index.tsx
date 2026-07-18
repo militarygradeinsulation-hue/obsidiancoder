@@ -800,13 +800,11 @@ function Index() {
           }
         : s));
 
-      const durationMs = performance.now() - t0;
-      setTerminal((t) => [...t, `✓ Compiled in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
-      const fullDiff = diffSummary(stableHtml, finalHtml);
+      setTerminal((t) => [...t, `✓ Compiled in ${Math.round(durationMsGen)}ms`, `✓ Validation: ${validation.status}`]);
       setLastMetrics(metricsFromClassification(classification, {
         usedAi: true,
         model: modelForServer,
-        durationMs,
+        durationMs: durationMsGen,
         summary: versionLabel,
         validation,
         documentChanged: true,
