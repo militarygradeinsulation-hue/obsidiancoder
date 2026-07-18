@@ -589,6 +589,8 @@ function Index() {
     const t0 = performance.now();
 
     setError(null);
+    setLastAiError(null);
+    lastSubmitRef.current = { prompt: basePrompt };
     setInput("");
     setPendingAttachments([]);
     const nextHistory: ChatMsg[] = [...current.messages, { role: "user", content: basePrompt || "(attachment only)" }];
