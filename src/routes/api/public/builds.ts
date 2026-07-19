@@ -74,7 +74,8 @@ export const Route = createFileRoute("/api/public/builds")({
           share_slug: genSlug(),
           byte_size: body.html.length,
         };
-        const { data, error } = await sbPublishable()
+        const admin = await sbAdmin();
+        const { data, error } = await admin
           .from("builds" as never)
           .insert(row as never)
           .select("id, share_slug")
