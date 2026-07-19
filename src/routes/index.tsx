@@ -750,6 +750,7 @@ function Index() {
     | { kind: "image"; name: string; dataUrl: string }
     | { kind: "text"; name: string; text: string; source: "text" | "pdf" };
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [captureMode, setCaptureMode] = useState<null | "full" | "snip">(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function extractPdfText(file: File): Promise<string> {
