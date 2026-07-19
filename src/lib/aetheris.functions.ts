@@ -1,6 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
-import { ALLOWED_MODEL_IDS, DEFAULT_MODEL } from "./models";
+import { resolveModel } from "./models";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -11,12 +11,9 @@ const inputSchema = z.object({
   prompt: z.string().min(1).max(6_000_000),
   currentHtml: z.string().max(6_000_000).optional().default(""),
   history: z.array(messageSchema).max(8).optional().default([]),
-  model: z
-    .string()
-    .refine((m) => (ALLOWED_MODEL_IDS as readonly string[]).includes(m), "unsupported model")
-    .optional()
-    .default(DEFAULT_MODEL),
+  model: z.string().optional().transform((m) => resolveModel(m)),
 });
+
 
 const SYSTEM_PROMPT = `You are Aetheris Coder — an elite AI front-end engineer.
 Understand the user's intent immediately. Do not ask clarifying questions. Do not narrate.
