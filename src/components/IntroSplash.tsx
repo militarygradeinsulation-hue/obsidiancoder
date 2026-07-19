@@ -23,15 +23,15 @@ export default function IntroSplash() {
     setShow(true);
 
     const audio = new Audio();
-    audio.src = AUDIO_URL;
     audio.preload = "auto";
     audio.volume = 0.9;
     audio.crossOrigin = "anonymous";
     (audio as any).playsInline = true;
+    audio.src = AUDIO_URL;
+    try { audio.load(); } catch {}
 
     let fadeTimer = 0;
     let doneTimer = 0;
-    let started = false;
 
     const scheduleFromDuration = (durationMs: number) => {
       window.clearTimeout(fadeTimer);
@@ -41,46 +41,36 @@ export default function IntroSplash() {
       doneTimer = window.setTimeout(() => setShow(false), durationMs);
     };
 
-    const startTimeline = () => {
-      if (started) return;
-      started = true;
-      const dur = isFinite(audio.duration) && audio.duration > 0
-        ? Math.round(audio.duration * 1000)
-        : FALLBACK_DURATION_MS;
-      scheduleFromDuration(dur);
-    };
+    // Start visual timeline immediately — do not wait for audio.
+    scheduleFromDuration(FALLBACK_DURATION_MS);
 
-    audio.addEventListener("play", startTimeline);
+    audio.addEventListener("loadedmetadata", () => {
+      if (isFinite(audio.duration) && audio.duration > 0) {
+        scheduleFromDuration(Math.round(audio.duration * 1000));
+      }
+    });
     audio.addEventListener("ended", () => {
       setFadeOut(true);
       window.clearTimeout(doneTimer);
       doneTimer = window.setTimeout(() => setShow(false), 900);
     });
-    audio.addEventListener("error", () => {
-      // If audio fails entirely, still run the visual timeline.
-      startTimeline();
-    });
 
-    const attemptPlay = () => {
-      const p = audio.play();
-      if (p && typeof p.then === "function") {
-        p.catch(() => {
-          // Autoplay blocked — wait for first user gesture, keep splash visible.
-          const unlock = () => {
-            audio.play().catch(() => startTimeline());
-            window.removeEventListener("pointerdown", unlock);
-            window.removeEventListener("keydown", unlock);
-            window.removeEventListener("touchstart", unlock);
-          };
-          window.addEventListener("pointerdown", unlock, { once: true });
-          window.addEventListener("keydown", unlock, { once: true });
-          window.addEventListener("touchstart", unlock, { once: true });
-          // Safety: if the user never interacts, still dismiss splash.
-          window.setTimeout(() => { if (!started) startTimeline(); }, 2500);
-        });
-      }
-    };
-    attemptPlay();
+    // Fire play instantly, in parallel with the visual timeline.
+    const p = audio.play();
+    if (p && typeof p.then === "function") {
+      p.catch(() => {
+        const unlock = () => {
+          audio.play().catch(() => {});
+          window.removeEventListener("pointerdown", unlock);
+          window.removeEventListener("keydown", unlock);
+          window.removeEventListener("touchstart", unlock);
+        };
+        window.addEventListener("pointerdown", unlock, { once: true });
+        window.addEventListener("keydown", unlock, { once: true });
+        window.addEventListener("touchstart", unlock, { once: true });
+      });
+    }
+
 
     return () => {
       window.clearTimeout(fadeTimer);
