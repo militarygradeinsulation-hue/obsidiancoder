@@ -54,6 +54,10 @@ export const generateImage = createServerFn({ method: "POST" })
     const leo = await generateWithLeonardo(data.prompt);
     if (leo) return { dataUrl: leo };
 
+    // Secondary: Higgsfield Soul (text-to-image).
+    const hf = await generateWithHiggsfield(data.prompt);
+    if (hf) return { dataUrl: hf };
+
     // Fallback: Lovable AI Gateway (Gemini 3 Pro Image).
     const apiKey = process.env.LOVABLE_API_KEY;
     if (apiKey) {
@@ -76,8 +80,67 @@ export const generateImage = createServerFn({ method: "POST" })
         throw new Error("AI credits exhausted.");
       }
     }
-    throw new Error("Image generation failed. Check LEONARDO_API_KEY.");
+    throw new Error("Image generation failed. Check LEONARDO_API_KEY / HIGGSFIELD keys.");
   });
+
+// Higgsfield Soul text-to-image (create job → poll → fetch → base64).
+async function generateWithHiggsfield(prompt: string): Promise<string | null> {
+  const keyId = process.env.HIGGSFIELD_API_KEY_ID;
+  const keySecret = process.env.HIGGSFIELD_API_KEY_SECRET;
+  if (!keyId || !keySecret) return null;
+  const headers = {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+    "hf-api-key": keyId,
+    "hf-secret": keySecret,
+  };
+  try {
+    const create = await fetch("https://platform.higgsfield.ai/v1/text2image/soul", {
+      method: "POST",
+      headers,
+      body: JSON.stringify({
+        params: {
+          prompt: prompt.slice(0, 1400),
+          width_and_height: "1024x1024",
+          quality: "1080p",
+          batch_size: 1,
+          seed: Math.floor(Math.random() * 1_000_000),
+          enhance_prompt: false,
+        },
+      }),
+    });
+    if (!create.ok) return null;
+    const cj = (await create.json()) as { id?: string; job_set_id?: string };
+    const jobId = cj.id ?? cj.job_set_id;
+    if (!jobId) return null;
+
+    for (let i = 0; i < 20; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const poll = await fetch(`https://platform.higgsfield.ai/v1/job-sets/${jobId}`, { headers });
+      if (!poll.ok) continue;
+      const pj = (await poll.json()) as {
+        status?: string;
+        jobs?: Array<{ status?: string; results?: { raw?: { url?: string }; min?: { url?: string } } }>;
+      };
+      const job = pj.jobs?.[0];
+      const status = (job?.status ?? pj.status ?? "").toLowerCase();
+      if (status === "completed" || status === "complete" || status === "succeeded") {
+        const url = job?.results?.raw?.url ?? job?.results?.min?.url;
+        if (!url) return null;
+        const img = await fetch(url);
+        if (!img.ok) return null;
+        const buf = await img.arrayBuffer();
+        const b64 = Buffer.from(buf).toString("base64");
+        return `data:image/png;base64,${b64}`;
+      }
+      if (status === "failed" || status === "canceled" || status === "cancelled") return null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 
 
 
