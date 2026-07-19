@@ -1887,12 +1887,36 @@ function Index() {
                 </div>
               )}
               <form
-                className="obs-composer"
+                ref={composerFormRef}
+                className={"obs-composer" + (composerPos ? " is-floating" : "")}
+                style={composerPos ? {
+                  position: "fixed",
+                  left: composerPos.x,
+                  top: composerPos.y,
+                  zIndex: 9999,
+                  width: 420,
+                  maxWidth: "calc(100vw - 16px)",
+                  boxShadow: "0 20px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(244,161,37,0.35)",
+                  borderRadius: 12,
+                  background: "#111317",
+                  padding: 8,
+                } : undefined}
                 onSubmit={(e) => {
                   e.preventDefault();
                   submit();
                 }}
               >
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label={composerPos ? "Drag prompt (double-click to dock)" : "Drag prompt anywhere"}
+                  title={composerPos ? "Drag to move · double-click to dock back" : "Drag to detach and move anywhere"}
+                  onPointerDown={onComposerDragStart}
+                  onDoubleClick={() => setComposerPos(null)}
+                  style={{ cursor: "grab", touchAction: "none" }}
+                >
+                  {composerPos ? <Pin className="h-3.5 w-3.5" /> : <GripVertical className="h-3.5 w-3.5" />}
+                </button>
                 <input
                   ref={fileInputRef}
                   type="file"
