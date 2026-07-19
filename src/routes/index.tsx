@@ -1641,24 +1641,32 @@ function Index() {
                   </div>
                 )}
               </div>
-              <div className="obs-suggestions-label">Suggestions</div>
-              <div className="obs-suggestions">
-                {SUGGESTIONS.map((s) => {
-                  const Icon = s.icon;
-                  return (
-                    <button
-                      key={s.label}
-                      type="button"
-                      className="obs-suggestion"
-                      onClick={() => submit(s.label)}
-                      disabled={loading}
-                    >
-                      <Icon className="h-3.5 w-3.5" strokeWidth={1.6} />
-                      <span>{s.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {(() => {
+                const addons = suggestAddons(input, !!current.html);
+                const label = input.trim() ? "Add to your prompt" : "Try one of these";
+                return (
+                  <>
+                    <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span>{label}</span>
+                      <span style={{ opacity: 0.55, fontSize: 10 }}>click to append · free</span>
+                    </div>
+                    <div className="obs-suggestions">
+                      {addons.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          className="obs-suggestion"
+                          onClick={() => (input.trim() ? appendAddon(a) : submit(a.snippet))}
+                          disabled={loading}
+                          title={a.snippet}
+                        >
+                          <span>{a.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
               {pendingAttachments.length > 0 && (
                 <div className="obs-attach-list">
                   {pendingAttachments.map((att, i) => (
