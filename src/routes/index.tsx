@@ -29,7 +29,7 @@ import { applyPatch, preflightPatch } from "@/lib/patch-engine";
 import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
 import { repairHtml } from "@/lib/repair";
-import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import { safeGet, safeSet, sessionSafeGet, sessionSafeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { isAiErrorEnvelope, type AiErrorEnvelope } from "@/lib/ai-errors";
 import type { VersionMetadata, RepairAttempt } from "@/lib/version-metadata";
 import { MemoryPanel } from "@/components/panels/MemoryPanel";
@@ -236,10 +236,10 @@ function Index() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      if (window.localStorage.getItem("obs.introPlayed") === "1") return;
+      if (window.sessionStorage.getItem("obs.introPlayed") === "1") return;
       const audio = new Audio("/__l5e/assets-v1/8131ec77-3185-4b73-a484-17dbe1debdb1/obsidian-intro.m4a");
       audio.preload = "auto";
-      const markDone = () => { try { window.localStorage.setItem("obs.introPlayed", "1"); } catch {} };
+      const markDone = () => { try { window.sessionStorage.setItem("obs.introPlayed", "1"); } catch {} };
       const tryPlay = () => audio.play().then(markDone).catch(() => {
         const onInteract = () => {
           audio.play().then(markDone).catch(() => {});
@@ -326,9 +326,12 @@ function Index() {
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
   const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection>(null);
+  // Library code is session-scoped: each new browser session starts blank
+  // and the user re-enters their code (e.g. 9822) to "log in" and load
+  // their prior builds from the server.
   const [libraryCode, setLibraryCode] = useState<string>(() => {
     if (typeof window === "undefined") return "";
-    return localStorage.getItem("obs.library_code") || "";
+    try { return window.sessionStorage.getItem("obs.library_code") || ""; } catch { return ""; }
   });
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
@@ -414,7 +417,8 @@ function Index() {
     requestAnimationFrame(() => composerRef.current?.focus());
   }
   useEffect(() => {
-    if (typeof window !== "undefined") localStorage.setItem("obs.library_code", libraryCode);
+    if (typeof window === "undefined") return;
+    try { window.sessionStorage.setItem("obs.library_code", libraryCode); } catch {}
   }, [libraryCode]);
   function refreshLibrary() {
     const code = libraryCode.trim();
@@ -566,8 +570,10 @@ function Index() {
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
   useEffect(() => {
-    const parsed = safeGet<Session[]>(STORAGE_KEY);
-    const activeRaw = safeGet<string>(ACTIVE_KEY);
+    // Session-scoped: every new browser session starts blank. To continue
+    // prior work, the user enters their library code and opens a build.
+    const parsed = sessionSafeGet<Session[]>(STORAGE_KEY);
+    const activeRaw = sessionSafeGet<string>(ACTIVE_KEY);
     if (Array.isArray(parsed) && parsed.length) {
       const normalized: Session[] = parsed.map((s) => {
         const partial = s as Partial<Session>;
@@ -598,14 +604,14 @@ function Index() {
     if (!hydrated) return;
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
     writeTimerRef.current = setTimeout(() => {
-      const ok = safeSet(STORAGE_KEY, sessions);
+      const ok = sessionSafeSet(STORAGE_KEY, sessions);
       if (!ok) setTerminal((t) => (t[t.length - 1]?.includes("Storage quota") ? t : [...t, "! Storage quota exceeded — session not persisted"]));
     }, 250);
     return () => { if (writeTimerRef.current) clearTimeout(writeTimerRef.current); };
   }, [sessions, hydrated]);
   useEffect(() => {
     if (!hydrated) return;
-    safeSet(ACTIVE_KEY, activeId);
+    sessionSafeSet(ACTIVE_KEY, activeId);
     // Cancel any stale in-flight request when the active session changes.
     abortRef.current?.abort();
   }, [activeId, hydrated]);
