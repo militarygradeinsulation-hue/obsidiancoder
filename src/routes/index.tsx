@@ -2460,6 +2460,8 @@ function Index() {
         onImport={(html) => updateCurrent({ html })}
         onLog={(line) => setTerminal((t) => [...t, line])}
       />
+      {pricingOpen && <PricingModal onClose={() => setPricingOpen(false)} />}
+      {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
       {libraryOpen && (
 
         <div
