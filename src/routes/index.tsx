@@ -1069,13 +1069,14 @@ function Index() {
         charactersAdded: fullDiff.charsAdded,
         charactersRemoved: fullDiff.charsRemoved,
       }));
-      // Auto-save to gallery (admin-gated read).
+      // Auto-save to the user's private library (keyed by their library code).
       try {
         let clientId = localStorage.getItem("obs.client_id");
         if (!clientId) {
           clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
           localStorage.setItem("obs.client_id", clientId);
         }
+        const lib = (localStorage.getItem("obs.library_code") || "").trim();
         fetch("/api/public/builds", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1086,12 +1087,18 @@ function Index() {
             model: modelForServer,
             session_id: sessionId,
             client_id: clientId,
+            library_code: lib || undefined,
           }),
         })
           .then((r) => (r.ok ? r.json() : null))
-          .then((d) => d?.id && setTerminal((t) => [...t, `✓ Saved (${String(d.id).slice(0, 8)})`]))
+          .then((d) => {
+            if (!d?.id) return;
+            const tag = lib ? "library" : "session";
+            setTerminal((t) => [...t, `✓ Saved to ${tag} (${String(d.id).slice(0, 8)})`]);
+          })
           .catch(() => {});
       } catch {}
+
     } catch (err) {
       // Never overwrite the stable snapshot on error.
       setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: stableHtml } : s));
