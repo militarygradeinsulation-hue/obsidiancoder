@@ -1128,12 +1128,14 @@ function Index() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt,
-          currentHtml: previewMode ? stableHtml : "",
+          currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
           history: current.messages.slice(-4),
           model: modelForServer,
+          advisory: !previewMode,
         }),
         signal: controller.signal,
       });
+
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       // AI error envelope arrives as JSON — never treat it as generated code.
       if (ctype.includes("application/json")) {
