@@ -188,19 +188,27 @@ export const Route = createFileRoute("/api/generate")({
           }
 
           const clientAbort = request.signal;
-          const images = await planAndGenerateImages(apiKey, data.prompt, data.currentHtml, requestId, clientAbort);
+          const images = data.advisory
+            ? []
+            : await planAndGenerateImages(apiKey, data.prompt, data.currentHtml, requestId, clientAbort);
 
           const messages: Array<{ role: string; content: string }> = [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: data.advisory ? ADVISORY_PROMPT : SYSTEM_PROMPT },
             ...data.history,
           ];
-          if (data.currentHtml) {
+          if (!data.advisory && data.currentHtml) {
             messages.push({
               role: "system",
               content: `The current HTML document is:\n\n${data.currentHtml}\n\nBuild upon it.`,
             });
           }
-          if (images.length) {
+          if (data.advisory && data.currentHtml) {
+            messages.push({
+              role: "system",
+              content: `For reference only — the user's current build (do NOT rewrite it, just advise):\n\n${data.currentHtml.slice(0, 8000)}`,
+            });
+          }
+          if (!data.advisory && images.length) {
             messages.push({
               role: "system",
               content:
@@ -211,6 +219,7 @@ export const Route = createFileRoute("/api/generate")({
             });
           }
           messages.push({ role: "user", content: data.prompt });
+
 
           const upstreamRes = await aiFetch(
             "https://ai.gateway.lovable.dev/v1/chat/completions",
