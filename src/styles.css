@@ -2041,7 +2041,7 @@
   background: linear-gradient(90deg, transparent, var(--primary, #F4A125), transparent);
   transform-origin: center;
   transform: scaleX(0);
-  animation: obs-intro-line-grow 1.2s ease-out 0.8s forwards;
+  animation: obs-intro-line-grow 1.6s ease-out 1.6s forwards;
 }
 
 .obs-intro-sub {
