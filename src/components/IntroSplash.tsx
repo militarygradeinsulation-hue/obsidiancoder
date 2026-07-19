@@ -11,10 +11,11 @@ export default function IntroSplash() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      if (window.localStorage.getItem(STORAGE_KEY) === "1") return;
-      window.localStorage.setItem(STORAGE_KEY, "1");
+      // Per browser session — plays each time a new tab/session opens.
+      if (window.sessionStorage.getItem(STORAGE_KEY) === "1") return;
+      window.sessionStorage.setItem(STORAGE_KEY, "1");
       // Prevent the legacy first-visit audio effect from double-playing.
-      window.localStorage.setItem("obs.introPlayed", "1");
+      window.sessionStorage.setItem("obs.introPlayed", "1");
     } catch {}
     setShow(true);
 
