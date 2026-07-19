@@ -1075,7 +1075,7 @@
   overflow: hidden;
 }
 @media (max-width: 1100px) {
-  .obs-body { grid-template-columns: 1fr; overflow-y: auto; }
+  .obs-body { grid-template-columns: 1fr !important; overflow-y: auto; }
 }
 
 /* ---- Canvas ---- */
