@@ -73,9 +73,14 @@ export function useSubscription(): {
   }, [userId, load]);
 
   const now = Date.now();
-  const isPro = !!subscription
+  // Admin code override: entering 9822 unlocks unlimited access forever.
+  let adminOverride = false;
+  try {
+    adminOverride = typeof window !== "undefined" && window.localStorage.getItem("obs.adminCode") === "9822";
+  } catch { /* ignore */ }
+  const isPro = adminOverride || (!!subscription
     && ["active", "trialing"].includes(subscription.status)
-    && (!subscription.current_period_end || new Date(subscription.current_period_end).getTime() > now);
+    && (!subscription.current_period_end || new Date(subscription.current_period_end).getTime() > now));
 
   return { subscription, isPro, loading, refetch: load };
 }

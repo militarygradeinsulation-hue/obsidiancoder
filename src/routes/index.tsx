@@ -1700,6 +1700,33 @@ function Index() {
             </button>
             <button
               type="button"
+              className={"obs-chip " + (typeof window !== "undefined" && window.localStorage.getItem("obs.adminCode") === "9822" ? "is-on" : "")}
+              onClick={() => {
+                const current = (typeof window !== "undefined" && window.localStorage.getItem("obs.adminCode")) || "";
+                if (current === "9822") {
+                  if (window.confirm("Admin code active (unlimited access). Sign out of code?")) {
+                    window.localStorage.removeItem("obs.adminCode");
+                    window.location.reload();
+                  }
+                  return;
+                }
+                const code = window.prompt("Enter your access code:");
+                if (code == null) return;
+                if (code.trim() === "9822") {
+                  window.localStorage.setItem("obs.adminCode", "9822");
+                  window.localStorage.setItem("obs.library_code", "9822");
+                  window.alert("Welcome, Joseph. Unlimited admin access unlocked.");
+                  window.location.reload();
+                } else {
+                  window.alert("Invalid code.");
+                }
+              }}
+              title="Sign in with access code"
+            >
+              <UserIcon className="h-3.5 w-3.5" /> {typeof window !== "undefined" && window.localStorage.getItem("obs.adminCode") === "9822" ? "Admin" : "Code"}
+            </button>
+            <button
+              type="button"
               className="obs-chip"
               onClick={() => setAccountOpen(true)}
               title={authUserId ? (authEmail || "Account") : "Sign in"}
