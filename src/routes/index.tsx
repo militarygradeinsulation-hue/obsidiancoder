@@ -311,6 +311,50 @@ function Index() {
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("obs.composer_h", String(composerHeight));
   }, [composerHeight]);
+  // Draggable composer position (null = docked in rail).
+  const [composerPos, setComposerPos] = useState<{ x: number; y: number } | null>(() => {
+    if (typeof window === "undefined") return null;
+    try {
+      const raw = localStorage.getItem("obs.composer_pos");
+      if (!raw) return null;
+      const p = JSON.parse(raw);
+      if (typeof p?.x === "number" && typeof p?.y === "number") return p;
+    } catch { /* ignore */ }
+    return null;
+  });
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (composerPos) localStorage.setItem("obs.composer_pos", JSON.stringify(composerPos));
+    else localStorage.removeItem("obs.composer_pos");
+  }, [composerPos]);
+  const composerFormRef = useRef<HTMLFormElement>(null);
+  const dragStateRef = useRef<{ dx: number; dy: number } | null>(null);
+  function onComposerDragStart(e: React.PointerEvent) {
+    e.preventDefault();
+    const el = composerFormRef.current;
+    if (!el) return;
+    const rect = el.getBoundingClientRect();
+    dragStateRef.current = { dx: e.clientX - rect.left, dy: e.clientY - rect.top };
+    // If not yet floating, seed at current on-screen position.
+    if (!composerPos) setComposerPos({ x: rect.left, y: rect.top });
+    (e.target as Element).setPointerCapture?.(e.pointerId);
+    const onMove = (ev: PointerEvent) => {
+      const s = dragStateRef.current;
+      if (!s) return;
+      const w = el.offsetWidth || 360;
+      const h = el.offsetHeight || 80;
+      const x = Math.max(4, Math.min(window.innerWidth - w - 4, ev.clientX - s.dx));
+      const y = Math.max(4, Math.min(window.innerHeight - h - 4, ev.clientY - s.dy));
+      setComposerPos({ x, y });
+    };
+    const onUp = () => {
+      dragStateRef.current = null;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  }
   const [enhancing, setEnhancing] = useState(false);
   const runEnhance = useServerFn(enhancePromptFn);
   async function handleEnhance() {
