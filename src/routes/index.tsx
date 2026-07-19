@@ -2138,6 +2138,66 @@ function Index() {
           </div>
         </div>
       )}
+      {libraryOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="My Library"
+          onClick={() => setLibraryOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 200, display: "grid", placeItems: "center", padding: 20 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(760px, 100%)", maxHeight: "84vh", overflow: "auto", background: "#111317", color: "#f2eee7", border: "1px solid #22262d", borderRadius: 12, padding: 20, fontFamily: "Inter, system-ui" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <h2 style={{ fontFamily: "Fraunces, Georgia, serif", color: "#F4A125", margin: 0, fontSize: 20 }}>My Library</h2>
+              <button type="button" onClick={() => setLibraryOpen(false)} style={{ background: "transparent", color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Close</button>
+            </div>
+            <p style={{ color: "#B6BCC8", fontSize: 12, marginTop: 4 }}>
+              Enter a private library code (4-64 chars). Everything you build and every Go Live is saved under this code. Use the same code across browsers or devices to see your library anywhere. Others cannot see your builds unless you share your code or a Go Live URL.
+            </p>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <input
+                value={libraryCode}
+                onChange={(e) => setLibraryCode(e.target.value.replace(/\s+/g, ""))}
+                placeholder="your-library-code"
+                style={{ flex: 1, padding: "10px 12px", background: "#0b0d10", color: "#f2eee7", border: "1px solid #22262d", borderRadius: 8, fontFamily: "inherit" }}
+              />
+              <button type="button" onClick={refreshLibrary} style={{ padding: "10px 14px", background: "#F4A125", color: "#111317", border: 0, borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Load</button>
+            </div>
+            {!libraryCode.trim() ? (
+              <p style={{ color: "#8a919b", fontSize: 12, marginTop: 12 }}>Enter a code to see your saved builds.</p>
+            ) : libraryBuilds.length === 0 ? (
+              <p style={{ color: "#8a919b", fontSize: 12, marginTop: 12 }}>No builds under this code yet. Build something and hit Go Live.</p>
+            ) : (
+              <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "grid", gap: 8 }}>
+                {libraryBuilds.map((b) => {
+                  const url = `${window.location.origin}/api/public/share/${b.share_slug}`;
+                  return (
+                    <li key={b.id} style={{ border: "1px solid #22262d", borderRadius: 10, padding: 12, background: "#0f1216" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#F4A125", fontFamily: "Fraunces, Georgia, serif", fontSize: 15, textDecoration: "none" }}>{b.title}</a>
+                        <span style={{ color: "#8a919b", fontSize: 11 }}>{new Date(b.created_at).toLocaleString()} · {(b.byte_size / 1024).toFixed(1)} KB</span>
+                      </div>
+                      {b.prompt && <div style={{ color: "#B6BCC8", fontSize: 12, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.prompt}</div>}
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => { navigator.clipboard?.writeText(url); setTerminal((t) => [...t, `✓ Copied ${url}`]); }}
+                          style={{ background: "transparent", color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
+                        >Copy public URL</button>
+                        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", textDecoration: "none", fontSize: 12 }}>Open</a>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </main>
+
   );
 }
