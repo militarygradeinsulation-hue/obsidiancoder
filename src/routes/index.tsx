@@ -309,6 +309,10 @@ function Index() {
   });
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
+  const [pricingOpen, setPricingOpen] = useState(false);
+  const [accountOpen, setAccountOpen] = useState(false);
+  const { userId: authUserId, email: authEmail } = useAuth();
+  const { isPro } = useSubscription();
 
   const [libraryBuilds, setLibraryBuilds] = useState<Array<{ id: string; title: string; created_at: string; prompt: string; share_slug: string; byte_size: number }>>([]);
   const [composerHeight, setComposerHeight] = useState<number>(() => {
