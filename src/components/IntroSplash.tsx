@@ -60,29 +60,12 @@ export default function IntroSplash() {
       try { audio.muted = false; audio.volume = 0.9; } catch {}
     };
 
-    const armGestureUnlock = () => {
-      const unlock = () => {
-        try { audio.muted = false; audio.volume = 0.9; } catch {}
-        audio.play().catch(() => {});
-        window.removeEventListener("pointerdown", unlock);
-        window.removeEventListener("keydown", unlock);
-        window.removeEventListener("touchstart", unlock);
-      };
-      window.addEventListener("pointerdown", unlock, { once: true });
-      window.addEventListener("keydown", unlock, { once: true });
-      window.addEventListener("touchstart", unlock, { once: true });
-    };
-
     // Fire muted play instantly — browsers allow this — then unmute.
+    // Do NOT arm any gesture listener: audio must only play automatically
+    // during the intro, never as a delayed reaction to a later click/keypress.
     const p = audio.play();
     if (p && typeof p.then === "function") {
-      p.then(() => {
-        tryUnmute();
-        // If unmute got silently blocked, arm a one-shot gesture unlock.
-        if (audio.muted) armGestureUnlock();
-      }).catch(() => {
-        armGestureUnlock();
-      });
+      p.then(tryUnmute).catch(() => { /* stay silent if autoplay blocked */ });
     } else {
       tryUnmute();
     }
