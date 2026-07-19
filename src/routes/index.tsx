@@ -229,7 +229,29 @@ function Index() {
   }, [sidebarCollapsed]);
   useEffect(() => {
     try { window.localStorage.setItem("obs.railCollapsed", railCollapsed ? "1" : "0"); } catch {}
-  }, [railCollapsed]);
+   }, [railCollapsed]);
+
+  // First-visit intro audio
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (window.localStorage.getItem("obs.introPlayed") === "1") return;
+      const audio = new Audio("/__l5e/assets-v1/8131ec77-3185-4b73-a484-17dbe1debdb1/obsidian-intro.m4a");
+      audio.preload = "auto";
+      const markDone = () => { try { window.localStorage.setItem("obs.introPlayed", "1"); } catch {} };
+      const tryPlay = () => audio.play().then(markDone).catch(() => {
+        const onInteract = () => {
+          audio.play().then(markDone).catch(() => {});
+          window.removeEventListener("pointerdown", onInteract);
+          window.removeEventListener("keydown", onInteract);
+        };
+        window.addEventListener("pointerdown", onInteract, { once: true });
+        window.addEventListener("keydown", onInteract, { once: true });
+      });
+      tryPlay();
+    } catch {}
+  }, []);
+
 
   // Per-card collapse in the right rail. Injects a chevron button into every
   // `.obs-rail .obs-card` header and persists collapsed state per card key.
