@@ -1324,26 +1324,53 @@ function Index() {
               type="button"
               className="obs-chip obs-chip-gold"
               disabled={!current.html}
-              onClick={() => {
+              onClick={async () => {
                 if (!current.html) return;
-                const blob = new Blob([current.html], { type: "text/html" });
-                const url = URL.createObjectURL(blob);
-                window.open(url, "_blank", "noopener,noreferrer");
-                setTerminal((t) => [...t, `→ Live: opened "${current.title}" in new tab`]);
+                setTerminal((t) => [...t, "→ Publishing shareable link…"]);
+                try {
+                  let clientId = localStorage.getItem("obs.client_id");
+                  if (!clientId) {
+                    clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+                    localStorage.setItem("obs.client_id", clientId);
+                  }
+                  const res = await fetch("/api/public/builds", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      title: current.title,
+                      prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
+                      html: current.html,
+                      model: current.model,
+                      session_id: current.id,
+                      client_id: clientId,
+                      library_code: libraryCode.trim() || undefined,
+                    }),
+                  });
+                  if (!res.ok) throw new Error(await res.text());
+                  const { share_slug } = (await res.json()) as { share_slug: string };
+                  const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
+                  try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
+                  window.open(liveUrl, "_blank", "noopener,noreferrer");
+                  setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
+                  if (libraryCode.trim()) refreshLibrary();
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : "publish failed";
+                  setTerminal((t) => [...t, `✗ Go Live failed: ${msg}`]);
+                }
               }}
-              title={current.html ? "Open the current build as a standalone site" : "Build something first"}
+              title={current.html ? "Publish a public shareable URL of the current build" : "Build something first"}
             >
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
-            <a
-              href="/gallery"
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
               className="obs-chip"
-              title="See every build saved from every browser"
+              onClick={() => { setLibraryOpen(true); refreshLibrary(); }}
+              title="Open your personal library — only builds saved under your code appear"
             >
-              <FolderOpen className="h-3.5 w-3.5" /> Gallery
-            </a>
+              <FolderOpen className="h-3.5 w-3.5" /> My Library
+            </button>
+
             <div className="obs-overflow-wrap">
               <button
                 type="button"
