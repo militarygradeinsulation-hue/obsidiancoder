@@ -2551,6 +2551,16 @@ function Index() {
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
+      {captureMode && (
+        <ScreenCaptureModal
+          mode={captureMode}
+          onClose={() => setCaptureMode(null)}
+          onAttach={(dataUrl, name) => {
+            setPendingAttachments((a) => [...a, { kind: "image", name, dataUrl }]);
+            setCaptureMode(null);
+          }}
+        />
+      )}
       {libraryOpen && (
 
         <div
