@@ -174,27 +174,29 @@ async function generateWithLeonardo(prompt: string): Promise<string | null> {
 }
 
 async function generateOneImage(apiKey: string, prompt: string): Promise<string | null> {
-  // Prefer Leonardo when configured; fall back to Lovable AI Gateway (Gemini image).
-  const leo = await generateWithLeonardo(prompt);
-  if (leo) return leo;
+  // Prefer Gemini 3 Pro Image (strong prompt adherence); fall back to Leonardo.
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image",
+        model: "google/gemini-3-pro-image",
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),
     });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-    const b64 = json.data?.[0]?.b64_json;
-    return b64 ? `data:image/png;base64,${b64}` : null;
+    if (res.ok) {
+      const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+      const b64 = json.data?.[0]?.b64_json;
+      if (b64) return `data:image/png;base64,${b64}`;
+    }
   } catch {
-    return null;
+    /* fall through */
   }
+  const leo = await generateWithLeonardo(prompt);
+  return leo;
 }
+
 
 export const generateHtml = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
