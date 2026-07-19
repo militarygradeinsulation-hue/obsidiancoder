@@ -64,6 +64,9 @@ import type { ComponentEntry } from "@/lib/component-library";
 import { runRules, type Rule, type RuleViolation } from "@/lib/rules-engine";
 import { buildGraph } from "@/lib/knowledge-graph";
 import Background from "@/components/Background";
+import { decide as decideRoute } from "@/lib/adaptive-router";
+import { appendEvent as appendLedgerEvent } from "@/lib/adaptive-ledger";
+import { loadSettings as loadLearningSettings, saveSettings as saveLearningSettings } from "@/lib/adaptive-profile";
 
 
 
