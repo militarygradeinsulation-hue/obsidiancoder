@@ -20,7 +20,9 @@ const inputSchema = z.object({
     .refine((m) => (ALLOWED_MODEL_IDS as readonly string[]).includes(m), "unsupported model")
     .optional()
     .default(DEFAULT_MODEL),
+  advisory: z.boolean().optional().default(false),
 });
+
 
 const SYSTEM_PROMPT = `You are Aetheris Coder — an elite AI front-end engineer.
 Understand the user's intent immediately. Do not ask clarifying questions. Do not narrate.
