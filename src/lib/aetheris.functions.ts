@@ -43,6 +43,9 @@ export const generateImage = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
+    // Try Leonardo first when configured.
+    const leo = await generateWithLeonardo(data.prompt);
+    if (leo) return { dataUrl: leo };
     if (!apiKey) throw new Error("AI is not configured yet.");
     const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
