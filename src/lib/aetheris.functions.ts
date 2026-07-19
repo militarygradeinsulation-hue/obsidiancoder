@@ -133,9 +133,13 @@ async function generateWithLeonardo(prompt: string): Promise<string | null> {
         height: 1024,
         num_images: 1,
         alchemy: false,
+        contrast: 3.5,
+        enhancePrompt: false,
+        presetStyle: "DYNAMIC",
         public: false,
       }),
     });
+
     if (!create.ok) return null;
     const cj = (await create.json()) as { sdGenerationJob?: { generationId?: string } };
     const genId = cj.sdGenerationJob?.generationId;
