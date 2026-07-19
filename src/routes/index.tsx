@@ -290,6 +290,99 @@ function Index() {
       .catch(() => setLibraryBuilds([]));
   }
 
+  async function saveProject() {
+    if (!current.html) {
+      setTerminal((t) => [...t, "✗ Nothing to save yet — build something first."]);
+      return;
+    }
+    let code = libraryCode.trim();
+    if (!code) {
+      const entered = window.prompt(
+        "Enter a library code to save under (4-64 chars). Use the same code across devices to see your projects anywhere.",
+        "",
+      );
+      if (!entered) return;
+      code = entered.replace(/\s+/g, "");
+      if (code.length < 4 || code.length > 64) {
+        setTerminal((t) => [...t, "✗ Library code must be 4–64 characters."]);
+        return;
+      }
+      setLibraryCode(code);
+    }
+    const suggested = current.title && current.title !== "Untitled"
+      ? current.title
+      : (current.messages.find((m) => m.role === "user")?.content?.slice(0, 60) || "Untitled");
+    const title = window.prompt("Save project as:", suggested);
+    if (!title) return;
+    setTerminal((t) => [...t, `→ Saving "${title}" to library…`]);
+    try {
+      let clientId = localStorage.getItem("obs.client_id");
+      if (!clientId) {
+        clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+        localStorage.setItem("obs.client_id", clientId);
+      }
+      const res = await fetch("/api/public/builds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
+          html: current.html,
+          model: current.model,
+          session_id: current.id,
+          client_id: clientId,
+          library_code: code,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      updateCurrent({ title });
+      setTerminal((t) => [...t, `✓ Saved "${title}" to library (${code})`]);
+      refreshLibrary();
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "save failed";
+      setTerminal((t) => [...t, `✗ Save failed: ${msg}`]);
+    }
+  }
+
+  async function openLibraryBuild(id: string, opts: { duplicate: boolean }) {
+    const code = libraryCode.trim();
+    if (!code) return;
+    try {
+      const res = await fetch(`/api/public/library/${encodeURIComponent(code)}/${encodeURIComponent(id)}`);
+      if (!res.ok) throw new Error(await res.text());
+      const data = (await res.json()) as { title?: string; html: string; prompt?: string; model?: string };
+      if (opts.duplicate) {
+        const s = newSession();
+        s.title = (data.title ? `${data.title} (copy)` : "Copy").slice(0, 60);
+        s.html = data.html;
+        s.messages = [
+          { role: "assistant", content: `Opened "${data.title ?? "Untitled"}" as a duplicate. Iterate away.` },
+        ];
+        setSessions((all) => [...all, s]);
+        setActiveId(s.id);
+        setTab("preview");
+        setLibraryOpen(false);
+        setTerminal((t) => [...t, `✓ Duplicated "${data.title ?? "Untitled"}" into a new tab`]);
+      } else {
+        updateCurrent({
+          title: data.title || "Untitled",
+          html: data.html,
+          messages: [
+            ...current.messages,
+            { role: "assistant", content: `Loaded "${data.title ?? "Untitled"}" from your library.` },
+          ],
+        });
+        setTab("preview");
+        setLibraryOpen(false);
+        setTerminal((t) => [...t, `✓ Opened "${data.title ?? "Untitled"}" in this tab`]);
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "open failed";
+      setTerminal((t) => [...t, `✗ Open failed: ${msg}`]);
+    }
+  }
+
+
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1348,6 +1441,15 @@ function Index() {
             <div className="obs-divider" />
             <button
               type="button"
+              className="obs-chip"
+              disabled={!current.html}
+              onClick={saveProject}
+              title={current.html ? "Save this project to your library so you can reopen or duplicate it later" : "Build something first"}
+            >
+              <FolderOpen className="h-3.5 w-3.5" /> Save Project
+            </button>
+            <button
+              type="button"
               className="obs-chip obs-chip-gold"
               disabled={!current.html}
               onClick={async () => {
@@ -2225,14 +2327,25 @@ function Index() {
                         <span style={{ color: "#8a919b", fontSize: 11 }}>{new Date(b.created_at).toLocaleString()} · {(b.byte_size / 1024).toFixed(1)} KB</span>
                       </div>
                       {b.prompt && <div style={{ color: "#B6BCC8", fontSize: 12, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.prompt}</div>}
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => openLibraryBuild(b.id, { duplicate: false })}
+                          style={{ background: "#F4A125", color: "#111317", border: 0, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
+                        >Open in editor</button>
+                        <button
+                          type="button"
+                          onClick={() => openLibraryBuild(b.id, { duplicate: true })}
+                          style={{ background: "transparent", color: "#F4A125", border: "1px solid #F4A125", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
+                        >Duplicate as new tab</button>
                         <button
                           type="button"
                           onClick={() => { navigator.clipboard?.writeText(url); setTerminal((t) => [...t, `✓ Copied ${url}`]); }}
                           style={{ background: "transparent", color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
                         >Copy public URL</button>
-                        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", textDecoration: "none", fontSize: 12 }}>Open</a>
+                        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", textDecoration: "none", fontSize: 12 }}>Preview live</a>
                       </div>
+
                     </li>
                   );
                 })}

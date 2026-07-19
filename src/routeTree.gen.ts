@@ -21,6 +21,7 @@ import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/share.$slug'
 import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/library.$code'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
+import { Route as ApiPublicLibraryCodeIdRouteImport } from './routes/api/public/library.$code.$id'
 
 const UnlockRoute = UnlockRouteImport.update({
   id: '/unlock',
@@ -82,6 +83,11 @@ const ApiPublicBuildsIdRoute = ApiPublicBuildsIdRouteImport.update({
   path: '/$id',
   getParentRoute: () => ApiPublicBuildsRoute,
 } as any)
+const ApiPublicLibraryCodeIdRoute = ApiPublicLibraryCodeIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiPublicLibraryCodeRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -94,8 +100,9 @@ export interface FileRoutesByFullPath {
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
-  '/api/public/library/$code': typeof ApiPublicLibraryCodeRoute
+  '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -108,8 +115,9 @@ export interface FileRoutesByTo {
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
-  '/api/public/library/$code': typeof ApiPublicLibraryCodeRoute
+  '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -123,8 +131,9 @@ export interface FileRoutesById {
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
-  '/api/public/library/$code': typeof ApiPublicLibraryCodeRoute
+  '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -141,6 +150,7 @@ export interface FileRouteTypes {
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
     | '/api/public/share/$slug'
+    | '/api/public/library/$code/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -155,6 +165,7 @@ export interface FileRouteTypes {
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
     | '/api/public/share/$slug'
+    | '/api/public/library/$code/$id'
   id:
     | '__root__'
     | '/'
@@ -169,6 +180,7 @@ export interface FileRouteTypes {
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
     | '/api/public/share/$slug'
+    | '/api/public/library/$code/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -181,7 +193,7 @@ export interface RootRouteChildren {
   ApiPatchRoute: typeof ApiPatchRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
-  ApiPublicLibraryCodeRoute: typeof ApiPublicLibraryCodeRoute
+  ApiPublicLibraryCodeRoute: typeof ApiPublicLibraryCodeRouteWithChildren
   ApiPublicShareSlugRoute: typeof ApiPublicShareSlugRoute
 }
 
@@ -271,6 +283,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBuildsIdRouteImport
       parentRoute: typeof ApiPublicBuildsRoute
     }
+    '/api/public/library/$code/$id': {
+      id: '/api/public/library/$code/$id'
+      path: '/$id'
+      fullPath: '/api/public/library/$code/$id'
+      preLoaderRoute: typeof ApiPublicLibraryCodeIdRouteImport
+      parentRoute: typeof ApiPublicLibraryCodeRoute
+    }
   }
 }
 
@@ -286,6 +305,17 @@ const ApiPublicBuildsRouteWithChildren = ApiPublicBuildsRoute._addFileChildren(
   ApiPublicBuildsRouteChildren,
 )
 
+interface ApiPublicLibraryCodeRouteChildren {
+  ApiPublicLibraryCodeIdRoute: typeof ApiPublicLibraryCodeIdRoute
+}
+
+const ApiPublicLibraryCodeRouteChildren: ApiPublicLibraryCodeRouteChildren = {
+  ApiPublicLibraryCodeIdRoute: ApiPublicLibraryCodeIdRoute,
+}
+
+const ApiPublicLibraryCodeRouteWithChildren =
+  ApiPublicLibraryCodeRoute._addFileChildren(ApiPublicLibraryCodeRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   GalleryRoute: GalleryRoute,
@@ -296,7 +326,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPatchRoute: ApiPatchRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
-  ApiPublicLibraryCodeRoute: ApiPublicLibraryCodeRoute,
+  ApiPublicLibraryCodeRoute: ApiPublicLibraryCodeRouteWithChildren,
   ApiPublicShareSlugRoute: ApiPublicShareSlugRoute,
 }
 export const routeTree = rootRouteImport
