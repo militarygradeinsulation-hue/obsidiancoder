@@ -173,7 +173,9 @@ async function generateWithLeonardo(prompt: string): Promise<string | null> {
 }
 
 async function generateOneImage(apiKey: string, prompt: string): Promise<string | null> {
-  // Prefer Gemini 3 Pro Image (strong prompt adherence); fall back to Leonardo.
+  // Prefer Leonardo AI; fall back to Gemini 3 Pro Image.
+  const leo = await generateWithLeonardo(prompt);
+  if (leo) return leo;
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
@@ -190,11 +192,11 @@ async function generateOneImage(apiKey: string, prompt: string): Promise<string 
       if (b64) return `data:image/png;base64,${b64}`;
     }
   } catch {
-    /* fall through */
+    /* ignore */
   }
-  const leo = await generateWithLeonardo(prompt);
-  return leo;
+  return null;
 }
+
 
 
 export const generateHtml = createServerFn({ method: "POST" })
