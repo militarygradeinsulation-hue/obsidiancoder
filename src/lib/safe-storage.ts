@@ -35,6 +35,28 @@ export function safeRemove(key: string): void {
   try { window.localStorage.removeItem(key); } catch { /* ignore */ }
 }
 
+// ---- sessionStorage variants (per-tab, cleared when the tab closes) ----
+function sok() {
+  return typeof window !== "undefined" && !!window.sessionStorage;
+}
+export function sessionSafeGet<T>(key: string): T | undefined {
+  if (!sok()) return undefined;
+  try {
+    const raw = window.sessionStorage.getItem(key);
+    if (raw == null) return undefined;
+    return JSON.parse(raw) as T;
+  } catch { return undefined; }
+}
+export function sessionSafeSet(key: string, value: unknown): boolean {
+  if (!sok()) return false;
+  try {
+    const s = JSON.stringify(value);
+    if (s.length > HARD_CAP) return false;
+    window.sessionStorage.setItem(key, s);
+    return true;
+  } catch { return false; }
+}
+
 /** Sanitize user-facing error text — no stack, no URLs, no secrets. */
 export function sanitizeErrorMessage(err: unknown, fallback = "Something went wrong."): string {
   if (!err) return fallback;
