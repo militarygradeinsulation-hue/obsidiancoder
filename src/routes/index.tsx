@@ -304,6 +304,8 @@ function Index() {
     return localStorage.getItem("obs.library_code") || "";
   });
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [githubOpen, setGithubOpen] = useState(false);
+
   const [libraryBuilds, setLibraryBuilds] = useState<Array<{ id: string; title: string; created_at: string; prompt: string; share_slug: string; byte_size: number }>>([]);
   const [composerHeight, setComposerHeight] = useState<number>(() => {
     if (typeof window === "undefined") return 72;
