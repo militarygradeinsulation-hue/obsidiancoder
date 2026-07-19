@@ -2428,7 +2428,16 @@ function Index() {
           </div>
         </div>
       )}
+      <GithubModal
+        open={githubOpen}
+        onClose={() => setGithubOpen(false)}
+        currentHtml={current?.html || ""}
+        defaultRepoName={(current?.title || "obsidian-build").toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90) || "obsidian-build"}
+        onImport={(html) => updateCurrent({ html })}
+        onLog={(line) => setTerminal((t) => [...t, line])}
+      />
       {libraryOpen && (
+
         <div
           role="dialog"
           aria-modal="true"
