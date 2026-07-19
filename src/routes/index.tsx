@@ -224,6 +224,62 @@ function Index() {
   useEffect(() => {
     try { window.localStorage.setItem("obs.railCollapsed", railCollapsed ? "1" : "0"); } catch {}
   }, [railCollapsed]);
+
+  // Per-card collapse in the right rail. Injects a chevron button into every
+  // `.obs-rail .obs-card` header and persists collapsed state per card key.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const rail = document.querySelector(".obs-rail");
+    if (!rail) return;
+    const STORAGE_KEY = "obs.railCardCollapsed.v1";
+    let state: Record<string, boolean> = {};
+    try { state = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}") || {}; } catch {}
+    const save = () => { try { localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); } catch {} };
+
+    const enhance = () => {
+      const cards = rail.querySelectorAll<HTMLElement>(".obs-card");
+      cards.forEach((card) => {
+        if (card.dataset.collapsibleReady === "1") return;
+        const head = card.querySelector<HTMLElement>(".obs-card-head, .obs-card-title");
+        if (!head) return;
+        const labelEl = head.querySelector(".obs-card-label, .obs-card-title") as HTMLElement | null;
+        const key = (card.id || labelEl?.textContent || head.textContent || "").trim().slice(0, 80);
+        if (!key) return;
+        card.dataset.collapsibleKey = key;
+        card.dataset.collapsibleReady = "1";
+
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.className = "obs-card-collapse-btn";
+        btn.setAttribute("aria-label", "Toggle section");
+        btn.innerHTML = "<span aria-hidden=\"true\">▾</span>";
+        btn.style.marginLeft = "auto";
+        head.style.cursor = "pointer";
+        // Keep native controls inside the head clickable
+        head.addEventListener("click", (e) => {
+          const t = e.target as HTMLElement;
+          if (t.closest("button, a, input, select, textarea, label") && !t.classList.contains("obs-card-collapse-btn")) return;
+          apply(!card.classList.contains("is-collapsed"));
+        });
+        btn.addEventListener("click", (e) => { e.stopPropagation(); apply(!card.classList.contains("is-collapsed")); });
+        head.appendChild(btn);
+
+        const apply = (collapsed: boolean) => {
+          card.classList.toggle("is-collapsed", collapsed);
+          btn.setAttribute("aria-expanded", String(!collapsed));
+          btn.firstElementChild!.textContent = collapsed ? "▸" : "▾";
+          state[key] = collapsed;
+          save();
+        };
+        apply(!!state[key]);
+      });
+    };
+
+    enhance();
+    const mo = new MutationObserver(() => enhance());
+    mo.observe(rail, { childList: true, subtree: true });
+    return () => mo.disconnect();
+  }, []);
   const [terminal, setTerminal] = useState<string[]>([
     "· Sandbox ready — no build yet",
   ]);
