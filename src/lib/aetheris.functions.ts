@@ -54,30 +54,33 @@ export const generateImage = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
-    // Try Leonardo first when configured.
+    // Prefer Gemini 3 Pro Image for strongest prompt adherence.
+    if (apiKey) {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "google/gemini-3-pro-image",
+          messages: [{ role: "user", content: data.prompt }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+        const b64 = json.data?.[0]?.b64_json;
+        if (b64) return { dataUrl: `data:image/png;base64,${b64}` };
+      } else if (res.status === 429) {
+        throw new Error("Rate limit reached.");
+      } else if (res.status === 402) {
+        throw new Error("AI credits exhausted.");
+      }
+    }
+    // Fallback: Leonardo Phoenix (verbatim prompt, no auto-enhance).
     const leo = await generateWithLeonardo(data.prompt);
     if (leo) return { dataUrl: leo };
-    if (!apiKey) throw new Error("AI is not configured yet.");
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image",
-        messages: [{ role: "user", content: data.prompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      if (res.status === 429) throw new Error("Rate limit reached.");
-      if (res.status === 402) throw new Error("AI credits exhausted.");
-      throw new Error(`Image generation failed (${res.status}): ${t.slice(0, 200)}`);
-    }
-    const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-    const b64 = json.data?.[0]?.b64_json;
-    if (!b64) throw new Error("No image returned.");
-    return { dataUrl: `data:image/png;base64,${b64}` };
+    throw new Error("Image generation failed. Check API keys.");
   });
+
 
 async function planImages(apiKey: string, prompt: string, currentHtml: string) {
   // Cheap planning call: ask for up to 4 image prompts as JSON.
@@ -130,9 +133,13 @@ async function generateWithLeonardo(prompt: string): Promise<string | null> {
         height: 1024,
         num_images: 1,
         alchemy: false,
+        contrast: 3.5,
+        enhancePrompt: false,
+        presetStyle: "DYNAMIC",
         public: false,
       }),
     });
+
     if (!create.ok) return null;
     const cj = (await create.json()) as { sdGenerationJob?: { generationId?: string } };
     const genId = cj.sdGenerationJob?.generationId;
@@ -167,27 +174,29 @@ async function generateWithLeonardo(prompt: string): Promise<string | null> {
 }
 
 async function generateOneImage(apiKey: string, prompt: string): Promise<string | null> {
-  // Prefer Leonardo when configured; fall back to Lovable AI Gateway (Gemini image).
-  const leo = await generateWithLeonardo(prompt);
-  if (leo) return leo;
+  // Prefer Gemini 3 Pro Image (strong prompt adherence); fall back to Leonardo.
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
       body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image",
+        model: "google/gemini-3-pro-image",
         messages: [{ role: "user", content: prompt }],
         modalities: ["image", "text"],
       }),
     });
-    if (!res.ok) return null;
-    const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-    const b64 = json.data?.[0]?.b64_json;
-    return b64 ? `data:image/png;base64,${b64}` : null;
+    if (res.ok) {
+      const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+      const b64 = json.data?.[0]?.b64_json;
+      if (b64) return `data:image/png;base64,${b64}`;
+    }
   } catch {
-    return null;
+    /* fall through */
   }
+  const leo = await generateWithLeonardo(prompt);
+  return leo;
 }
+
 
 export const generateHtml = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
