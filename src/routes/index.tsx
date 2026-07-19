@@ -236,10 +236,10 @@ function Index() {
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      if (window.localStorage.getItem("obs.introPlayed") === "1") return;
+      if (window.sessionStorage.getItem("obs.introPlayed") === "1") return;
       const audio = new Audio("/__l5e/assets-v1/8131ec77-3185-4b73-a484-17dbe1debdb1/obsidian-intro.m4a");
       audio.preload = "auto";
-      const markDone = () => { try { window.localStorage.setItem("obs.introPlayed", "1"); } catch {} };
+      const markDone = () => { try { window.sessionStorage.setItem("obs.introPlayed", "1"); } catch {} };
       const tryPlay = () => audio.play().then(markDone).catch(() => {
         const onInteract = () => {
           audio.play().then(markDone).catch(() => {});
