@@ -1975,6 +1975,13 @@ function Index() {
 
           {/* ========== RIGHT RAIL ========== */}
           <aside className="obs-rail">
+            <div
+              className="obs-rail-handle"
+              aria-label="Resize chat panel"
+              title="Drag to widen or narrow the chat panel"
+              onPointerDown={onRailResizeStart}
+              onDoubleClick={() => setRailWidth(320)}
+            />
             <div className="obs-rail-tabs" role="tablist" aria-label="Rail sections">
               {RAIL_GROUPS.map((g) => (
                 <button
