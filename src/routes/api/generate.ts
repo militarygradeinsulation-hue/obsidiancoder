@@ -20,7 +20,9 @@ const inputSchema = z.object({
     .refine((m) => (ALLOWED_MODEL_IDS as readonly string[]).includes(m), "unsupported model")
     .optional()
     .default(DEFAULT_MODEL),
+  advisory: z.boolean().optional().default(false),
 });
+
 
 const SYSTEM_PROMPT = `You are Aetheris Coder — an elite AI front-end engineer.
 Understand the user's intent immediately. Do not ask clarifying questions. Do not narrate.
@@ -37,6 +39,13 @@ Hard rules:
 - Never remove previously-built features unless asked.
 - No third-party scripts, no tracking, no external network calls beyond image URLs.
 - Speed matters: begin streaming the <!doctype html> immediately. No preamble.`;
+
+const ADVISORY_PROMPT = `You are Aetheris Obsidian, a senior product engineer acting as a strategic advisor.
+The user is in CHAT or PLAN mode — you MUST NOT produce HTML, code, or a full document.
+Reply in concise GitHub-flavored markdown: short headings, tight bullets, numbered steps, and small fenced code snippets ONLY when illustrating a specific technique.
+Focus on: intent, architecture, tradeoffs, risks, milestones, and next best actions. Never include <!doctype>, <html>, <style>, or <script> blocks.
+Keep the reply skimmable — under ~400 words unless the user explicitly asks for depth.`;
+
 
 type PlannedImage = { slot: string; prompt: string; url: string };
 
@@ -179,19 +188,27 @@ export const Route = createFileRoute("/api/generate")({
           }
 
           const clientAbort = request.signal;
-          const images = await planAndGenerateImages(apiKey, data.prompt, data.currentHtml, requestId, clientAbort);
+          const images = data.advisory
+            ? []
+            : await planAndGenerateImages(apiKey, data.prompt, data.currentHtml, requestId, clientAbort);
 
           const messages: Array<{ role: string; content: string }> = [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: data.advisory ? ADVISORY_PROMPT : SYSTEM_PROMPT },
             ...data.history,
           ];
-          if (data.currentHtml) {
+          if (!data.advisory && data.currentHtml) {
             messages.push({
               role: "system",
               content: `The current HTML document is:\n\n${data.currentHtml}\n\nBuild upon it.`,
             });
           }
-          if (images.length) {
+          if (data.advisory && data.currentHtml) {
+            messages.push({
+              role: "system",
+              content: `For reference only — the user's current build (do NOT rewrite it, just advise):\n\n${data.currentHtml.slice(0, 8000)}`,
+            });
+          }
+          if (!data.advisory && images.length) {
             messages.push({
               role: "system",
               content:
@@ -202,6 +219,7 @@ export const Route = createFileRoute("/api/generate")({
             });
           }
           messages.push({ role: "user", content: data.prompt });
+
 
           const upstreamRes = await aiFetch(
             "https://ai.gateway.lovable.dev/v1/chat/completions",
