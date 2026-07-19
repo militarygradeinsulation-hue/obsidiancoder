@@ -12,7 +12,9 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as ApiPatchRouteImport } from './routes/api/patch'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiGithubRouteImport } from './routes/api/github'
@@ -20,6 +22,7 @@ import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/share.$slug'
+import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/library.$code'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
 import { Route as ApiPublicLibraryCodeIdRouteImport } from './routes/api/public/library.$code.$id'
@@ -39,9 +42,19 @@ const GalleryRoute = GalleryRouteImport.update({
   path: '/gallery',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
+  id: '/checkout/return',
+  path: '/checkout/return',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPatchRoute = ApiPatchRouteImport.update({
@@ -79,6 +92,12 @@ const ApiPublicShareSlugRoute = ApiPublicShareSlugRouteImport.update({
   path: '/api/public/share/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicPaymentsWebhookRoute =
+  ApiPublicPaymentsWebhookRouteImport.update({
+    id: '/api/public/payments/webhook',
+    path: '/api/public/payments/webhook',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicLibraryCodeRoute = ApiPublicLibraryCodeRouteImport.update({
   id: '/api/public/library/$code',
   path: '/api/public/library/$code',
@@ -97,6 +116,7 @@ const ApiPublicLibraryCodeIdRoute = ApiPublicLibraryCodeIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unlock': typeof UnlockRoute
@@ -104,15 +124,18 @@ export interface FileRoutesByFullPath {
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
+  '/checkout/return': typeof CheckoutReturnRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unlock': typeof UnlockRoute
@@ -120,16 +143,19 @@ export interface FileRoutesByTo {
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
+  '/checkout/return': typeof CheckoutReturnRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/unlock': typeof UnlockRoute
@@ -137,10 +163,12 @@ export interface FileRoutesById {
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
+  '/checkout/return': typeof CheckoutReturnRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
+  '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
@@ -148,6 +176,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/auth'
     | '/gallery'
     | '/sitemap.xml'
     | '/unlock'
@@ -155,15 +184,18 @@ export interface FileRouteTypes {
     | '/api/github'
     | '/api/health'
     | '/api/patch'
+    | '/checkout/return'
     | '/api/public/builds'
     | '/api/public/self-test'
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
+    | '/api/public/payments/webhook'
     | '/api/public/share/$slug'
     | '/api/public/library/$code/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/auth'
     | '/gallery'
     | '/sitemap.xml'
     | '/unlock'
@@ -171,15 +203,18 @@ export interface FileRouteTypes {
     | '/api/github'
     | '/api/health'
     | '/api/patch'
+    | '/checkout/return'
     | '/api/public/builds'
     | '/api/public/self-test'
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
+    | '/api/public/payments/webhook'
     | '/api/public/share/$slug'
     | '/api/public/library/$code/$id'
   id:
     | '__root__'
     | '/'
+    | '/auth'
     | '/gallery'
     | '/sitemap.xml'
     | '/unlock'
@@ -187,16 +222,19 @@ export interface FileRouteTypes {
     | '/api/github'
     | '/api/health'
     | '/api/patch'
+    | '/checkout/return'
     | '/api/public/builds'
     | '/api/public/self-test'
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
+    | '/api/public/payments/webhook'
     | '/api/public/share/$slug'
     | '/api/public/library/$code/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AuthRoute: typeof AuthRoute
   GalleryRoute: typeof GalleryRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   UnlockRoute: typeof UnlockRoute
@@ -204,9 +242,11 @@ export interface RootRouteChildren {
   ApiGithubRoute: typeof ApiGithubRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiPatchRoute: typeof ApiPatchRoute
+  CheckoutReturnRoute: typeof CheckoutReturnRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
   ApiPublicLibraryCodeRoute: typeof ApiPublicLibraryCodeRouteWithChildren
+  ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicShareSlugRoute: typeof ApiPublicShareSlugRoute
 }
 
@@ -233,11 +273,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/checkout/return': {
+      id: '/checkout/return'
+      path: '/checkout/return'
+      fullPath: '/checkout/return'
+      preLoaderRoute: typeof CheckoutReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/patch': {
@@ -289,6 +343,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicShareSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/payments/webhook': {
+      id: '/api/public/payments/webhook'
+      path: '/api/public/payments/webhook'
+      fullPath: '/api/public/payments/webhook'
+      preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/library/$code': {
       id: '/api/public/library/$code'
       path: '/api/public/library/$code'
@@ -338,6 +399,7 @@ const ApiPublicLibraryCodeRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AuthRoute: AuthRoute,
   GalleryRoute: GalleryRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   UnlockRoute: UnlockRoute,
@@ -345,9 +407,11 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGithubRoute: ApiGithubRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiPatchRoute: ApiPatchRoute,
+  CheckoutReturnRoute: CheckoutReturnRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
   ApiPublicLibraryCodeRoute: ApiPublicLibraryCodeRouteWithChildren,
+  ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicShareSlugRoute: ApiPublicShareSlugRoute,
 }
 export const routeTree = rootRouteImport
