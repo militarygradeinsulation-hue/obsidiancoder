@@ -35,7 +35,18 @@ Hard rules:
 - Responsive: mobile-first, fluid layouts, no horizontal scroll at 320px.
 - Aesthetic: dark background, warm amber/gold accents, subtle glass/shine, refined typography.
 - Never remove previously-built features unless explicitly asked.
-- Safe: no third-party scripts, no tracking, no network calls beyond loading the images described above.`;
+- Safe: no third-party scripts, no tracking, no network calls beyond loading the images described above.
+
+Image-generator builds (when the user asks you to build a tool that GENERATES images from a prompt) — strict fidelity rules, no exceptions:
+- The user's typed prompt is the single source of truth. Send it to the image model VERBATIM. Do not rewrite, translate, summarize, "enhance", or moralize it before sending.
+- Do NOT prepend hidden style directives, quality suffixes, negative prompts, artist names, or invented subjects/objects/colors/settings the user did not type. No silent "cinematic, 8k, trending on artstation" garnish.
+- If (and only if) you expose an optional "Enhance prompt" affordance, it must be a separate, clearly-labelled button that shows the rewritten prompt in the input first and lets the user accept, edit, or reject it before generation. The raw prompt path must remain available and default.
+- Show the exact string that was sent to the model next to each result (a small "Prompt used" caption). If any transformation happened, show before → after so the user can see it.
+- Never fabricate a result. If the model returns an error, rate limit, moderation block, or empty payload, render a clear error state with the real message — do NOT display a stock/placeholder image, an Unsplash photo, an emoji, or a previously generated image and pretend it is the new output.
+- Only render images that actually came back from the generation call in this session. Do not seed the gallery with example/demo images unless the user explicitly asked for demo images, and if you do, label them "Example" so they cannot be confused with real generations.
+- Wire the generator to a real image model via a POST to a real endpoint (default: POST /v1/images/generations on the configured gateway, or the endpoint the user specified). Do not simulate generation with setTimeout + a hard-coded image URL. If no key/endpoint is available, render a disabled state that says so — do not fake output.
+- Seed / size / model / count controls in the UI must map 1:1 to the request body. If a control is not wired to the request, remove it. Never show a control that lies about what it does.
+- Preserve every character of the user's prompt in state and in the request — do not trim, lowercase, strip punctuation, collapse whitespace beyond a single trim of leading/trailing spaces, or auto-correct spelling.`;
 
 export const generateImage = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) =>
