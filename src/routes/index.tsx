@@ -1675,15 +1675,28 @@ function Index() {
                 >
                   <Paperclip className="h-3.5 w-3.5" />
                 </button>
-                <input
+                <textarea
                   ref={composerRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…" : "Ask Aetheris Obsidian…"}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      submit();
+                    }
+                  }}
+                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…  (Enter to send, Shift+Enter for newline)" : "Ask Aetheris Obsidian…  (Enter to send, Shift+Enter for newline)"}
                   disabled={loading}
+                  rows={1}
                   className="obs-composer-input"
                   data-testid="composer-input"
+                  style={{ height: composerHeight, resize: "vertical", minHeight: 40, maxHeight: 400, overflow: "auto" }}
+                  onMouseUp={(e) => {
+                    const h = (e.currentTarget as HTMLTextAreaElement).offsetHeight;
+                    if (h && h !== composerHeight) setComposerHeight(h);
+                  }}
                 />
+
 
                 {loading ? (
                   <button
