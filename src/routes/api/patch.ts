@@ -5,7 +5,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { ALLOWED_MODEL_IDS, DEFAULT_MODEL } from "@/lib/models";
+import { resolveModel } from "@/lib/models";
 import { parsePatchResponse, MAX_OPS } from "@/lib/patch-protocol";
 import { buildContext, nextTier, type ContextTier } from "@/lib/staged-context";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
@@ -20,13 +20,10 @@ const inputSchema = z.object({
   outline: z.string().max(20_000).optional().default(""),
   memory: z.string().max(4_000).optional().default(""),
   selectedAnchor: z.string().max(400).optional(),
-  model: z
-    .string()
-    .refine((m) => (ALLOWED_MODEL_IDS as readonly string[]).includes(m), "unsupported model")
-    .optional()
-    .default(DEFAULT_MODEL),
+  model: z.string().optional().transform((m) => resolveModel(m)),
   contextTier: z.enum(["minimal", "nearby", "sections", "full"]).optional().default("minimal"),
 });
+
 
 const SYSTEM_PROMPT = `You are Obsidian's PATCH engine. You edit a single existing HTML document by returning a JSON patch — never regenerating the whole document.
 
