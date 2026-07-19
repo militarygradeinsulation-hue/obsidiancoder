@@ -2053,5 +2053,5 @@
   text-transform: uppercase;
   color: #b6bcc8;
   opacity: 0;
-  animation: obs-intro-sub-in 0.8s ease-out 1.4s forwards;
+  animation: obs-intro-sub-in 1s ease-out 2.6s forwards;
 }
