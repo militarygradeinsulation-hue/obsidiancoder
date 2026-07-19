@@ -6,8 +6,11 @@ import {
   FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
-  Trash2, Square,
+  Trash2, Square, Wand2,
 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
+import { suggestAddons, type Addon } from "@/lib/prompt-enhance";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { classifyTask } from "@/lib/task-classifier";
