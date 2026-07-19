@@ -235,9 +235,35 @@ function Index() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const composerRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
   const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection>(null);
+  const [libraryCode, setLibraryCode] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("obs.library_code") || "";
+  });
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryBuilds, setLibraryBuilds] = useState<Array<{ id: string; title: string; created_at: string; prompt: string; share_slug: string; byte_size: number }>>([]);
+  const [composerHeight, setComposerHeight] = useState<number>(() => {
+    if (typeof window === "undefined") return 72;
+    const n = Number(localStorage.getItem("obs.composer_h"));
+    return Number.isFinite(n) && n >= 40 ? Math.min(n, 400) : 72;
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("obs.composer_h", String(composerHeight));
+  }, [composerHeight]);
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("obs.library_code", libraryCode);
+  }, [libraryCode]);
+  function refreshLibrary() {
+    const code = libraryCode.trim();
+    if (!code) { setLibraryBuilds([]); return; }
+    fetch(`/api/public/library/${encodeURIComponent(code)}`)
+      .then((r) => (r.ok ? r.json() : { builds: [] }))
+      .then((d) => setLibraryBuilds(d.builds || []))
+      .catch(() => setLibraryBuilds([]));
+  }
+
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
