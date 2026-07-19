@@ -50,8 +50,12 @@ export const generateImage = createServerFn({ method: "POST" })
     z.object({ prompt: z.string().min(1).max(2000) }).parse(data),
   )
   .handler(async ({ data }) => {
+    // Primary: Leonardo AI (verbatim prompt, no auto-enhance).
+    const leo = await generateWithLeonardo(data.prompt);
+    if (leo) return { dataUrl: leo };
+
+    // Fallback: Lovable AI Gateway (Gemini 3 Pro Image).
     const apiKey = process.env.LOVABLE_API_KEY;
-    // Prefer Gemini 3 Pro Image for strongest prompt adherence.
     if (apiKey) {
       const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
         method: "POST",
@@ -72,11 +76,9 @@ export const generateImage = createServerFn({ method: "POST" })
         throw new Error("AI credits exhausted.");
       }
     }
-    // Fallback: Leonardo Phoenix (verbatim prompt, no auto-enhance).
-    const leo = await generateWithLeonardo(data.prompt);
-    if (leo) return { dataUrl: leo };
-    throw new Error("Image generation failed. Check API keys.");
+    throw new Error("Image generation failed. Check LEONARDO_API_KEY.");
   });
+
 
 
 async function planImages(apiKey: string, prompt: string, currentHtml: string) {
@@ -171,7 +173,9 @@ async function generateWithLeonardo(prompt: string): Promise<string | null> {
 }
 
 async function generateOneImage(apiKey: string, prompt: string): Promise<string | null> {
-  // Prefer Gemini 3 Pro Image (strong prompt adherence); fall back to Leonardo.
+  // Prefer Leonardo AI; fall back to Gemini 3 Pro Image.
+  const leo = await generateWithLeonardo(prompt);
+  if (leo) return leo;
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
@@ -188,11 +192,11 @@ async function generateOneImage(apiKey: string, prompt: string): Promise<string 
       if (b64) return `data:image/png;base64,${b64}`;
     }
   } catch {
-    /* fall through */
+    /* ignore */
   }
-  const leo = await generateWithLeonardo(prompt);
-  return leo;
+  return null;
 }
+
 
 
 export const generateHtml = createServerFn({ method: "POST" })
