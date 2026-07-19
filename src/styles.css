@@ -1912,3 +1912,31 @@
   background: color-mix(in oklab, var(--primary) 12%, transparent);
 }
 .obs-overflow-item:disabled { opacity: .45; cursor: not-allowed; }
+
+/* Collapsible right-rail cards */
+.obs-rail .obs-card.is-collapsed > *:not(.obs-card-head):not(.obs-card-title) {
+  display: none !important;
+}
+.obs-rail .obs-card.is-collapsed {
+  padding-bottom: 8px;
+}
+.obs-card-collapse-btn {
+  background: transparent;
+  border: 1px solid color-mix(in oklab, var(--primary) 25%, transparent);
+  color: var(--muted-foreground, #B6BCC8);
+  border-radius: 6px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 12px;
+  line-height: 1;
+  padding: 0;
+  transition: background .15s ease, color .15s ease;
+}
+.obs-card-collapse-btn:hover {
+  background: color-mix(in oklab, var(--primary) 15%, transparent);
+  color: var(--primary);
+}
