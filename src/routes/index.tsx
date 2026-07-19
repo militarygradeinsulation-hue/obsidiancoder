@@ -2051,6 +2051,26 @@ function Index() {
                 <button
                   type="button"
                   className="obs-composer-attach"
+                  aria-label="Screenshot"
+                  title="Screenshot — capture the screen and attach"
+                  disabled={loading}
+                  onClick={() => setCaptureMode("full")}
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label="Snip a region"
+                  title="Snip — drag to select a region, copy or attach"
+                  disabled={loading}
+                  onClick={() => setCaptureMode("snip")}
+                >
+                  <Scissors className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="obs-composer-attach"
                   aria-label="Enhance prompt"
                   title="Enhance prompt — rewrite for clarity and specifics"
                   disabled={loading || enhancing || !input.trim()}
