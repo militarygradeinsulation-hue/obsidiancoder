@@ -867,6 +867,13 @@ function Index() {
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
+    // Free-tier daily cap: 5 AI generations/day unless Obsidian Pro.
+    if (!isPro && getTodayGenCount() >= FREE_DAILY_LIMIT) {
+      setTerminal((t) => [...t, `✗ Daily free limit reached (${FREE_DAILY_LIMIT}/day). Upgrade to Obsidian Pro for unlimited generations.`]);
+      openUpgrade("obsidian_pro_monthly");
+      return;
+    }
+    if (!isPro) bumpTodayGenCount();
     const activeMode = current.mode;
     // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
     const previewMode = activeMode !== "chat" && activeMode !== "plan";
