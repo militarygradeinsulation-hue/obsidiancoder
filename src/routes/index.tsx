@@ -1823,7 +1823,10 @@ function Index() {
         </div>
 
         {/* Body: canvas + right rail */}
-        <div className="obs-body">
+        <div
+          className="obs-body"
+          style={railCollapsed ? undefined : { gridTemplateColumns: `minmax(0, 1fr) ${railWidth}px` }}
+        >
           <div className="obs-canvas">
             <div className="obs-canvas-head">
               <div className="obs-page-title">
