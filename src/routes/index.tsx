@@ -255,6 +255,29 @@ function Index() {
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("obs.composer_h", String(composerHeight));
   }, [composerHeight]);
+  const [enhancing, setEnhancing] = useState(false);
+  const runEnhance = useServerFn(enhancePromptFn);
+  async function handleEnhance() {
+    const draft = input.trim();
+    if (!draft || enhancing || loading) return;
+    setEnhancing(true);
+    try {
+      const res = await runEnhance({ data: { prompt: draft, hasHtml: !!current.html } });
+      if (res?.prompt) setInput(res.prompt);
+    } catch (e) {
+      console.error("enhance failed", e);
+    } finally {
+      setEnhancing(false);
+    }
+  }
+  function appendAddon(a: Addon) {
+    setInput((prev) => {
+      const base = prev.trim();
+      if (!base) return a.snippet;
+      return base.endsWith(".") ? `${base} ${a.snippet}` : `${base}. ${a.snippet}`;
+    });
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("obs.library_code", libraryCode);
   }, [libraryCode]);
