@@ -29,7 +29,7 @@ import { applyPatch, preflightPatch } from "@/lib/patch-engine";
 import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
 import { repairHtml } from "@/lib/repair";
-import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import { safeGet, safeSet, sessionSafeGet, sessionSafeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { isAiErrorEnvelope, type AiErrorEnvelope } from "@/lib/ai-errors";
 import type { VersionMetadata, RepairAttempt } from "@/lib/version-metadata";
 import { MemoryPanel } from "@/components/panels/MemoryPanel";
@@ -570,8 +570,10 @@ function Index() {
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
   useEffect(() => {
-    const parsed = safeGet<Session[]>(STORAGE_KEY);
-    const activeRaw = safeGet<string>(ACTIVE_KEY);
+    // Session-scoped: every new browser session starts blank. To continue
+    // prior work, the user enters their library code and opens a build.
+    const parsed = sessionSafeGet<Session[]>(STORAGE_KEY);
+    const activeRaw = sessionSafeGet<string>(ACTIVE_KEY);
     if (Array.isArray(parsed) && parsed.length) {
       const normalized: Session[] = parsed.map((s) => {
         const partial = s as Partial<Session>;
@@ -602,14 +604,14 @@ function Index() {
     if (!hydrated) return;
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
     writeTimerRef.current = setTimeout(() => {
-      const ok = safeSet(STORAGE_KEY, sessions);
+      const ok = sessionSafeSet(STORAGE_KEY, sessions);
       if (!ok) setTerminal((t) => (t[t.length - 1]?.includes("Storage quota") ? t : [...t, "! Storage quota exceeded — session not persisted"]));
     }, 250);
     return () => { if (writeTimerRef.current) clearTimeout(writeTimerRef.current); };
   }, [sessions, hydrated]);
   useEffect(() => {
     if (!hydrated) return;
-    safeSet(ACTIVE_KEY, activeId);
+    sessionSafeSet(ACTIVE_KEY, activeId);
     // Cancel any stale in-flight request when the active session changes.
     abortRef.current?.abort();
   }, [activeId, hydrated]);
