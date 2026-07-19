@@ -326,9 +326,12 @@ function Index() {
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
   const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection>(null);
+  // Library code is session-scoped: each new browser session starts blank
+  // and the user re-enters their code (e.g. 9822) to "log in" and load
+  // their prior builds from the server.
   const [libraryCode, setLibraryCode] = useState<string>(() => {
     if (typeof window === "undefined") return "";
-    return localStorage.getItem("obs.library_code") || "";
+    try { return window.sessionStorage.getItem("obs.library_code") || ""; } catch { return ""; }
   });
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
@@ -414,7 +417,8 @@ function Index() {
     requestAnimationFrame(() => composerRef.current?.focus());
   }
   useEffect(() => {
-    if (typeof window !== "undefined") localStorage.setItem("obs.library_code", libraryCode);
+    if (typeof window === "undefined") return;
+    try { window.sessionStorage.setItem("obs.library_code", libraryCode); } catch {}
   }, [libraryCode]);
   function refreshLibrary() {
     const code = libraryCode.trim();
