@@ -6,8 +6,11 @@ import {
   FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
-  Trash2, Square,
+  Trash2, Square, Wand2,
 } from "lucide-react";
+import { useServerFn } from "@tanstack/react-start";
+import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
+import { suggestAddons, type Addon } from "@/lib/prompt-enhance";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { classifyTask } from "@/lib/task-classifier";
@@ -252,6 +255,29 @@ function Index() {
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("obs.composer_h", String(composerHeight));
   }, [composerHeight]);
+  const [enhancing, setEnhancing] = useState(false);
+  const runEnhance = useServerFn(enhancePromptFn);
+  async function handleEnhance() {
+    const draft = input.trim();
+    if (!draft || enhancing || loading) return;
+    setEnhancing(true);
+    try {
+      const res = await runEnhance({ data: { prompt: draft, hasHtml: !!current.html } });
+      if (res?.prompt) setInput(res.prompt);
+    } catch (e) {
+      console.error("enhance failed", e);
+    } finally {
+      setEnhancing(false);
+    }
+  }
+  function appendAddon(a: Addon) {
+    setInput((prev) => {
+      const base = prev.trim();
+      if (!base) return a.snippet;
+      return base.endsWith(".") ? `${base} ${a.snippet}` : `${base}. ${a.snippet}`;
+    });
+    requestAnimationFrame(() => composerRef.current?.focus());
+  }
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("obs.library_code", libraryCode);
   }, [libraryCode]);
@@ -1615,24 +1641,32 @@ function Index() {
                   </div>
                 )}
               </div>
-              <div className="obs-suggestions-label">Suggestions</div>
-              <div className="obs-suggestions">
-                {SUGGESTIONS.map((s) => {
-                  const Icon = s.icon;
-                  return (
-                    <button
-                      key={s.label}
-                      type="button"
-                      className="obs-suggestion"
-                      onClick={() => submit(s.label)}
-                      disabled={loading}
-                    >
-                      <Icon className="h-3.5 w-3.5" strokeWidth={1.6} />
-                      <span>{s.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              {(() => {
+                const addons = suggestAddons(input, !!current.html);
+                const label = input.trim() ? "Add to your prompt" : "Try one of these";
+                return (
+                  <>
+                    <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                      <span>{label}</span>
+                      <span style={{ opacity: 0.55, fontSize: 10 }}>click to append · free</span>
+                    </div>
+                    <div className="obs-suggestions">
+                      {addons.map((a) => (
+                        <button
+                          key={a.id}
+                          type="button"
+                          className="obs-suggestion"
+                          onClick={() => (input.trim() ? appendAddon(a) : submit(a.snippet))}
+                          disabled={loading}
+                          title={a.snippet}
+                        >
+                          <span>{a.label}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                );
+              })()}
               {pendingAttachments.length > 0 && (
                 <div className="obs-attach-list">
                   {pendingAttachments.map((att, i) => (
@@ -1674,6 +1708,16 @@ function Index() {
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label="Enhance prompt"
+                  title="Enhance prompt — rewrite for clarity and specifics"
+                  disabled={loading || enhancing || !input.trim()}
+                  onClick={handleEnhance}
+                >
+                  {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
                 </button>
                 <textarea
                   ref={composerRef}
