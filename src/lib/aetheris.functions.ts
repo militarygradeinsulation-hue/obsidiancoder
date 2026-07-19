@@ -101,7 +101,61 @@ async function planImages(apiKey: string, prompt: string, currentHtml: string) {
   }
 }
 
+// Leonardo AI image generation (create → poll → download → base64).
+async function generateWithLeonardo(prompt: string): Promise<string | null> {
+  const key = process.env.LEONARDO_API_KEY;
+  if (!key) return null;
+  try {
+    const create = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, Accept: "application/json" },
+      body: JSON.stringify({
+        prompt: prompt.slice(0, 1400),
+        modelId: "6b645e3a-d64f-4341-a6d8-7a3690fbf042", // Leonardo Phoenix 1.0
+        width: 1024,
+        height: 1024,
+        num_images: 1,
+        alchemy: false,
+        public: false,
+      }),
+    });
+    if (!create.ok) return null;
+    const cj = (await create.json()) as { sdGenerationJob?: { generationId?: string } };
+    const genId = cj.sdGenerationJob?.generationId;
+    if (!genId) return null;
+
+    // Poll up to ~30s.
+    for (let i = 0; i < 15; i++) {
+      await new Promise((r) => setTimeout(r, 2000));
+      const poll = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${genId}`, {
+        headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
+      });
+      if (!poll.ok) continue;
+      const pj = (await poll.json()) as {
+        generations_by_pk?: { status?: string; generated_images?: Array<{ url?: string }> };
+      };
+      const g = pj.generations_by_pk;
+      if (g?.status === "COMPLETE") {
+        const url = g.generated_images?.[0]?.url;
+        if (!url) return null;
+        const img = await fetch(url);
+        if (!img.ok) return null;
+        const buf = await img.arrayBuffer();
+        const b64 = Buffer.from(buf).toString("base64");
+        return `data:image/png;base64,${b64}`;
+      }
+      if (g?.status === "FAILED") return null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 async function generateOneImage(apiKey: string, prompt: string): Promise<string | null> {
+  // Prefer Leonardo when configured; fall back to Lovable AI Gateway (Gemini image).
+  const leo = await generateWithLeonardo(prompt);
+  if (leo) return leo;
   try {
     const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
       method: "POST",
