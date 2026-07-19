@@ -2494,7 +2494,7 @@ function Index() {
         onImport={(html) => updateCurrent({ html })}
         onLog={(line) => setTerminal((t) => [...t, line])}
       />
-      {pricingOpen && <PricingModal onClose={() => setPricingOpen(false)} />}
+      {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
       {libraryOpen && (
 
