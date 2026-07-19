@@ -1069,7 +1069,7 @@ function Index() {
       pendingAttachments.length === 0
     ) {
 
-      const modelForPatch = resolveModel(current.model);
+      const modelForPatch = adaptiveModel;
       const outline = outlineToPrompt(extractOutline(stableHtml));
       const memoryStr = memoryToPrompt(current.memory);
       const patchController = new AbortController();
@@ -1252,7 +1252,7 @@ function Index() {
         prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
       }
     }
-    const modelForServer = resolveModel(current.model);
+    const modelForServer = adaptiveModel;
     const controller = new AbortController();
     abortRef.current = controller;
     try {
