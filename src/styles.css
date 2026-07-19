@@ -1166,8 +1166,31 @@
   color: #f2eee7;
   pointer-events: none;
 }
-.obs-preview-empty p { font-family: var(--font-display); font-size: 18px; margin: 0; letter-spacing: -0.01em; }
-.obs-preview-empty span { color: #8E9095; font-size: 12.5px; }
+.obs-preview-empty p {
+  font-family: var(--font-display);
+  font-size: 20px;
+  margin: 0;
+  letter-spacing: -0.01em;
+  font-weight: 600;
+  color: #8a5a13;
+  background: linear-gradient(180deg, #c9953d 0%, #8a5a13 60%, #5c3a08 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-shadow: 0 0 24px rgba(201, 149, 61, 0.45), 0 0 60px rgba(201, 149, 61, 0.25);
+  filter: drop-shadow(0 0 12px rgba(201, 149, 61, 0.35));
+  animation: obs-gold-pulse 3.2s ease-in-out infinite;
+}
+.obs-preview-empty span {
+  color: #8a5a13;
+  font-size: 12.5px;
+  text-shadow: 0 0 12px rgba(138, 90, 19, 0.5);
+}
+@keyframes obs-gold-pulse {
+  0%, 100% { filter: drop-shadow(0 0 10px rgba(201, 149, 61, 0.3)); }
+  50% { filter: drop-shadow(0 0 20px rgba(201, 149, 61, 0.6)); }
+}
+
 .obs-code {
   height: 100%;
   min-height: 0;
