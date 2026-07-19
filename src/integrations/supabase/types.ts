@@ -21,9 +21,11 @@ export type Database = {
           created_at: string
           html: string
           id: string
+          library_code: string | null
           model: string | null
           prompt: string
           session_id: string | null
+          share_slug: string | null
           title: string
         }
         Insert: {
@@ -32,9 +34,11 @@ export type Database = {
           created_at?: string
           html: string
           id?: string
+          library_code?: string | null
           model?: string | null
           prompt?: string
           session_id?: string | null
+          share_slug?: string | null
           title?: string
         }
         Update: {
@@ -43,9 +47,11 @@ export type Database = {
           created_at?: string
           html?: string
           id?: string
+          library_code?: string | null
           model?: string | null
           prompt?: string
           session_id?: string | null
+          share_slug?: string | null
           title?: string
         }
         Relationships: []

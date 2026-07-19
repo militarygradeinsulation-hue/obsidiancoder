@@ -235,9 +235,35 @@ function Index() {
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
   const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const composerRef = useRef<HTMLInputElement>(null);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
   const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection>(null);
+  const [libraryCode, setLibraryCode] = useState<string>(() => {
+    if (typeof window === "undefined") return "";
+    return localStorage.getItem("obs.library_code") || "";
+  });
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryBuilds, setLibraryBuilds] = useState<Array<{ id: string; title: string; created_at: string; prompt: string; share_slug: string; byte_size: number }>>([]);
+  const [composerHeight, setComposerHeight] = useState<number>(() => {
+    if (typeof window === "undefined") return 72;
+    const n = Number(localStorage.getItem("obs.composer_h"));
+    return Number.isFinite(n) && n >= 40 ? Math.min(n, 400) : 72;
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("obs.composer_h", String(composerHeight));
+  }, [composerHeight]);
+  useEffect(() => {
+    if (typeof window !== "undefined") localStorage.setItem("obs.library_code", libraryCode);
+  }, [libraryCode]);
+  function refreshLibrary() {
+    const code = libraryCode.trim();
+    if (!code) { setLibraryBuilds([]); return; }
+    fetch(`/api/public/library/${encodeURIComponent(code)}`)
+      .then((r) => (r.ok ? r.json() : { builds: [] }))
+      .then((d) => setLibraryBuilds(d.builds || []))
+      .catch(() => setLibraryBuilds([]));
+  }
+
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -1043,13 +1069,14 @@ function Index() {
         charactersAdded: fullDiff.charsAdded,
         charactersRemoved: fullDiff.charsRemoved,
       }));
-      // Auto-save to gallery (admin-gated read).
+      // Auto-save to the user's private library (keyed by their library code).
       try {
         let clientId = localStorage.getItem("obs.client_id");
         if (!clientId) {
           clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
           localStorage.setItem("obs.client_id", clientId);
         }
+        const lib = (localStorage.getItem("obs.library_code") || "").trim();
         fetch("/api/public/builds", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1060,12 +1087,18 @@ function Index() {
             model: modelForServer,
             session_id: sessionId,
             client_id: clientId,
+            library_code: lib || undefined,
           }),
         })
           .then((r) => (r.ok ? r.json() : null))
-          .then((d) => d?.id && setTerminal((t) => [...t, `✓ Saved (${String(d.id).slice(0, 8)})`]))
+          .then((d) => {
+            if (!d?.id) return;
+            const tag = lib ? "library" : "session";
+            setTerminal((t) => [...t, `✓ Saved to ${tag} (${String(d.id).slice(0, 8)})`]);
+          })
           .catch(() => {});
       } catch {}
+
     } catch (err) {
       // Never overwrite the stable snapshot on error.
       setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: stableHtml } : s));
@@ -1291,26 +1324,53 @@ function Index() {
               type="button"
               className="obs-chip obs-chip-gold"
               disabled={!current.html}
-              onClick={() => {
+              onClick={async () => {
                 if (!current.html) return;
-                const blob = new Blob([current.html], { type: "text/html" });
-                const url = URL.createObjectURL(blob);
-                window.open(url, "_blank", "noopener,noreferrer");
-                setTerminal((t) => [...t, `→ Live: opened "${current.title}" in new tab`]);
+                setTerminal((t) => [...t, "→ Publishing shareable link…"]);
+                try {
+                  let clientId = localStorage.getItem("obs.client_id");
+                  if (!clientId) {
+                    clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+                    localStorage.setItem("obs.client_id", clientId);
+                  }
+                  const res = await fetch("/api/public/builds", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      title: current.title,
+                      prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
+                      html: current.html,
+                      model: current.model,
+                      session_id: current.id,
+                      client_id: clientId,
+                      library_code: libraryCode.trim() || undefined,
+                    }),
+                  });
+                  if (!res.ok) throw new Error(await res.text());
+                  const { share_slug } = (await res.json()) as { share_slug: string };
+                  const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
+                  try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
+                  window.open(liveUrl, "_blank", "noopener,noreferrer");
+                  setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
+                  if (libraryCode.trim()) refreshLibrary();
+                } catch (e) {
+                  const msg = e instanceof Error ? e.message : "publish failed";
+                  setTerminal((t) => [...t, `✗ Go Live failed: ${msg}`]);
+                }
               }}
-              title={current.html ? "Open the current build as a standalone site" : "Build something first"}
+              title={current.html ? "Publish a public shareable URL of the current build" : "Build something first"}
             >
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
-            <a
-              href="/gallery"
-              target="_blank"
-              rel="noreferrer"
+            <button
+              type="button"
               className="obs-chip"
-              title="See every build saved from every browser"
+              onClick={() => { setLibraryOpen(true); refreshLibrary(); }}
+              title="Open your personal library — only builds saved under your code appear"
             >
-              <FolderOpen className="h-3.5 w-3.5" /> Gallery
-            </a>
+              <FolderOpen className="h-3.5 w-3.5" /> My Library
+            </button>
+
             <div className="obs-overflow-wrap">
               <button
                 type="button"
@@ -1615,15 +1675,28 @@ function Index() {
                 >
                   <Paperclip className="h-3.5 w-3.5" />
                 </button>
-                <input
+                <textarea
                   ref={composerRef}
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
-                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…" : "Ask Aetheris Obsidian…"}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      submit();
+                    }
+                  }}
+                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…  (Enter to send, Shift+Enter for newline)" : "Ask Aetheris Obsidian…  (Enter to send, Shift+Enter for newline)"}
                   disabled={loading}
+                  rows={1}
                   className="obs-composer-input"
                   data-testid="composer-input"
+                  style={{ height: composerHeight, resize: "vertical", minHeight: 40, maxHeight: 400, overflow: "auto" }}
+                  onMouseUp={(e) => {
+                    const h = (e.currentTarget as HTMLTextAreaElement).offsetHeight;
+                    if (h && h !== composerHeight) setComposerHeight(h);
+                  }}
                 />
+
 
                 {loading ? (
                   <button
@@ -2065,6 +2138,66 @@ function Index() {
           </div>
         </div>
       )}
+      {libraryOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-label="My Library"
+          onClick={() => setLibraryOpen(false)}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.65)", zIndex: 200, display: "grid", placeItems: "center", padding: 20 }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{ width: "min(760px, 100%)", maxHeight: "84vh", overflow: "auto", background: "#111317", color: "#f2eee7", border: "1px solid #22262d", borderRadius: 12, padding: 20, fontFamily: "Inter, system-ui" }}
+          >
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+              <h2 style={{ fontFamily: "Fraunces, Georgia, serif", color: "#F4A125", margin: 0, fontSize: 20 }}>My Library</h2>
+              <button type="button" onClick={() => setLibraryOpen(false)} style={{ background: "transparent", color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", cursor: "pointer" }}>Close</button>
+            </div>
+            <p style={{ color: "#B6BCC8", fontSize: 12, marginTop: 4 }}>
+              Enter a private library code (4-64 chars). Everything you build and every Go Live is saved under this code. Use the same code across browsers or devices to see your library anywhere. Others cannot see your builds unless you share your code or a Go Live URL.
+            </p>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <input
+                value={libraryCode}
+                onChange={(e) => setLibraryCode(e.target.value.replace(/\s+/g, ""))}
+                placeholder="your-library-code"
+                style={{ flex: 1, padding: "10px 12px", background: "#0b0d10", color: "#f2eee7", border: "1px solid #22262d", borderRadius: 8, fontFamily: "inherit" }}
+              />
+              <button type="button" onClick={refreshLibrary} style={{ padding: "10px 14px", background: "#F4A125", color: "#111317", border: 0, borderRadius: 8, fontWeight: 600, cursor: "pointer" }}>Load</button>
+            </div>
+            {!libraryCode.trim() ? (
+              <p style={{ color: "#8a919b", fontSize: 12, marginTop: 12 }}>Enter a code to see your saved builds.</p>
+            ) : libraryBuilds.length === 0 ? (
+              <p style={{ color: "#8a919b", fontSize: 12, marginTop: 12 }}>No builds under this code yet. Build something and hit Go Live.</p>
+            ) : (
+              <ul style={{ listStyle: "none", padding: 0, margin: "12px 0 0", display: "grid", gap: 8 }}>
+                {libraryBuilds.map((b) => {
+                  const url = `${window.location.origin}/api/public/share/${b.share_slug}`;
+                  return (
+                    <li key={b.id} style={{ border: "1px solid #22262d", borderRadius: 10, padding: 12, background: "#0f1216" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "baseline" }}>
+                        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#F4A125", fontFamily: "Fraunces, Georgia, serif", fontSize: 15, textDecoration: "none" }}>{b.title}</a>
+                        <span style={{ color: "#8a919b", fontSize: 11 }}>{new Date(b.created_at).toLocaleString()} · {(b.byte_size / 1024).toFixed(1)} KB</span>
+                      </div>
+                      {b.prompt && <div style={{ color: "#B6BCC8", fontSize: 12, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.prompt}</div>}
+                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => { navigator.clipboard?.writeText(url); setTerminal((t) => [...t, `✓ Copied ${url}`]); }}
+                          style={{ background: "transparent", color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
+                        >Copy public URL</button>
+                        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", textDecoration: "none", fontSize: 12 }}>Open</a>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </main>
+
   );
 }

@@ -50,8 +50,19 @@ export const Route = createFileRoute("/api/public/builds")({
           model?: string;
           session_id?: string;
           client_id?: string;
+          library_code?: string;
         };
         if (!body.html || body.html.length < 20) return new Response("Missing html", { status: 400 });
+        const libCode = (body.library_code || "").trim();
+        if (libCode && (libCode.length < 4 || libCode.length > 64)) {
+          return new Response("Invalid library_code", { status: 400 });
+        }
+        // Short unguessable slug for public share URLs.
+        const genSlug = () => {
+          const bytes = new Uint8Array(9);
+          crypto.getRandomValues(bytes);
+          return Array.from(bytes, (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 14);
+        };
         const row = {
           title: (body.title || "Untitled").slice(0, 120),
           prompt: (body.prompt || "").slice(0, 8000),
@@ -59,16 +70,20 @@ export const Route = createFileRoute("/api/public/builds")({
           model: body.model || null,
           session_id: body.session_id || null,
           client_id: body.client_id || null,
+          library_code: libCode || null,
+          share_slug: genSlug(),
           byte_size: body.html.length,
         };
         const { data, error } = await sbPublishable()
           .from("builds" as never)
           .insert(row as never)
-          .select("id")
+          .select("id, share_slug")
           .single();
         if (error) return new Response(error.message, { status: 500 });
-        return Response.json({ id: (data as { id: string }).id });
+        const r = data as { id: string; share_slug: string };
+        return Response.json({ id: r.id, share_slug: r.share_slug });
       },
+
     },
   },
 });
