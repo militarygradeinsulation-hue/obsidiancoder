@@ -13,6 +13,8 @@ export default function IntroSplash() {
     try {
       if (window.localStorage.getItem(STORAGE_KEY) === "1") return;
       window.localStorage.setItem(STORAGE_KEY, "1");
+      // Prevent the legacy first-visit audio effect from double-playing.
+      window.localStorage.setItem("obs.introPlayed", "1");
     } catch {}
     setShow(true);
 
