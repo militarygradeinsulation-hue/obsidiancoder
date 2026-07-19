@@ -7,7 +7,9 @@ import {
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
   Trash2, Square, Wand2, GripVertical, Pin, Github, CreditCard, User as UserIcon,
+  Camera, Scissors,
 } from "lucide-react";
+import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, type Addon } from "@/lib/prompt-enhance";
@@ -748,6 +750,7 @@ function Index() {
     | { kind: "image"; name: string; dataUrl: string }
     | { kind: "text"; name: string; text: string; source: "text" | "pdf" };
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [captureMode, setCaptureMode] = useState<null | "full" | "snip">(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   async function extractPdfText(file: File): Promise<string> {
@@ -2048,6 +2051,26 @@ function Index() {
                 <button
                   type="button"
                   className="obs-composer-attach"
+                  aria-label="Screenshot"
+                  title="Screenshot — capture the screen and attach"
+                  disabled={loading}
+                  onClick={() => setCaptureMode("full")}
+                >
+                  <Camera className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label="Snip a region"
+                  title="Snip — drag to select a region, copy or attach"
+                  disabled={loading}
+                  onClick={() => setCaptureMode("snip")}
+                >
+                  <Scissors className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  type="button"
+                  className="obs-composer-attach"
                   aria-label="Enhance prompt"
                   title="Enhance prompt — rewrite for clarity and specifics"
                   disabled={loading || enhancing || !input.trim()}
@@ -2528,6 +2551,16 @@ function Index() {
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
+      {captureMode && (
+        <ScreenCaptureModal
+          mode={captureMode}
+          onClose={() => setCaptureMode(null)}
+          onAttach={(dataUrl, name) => {
+            setPendingAttachments((a) => [...a, { kind: "image", name, dataUrl }]);
+            setCaptureMode(null);
+          }}
+        />
+      )}
       {libraryOpen && (
 
         <div
