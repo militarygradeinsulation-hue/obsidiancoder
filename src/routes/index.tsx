@@ -1604,6 +1604,15 @@ function Index() {
             >
               <FolderOpen className="h-3.5 w-3.5" /> My Library
             </button>
+            <button
+              type="button"
+              className="obs-chip"
+              onClick={() => setGithubOpen(true)}
+              title="Push this build to a GitHub repo & Pages, or import an existing repo"
+            >
+              <Github className="h-3.5 w-3.5" /> GitHub
+            </button>
+
 
             <div className="obs-overflow-wrap">
               <button
