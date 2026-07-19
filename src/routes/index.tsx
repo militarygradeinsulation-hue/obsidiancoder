@@ -2327,14 +2327,25 @@ function Index() {
                         <span style={{ color: "#8a919b", fontSize: 11 }}>{new Date(b.created_at).toLocaleString()} · {(b.byte_size / 1024).toFixed(1)} KB</span>
                       </div>
                       {b.prompt && <div style={{ color: "#B6BCC8", fontSize: 12, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{b.prompt}</div>}
-                      <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+                        <button
+                          type="button"
+                          onClick={() => openLibraryBuild(b.id, { duplicate: false })}
+                          style={{ background: "#F4A125", color: "#111317", border: 0, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12, fontWeight: 600 }}
+                        >Open in editor</button>
+                        <button
+                          type="button"
+                          onClick={() => openLibraryBuild(b.id, { duplicate: true })}
+                          style={{ background: "transparent", color: "#F4A125", border: "1px solid #F4A125", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
+                        >Duplicate as new tab</button>
                         <button
                           type="button"
                           onClick={() => { navigator.clipboard?.writeText(url); setTerminal((t) => [...t, `✓ Copied ${url}`]); }}
                           style={{ background: "transparent", color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 12 }}
                         >Copy public URL</button>
-                        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", textDecoration: "none", fontSize: 12 }}>Open</a>
+                        <a href={url} target="_blank" rel="noreferrer" style={{ color: "#B6BCC8", border: "1px solid #22262d", borderRadius: 6, padding: "4px 10px", textDecoration: "none", fontSize: 12 }}>Preview live</a>
                       </div>
+
                     </li>
                   );
                 })}
