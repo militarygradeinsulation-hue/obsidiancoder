@@ -6,13 +6,15 @@ import {
   FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
-  Trash2, Square, Wand2, GripVertical, Pin,
+  Trash2, Square, Wand2, GripVertical, Pin, Github,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, type Addon } from "@/lib/prompt-enhance";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
+import { GithubModal } from "@/components/GithubModal";
+
 import { classifyTask } from "@/lib/task-classifier";
 import { tryDeterministicEdit } from "@/lib/deterministic-edits";
 import { validateHtml, blockingIssues } from "@/lib/validation";
@@ -302,6 +304,8 @@ function Index() {
     return localStorage.getItem("obs.library_code") || "";
   });
   const [libraryOpen, setLibraryOpen] = useState(false);
+  const [githubOpen, setGithubOpen] = useState(false);
+
   const [libraryBuilds, setLibraryBuilds] = useState<Array<{ id: string; title: string; created_at: string; prompt: string; share_slug: string; byte_size: number }>>([]);
   const [composerHeight, setComposerHeight] = useState<number>(() => {
     if (typeof window === "undefined") return 72;
@@ -1600,6 +1604,15 @@ function Index() {
             >
               <FolderOpen className="h-3.5 w-3.5" /> My Library
             </button>
+            <button
+              type="button"
+              className="obs-chip"
+              onClick={() => setGithubOpen(true)}
+              title="Push this build to a GitHub repo & Pages, or import an existing repo"
+            >
+              <Github className="h-3.5 w-3.5" /> GitHub
+            </button>
+
 
             <div className="obs-overflow-wrap">
               <button
@@ -2415,7 +2428,16 @@ function Index() {
           </div>
         </div>
       )}
+      <GithubModal
+        open={githubOpen}
+        onClose={() => setGithubOpen(false)}
+        currentHtml={current?.html || ""}
+        defaultRepoName={(current?.title || "obsidian-build").toLowerCase().replace(/[^a-z0-9._-]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 90) || "obsidian-build"}
+        onImport={(html) => updateCurrent({ html })}
+        onLog={(line) => setTerminal((t) => [...t, line])}
+      />
       {libraryOpen && (
+
         <div
           role="dialog"
           aria-modal="true"
