@@ -1,12 +1,12 @@
 import { useEffect, useState } from "react";
+import audioAsset from "@/assets/obsidian-intro.m4a.asset.json";
 
 const WORD = "OBSIDIAN";
 const STORAGE_KEY = "obs.introSplashShown";
-const AUDIO_URL = "/__l5e/assets-v1/8131ec77-3185-4b73-a484-17dbe1debdb1/obsidian-intro.m4a";
+const AUDIO_URL = audioAsset.url;
 
-// Audio is ~5.96s. Tune the visual timeline to match.
-const LETTER_STAGGER_MS = 180; // 8 letters * 180ms = ~1.44s of entrances
-const FADE_LEAD_MS = 900;      // start fade this long before audio ends
+const LETTER_STAGGER_MS = 180;
+const FADE_LEAD_MS = 900;
 const FALLBACK_DURATION_MS = 5960;
 
 export default function IntroSplash() {
@@ -22,12 +22,16 @@ export default function IntroSplash() {
     } catch {}
     setShow(true);
 
-    const audio = new Audio(AUDIO_URL);
+    const audio = new Audio();
+    audio.src = AUDIO_URL;
     audio.preload = "auto";
     audio.volume = 0.9;
+    audio.crossOrigin = "anonymous";
+    (audio as any).playsInline = true;
 
     let fadeTimer = 0;
     let doneTimer = 0;
+    let started = false;
 
     const scheduleFromDuration = (durationMs: number) => {
       window.clearTimeout(fadeTimer);
@@ -37,30 +41,46 @@ export default function IntroSplash() {
       doneTimer = window.setTimeout(() => setShow(false), durationMs);
     };
 
-    // Preliminary fallback schedule in case audio never plays.
-    scheduleFromDuration(FALLBACK_DURATION_MS);
+    const startTimeline = () => {
+      if (started) return;
+      started = true;
+      const dur = isFinite(audio.duration) && audio.duration > 0
+        ? Math.round(audio.duration * 1000)
+        : FALLBACK_DURATION_MS;
+      scheduleFromDuration(dur);
+    };
 
-    audio.addEventListener("loadedmetadata", () => {
-      if (isFinite(audio.duration) && audio.duration > 0) {
-        scheduleFromDuration(Math.round(audio.duration * 1000));
-      }
-    });
+    audio.addEventListener("play", startTimeline);
     audio.addEventListener("ended", () => {
       setFadeOut(true);
       window.clearTimeout(doneTimer);
       doneTimer = window.setTimeout(() => setShow(false), 900);
     });
-
-    const tryPlay = () => audio.play().catch(() => {
-      const unlock = () => {
-        audio.play().catch(() => {});
-        window.removeEventListener("pointerdown", unlock);
-        window.removeEventListener("keydown", unlock);
-      };
-      window.addEventListener("pointerdown", unlock, { once: true });
-      window.addEventListener("keydown", unlock, { once: true });
+    audio.addEventListener("error", () => {
+      // If audio fails entirely, still run the visual timeline.
+      startTimeline();
     });
-    tryPlay();
+
+    const attemptPlay = () => {
+      const p = audio.play();
+      if (p && typeof p.then === "function") {
+        p.catch(() => {
+          // Autoplay blocked — wait for first user gesture, keep splash visible.
+          const unlock = () => {
+            audio.play().catch(() => startTimeline());
+            window.removeEventListener("pointerdown", unlock);
+            window.removeEventListener("keydown", unlock);
+            window.removeEventListener("touchstart", unlock);
+          };
+          window.addEventListener("pointerdown", unlock, { once: true });
+          window.addEventListener("keydown", unlock, { once: true });
+          window.addEventListener("touchstart", unlock, { once: true });
+          // Safety: if the user never interacts, still dismiss splash.
+          window.setTimeout(() => { if (!started) startTimeline(); }, 2500);
+        });
+      }
+    };
+    attemptPlay();
 
     return () => {
       window.clearTimeout(fadeTimer);
