@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { ALLOWED_MODEL_IDS, DEFAULT_MODEL } from "@/lib/models";
+import { resolveModel } from "@/lib/models";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded, firstChunkLooksBad } from "@/lib/upstream-guard";
@@ -15,13 +15,10 @@ const inputSchema = z.object({
   prompt: z.string().min(1).max(6_000_000),
   currentHtml: z.string().max(6_000_000).optional().default(""),
   history: z.array(messageSchema).max(8).optional().default([]),
-  model: z
-    .string()
-    .refine((m) => (ALLOWED_MODEL_IDS as readonly string[]).includes(m), "unsupported model")
-    .optional()
-    .default(DEFAULT_MODEL),
+  model: z.string().optional().transform((m) => resolveModel(m)),
   advisory: z.boolean().optional().default(false),
 });
+
 
 
 const SYSTEM_PROMPT = `You are Aetheris Coder — an elite AI front-end engineer.
