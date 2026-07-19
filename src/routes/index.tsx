@@ -64,6 +64,9 @@ import type { ComponentEntry } from "@/lib/component-library";
 import { runRules, type Rule, type RuleViolation } from "@/lib/rules-engine";
 import { buildGraph } from "@/lib/knowledge-graph";
 import Background from "@/components/Background";
+import { decide as decideRoute } from "@/lib/adaptive-router";
+import { appendEvent as appendLedgerEvent } from "@/lib/adaptive-ledger";
+import { loadSettings as loadLearningSettings, saveSettings as saveLearningSettings } from "@/lib/adaptive-profile";
 
 
 
@@ -234,6 +237,14 @@ function Index() {
   useEffect(() => {
     try { window.localStorage.setItem("obs.railCollapsed", railCollapsed ? "1" : "0"); } catch {}
   }, [railCollapsed]);
+
+  // Ensure adaptive learning is ON so the router self-adapts per request.
+  useEffect(() => {
+    try {
+      const s = loadLearningSettings();
+      if (!s.enabled) saveLearningSettings({ ...s, enabled: true });
+    } catch { /* best-effort */ }
+  }, []);
 
   // Resizable right-rail / chat width
   const [railWidth, setRailWidth] = useState<number>(() => {
@@ -948,6 +959,17 @@ function Index() {
     const classification = classifyTask(basePrompt, { mode: activeMode, hasHtml: !!stableHtml });
     const t0 = performance.now();
 
+    // 1b. Adaptive routing — auto-picks model/strategy from classification +
+    // learned signals. Explicit picker choice always wins.
+    const routing = decideRoute({
+      prompt: basePrompt,
+      hasHtml: !!stableHtml,
+      mode: activeMode,
+      pickerModel: current.model,
+      hasAttachments: pendingAttachments.length > 0,
+    });
+    const adaptiveModel = routing.chosenModel;
+
     setError(null);
     setLastAiError(null);
     lastSubmitRef.current = { prompt: basePrompt, attachments: [...pendingAttachments] };
@@ -962,7 +984,16 @@ function Index() {
     setLoading(true);
     setStage("classify");
     setStageDetail(classification.taskType);
-    setTerminal((t) => [...t, `→ [${classification.taskType}] via ${classification.executionPath}`]);
+    setTerminal((t) => [
+      ...t,
+      `→ [${classification.taskType}] via ${classification.executionPath}`,
+      `→ Auto-routed → ${adaptiveModel} · ${routing.why}`,
+    ]);
+    try {
+      appendLedgerEvent({ kind: "task-classified", taskType: classification.taskType, strategy: classification.strategy });
+      appendLedgerEvent({ kind: "strategy-selected", taskType: classification.taskType, strategy: routing.chosenStrategy });
+      appendLedgerEvent({ kind: "model-selected", taskType: classification.taskType, model: adaptiveModel, note: routing.signalsUsed.join(",") });
+    } catch { /* ledger is best-effort */ }
     const sessionId = activeId;
 
     // 2. Deterministic fast-path (Agent/Dev/Visual, when classifier says so, and no attachments).
@@ -1046,7 +1077,7 @@ function Index() {
       pendingAttachments.length === 0
     ) {
 
-      const modelForPatch = resolveModel(current.model);
+      const modelForPatch = adaptiveModel;
       const outline = outlineToPrompt(extractOutline(stableHtml));
       const memoryStr = memoryToPrompt(current.memory);
       const patchController = new AbortController();
@@ -1229,7 +1260,7 @@ function Index() {
         prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
       }
     }
-    const modelForServer = resolveModel(current.model);
+    const modelForServer = adaptiveModel;
     const controller = new AbortController();
     abortRef.current = controller;
     try {
