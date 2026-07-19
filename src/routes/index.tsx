@@ -402,9 +402,36 @@ function Index() {
       .catch(() => setLibraryBuilds([]));
   }
 
+  // ─── Free-tier gates (5 AI generations/day; Save requires Pro or one-time purchase) ───
+  const FREE_DAILY_LIMIT = 5;
+  const [pricingInitialPrice, setPricingInitialPrice] = useState<string | undefined>(undefined);
+  function todayKey() { return "obs.gen_count." + new Date().toISOString().slice(0, 10); }
+  function getTodayGenCount(): number {
+    if (typeof window === "undefined") return 0;
+    return Number(localStorage.getItem(todayKey()) || "0");
+  }
+  function bumpTodayGenCount() {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(todayKey(), String(getTodayGenCount() + 1));
+  }
+  function openUpgrade(priceId?: string) {
+    setPricingInitialPrice(priceId);
+    setPricingOpen(true);
+  }
+
   async function saveProject() {
     if (!current.html) {
       setTerminal((t) => [...t, "✗ Nothing to save yet — build something first."]);
+      return;
+    }
+    if (!authUserId) {
+      setTerminal((t) => [...t, "→ Sign in required to save projects."]);
+      openUpgrade();
+      return;
+    }
+    if (!isPro) {
+      setTerminal((t) => [...t, "→ Save Project requires Obsidian Pro or a one-time Save & Host purchase."]);
+      openUpgrade("save_build_onetime");
       return;
     }
     let code = libraryCode.trim();
