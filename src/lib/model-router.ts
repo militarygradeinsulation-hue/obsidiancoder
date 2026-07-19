@@ -8,9 +8,9 @@ export type Tier = "economy" | "balanced" | "advanced";
 
 // Ordered preferences per tier — first available id wins.
 const TIER_PREFERENCE: Record<Tier, readonly string[]> = {
-  economy:  ["google/gemini-3.1-flash-lite", "openai/gpt-5.6-luna", "google/gemini-3.5-flash"],
-  balanced: ["google/gemini-3.5-flash", "openai/gpt-5.6-terra", "openai/gpt-5.4-mini", "google/gemini-3.1-flash-lite"],
-  advanced: ["google/gemini-3.1-pro-preview", "openai/gpt-5.6-sol", "google/gemini-2.5-pro", "google/gemini-3.5-flash"],
+  economy:  ["google/gemini-3.1-flash-lite", "openai/gpt-5.4-nano", "openai/gpt-5.6-luna", "google/gemini-2.5-flash-lite"],
+  balanced: ["google/gemini-3.5-flash", "openai/gpt-5.6-terra", "openai/gpt-5.4-mini", "google/gemini-2.5-flash"],
+  advanced: ["openai/gpt-5.6-sol", "google/gemini-3.1-pro-preview", "openai/gpt-5.5", "google/gemini-2.5-pro"],
 };
 
 const REGISTRY_IDS = new Set<string>(MODEL_REGISTRY.map((m) => m.id));
