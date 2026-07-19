@@ -1441,6 +1441,15 @@ function Index() {
             <div className="obs-divider" />
             <button
               type="button"
+              className="obs-chip"
+              disabled={!current.html}
+              onClick={saveProject}
+              title={current.html ? "Save this project to your library so you can reopen or duplicate it later" : "Build something first"}
+            >
+              <FolderOpen className="h-3.5 w-3.5" /> Save Project
+            </button>
+            <button
+              type="button"
               className="obs-chip obs-chip-gold"
               disabled={!current.html}
               onClick={async () => {
