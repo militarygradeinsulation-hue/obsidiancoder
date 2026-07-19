@@ -1075,7 +1075,7 @@
   overflow: hidden;
 }
 @media (max-width: 1100px) {
-  .obs-body { grid-template-columns: 1fr; overflow-y: auto; }
+  .obs-body { grid-template-columns: 1fr !important; overflow-y: auto; }
 }
 
 /* ---- Canvas ---- */
@@ -1241,10 +1241,46 @@
   padding-right: 2px;
   scrollbar-width: thin;
   scrollbar-color: #1a1e28 transparent;
+  position: relative;
 }
 .obs-rail::-webkit-scrollbar { width: 6px; }
 .obs-rail::-webkit-scrollbar-thumb { background: #1a1e28; border-radius: 3px; }
 .obs-rail::-webkit-scrollbar-track { background: transparent; }
+
+.obs-rail-handle {
+  position: absolute;
+  left: -5px;
+  top: 0;
+  bottom: 0;
+  width: 10px;
+  cursor: col-resize;
+  z-index: 10;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.obs-rail-handle::before {
+  content: "";
+  width: 2px;
+  height: 48px;
+  border-radius: 2px;
+  background: rgba(217, 168, 78, 0.25);
+  transition: background 0.15s ease, box-shadow 0.15s ease;
+}
+.obs-rail-handle:hover::before,
+.is-resizing-rail .obs-rail-handle::before {
+  background: rgba(217, 168, 78, 0.85);
+  box-shadow: 0 0 12px rgba(217, 168, 78, 0.45);
+}
+.obs-shell.is-rail-collapsed .obs-rail-handle { display: none; }
+@media (max-width: 1100px) {
+  .obs-rail-handle { display: none; }
+}
+
+body.is-resizing-rail {
+  user-select: none;
+  cursor: col-resize;
+}
 .obs-card {
   background: #0A0C0F;
   border: 1px solid #141821;

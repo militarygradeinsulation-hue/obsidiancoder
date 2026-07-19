@@ -233,7 +233,38 @@ function Index() {
   }, [sidebarCollapsed]);
   useEffect(() => {
     try { window.localStorage.setItem("obs.railCollapsed", railCollapsed ? "1" : "0"); } catch {}
-   }, [railCollapsed]);
+  }, [railCollapsed]);
+
+  // Resizable right-rail / chat width
+  const [railWidth, setRailWidth] = useState<number>(() => {
+    if (typeof window === "undefined") return 320;
+    const n = Number(window.localStorage.getItem("obs.railWidth"));
+    return Number.isFinite(n) && n >= 260 ? n : 320;
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.railWidth", String(railWidth)); } catch {}
+  }, [railWidth]);
+  const railResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
+  function onRailResizeStart(e: React.PointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    railResizeRef.current = { startX: e.clientX, startWidth: railWidth };
+    document.body.classList.add("is-resizing-rail");
+    window.addEventListener("pointermove", onRailResizeMove);
+    window.addEventListener("pointerup", onRailResizeEnd);
+  }
+  function onRailResizeMove(e: PointerEvent) {
+    if (!railResizeRef.current) return;
+    const delta = e.clientX - railResizeRef.current.startX;
+    const max = Math.min(900, window.innerWidth - 220);
+    const next = Math.max(260, Math.min(max, railResizeRef.current.startWidth + delta));
+    setRailWidth(next);
+  }
+  function onRailResizeEnd() {
+    railResizeRef.current = null;
+    document.body.classList.remove("is-resizing-rail");
+    window.removeEventListener("pointermove", onRailResizeMove);
+    window.removeEventListener("pointerup", onRailResizeEnd);
+  }
 
   // First-visit intro audio
   useEffect(() => {
@@ -1792,7 +1823,10 @@ function Index() {
         </div>
 
         {/* Body: canvas + right rail */}
-        <div className="obs-body">
+        <div
+          className="obs-body"
+          style={railCollapsed ? undefined : { gridTemplateColumns: `minmax(0, 1fr) ${railWidth}px` }}
+        >
           <div className="obs-canvas">
             <div className="obs-canvas-head">
               <div className="obs-page-title">
@@ -1941,6 +1975,13 @@ function Index() {
 
           {/* ========== RIGHT RAIL ========== */}
           <aside className="obs-rail">
+            <div
+              className="obs-rail-handle"
+              aria-label="Resize chat panel"
+              title="Drag to widen or narrow the chat panel"
+              onPointerDown={onRailResizeStart}
+              onDoubleClick={() => setRailWidth(320)}
+            />
             <div className="obs-rail-tabs" role="tablist" aria-label="Rail sections">
               {RAIL_GROUPS.map((g) => (
                 <button
