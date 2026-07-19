@@ -24,9 +24,11 @@ export default function IntroSplash() {
 
     const audio = new Audio();
     audio.preload = "auto";
-    audio.volume = 0.9;
     audio.crossOrigin = "anonymous";
     (audio as any).playsInline = true;
+    // Start muted so browsers allow autoplay without a gesture.
+    audio.muted = true;
+    audio.volume = 0.9;
     audio.src = AUDIO_URL;
     try { audio.load(); } catch {}
 
@@ -41,7 +43,6 @@ export default function IntroSplash() {
       doneTimer = window.setTimeout(() => setShow(false), durationMs);
     };
 
-    // Start visual timeline immediately — do not wait for audio.
     scheduleFromDuration(FALLBACK_DURATION_MS);
 
     audio.addEventListener("loadedmetadata", () => {
@@ -55,21 +56,37 @@ export default function IntroSplash() {
       doneTimer = window.setTimeout(() => setShow(false), 900);
     });
 
-    // Fire play instantly, in parallel with the visual timeline.
+    const tryUnmute = () => {
+      try { audio.muted = false; audio.volume = 0.9; } catch {}
+    };
+
+    const armGestureUnlock = () => {
+      const unlock = () => {
+        try { audio.muted = false; audio.volume = 0.9; } catch {}
+        audio.play().catch(() => {});
+        window.removeEventListener("pointerdown", unlock);
+        window.removeEventListener("keydown", unlock);
+        window.removeEventListener("touchstart", unlock);
+      };
+      window.addEventListener("pointerdown", unlock, { once: true });
+      window.addEventListener("keydown", unlock, { once: true });
+      window.addEventListener("touchstart", unlock, { once: true });
+    };
+
+    // Fire muted play instantly — browsers allow this — then unmute.
     const p = audio.play();
     if (p && typeof p.then === "function") {
-      p.catch(() => {
-        const unlock = () => {
-          audio.play().catch(() => {});
-          window.removeEventListener("pointerdown", unlock);
-          window.removeEventListener("keydown", unlock);
-          window.removeEventListener("touchstart", unlock);
-        };
-        window.addEventListener("pointerdown", unlock, { once: true });
-        window.addEventListener("keydown", unlock, { once: true });
-        window.addEventListener("touchstart", unlock, { once: true });
+      p.then(() => {
+        tryUnmute();
+        // If unmute got silently blocked, arm a one-shot gesture unlock.
+        if (audio.muted) armGestureUnlock();
+      }).catch(() => {
+        armGestureUnlock();
       });
+    } else {
+      tryUnmute();
     }
+
 
 
     return () => {
