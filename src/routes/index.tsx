@@ -6,7 +6,7 @@ import {
   FlaskConical, GitBranch, Rocket, Settings, ChevronDown, Search,
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
-  Trash2, Square, Wand2, GripVertical, Pin, Github,
+  Trash2, Square, Wand2, GripVertical, Pin, Github, CreditCard, User as UserIcon,
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
@@ -14,6 +14,10 @@ import { suggestAddons, type Addon } from "@/lib/prompt-enhance";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
+import { PricingModal } from "@/components/PricingModal";
+import { AccountModal } from "@/components/AccountModal";
+import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
+import { useAuth, useSubscription } from "@/hooks/useSubscription";
 
 import { classifyTask } from "@/lib/task-classifier";
 import { tryDeterministicEdit } from "@/lib/deterministic-edits";
@@ -1611,6 +1615,22 @@ function Index() {
               title="Push this build to a GitHub repo & Pages, or import an existing repo"
             >
               <Github className="h-3.5 w-3.5" /> GitHub
+            </button>
+            <button
+              type="button"
+              className={"obs-chip " + (isPro ? "is-on" : "obs-chip-gold")}
+              onClick={() => setPricingOpen(true)}
+              title={isPro ? "You have Obsidian Pro" : "Upgrade to Pro or buy Save & Host"}
+            >
+              <CreditCard className="h-3.5 w-3.5" /> {isPro ? "Pro" : "Upgrade"}
+            </button>
+            <button
+              type="button"
+              className="obs-chip"
+              onClick={() => setAccountOpen(true)}
+              title={authUserId ? (authEmail || "Account") : "Sign in"}
+            >
+              <UserIcon className="h-3.5 w-3.5" /> {authUserId ? "Account" : "Sign in"}
             </button>
 
 
