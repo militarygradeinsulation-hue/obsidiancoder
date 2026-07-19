@@ -1709,6 +1709,16 @@ function Index() {
                 >
                   <Paperclip className="h-3.5 w-3.5" />
                 </button>
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label="Enhance prompt"
+                  title="Enhance prompt — rewrite for clarity and specifics"
+                  disabled={loading || enhancing || !input.trim()}
+                  onClick={handleEnhance}
+                >
+                  {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                </button>
                 <textarea
                   ref={composerRef}
                   value={input}
