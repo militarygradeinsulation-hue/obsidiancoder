@@ -220,8 +220,9 @@ function Index() {
   const [activeNav, setActiveNav] = useState<string>("projects");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(() => {
-    if (typeof window === "undefined") return false;
-    return window.localStorage.getItem("obs.sidebarCollapsed") === "1";
+    if (typeof window === "undefined") return true;
+    const v = window.localStorage.getItem("obs.sidebarCollapsed");
+    return v === null ? true : v === "1";
   });
   const [railCollapsed, setRailCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
