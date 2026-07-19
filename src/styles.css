@@ -1994,7 +1994,7 @@
   align-items: center; justify-content: center;
   background: radial-gradient(ellipse at center, #0b0d12 0%, #030405 70%);
   overflow: hidden;
-  animation: obs-intro-fade-out 0.8s ease forwards;
+  animation: obs-intro-fade-out 0.9s ease forwards;
   animation-play-state: paused;
   cursor: pointer;
 }
