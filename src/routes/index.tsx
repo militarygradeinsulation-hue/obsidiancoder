@@ -303,7 +303,7 @@ function Index() {
           state[key] = collapsed;
           save();
         };
-        apply(!!state[key]);
+        apply(key in state ? !!state[key] : true);
       });
     };
 
