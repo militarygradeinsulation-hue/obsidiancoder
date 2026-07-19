@@ -54,30 +54,33 @@ export const generateImage = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const apiKey = process.env.LOVABLE_API_KEY;
-    // Try Leonardo first when configured.
+    // Prefer Gemini 3 Pro Image for strongest prompt adherence.
+    if (apiKey) {
+      const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "google/gemini-3-pro-image",
+          messages: [{ role: "user", content: data.prompt }],
+          modalities: ["image", "text"],
+        }),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
+        const b64 = json.data?.[0]?.b64_json;
+        if (b64) return { dataUrl: `data:image/png;base64,${b64}` };
+      } else if (res.status === 429) {
+        throw new Error("Rate limit reached.");
+      } else if (res.status === 402) {
+        throw new Error("AI credits exhausted.");
+      }
+    }
+    // Fallback: Leonardo Phoenix (verbatim prompt, no auto-enhance).
     const leo = await generateWithLeonardo(data.prompt);
     if (leo) return { dataUrl: leo };
-    if (!apiKey) throw new Error("AI is not configured yet.");
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "google/gemini-3.1-flash-image",
-        messages: [{ role: "user", content: data.prompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-    if (!res.ok) {
-      const t = await res.text();
-      if (res.status === 429) throw new Error("Rate limit reached.");
-      if (res.status === 402) throw new Error("AI credits exhausted.");
-      throw new Error(`Image generation failed (${res.status}): ${t.slice(0, 200)}`);
-    }
-    const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-    const b64 = json.data?.[0]?.b64_json;
-    if (!b64) throw new Error("No image returned.");
-    return { dataUrl: `data:image/png;base64,${b64}` };
+    throw new Error("Image generation failed. Check API keys.");
   });
+
 
 async function planImages(apiKey: string, prompt: string, currentHtml: string) {
   // Cheap planning call: ask for up to 4 image prompts as JSON.
