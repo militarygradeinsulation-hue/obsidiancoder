@@ -402,9 +402,36 @@ function Index() {
       .catch(() => setLibraryBuilds([]));
   }
 
+  // ─── Free-tier gates (5 AI generations/day; Save requires Pro or one-time purchase) ───
+  const FREE_DAILY_LIMIT = 5;
+  const [pricingInitialPrice, setPricingInitialPrice] = useState<string | undefined>(undefined);
+  function todayKey() { return "obs.gen_count." + new Date().toISOString().slice(0, 10); }
+  function getTodayGenCount(): number {
+    if (typeof window === "undefined") return 0;
+    return Number(localStorage.getItem(todayKey()) || "0");
+  }
+  function bumpTodayGenCount() {
+    if (typeof window === "undefined") return;
+    localStorage.setItem(todayKey(), String(getTodayGenCount() + 1));
+  }
+  function openUpgrade(priceId?: string) {
+    setPricingInitialPrice(priceId);
+    setPricingOpen(true);
+  }
+
   async function saveProject() {
     if (!current.html) {
       setTerminal((t) => [...t, "✗ Nothing to save yet — build something first."]);
+      return;
+    }
+    if (!authUserId) {
+      setTerminal((t) => [...t, "→ Sign in required to save projects."]);
+      openUpgrade();
+      return;
+    }
+    if (!isPro) {
+      setTerminal((t) => [...t, "→ Save Project requires Obsidian Pro or a one-time Save & Host purchase."]);
+      openUpgrade("save_build_onetime");
       return;
     }
     let code = libraryCode.trim();
@@ -840,6 +867,13 @@ function Index() {
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
+    // Free-tier daily cap: 5 AI generations/day unless Obsidian Pro.
+    if (!isPro && getTodayGenCount() >= FREE_DAILY_LIMIT) {
+      setTerminal((t) => [...t, `✗ Daily free limit reached (${FREE_DAILY_LIMIT}/day). Upgrade to Obsidian Pro for unlimited generations.`]);
+      openUpgrade("obsidian_pro_monthly");
+      return;
+    }
+    if (!isPro) bumpTodayGenCount();
     const activeMode = current.mode;
     // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
     const previewMode = activeMode !== "chat" && activeMode !== "plan";
@@ -2460,7 +2494,7 @@ function Index() {
         onImport={(html) => updateCurrent({ html })}
         onLog={(line) => setTerminal((t) => [...t, line])}
       />
-      {pricingOpen && <PricingModal onClose={() => setPricingOpen(false)} />}
+      {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
       {libraryOpen && (
 
