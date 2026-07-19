@@ -1,17 +1,18 @@
-import { useEffect, useState } from "react";
-import audioAsset from "@/assets/obsidian-intro.m4a.asset.json";
+import { useEffect, useRef, useState } from "react";
+import videoAsset from "@/assets/obsidian-intro.mp4.asset.json";
 
 const WORD = "OBSIDIAN";
 const STORAGE_KEY = "obs.introSplashShown";
-const AUDIO_URL = audioAsset.url;
+const VIDEO_URL = videoAsset.url;
 
 const LETTER_STAGGER_MS = 180;
 const FADE_LEAD_MS = 900;
-const FALLBACK_DURATION_MS = 5960;
+const FALLBACK_DURATION_MS = 7850;
 
 export default function IntroSplash() {
   const [show, setShow] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -21,16 +22,12 @@ export default function IntroSplash() {
       window.sessionStorage.setItem("obs.introPlayed", "1");
     } catch {}
     setShow(true);
+  }, []);
 
-    const audio = new Audio();
-    audio.preload = "auto";
-    audio.crossOrigin = "anonymous";
-    (audio as any).playsInline = true;
-    // Start muted so browsers allow autoplay without a gesture.
-    audio.muted = true;
-    audio.volume = 0.9;
-    audio.src = AUDIO_URL;
-    try { audio.load(); } catch {}
+  useEffect(() => {
+    if (!show) return;
+    const video = videoRef.current;
+    if (!video) return;
 
     let fadeTimer = 0;
     let doneTimer = 0;
@@ -45,39 +42,38 @@ export default function IntroSplash() {
 
     scheduleFromDuration(FALLBACK_DURATION_MS);
 
-    audio.addEventListener("loadedmetadata", () => {
-      if (isFinite(audio.duration) && audio.duration > 0) {
-        scheduleFromDuration(Math.round(audio.duration * 1000));
+    const onMeta = () => {
+      if (isFinite(video.duration) && video.duration > 0) {
+        scheduleFromDuration(Math.round(video.duration * 1000));
       }
-    });
-    audio.addEventListener("ended", () => {
+    };
+    const onEnded = () => {
       setFadeOut(true);
       window.clearTimeout(doneTimer);
       doneTimer = window.setTimeout(() => setShow(false), 900);
-    });
-
-    const tryUnmute = () => {
-      try { audio.muted = false; audio.volume = 0.9; } catch {}
     };
+    video.addEventListener("loadedmetadata", onMeta);
+    video.addEventListener("ended", onEnded);
 
-    // Fire muted play instantly — browsers allow this — then unmute.
-    // Do NOT arm any gesture listener: audio must only play automatically
-    // during the intro, never as a delayed reaction to a later click/keypress.
-    const p = audio.play();
+    // Muted autoplay is always allowed; then try to unmute for audio.
+    video.muted = true;
+    video.volume = 0.9;
+    const p = video.play();
+    const tryUnmute = () => { try { video.muted = false; } catch {} };
     if (p && typeof p.then === "function") {
-      p.then(tryUnmute).catch(() => { /* stay silent if autoplay blocked */ });
+      p.then(tryUnmute).catch(() => {});
     } else {
       tryUnmute();
     }
 
-
-
     return () => {
       window.clearTimeout(fadeTimer);
       window.clearTimeout(doneTimer);
-      try { audio.pause(); } catch {}
+      video.removeEventListener("loadedmetadata", onMeta);
+      video.removeEventListener("ended", onEnded);
+      try { video.pause(); } catch {}
     };
-  }, []);
+  }, [show]);
 
   if (!show) return null;
 
@@ -87,6 +83,14 @@ export default function IntroSplash() {
       aria-hidden="true"
       onClick={() => setFadeOut(true)}
     >
+      <video
+        ref={videoRef}
+        className="obs-intro-video"
+        src={VIDEO_URL}
+        autoPlay
+        playsInline
+        preload="auto"
+      />
       <div className="obs-intro-glow" />
       <h1 className="obs-intro-word">
         {WORD.split("").map((ch, i) => (
