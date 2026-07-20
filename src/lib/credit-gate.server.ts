@@ -299,7 +299,16 @@ export async function requirePaidOperation(
     };
   }
 
-  const reservation = await reserveCreditsV2(user, operation, env, requestId);
+  const reservation = await usageReserve(user, operation, env, requestId);
+  if (reservation === "no_period") {
+    return {
+      kind: "denied", env, requestId, user,
+      denial: creditsRequiredEnvelope({
+        code: "not_pro", operation,
+        message: "Your Pro subscription has no active billing period. Renew or contact support.",
+      }),
+    };
+  }
   if (!reservation) {
     return {
       kind: "denied", env, requestId, user,
@@ -312,6 +321,7 @@ export async function requirePaidOperation(
   }
   return { kind: "pro", env, requestId, user, reservation };
 }
+
 
 export function denialResponse(denial: CreditsRequiredEnvelope, requestId?: string): Response {
   const status = denial.code === "auth_required" ? 401 : 402;
