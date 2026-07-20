@@ -14,7 +14,7 @@ type Intent = "buy" | "code";
 export const Route = createFileRoute("/unlock")({
   validateSearch: (s: Record<string, unknown>) => ({
     password: typeof s.password === "string" ? s.password : undefined,
-    intent: (s.intent === "buy" || s.intent === "signin" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
+    intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
     checkout: s.checkout === "1" ? "1" : undefined,
   }),
   beforeLoad: async ({ search }) => {
@@ -28,8 +28,11 @@ export const Route = createFileRoute("/unlock")({
     meta: [
       { title: "Get Obsidian Pro — Aetheris Obsidian" },
       { name: "description", content: "Start Obsidian Pro for $30/month or enter your access code. Build production-ready software with an AI engineering team." },
-      { name: "robots", content: "noindex,nofollow" },
+      { property: "og:title", content: "Get Obsidian Pro — Aetheris Obsidian" },
+      { property: "og:description", content: "Build production-ready software with an AI engineering team. $30/month, 1,000 AI credits per billing period." },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "/unlock" }],
   }),
   component: Unlock,
 });
