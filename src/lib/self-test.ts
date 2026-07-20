@@ -762,8 +762,8 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   // ─── credit gate: math, envelope, and reservation ledger ─────────────
   {
     const cg = await import("./credit-gate");
-    const b = cg.balanceFor(200, 1000);
-    results.push(assert(b.used === 200 && b.cap === 1000 && b.remaining === 800, "credit-gate: balanceFor math"));
+    const b = cg.balanceFor(200, 1000, 50);
+    results.push(assert(b.used === 200 && b.reserved === 50 && b.cap === 1000 && b.remaining === 750, "credit-gate: balanceFor includes reserved"));
     results.push(assert(cg.canSpend(990, 1000, 10) === true, "credit-gate: canSpend at exact cap ok"));
     results.push(assert(cg.canSpend(991, 1000, 10) === false, "credit-gate: canSpend rejects over cap"));
     results.push(assert(cg.costForOperation("generate_html") === 10, "credit-gate: known op cost"));
@@ -772,6 +772,20 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(cg.isCreditsRequiredEnvelope(env), "credit-gate: envelope guard"));
     results.push(assert(env.suggestedPriceId === "obsidian_pro_monthly", "credit-gate: suggests Pro price on 402"));
     results.push(assert(env.remaining === 0, "credit-gate: envelope computes remaining"));
+
+    // creditsForUsd — actual/estimated/minimum + failure = 0
+    results.push(assert(cg.creditsForUsd(0) === 0, "credit-gate: zero usd → zero credits (failed no-provider call)"));
+    results.push(assert(cg.creditsForUsd(0, "generate_html") === 0, "credit-gate: zero usd with op still 0 (nothing charged for no-usage failure)"));
+    results.push(assert(cg.creditsForUsd(0.001, "enhance_prompt") === 1, "credit-gate: sub-credit usd rounds up to op minimum 1"));
+    results.push(assert(cg.creditsForUsd(0.023) === 5, "credit-gate: usd → credits ceil(0.023/0.005)=5"));
+    results.push(assert(cg.creditsForUsd(0.025) === 5, "credit-gate: exact multiple $0.025→5 credits"));
+    results.push(assert(cg.creditsForUsd(0.026) === 6, "credit-gate: rounds up above multiple"));
+
+    // Token → USD estimation
+    const usdFlash = cg.estimateUsdFromTokens("google/gemini-3.1-flash-lite", 10_000, 2_000);
+    results.push(assert(Math.abs(usdFlash - (10 * 0.0001 + 2 * 0.0004)) < 1e-9, "credit-gate: estimateUsdFromTokens flash-lite"));
+    const usdUnknown = cg.estimateUsdFromTokens("unknown/model", 999_999, 999_999);
+    results.push(assert(usdUnknown === cg.MIN_CALL_COST_USD, "credit-gate: unknown model falls back to conservative minimum"));
 
     // Ledger — atomic reserve/commit/refund contract
     const led = new cg.ReservationLedger(100);
@@ -783,7 +797,29 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(r3 !== null && led.balance().used === 50, "credit-gate: refund restores capacity"));
     if (r3) led.commit(r3);
     results.push(assert(led.balance().used === 50, "credit-gate: commit does not change used"));
+
+    // Concurrent-cap invariant: many parallel reserves never exceed cap
+    const led2 = new cg.ReservationLedger(30);
+    const ids = Array.from({ length: 20 }, () => led2.reserve(2)).filter((x): x is string => !!x);
+    results.push(assert(ids.length === 15 && led2.balance().used === 30, "credit-gate: concurrent reservations stop at cap"));
+
+    // Idempotency simulation: same request_id → single reservation slot
+    // (mirrors reserve_credits_v2 SQL contract at the JS layer)
+    const led3 = new cg.ReservationLedger(100);
+    const seen = new Map<string, string>();
+    const idempotentReserve = (reqId: string, amt: number) => {
+      const prev = seen.get(reqId);
+      if (prev) return { id: prev, idempotent: true };
+      const id = led3.reserve(amt);
+      if (id) seen.set(reqId, id);
+      return { id, idempotent: false };
+    };
+    const a = idempotentReserve("req-A", 10);
+    const b2 = idempotentReserve("req-A", 10);
+    results.push(assert(a.id === b2.id && b2.idempotent === true && led3.balance().used === 10,
+      "credit-gate: retrying same request_id returns same reservation, does not double-charge"));
   }
+
 
 
 
