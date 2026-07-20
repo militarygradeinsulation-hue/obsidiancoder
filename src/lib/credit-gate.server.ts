@@ -323,7 +323,7 @@ export async function requirePaidOperation(
       denial: creditsRequiredEnvelope({
         code: "credits_required", operation,
         used: CAP_PRO_MONTHLY, cap: CAP_PRO_MONTHLY,
-        needed: costForOperation(operation),
+        needed: reservationForOperation(operation),
       }),
     };
   }
