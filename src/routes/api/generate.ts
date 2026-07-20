@@ -435,8 +435,15 @@ export const Route = createFileRoute("/api/generate")({
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
                 if (ok) {
-                  // Trailer HTML comment — parsed & stripped by the client.
+                  // Trailers — parsed & stripped by the client BEFORE the
+                  // document is validated or saved. Order matters: the timing
+                  // trailer stays anchored to the very end so the client's
+                  // end-anchored regex reliably peels it off first.
                   try {
+                    if (!data.advisory && compacted.imagesReplaced > 0) {
+                      const phJson = JSON.stringify(compacted.placeholders);
+                      controller.enqueue(encoder.encode(`\n<!--OBS_PLACEHOLDERS:${phJson}-->`));
+                    }
                     controller.enqueue(encoder.encode(`\n<!--OBS_TIMING:${JSON.stringify(timing)}-->`));
                   } catch { /* stream already closing */ }
                   recordSuccess(breakerKeyGen);
