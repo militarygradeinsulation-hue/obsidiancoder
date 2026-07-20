@@ -73,10 +73,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         return_url: data.returnUrl,
         customer: customerId,
         ...(!isRecurring && { payment_intent_data: { description: productDescription } }),
-        metadata: { userId },
+        metadata: { userId, priceId: data.priceId, planTier: tierForPriceId(data.priceId)?.id ?? "" },
         ...(isRecurring && {
           subscription_data: {
-            metadata: { userId },
+            metadata: { userId, priceId: data.priceId, planTier: tierForPriceId(data.priceId)?.id ?? "" },
             proration_behavior: "create_prorations",
           },
         }),
