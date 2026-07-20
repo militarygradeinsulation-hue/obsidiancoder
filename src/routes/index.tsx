@@ -1443,6 +1443,41 @@ function Index() {
         setIntelligenceTick((n) => n + 1);
         return;
       }
+
+      // Chief Engineer — multi-agent review before commit.
+      setEngineeringRunning(true);
+      setEngineeringLive([]);
+      const chiefPlan = { classification, model: modelForServer, tier: "balanced" as const,
+        useDeterministic: false, usePatch: false, useFullGeneration: true, advisory: false,
+        reason: "post-generation review" };
+      const chiefReport = reviewBuild({
+        request: basePrompt, previousHtml: stableHtml, candidateHtml: finalHtml,
+        plan: chiefPlan as unknown as import("@/lib/orchestrator").Plan,
+        validation, bypass: engineeringBypass,
+        onAgent: (r: AgentReview) => setEngineeringLive((prev) => [...prev, r]),
+      });
+      setEngineeringReport(chiefReport);
+      setEngineeringRunning(false);
+      genMeta.engineering = summarizeReport(chiefReport);
+      setTerminal((t) => [...t,
+        `⚙ Chief Engineer: readiness ${chiefReport.readinessScore}/100 (${chiefReport.blocked ? (chiefReport.bypassed ? "bypassed" : "blocked") : "approved"})`,
+        ...chiefReport.risks.slice(0, 2).map((r) => `  ⚠ ${r.slice(0, 120)}`),
+      ]);
+      if (chiefReport.blocked && !chiefReport.bypassed) {
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⛔ Chief Engineer blocked commit — ${chiefReport.summary} Enable "Bypass" in the Engineering console to override.` }] }
+          : s));
+        pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `chief-engineer:${chiefReport.blockingRoles.join(",")}` });
+        setLastOperation((prev) => prev && prev.operationId === operationId ? {
+          ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
+          validationStatus: validation.status, providerChain: genMeta.providerChain ?? [],
+          imageProviders: genMeta.imageProviders, imageCount: genMeta.imageCount,
+          outcome: "rejected", reason: `chief-engineer blocked (${chiefReport.blockingRoles.join(",")})`,
+        } : prev);
+        setIntelligenceTick((n) => n + 1);
+        return;
+      }
+
       const newVersion: Version = makeVersion(finalHtml, versionLabel, genMeta);
       setSessions((all) => all.map((s) => s.id === sessionId
         ? {
