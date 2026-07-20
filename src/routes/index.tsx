@@ -360,11 +360,21 @@ function Index() {
   const [composerHeight, setComposerHeight] = useState<number>(() => {
     if (typeof window === "undefined") return 72;
     const n = Number(localStorage.getItem("obs.composer_h"));
-    return Number.isFinite(n) && n >= 40 ? Math.min(n, 400) : 72;
+    return Number.isFinite(n) && n >= 40 ? Math.min(n, 800) : 72;
+  });
+  const [composerWidth, setComposerWidth] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const n = Number(localStorage.getItem("obs.composer_w"));
+    return Number.isFinite(n) && n >= 240 ? Math.min(n, 1600) : null;
   });
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("obs.composer_h", String(composerHeight));
   }, [composerHeight]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (composerWidth) localStorage.setItem("obs.composer_w", String(composerWidth));
+    else localStorage.removeItem("obs.composer_w");
+  }, [composerWidth]);
   // Draggable composer position (null = docked in rail).
   const [composerPos, setComposerPos] = useState<{ x: number; y: number } | null>(() => {
     if (typeof window === "undefined") return null;
