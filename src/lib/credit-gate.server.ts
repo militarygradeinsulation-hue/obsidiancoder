@@ -393,7 +393,10 @@ export async function settleOperation(
   }
 
   const usage = outcome.usage;
-  const charge = Math.max(0, Math.min(usage.credits, res.credits));
+  // Pass full actual credits — do NOT clamp to reservation. The DB performs
+  // cap-safe top-up (charge above the reservation is allowed only when the
+  // period stays within CAP_PRO_MONTHLY) and reports back via meta.cap_limited.
+  const charge = Math.max(0, Math.floor(usage.credits));
   const status = outcome.kind === "success" ? "committed" : "failed";
   const errorCode = outcome.kind === "failed_with_usage"
     ? (outcome.errorCode ?? usage.errorCode)
