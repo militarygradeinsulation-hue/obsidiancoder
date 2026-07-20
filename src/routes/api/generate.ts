@@ -658,8 +658,21 @@ export const Route = createFileRoute("/api/generate")({
             },
           });
         } catch (err) {
-          // Refund any pending reservation on synchronous failure.
-          await settleFailure(err instanceof AiError ? err.code : "generate_internal");
+          // Settle failure — refund only if no provider work started,
+          // otherwise record failed_with_usage. If settlement itself fails
+          // the pending ai_usage row is left for out-of-band reconciliation
+          // and we surface billing_settlement_error to the caller.
+          const errCode = err instanceof AiError ? err.code : "generate_internal";
+          try {
+            await settleFailure(errCode);
+          } catch (settleErr) {
+            return new AiError({
+              code: "billing_settlement_error",
+              stage: "generate",
+              requestId,
+              message: settleErr instanceof Error ? settleErr.message.slice(0, 120) : "settlement failed",
+            }).toResponse();
+          }
           const aiErr = err instanceof AiError
             ? err
             : new AiError({
