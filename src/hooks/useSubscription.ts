@@ -105,28 +105,29 @@ export function useCredits(): Balance & { loading: boolean; refetch: () => void;
     let env = "sandbox";
     try { env = getStripeEnvironment(); } catch { /* ignore */ }
     try {
-      // Prefer period-scoped RPC; fall back to legacy calendar-month RPC.
-      const { data, error } = await supabase.rpc("credit_balance_period" as never, {
+      // Subscription-window balance from the unified ai_usage ledger.
+      const { data, error } = await supabase.rpc("usage_balance" as never, {
         _user_id: userId,
         _env: env,
         _cap: CAP_PRO_MONTHLY,
       } as never);
       if (error || !data) {
-        setState({ ...balanceFor(0, CAP_PRO_MONTHLY), loading: false, periodStart: null, periodEnd: null });
+        setState({ ...balanceFor(0, 0), loading: false, periodStart: null, periodEnd: null });
         return;
       }
       const row = (Array.isArray(data) ? data[0] : data) as
-        | { used: number; reserved: number; cap: number; remaining: number; period_start: string; period_end: string }
+        | { used: number; reserved: number; cap: number; remaining: number; period_start: string | null; period_end: string | null; active: boolean }
         | null | undefined;
       setState({
         used: Number(row?.used ?? 0),
         reserved: Number(row?.reserved ?? 0),
         cap: Number(row?.cap ?? CAP_PRO_MONTHLY),
-        remaining: Number(row?.remaining ?? CAP_PRO_MONTHLY),
+        remaining: Number(row?.remaining ?? 0),
         loading: false,
         periodStart: row?.period_start ?? null,
         periodEnd: row?.period_end ?? null,
       });
+
     } catch {
       setState({ ...balanceFor(0, CAP_PRO_MONTHLY), loading: false, periodStart: null, periodEnd: null });
     }
