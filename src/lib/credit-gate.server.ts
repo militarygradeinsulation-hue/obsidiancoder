@@ -132,7 +132,7 @@ async function usageReserve(
   requestId: string,
 ): Promise<Reservation | null | "no_period"> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const amount = costForOperation(operation);
+  const amount = reservationForOperation(operation);
   const { data, error } = await supabaseAdmin.rpc("usage_reserve" as never, {
     _user_id: user.userId,
     _amount: amount,
