@@ -18,7 +18,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
 import {
   CAP_PRO_MONTHLY,
-  costForOperation,
+  reservationForOperation,
   creditsRequiredEnvelope,
   type CreditsRequiredEnvelope,
   type Operation,
@@ -99,7 +99,7 @@ export async function hasActivePro(user: AuthedUser, env: Environment): Promise<
 
 export interface Reservation {
   reservationId: string;
-  credits: number;              // credits held on the reservation (per-op fixed cost)
+  credits: number;              // envelope credits temporarily held; final charge may be lower
   operation: Operation;
   environment: Environment;
   usedBefore: number;
@@ -131,7 +131,7 @@ async function usageReserve(
   requestId: string,
 ): Promise<Reservation | null | "no_period"> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const amount = costForOperation(operation);
+  const amount = reservationForOperation(operation);
   const { data, error } = await supabaseAdmin.rpc("usage_reserve" as never, {
     _user_id: user.userId,
     _amount: amount,
@@ -322,7 +322,7 @@ export async function requirePaidOperation(
       denial: creditsRequiredEnvelope({
         code: "credits_required", operation,
         used: CAP_PRO_MONTHLY, cap: CAP_PRO_MONTHLY,
-        needed: costForOperation(operation),
+        needed: reservationForOperation(operation),
       }),
     };
   }
