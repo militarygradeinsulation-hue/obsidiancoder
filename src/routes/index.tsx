@@ -1379,18 +1379,30 @@ function Index() {
       const versionLabel = (basePrompt || pendingAttachments[0]?.name || "Update").slice(0, 48);
       const durationMsGen = performance.now() - t0;
       const fullDiff = diffSummary(stableHtml, finalHtml);
-      const genMeta = buildMetadata({
-        request: basePrompt,
-        classification,
-        strategy: "full-generation",
-        model: modelForServer,
-        durationMs: durationMsGen,
-        charsAdded: fullDiff.charsAdded,
-        charsRemoved: fullDiff.charsRemoved,
-        changed: true,
-        validation,
-        repairAttempts: fullRepairAttempts,
-      });
+      const providerChain = parseProviderHeader(imgProviders);
+      const rollbackId = current.versions?.[0]?.id;
+      const genMeta: VersionMetadata = {
+        ...buildMetadata({
+          request: basePrompt,
+          classification,
+          strategy: "full-generation",
+          model: modelForServer,
+          durationMs: durationMsGen,
+          charsAdded: fullDiff.charsAdded,
+          charsRemoved: fullDiff.charsRemoved,
+          changed: true,
+          validation,
+          repairAttempts: fullRepairAttempts,
+        }),
+        operationId,
+        requestedModel,
+        actualModel: modelForServer,
+        providerChain: providerChain.length ? providerChain.slice() : [modelForServer],
+        imageProviders: imgProviders ?? undefined,
+        imageCount: imgCount || undefined,
+        rollbackId,
+        learningSignals: routing.signalsUsed.slice(),
+      };
       const gateBlockersG = checkCommitGate(stableHtml, finalHtml, "full-generation");
       if (gateBlockersG) {
         setSessions((all) => all.map((s) => s.id === sessionId
@@ -1398,6 +1410,13 @@ function Index() {
           : s));
         setTerminal((t) => [...t, `✗ Rule gate rejected generation: ${gateBlockersG[0].slice(0, 120)}`]);
         pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockersG[0] });
+        setLastOperation((prev) => prev && prev.operationId === operationId ? {
+          ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
+          validationStatus: validation.status, providerChain: genMeta.providerChain ?? [],
+          imageProviders: genMeta.imageProviders, imageCount: genMeta.imageCount,
+          outcome: "rejected", reason: gateBlockersG[0].slice(0, 120),
+        } : prev);
+        setIntelligenceTick((n) => n + 1);
         return;
       }
       const newVersion: Version = makeVersion(finalHtml, versionLabel, genMeta);
@@ -1425,16 +1444,29 @@ function Index() {
         charactersAdded: fullDiff.charsAdded,
         charactersRemoved: fullDiff.charsRemoved,
       }));
+      setLastOperation((prev) => prev && prev.operationId === operationId ? {
+        ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
+        validationStatus: validation.status, providerChain: genMeta.providerChain ?? [],
+        imageProviders: genMeta.imageProviders, imageCount: genMeta.imageCount,
+        outcome: "ok", rollbackId: newVersion.id,
+      } : prev);
       try {
-        appendLedgerEvent({
-          kind: "fullgen-accepted",
-          taskType: classification.taskType,
-          strategy: "full-generation",
-          model: modelForServer,
-          outcome: "ok",
-          durationMs: durationMsGen,
-          validationStatus: validation.status,
-        });
+        // Ledger keys off operationId to prevent double-counting on
+        // Strict-mode double-fire or network retries.
+        const events = (await import("@/lib/adaptive-ledger")).loadLedger();
+        const already = events.some((e) => (e as { operationId?: string }).operationId === operationId && e.kind === "fullgen-accepted");
+        if (!already) {
+          appendLedgerEvent({
+            kind: "fullgen-accepted",
+            taskType: classification.taskType,
+            strategy: "full-generation",
+            model: modelForServer,
+            outcome: "ok",
+            durationMs: durationMsGen,
+            validationStatus: validation.status,
+            note: operationId,
+          });
+        }
         setIntelligenceTick((n) => n + 1);
       } catch { /* best-effort */ }
       // Auto-save to the user's private library (keyed by their library code).
