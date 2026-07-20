@@ -13,6 +13,7 @@ import {
 } from "@/lib/credit-gate.server";
 import type { EntitlementResult } from "@/lib/credit-gate.server";
 import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "@/lib/usage-record";
+import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from "@/lib/generate-settlement";
 import type { Operation } from "@/lib/credit-gate";
 
 const messageSchema = z.object({
@@ -282,55 +283,38 @@ export const Route = createFileRoute("/api/generate")({
         let opForSettle: Operation = "generate_html";
         let modelForSettle: string = "unknown";
         const imageUsages: UsageRecord[] = [];
+        // Every model request that begins pushes a UsageRecord here on
+        // failure — used by both success (fallback aggregate) and failure
+        // (bill the failed attempt at the per-call minimum).
+        const modelAttempts: UsageRecord[] = [];
         const settleSuccess = async () => {
           if (settled) return;
           settled = true;
           if (!entitlement) return;
-          const parsed = streamUsage.hasUsage() ? streamUsage.snapshot() : null;
-          const est = estimateUsdForCall({
-            model: parsed?.model ?? modelForSettle,
-            inputTokens: parsed?.inputTokens ?? 0,
-            outputTokens: parsed?.outputTokens ?? 0,
-            providerUsed: true,
-          });
-          const llmUsage = makeUsage({
-            provider: "lovable",
-            model: parsed?.model ?? modelForSettle,
+          const snapshot = streamUsage.hasUsage() ? streamUsage.snapshot() : null;
+          const merged = combineSuccessUsage({
             operation: opForSettle,
-            inputTokens: parsed?.inputTokens ?? 0,
-            outputTokens: parsed?.outputTokens ?? 0,
-            totalTokens: parsed?.totalTokens ?? 0,
-            estimatedCostUsd: est.usd,
-            costBasis: est.basis,
-            providerUsed: true,
-            status: "committed",
+            model: modelForSettle,
+            streamSnapshot: snapshot,
+            modelAttempts,
+            imageUsages,
           });
-          const imageCost = imageUsages.reduce((s, u) => s + (u.actualCostUsd ?? u.estimatedCostUsd ?? 0), 0);
-          const imageTokens = imageUsages.reduce((s, u) => s + (u.totalTokens ?? 0), 0);
-          const merged: UsageRecord = {
-            ...llmUsage,
-            estimatedCostUsd: (llmUsage.estimatedCostUsd ?? 0) + imageCost,
-            totalTokens: (llmUsage.totalTokens ?? 0) + imageTokens,
-            imageCount: imageUsages.length,
-          };
           await settleOperation(entitlement, { kind: "success", usage: merged });
         };
         const settleFailure = async (errorCode?: string) => {
           if (settled) return;
           settled = true;
           if (!entitlement) return;
-          // If images were generated (provider work happened), record as failed.
-          if (imageUsages.length > 0) {
-            const imageCost = imageUsages.reduce((s, u) => s + (u.actualCostUsd ?? u.estimatedCostUsd ?? 0), 0);
-            const failedUsage = makeUsage({
-              provider: "lovable", model: modelForSettle, operation: opForSettle,
-              estimatedCostUsd: imageCost, costBasis: "estimated", providerUsed: true,
-              imageCount: imageUsages.length, status: "failed", errorCode,
-            });
-            await settleOperation(entitlement, { kind: "failed_with_usage", usage: failedUsage, errorCode });
-            return;
-          }
-          await settleOperation(entitlement, { kind: "no_provider", errorCode });
+          const snapshot = streamUsage.hasUsage() ? streamUsage.snapshot() : null;
+          const outcome = combineFailureSettlement({
+            operation: opForSettle,
+            model: modelForSettle,
+            streamSnapshot: snapshot,
+            modelAttempts,
+            imageUsages,
+            errorCode,
+          });
+          await settleOperation(entitlement, outcome);
         };
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
@@ -519,15 +503,33 @@ export const Route = createFileRoute("/api/generate")({
           // 3) Open upstream. On any first-byte failure — timeout, malformed
           //    HTML, empty body — silently retry once against the fastest
           //    reliable model, but only when the user didn't pin a model.
+          // tryOpen: wraps openStream so any failure after aiFetch begins is
+          // captured as a minimum-cost UsageRecord for the attempted model.
+          // On fallback we keep the first record and add the second — settlement
+          // aggregates both into the final total.
+          const tryOpen = async (model: string, budgetMs: number) => {
+            try {
+              return await openStream(model, budgetMs);
+            } catch (err) {
+              modelAttempts.push(modelAttemptUsage({
+                model,
+                operation: opForSettle,
+                errorCode: err instanceof AiError
+                  ? err.code
+                  : err instanceof Error ? err.message.slice(0, 40) : "attempt_failed",
+              }));
+              throw err;
+            }
+          };
           let opened;
           let fallbackReason = "";
           try {
-            opened = await openStream(data.model, 8_000);
+            opened = await tryOpen(data.model, 8_000);
           } catch (err) {
             const canFallback = !explicit && data.model !== DEFAULT_MODEL && !isFastTier(data.model);
             if (!canFallback) throw err;
             fallbackReason = err instanceof Error ? err.message.slice(0, 60) : "unknown";
-            opened = await openStream(DEFAULT_MODEL, 15_000);
+            opened = await tryOpen(DEFAULT_MODEL, 15_000);
           }
           const { reader, sniffBuffer, firstChunk, model: modelUsed, openedAt, headersAt } = opened;
           const breakerKeyGen = `lovable/generate:${modelUsed}`;
@@ -593,7 +595,7 @@ export const Route = createFileRoute("/api/generate")({
                 }
               };
               try {
-                const drain = () => {
+                const drain = async (): Promise<boolean> => {
                   let idx;
                   while ((idx = buffer.indexOf("\n")) !== -1) {
                     const line = buffer.slice(0, idx).trim();
@@ -605,7 +607,7 @@ export const Route = createFileRoute("/api/generate")({
                     streamUsage.push(line);
                     const payload = line.slice(5).trim();
                     if (payload === "[DONE]") {
-                      finalize(emittedBytes > 0);
+                      await finalize(emittedBytes > 0);
                       return true;
                     }
                     try {
@@ -619,17 +621,17 @@ export const Route = createFileRoute("/api/generate")({
                   }
                   return false;
                 };
-                if (drain()) return;
-                if (firstChunk?.done) { finalize(emittedBytes > 0); return; }
+                if (await drain()) return;
+                if (firstChunk?.done) { await finalize(emittedBytes > 0); return; }
                 while (true) {
                   const { done, value } = await reader.read();
                   if (done) break;
                   buffer += decoder.decode(value, { stream: true });
-                  if (drain()) return;
+                  if (await drain()) return;
                 }
-                finalize(emittedBytes > 0);
+                await finalize(emittedBytes > 0);
               } catch (err) {
-                finalize(false, err);
+                await finalize(false, err);
               }
             },
           });
@@ -656,8 +658,21 @@ export const Route = createFileRoute("/api/generate")({
             },
           });
         } catch (err) {
-          // Refund any pending reservation on synchronous failure.
-          await settleFailure(err instanceof AiError ? err.code : "generate_internal");
+          // Settle failure — refund only if no provider work started,
+          // otherwise record failed_with_usage. If settlement itself fails
+          // the pending ai_usage row is left for out-of-band reconciliation
+          // and we surface billing_settlement_error to the caller.
+          const errCode = err instanceof AiError ? err.code : "generate_internal";
+          try {
+            await settleFailure(errCode);
+          } catch (settleErr) {
+            return new AiError({
+              code: "billing_settlement_error",
+              stage: "generate",
+              requestId,
+              message: settleErr instanceof Error ? settleErr.message.slice(0, 120) : "settlement failed",
+            }).toResponse();
+          }
           const aiErr = err instanceof AiError
             ? err
             : new AiError({

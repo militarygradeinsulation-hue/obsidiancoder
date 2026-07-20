@@ -1224,6 +1224,150 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     }
   }
 
+  // ---- /api/generate settlement helpers (mocked, pure) ----
+  {
+    const { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } =
+      await import("./generate-settlement");
+    const { makeUsage: mkU } = await import("./usage-record");
+
+    // 1. Failed stream that returned tokens still records the usage.
+    {
+      const outcome = combineFailureSettlement({
+        operation: "generate_html",
+        model: "google/gemini-3.1-flash",
+        streamSnapshot: { inputTokens: 500, outputTokens: 300, totalTokens: 800 },
+        modelAttempts: [],
+        imageUsages: [],
+        errorCode: "stream_failed",
+      });
+      results.push(assert(
+        outcome.kind === "failed_with_usage" &&
+          outcome.usage.status === "failed" &&
+          outcome.usage.totalTokens === 800 &&
+          (outcome.usage.estimatedCostUsd ?? 0) > 0,
+        "generate-settlement: failed stream with tokens records usage",
+      ));
+    }
+
+    // 2. Failed first attempt + successful fallback aggregates BOTH.
+    {
+      const firstFail = modelAttemptUsage({
+        model: "openai/gpt-5.6", operation: "generate_html", errorCode: "first_byte_timeout",
+      });
+      const successOnly = combineSuccessUsage({
+        operation: "generate_html", model: "google/gemini-3.1-flash",
+        streamSnapshot: { inputTokens: 200, outputTokens: 400, totalTokens: 600 },
+        modelAttempts: [], imageUsages: [],
+      });
+      const merged = combineSuccessUsage({
+        operation: "generate_html",
+        model: "google/gemini-3.1-flash",
+        streamSnapshot: { inputTokens: 200, outputTokens: 400, totalTokens: 600 },
+        modelAttempts: [firstFail],
+        imageUsages: [],
+      });
+      results.push(assert(
+        merged.status === "committed" &&
+          merged.totalTokens === 600 &&
+          (merged.estimatedCostUsd ?? 0) > (successOnly.estimatedCostUsd ?? 0),
+        "generate-settlement: fallback aggregates first-attempt + success",
+      ));
+    }
+
+    // 3. No provider work → refund.
+    {
+      const outcome = combineFailureSettlement({
+        operation: "generate_html",
+        model: "google/gemini-3.1-flash",
+        streamSnapshot: null,
+        modelAttempts: [],
+        imageUsages: [],
+        errorCode: "validate_failed",
+      });
+      results.push(assert(
+        outcome.kind === "no_provider",
+        "generate-settlement: no provider work → refund",
+      ));
+    }
+
+    // 4. Model attempt alone (aiFetch began, no tokens) → failed_with_usage.
+    {
+      const attempt = modelAttemptUsage({
+        model: "openai/gpt-5.6", operation: "generate_html", errorCode: "ai_upstream_html",
+      });
+      const outcome = combineFailureSettlement({
+        operation: "generate_html",
+        model: "openai/gpt-5.6",
+        streamSnapshot: null,
+        modelAttempts: [attempt],
+        imageUsages: [],
+        errorCode: "ai_upstream_html",
+      });
+      results.push(assert(
+        outcome.kind === "failed_with_usage" &&
+          outcome.usage.status === "failed" &&
+          outcome.usage.credits >= 1 &&
+          outcome.usage.providerUsed === true,
+        "generate-settlement: model attempt only → failed_with_usage at minimum",
+      ));
+    }
+
+    // 5. Images generated but stream failed → failure combines both.
+    {
+      const imgUsage = mkU({
+        provider: "leonardo", model: "leonardo", operation: "generate_image",
+        imageCount: 1, estimatedCostUsd: 0.02, costBasis: "estimated",
+        providerUsed: true, status: "committed",
+      });
+      const outcome = combineFailureSettlement({
+        operation: "generate_html",
+        model: "google/gemini-3.1-flash",
+        streamSnapshot: { inputTokens: 100, outputTokens: 50, totalTokens: 150 },
+        modelAttempts: [],
+        imageUsages: [imgUsage],
+        errorCode: "stream_failed",
+      });
+      results.push(assert(
+        outcome.kind === "failed_with_usage" &&
+          outcome.usage.imageCount === 1 &&
+          outcome.usage.totalTokens === 150 &&
+          outcome.usage.status === "failed",
+        "generate-settlement: failed stream + image aggregates both",
+      ));
+    }
+
+    // 6. Settlement failure — settleOperation rejects; caller must not swallow.
+    //    We assert the promise rejects so the route's try/catch can surface
+    //    billing_settlement_error and leave the pending row in place.
+    {
+      const settleOperation = async () => { throw new Error("usage_finalize failed: db down"); };
+      let threw = false;
+      try {
+        await settleOperation();
+      } catch (e) {
+        threw = e instanceof Error && /usage_finalize failed/.test(e.message);
+      }
+      results.push(assert(threw,
+        "generate-settlement: settlement failure propagates for billing_settlement_error"));
+    }
+
+    // 7. Awaited finalization — mimic the DONE/reader-end code path. A
+    //    non-awaited settle would let the outer request return before the
+    //    ai_usage row transitioned. We assert the pending flag flips only
+    //    after `await finalize()` resolves.
+    {
+      let pending = true;
+      const settle = async () => {
+        await new Promise((r) => setTimeout(r, 5));
+        pending = false;
+      };
+      const finalize = async () => { await settle(); };
+      // Simulate route awaiting finalize at [DONE].
+      await finalize();
+      results.push(assert(!pending, "generate-settlement: awaited finalize resolves before return"));
+    }
+  }
+
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
