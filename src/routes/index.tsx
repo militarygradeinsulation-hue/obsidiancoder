@@ -327,6 +327,10 @@ function Index() {
   const [lastIntent, setLastIntent] = useState<ResolvedIntent | undefined>(undefined);
   const [lastDecision, setLastDecision] = useState<RoutingDecision | undefined>(undefined);
   const [lastOperation, setLastOperation] = useState<OperationSummary | undefined>(undefined);
+  const [engineeringReport, setEngineeringReport] = useState<import("@/lib/chief-engineer").EngineeringReport | null>(null);
+  const [engineeringLive, setEngineeringLive] = useState<import("@/lib/chief-engineer").AgentReview[]>([]);
+  const [engineeringRunning, setEngineeringRunning] = useState(false);
+  const [engineeringBypass, setEngineeringBypass] = useState(false);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
