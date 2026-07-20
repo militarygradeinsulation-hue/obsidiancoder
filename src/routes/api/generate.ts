@@ -67,7 +67,7 @@ async function providerLeonardo(prompt: string, requestId: string, signal: Abort
           presetStyle: "DYNAMIC", public: false,
         }),
       },
-      { breakerKey: "leonardo/create", stage: "image", requestId, signal, maxAttempts: 2, totalTimeoutMs: 12_000 },
+      { breakerKey: "leonardo/create", stage: "image", requestId, signal, maxAttempts: 1, totalTimeoutMs: 7_000 },
     );
     const cj = (await create.response.json()) as { sdGenerationJob?: { generationId?: string } };
     const genId = cj.sdGenerationJob?.generationId;
