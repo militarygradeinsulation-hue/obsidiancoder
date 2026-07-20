@@ -79,6 +79,7 @@ export default function IntroSplash() {
           className="obs-intro-video"
           src={VIDEO_URL}
           autoPlay
+          muted
           playsInline
           preload="auto"
           onError={() => setVideoError("video failed to load")}
