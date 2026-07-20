@@ -103,7 +103,7 @@ export default function IntroSplash() {
       className={`obs-intro-splash${fadeOut ? " is-leaving" : ""}`}
       aria-hidden="true"
     >
-      {!reducedMotion && (
+      {!reducedMotion && RESOLVED.ok && (
         <video
           ref={videoRef}
           className="obs-intro-video"
@@ -111,7 +111,21 @@ export default function IntroSplash() {
           autoPlay
           playsInline
           preload="auto"
+          onError={() => setVideoError("video failed to load")}
         />
+      )}
+      {isDev && videoError && (
+        <div
+          style={{
+            position: "absolute", top: 16, left: 16, zIndex: 3,
+            padding: "8px 12px", borderRadius: 6,
+            background: "rgba(220,38,38,0.9)", color: "#fff",
+            fontFamily: "monospace", fontSize: 12, maxWidth: "50vw",
+          }}
+          role="alert"
+        >
+          Intro video error: {videoError}
+        </div>
       )}
       <div className="obs-intro-glow" />
       <h1 className="obs-intro-word">
