@@ -33,7 +33,8 @@ export function sessionConfig() {
   return {
     password,
     name: "obsidian-gate",
-    maxAge: 60 * 60 * 24 * 30,
+    // Session cookie — expires when the browser closes so users must
+    // re-authenticate every visit. No `maxAge` set intentionally.
     cookie: { httpOnly: true, secure: true, sameSite: "none" as const, path: "/" },
   };
 }
