@@ -7,12 +7,14 @@ import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard, FolderKanban, Timer, Rocket, DollarSign,
-  ShieldCheck, Gauge, CheckCircle2, ArrowRight, Sparkles, Lock,
+  ShieldCheck, Gauge, CheckCircle2, ArrowRight, Sparkles, Lock, LogOut,
 } from "lucide-react";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
 import { useEntitlement } from "@/hooks/useEntitlement";
 import { DASHBOARD_NAV, PLAN_TIERS, tierForPriceId, tierAtLeast, type PlanTierId } from "@/lib/plans";
 import { safeGet } from "@/lib/safe-storage";
+import { lockSite } from "@/lib/gate.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
@@ -106,11 +108,37 @@ function DashboardPage() {
                 : "Upgrade to unlock deployments, analytics, and launch readiness."}
             </p>
           </div>
-          {!tier && (
-            <Link to="/unlock" className="dash-cta">
-              See plans <ArrowRight size={14} />
-            </Link>
-          )}
+          <div className="dash-actions">
+            {!tier && (
+              <Link to="/unlock" className="dash-cta">
+                See plans <ArrowRight size={14} />
+              </Link>
+            )}
+            <button
+              type="button"
+              className="dash-ghost"
+              onClick={async () => {
+                try { await lockSite(); } catch { /* ignore */ }
+                window.location.assign("/unlock");
+              }}
+              title="Return to the access screen. Your Obsidian account stays signed in."
+            >
+              <Lock size={13} /> Lock workspace
+            </button>
+            <button
+              type="button"
+              className="dash-ghost"
+              data-testid="dashboard-signout"
+              onClick={async () => {
+                try { await supabase.auth.signOut(); } catch { /* ignore */ }
+                try { await lockSite(); } catch { /* ignore */ }
+                window.location.assign("/unlock");
+              }}
+              title="Sign out of your Obsidian account and lock the workspace."
+            >
+              <LogOut size={13} /> Sign out
+            </button>
+          </div>
         </header>
 
         <section className="dash-grid" aria-label="Business KPIs">
@@ -243,6 +271,15 @@ const dashCss = `
   font-weight: 600; font-size: 13px; text-decoration: none;
 }
 .dash-cta:hover { background: #DD9324; }
+.dash-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dash-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 10px;
+  background: transparent; color: #F2EEE7;
+  border: 1px solid rgba(255,255,255,0.14);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+}
+.dash-ghost:hover { background: rgba(244,161,37,0.08); border-color: rgba(244,161,37,0.4); }
 
 .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .dash-kpi { border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; background: rgba(255,255,255,0.02); }
