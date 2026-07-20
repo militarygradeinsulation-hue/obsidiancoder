@@ -2273,7 +2273,7 @@ function Index() {
             </div>
 
             {/* Core 4.0 — Adaptive Intelligence */}
-            <IntelligencePanel refreshKey={intelligenceTick} />
+            <IntelligencePanel refreshKey={intelligenceTick} intent={lastIntent} decision={lastDecision} />
             <StrategyExplanation />
             <LearningPanel onChange={() => setIntelligenceTick((n) => n + 1)} />
 
