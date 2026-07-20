@@ -1,19 +1,20 @@
 import { createFileRoute, redirect, useRouter, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { StripeEmbeddedCheckout } from "@/components/StripeEmbeddedCheckout";
+import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
+import { buildAuthUrl } from "@/lib/redirect-safe";
 
 const PRO_PRICE_ID = "obsidian_pro_monthly";
 
-type Intent = "buy" | "signin" | "code";
+type Intent = "buy" | "code";
 
 export const Route = createFileRoute("/unlock")({
   validateSearch: (s: Record<string, unknown>) => ({
     password: typeof s.password === "string" ? s.password : undefined,
-    intent: (s.intent === "buy" || s.intent === "signin" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
+    intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
     checkout: s.checkout === "1" ? "1" : undefined,
   }),
   beforeLoad: async ({ search }) => {
@@ -27,8 +28,11 @@ export const Route = createFileRoute("/unlock")({
     meta: [
       { title: "Get Obsidian Pro — Aetheris Obsidian" },
       { name: "description", content: "Start Obsidian Pro for $30/month or enter your access code. Build production-ready software with an AI engineering team." },
-      { name: "robots", content: "noindex,nofollow" },
+      { property: "og:title", content: "Get Obsidian Pro — Aetheris Obsidian" },
+      { property: "og:description", content: "Build production-ready software with an AI engineering team. $30/month, 1,000 AI credits per billing period." },
+      { property: "og:type", content: "website" },
     ],
+    links: [{ rel: "canonical", href: "/unlock" }],
   }),
   component: Unlock,
 });
@@ -97,21 +101,43 @@ function Unlock() {
   function startPurchase() {
     setError(null);
     if (!session) {
-      // Send to auth, then return here with checkout=1
-      const dest = "/unlock?intent=buy&checkout=1";
-      window.location.assign(`/auth?redirect=${encodeURIComponent(dest)}`);
+      // Send to auth in signup mode, then return here with checkout=1.
+      window.location.assign(buildAuthUrl("signup", "/unlock?intent=buy&checkout=1"));
       return;
     }
     setShowCheckout(true);
   }
 
   function goSignIn() {
-    window.location.assign(`/auth?redirect=${encodeURIComponent("/unlock?intent=signin")}`);
+    // Existing customers: land on auth in signin mode; the auth-state
+    // listener on this page then verifies Pro and unlocks the app.
+    window.location.assign(buildAuthUrl("signin", "/unlock"));
   }
 
   async function signOutAndReset() {
     await supabase.auth.signOut();
     setShowCheckout(false);
+  }
+
+  // --- Tab keyboard navigation (WAI-ARIA authoring practices) --------------
+  const tabOrder: Intent[] = ["buy", "code"];
+  const tabRefs = useRef<Record<Intent, HTMLButtonElement | null>>({ buy: null, code: null });
+  function focusTab(t: Intent) {
+    setTab(t);
+    // Focus follows selection so screen-reader users hear the panel change.
+    requestAnimationFrame(() => tabRefs.current[t]?.focus());
+  }
+  function onTabKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
+    const idx = tabOrder.indexOf(tab);
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault(); focusTab(tabOrder[(idx + 1) % tabOrder.length]);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault(); focusTab(tabOrder[(idx - 1 + tabOrder.length) % tabOrder.length]);
+    } else if (e.key === "Home") {
+      e.preventDefault(); focusTab(tabOrder[0]);
+    } else if (e.key === "End") {
+      e.preventDefault(); focusTab(tabOrder[tabOrder.length - 1]);
+    }
   }
 
   return (
@@ -164,8 +190,11 @@ function Unlock() {
             aria-selected={tab === "buy"}
             aria-controls="panel-buy"
             id="tab-buy"
+            tabIndex={tab === "buy" ? 0 : -1}
+            ref={(el) => { tabRefs.current.buy = el; }}
             className={`unlock-tab ${tab === "buy" ? "is-active" : ""}`}
             onClick={() => setTab("buy")}
+            onKeyDown={onTabKeyDown}
             type="button"
           >
             Get Obsidian Pro
@@ -175,8 +204,11 @@ function Unlock() {
             aria-selected={tab === "code"}
             aria-controls="panel-code"
             id="tab-code"
+            tabIndex={tab === "code" ? 0 : -1}
+            ref={(el) => { tabRefs.current.code = el; }}
             className={`unlock-tab ${tab === "code" ? "is-active" : ""}`}
             onClick={() => setTab("code")}
+            onKeyDown={onTabKeyDown}
             type="button"
           >
             Access Code
@@ -275,7 +307,11 @@ function Unlock() {
                   </div>
                   <button type="button" onClick={() => setShowCheckout(false)} className="checkout-back">← Back</button>
                 </div>
-                <StripeEmbeddedCheckout priceId={PRO_PRICE_ID} />
+                <CheckoutSurface
+                  priceId={PRO_PRICE_ID}
+                  onCancel={() => setShowCheckout(false)}
+                />
+
                 <p className="checkout-legal">
                   Secure billing through Stripe. Cancel anytime. By continuing you accept our{" "}
                   <Link to="/terms">Terms</Link> and <Link to="/privacy">Privacy</Link>.
@@ -331,7 +367,22 @@ const unlockCss = `
   color: #f2eee7;
   font-family: Inter, system-ui, sans-serif;
   padding: 24px 16px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.unlock-tab:focus-visible,
+.unlock-btn:focus-visible,
+.unlock-btn-primary:focus-visible,
+.unlock-btn-secondary:focus-visible,
+.unlock-disclosure:focus-visible {
+  outline: 2px solid #F4A125;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .unlock-face, .unlock-face svg, .unlock-card, .unlock-card-glow,
+  .unlock-title::before, .unlock-title::after {
+    animation: none !important;
+  }
 }
 .unlock-face {
   position: absolute; inset: 0;
