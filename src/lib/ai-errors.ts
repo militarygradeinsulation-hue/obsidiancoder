@@ -56,6 +56,7 @@ const DEFAULT_MESSAGES: Record<AiErrorCode, string> = {
   ai_timeout: "The request took too long and was cancelled.",
   ai_cancelled: "Cancelled.",
   ai_circuit_open: "AI provider is temporarily cooling down after repeated failures.",
+  billing_settlement_error: "Provider work completed but usage settlement failed. Your reservation is preserved and will be reconciled.",
   ai_internal: "Something went wrong on our side.",
 };
 
