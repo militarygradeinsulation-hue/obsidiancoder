@@ -41,48 +41,80 @@ export const Route = createFileRoute("/api/public/builds")({
         if (error) return new Response(error.message, { status: 500 });
         return Response.json({ builds: data ?? [] });
       },
-      // Public save: anyone building can persist their result. No IP/UA stored.
+      // Public save: cloud save requires either owner cookie OR a signed-in
+      // Pro user with credits. Local editing does not hit this route.
       POST: async ({ request }) => {
-        const body = (await request.json()) as {
-          title?: string;
-          prompt?: string;
-          html?: string;
-          model?: string;
-          session_id?: string;
-          client_id?: string;
-          library_code?: string;
-        };
-        if (!body.html || body.html.length < 20) return new Response("Missing html", { status: 400 });
-        const libCode = (body.library_code || "").trim();
-        if (libCode && (libCode.length < 4 || libCode.length > 64)) {
-          return new Response("Invalid library_code", { status: 400 });
+        const { requirePaidOperation, denialResponse, commitReservation, refundReservation, logOwnerUsage } =
+          await import("@/lib/credit-gate.server");
+        const entitlement = await requirePaidOperation(request, "cloud_save");
+        if (entitlement.kind === "denied" && entitlement.denial) {
+          return denialResponse(entitlement.denial);
         }
-        // Short unguessable slug for public share URLs.
-        const genSlug = () => {
-          const bytes = new Uint8Array(9);
-          crypto.getRandomValues(bytes);
-          return Array.from(bytes, (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 14);
-        };
-        const row = {
-          title: (body.title || "Untitled").slice(0, 120),
-          prompt: (body.prompt || "").slice(0, 8000),
-          html: body.html.slice(0, 6_000_000),
-          model: body.model || null,
-          session_id: body.session_id || null,
-          client_id: body.client_id || null,
-          library_code: libCode || null,
-          share_slug: genSlug(),
-          byte_size: body.html.length,
-        };
-        const admin = await sbAdmin();
-        const { data, error } = await admin
-          .from("builds" as never)
-          .insert(row as never)
-          .select("id, share_slug")
-          .single();
-        if (error) return new Response(error.message, { status: 500 });
-        const r = data as { id: string; share_slug: string };
-        return Response.json({ id: r.id, share_slug: r.share_slug });
+        try {
+          const body = (await request.json()) as {
+            title?: string;
+            prompt?: string;
+            html?: string;
+            model?: string;
+            session_id?: string;
+            client_id?: string;
+            library_code?: string;
+          };
+          if (!body.html || body.html.length < 20) {
+            if (entitlement.kind === "pro" && entitlement.reservation) {
+              await refundReservation(entitlement.reservation.reservationId);
+            }
+            return new Response("Missing html", { status: 400 });
+          }
+          const libCode = (body.library_code || "").trim();
+          if (libCode && (libCode.length < 4 || libCode.length > 64)) {
+            if (entitlement.kind === "pro" && entitlement.reservation) {
+              await refundReservation(entitlement.reservation.reservationId);
+            }
+            return new Response("Invalid library_code", { status: 400 });
+          }
+          const genSlug = () => {
+            const bytes = new Uint8Array(9);
+            crypto.getRandomValues(bytes);
+            return Array.from(bytes, (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 14);
+          };
+          const row = {
+            title: (body.title || "Untitled").slice(0, 120),
+            prompt: (body.prompt || "").slice(0, 8000),
+            html: body.html.slice(0, 6_000_000),
+            model: body.model || null,
+            session_id: body.session_id || null,
+            client_id: body.client_id || null,
+            library_code: libCode || null,
+            share_slug: genSlug(),
+            byte_size: body.html.length,
+          };
+          const admin = await sbAdmin();
+          const { data, error } = await admin
+            .from("builds" as never)
+            .insert(row as never)
+            .select("id, share_slug")
+            .single();
+          if (error) {
+            if (entitlement.kind === "pro" && entitlement.reservation) {
+              await refundReservation(entitlement.reservation.reservationId);
+            }
+            return new Response(error.message, { status: 500 });
+          }
+          if (entitlement.kind === "pro" && entitlement.reservation) {
+            await commitReservation(entitlement.reservation.reservationId);
+          } else if (entitlement.kind === "owner") {
+            await logOwnerUsage("cloud_save", 0);
+          }
+          const r = data as { id: string; share_slug: string };
+          return Response.json({ id: r.id, share_slug: r.share_slug });
+        } catch (err) {
+          if (entitlement.kind === "pro" && entitlement.reservation) {
+            await refundReservation(entitlement.reservation.reservationId);
+          }
+          const msg = err instanceof Error ? err.message : "Save failed";
+          return new Response(msg, { status: 500 });
+        }
       },
 
     },

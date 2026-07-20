@@ -56,6 +56,42 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_usage: {
+        Row: {
+          committed_at: string | null
+          created_at: string
+          credits: number
+          environment: string
+          id: string
+          operation: string
+          request_id: string | null
+          status: string
+          user_id: string
+        }
+        Insert: {
+          committed_at?: string | null
+          created_at?: string
+          credits: number
+          environment?: string
+          id?: string
+          operation: string
+          request_id?: string | null
+          status?: string
+          user_id: string
+        }
+        Update: {
+          committed_at?: string | null
+          created_at?: string
+          credits?: number
+          environment?: string
+          id?: string
+          operation?: string
+          request_id?: string | null
+          status?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       one_time_purchases: {
         Row: {
           amount_paid: number
@@ -92,6 +128,30 @@ export type Database = {
           stripe_customer_id?: string | null
           stripe_session_id?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      owner_usage: {
+        Row: {
+          created_at: string
+          credits: number
+          id: string
+          operation: string
+          request_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          credits?: number
+          id?: string
+          operation: string
+          request_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          credits?: number
+          id?: string
+          operation?: string
+          request_id?: string | null
         }
         Relationships: []
       }
@@ -172,9 +232,40 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      commit_credits: {
+        Args: { _request_id?: string; _reservation_id: string }
+        Returns: boolean
+      }
+      credit_balance: {
+        Args: { _cap: number; _env: string; _user_id: string }
+        Returns: {
+          cap: number
+          remaining: number
+          used: number
+        }[]
+      }
       has_active_pro: {
         Args: { check_env?: string; user_uuid: string }
         Returns: boolean
+      }
+      log_owner_usage: {
+        Args: { _credits: number; _operation: string; _request_id: string }
+        Returns: undefined
+      }
+      refund_credits: { Args: { _reservation_id: string }; Returns: boolean }
+      reserve_credits: {
+        Args: {
+          _amount: number
+          _cap: number
+          _env: string
+          _operation: string
+          _user_id: string
+        }
+        Returns: {
+          remaining_after: number
+          reservation_id: string
+          used_before: number
+        }[]
       }
     }
     Enums: {

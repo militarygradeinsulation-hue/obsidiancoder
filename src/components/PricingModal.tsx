@@ -1,10 +1,22 @@
 import { useState } from "react";
-import { X, Sparkles, Save } from "lucide-react";
+import { X, Sparkles, Save, Lock } from "lucide-react";
 import { StripeEmbeddedCheckout } from "./StripeEmbeddedCheckout";
-import { useAuth } from "@/hooks/useSubscription";
+import { useAuth, useCredits, useSubscription } from "@/hooks/useSubscription";
 import { Link } from "@tanstack/react-router";
+import { COST_PER_CREDIT_USD, CAP_PRO_MONTHLY } from "@/lib/credit-gate";
 
 type Plan = { priceId: string; title: string; price: string; cadence: string; blurb: string; features: string[]; icon: any };
+
+// Free plan is descriptive-only — no priceId, no checkout.
+const FREE_FEATURES = [
+  "Deterministic edits, preview, and export",
+  "Project Fusion, local version history",
+  "Local screenshots and downloads",
+  "Nothing leaves your browser",
+  "AI generation, image generation, cloud save, and GitHub deploy are OFF",
+];
+
+const PRO_CREDIT_USD = (CAP_PRO_MONTHLY * COST_PER_CREDIT_USD).toFixed(2);
 
 const PLANS: Plan[] = [
   {
@@ -12,8 +24,15 @@ const PLANS: Plan[] = [
     title: "Obsidian Pro",
     price: "$30",
     cadence: "/month",
-    blurb: "Unlimited builds, saves, Go Live, and GitHub deploys.",
-    features: ["Unlimited AI generations", "Priority Gemini 3 & GPT-5 models", "Unlimited Save Project", "Unlimited Go Live URLs", "GitHub push & Pages", "Cancel anytime"],
+    blurb: `Cloud AI, image generation, save, share, and GitHub deploy. Includes ${CAP_PRO_MONTHLY.toLocaleString()} credits per month (~$${PRO_CREDIT_USD} of provider cost at $${COST_PER_CREDIT_USD.toFixed(3)}/credit).`,
+    features: [
+      `${CAP_PRO_MONTHLY.toLocaleString()} credits / month`,
+      "Cloud AI generation (Gemini 3 · GPT-5 tiers)",
+      "Image generation (Leonardo · Higgsfield · Gemini)",
+      "Save to your library, publish share URLs",
+      "Push to GitHub and enable GitHub Pages",
+      "Cancel anytime",
+    ],
     icon: Sparkles,
   },
   {
@@ -21,14 +40,21 @@ const PLANS: Plan[] = [
     title: "Save & Host a Build",
     price: "$20",
     cadence: "one-time",
-    blurb: "Permanently save one build and host it at a public live URL.",
-    features: ["Keep this build forever", "Public share URL", "No login required to view", "One-time payment"],
+    blurb: "Permanently save one build and host it at a public live URL. Does not include ongoing AI generation.",
+    features: [
+      "Keep this build forever",
+      "Public share URL",
+      "No login required to view",
+      "One-time payment",
+    ],
     icon: Save,
   },
 ];
 
 export function PricingModal({ onClose, initialPriceId }: { onClose: () => void; initialPriceId?: string }) {
   const { userId, loading } = useAuth();
+  const { isPro } = useSubscription();
+  const credits = useCredits();
   const [selected, setSelected] = useState<string | null>(initialPriceId ?? null);
 
   return (
@@ -37,10 +63,20 @@ export function PricingModal({ onClose, initialPriceId }: { onClose: () => void;
         <div className="flex items-center justify-between px-6 py-4 border-b border-white/10">
           <div>
             <h2 className="text-lg font-semibold text-[#f2eee7]">Upgrade Aetheris Obsidian</h2>
-            <p className="text-xs text-[#B6BCC8]">Unlock unlimited builds or permanently save this one.</p>
+            <p className="text-xs text-[#B6BCC8]">
+              Free Local Mode always works. Pro unlocks cloud AI, image generation, save, share, and deploy.
+            </p>
           </div>
-          <button onClick={onClose} className="p-2 rounded hover:bg-white/5 text-[#B6BCC8]"><X className="h-4 w-4" /></button>
+          <button onClick={onClose} className="p-2 rounded hover:bg-white/5 text-[#B6BCC8]" aria-label="Close upgrade modal">
+            <X className="h-4 w-4" />
+          </button>
         </div>
+
+        {isPro && !credits.loading && (
+          <div className="px-6 py-3 border-b border-white/10 text-xs text-[#B6BCC8]">
+            You have Obsidian Pro · <span className="text-[#f2eee7]">{credits.used.toLocaleString()}</span> / {credits.cap.toLocaleString()} credits used this month · {credits.remaining.toLocaleString()} remaining.
+          </div>
+        )}
 
         {!loading && !userId && (
           <div className="p-8 text-center">
@@ -52,11 +88,32 @@ export function PricingModal({ onClose, initialPriceId }: { onClose: () => void;
         )}
 
         {userId && !selected && (
-          <div className="p-6 grid gap-4 sm:grid-cols-2">
+          <div className="p-6 grid gap-4 sm:grid-cols-3">
+            {/* Free Local — descriptive only, no checkout */}
+            <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 flex flex-col opacity-90">
+              <div className="flex items-center gap-2 mb-2">
+                <Lock className="h-4 w-4 text-[#B6BCC8]" />
+                <h3 className="text-[#f2eee7] font-semibold">Free Local</h3>
+              </div>
+              <div className="mb-2">
+                <span className="text-3xl font-bold text-[#f2eee7]">$0</span>
+                <span className="text-sm text-[#B6BCC8] ml-1">always</span>
+              </div>
+              <p className="text-xs text-[#B6BCC8] mb-4">
+                Local editing only. Nothing is sent to our servers. No AI, no cloud save, no deploy.
+              </p>
+              <ul className="text-xs text-[#B6BCC8] space-y-1.5 mb-5 flex-1">
+                {FREE_FEATURES.map((f) => (<li key={f}>• {f}</li>))}
+              </ul>
+              <div className="w-full py-2 rounded-md border border-white/10 text-[#B6BCC8] text-sm text-center">
+                Included with any account
+              </div>
+            </div>
+
             {PLANS.map((p) => {
               const Icon = p.icon;
               return (
-                <div key={p.priceId} className="rounded-xl border border-white/10 bg-white/[0.02] p-5 flex flex-col">
+                <div key={p.priceId} className="rounded-xl border border-[#c9953d]/30 bg-white/[0.02] p-5 flex flex-col">
                   <div className="flex items-center gap-2 mb-2">
                     <Icon className="h-4 w-4 text-[#F4A125]" />
                     <h3 className="text-[#f2eee7] font-semibold">{p.title}</h3>

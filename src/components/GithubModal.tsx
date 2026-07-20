@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Github, Loader2, ExternalLink, Rocket, Download, Check, X } from "lucide-react";
+import { authFetch } from "@/lib/auth-fetch";
 
 type GhUser = { login: string; avatar_url: string; name?: string };
 type Repo = {
@@ -19,7 +20,7 @@ type DeployResult = {
 const TOKEN_KEY = "obs.gh.token";
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
-  const r = await fetch("/api/github", {
+  const r = await authFetch("/api/github", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

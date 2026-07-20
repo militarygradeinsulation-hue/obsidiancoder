@@ -759,6 +759,36 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(fus_hash("abc") === fus_hash("abc") && fus_hash("abc") !== fus_hash("abd"), "fusion: content hash stable & discriminates"));
   }
 
+  // ─── credit gate: math, envelope, and reservation ledger ─────────────
+  {
+    const cg = await import("./credit-gate");
+    const b = cg.balanceFor(200, 1000);
+    results.push(assert(b.used === 200 && b.cap === 1000 && b.remaining === 800, "credit-gate: balanceFor math"));
+    results.push(assert(cg.canSpend(990, 1000, 10) === true, "credit-gate: canSpend at exact cap ok"));
+    results.push(assert(cg.canSpend(991, 1000, 10) === false, "credit-gate: canSpend rejects over cap"));
+    results.push(assert(cg.costForOperation("generate_html") === 10, "credit-gate: known op cost"));
+    results.push(assert(cg.capForPlan("free") === 0 && cg.capForPlan("pro") === 1000, "credit-gate: plan caps"));
+    const env = cg.creditsRequiredEnvelope({ code: "credits_required", operation: "generate_html", used: 1000, cap: 1000, needed: 10 });
+    results.push(assert(cg.isCreditsRequiredEnvelope(env), "credit-gate: envelope guard"));
+    results.push(assert(env.suggestedPriceId === "obsidian_pro_monthly", "credit-gate: suggests Pro price on 402"));
+    results.push(assert(env.remaining === 0, "credit-gate: envelope computes remaining"));
+
+    // Ledger — atomic reserve/commit/refund contract
+    const led = new cg.ReservationLedger(100);
+    const r1 = led.reserve(60);
+    const r2 = led.reserve(50);
+    results.push(assert(r1 !== null && r2 === null, "credit-gate: ledger rejects when second reservation would exceed cap"));
+    if (r1) led.refund(r1);
+    const r3 = led.reserve(50);
+    results.push(assert(r3 !== null && led.balance().used === 50, "credit-gate: refund restores capacity"));
+    if (r3) led.commit(r3);
+    results.push(assert(led.balance().used === 50, "credit-gate: commit does not change used"));
+  }
+
+
+
+
+
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;

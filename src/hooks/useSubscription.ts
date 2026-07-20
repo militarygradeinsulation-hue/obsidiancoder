@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { getStripeEnvironment } from "@/lib/stripe";
+import { CAP_PRO_MONTHLY, balanceFor, type Balance } from "@/lib/credit-gate";
 
 export interface SubscriptionRow {
   id: string;
@@ -72,15 +73,58 @@ export function useSubscription(): {
     return () => { supabase.removeChannel(ch); };
   }, [userId, load]);
 
+  // Server is the source of truth for entitlement. The client hook is a
+  // display-only heuristic; no localStorage overrides. A "9822" owner session
+  // still bypasses the server gate via the SITE_PASSWORD cookie, but it is
+  // NEVER treated as Pro on the client (which would fake up the UI without
+  // affecting server enforcement).
   const now = Date.now();
-  // Admin code override: entering 9822 unlocks unlimited access forever.
-  let adminOverride = false;
-  try {
-    adminOverride = typeof window !== "undefined" && window.localStorage.getItem("obs.adminCode") === "9822";
-  } catch { /* ignore */ }
-  const isPro = adminOverride || (!!subscription
+  const isPro = !!subscription
     && ["active", "trialing"].includes(subscription.status)
-    && (!subscription.current_period_end || new Date(subscription.current_period_end).getTime() > now));
+    && (!subscription.current_period_end || new Date(subscription.current_period_end).getTime() > now);
 
   return { subscription, isPro, loading, refetch: load };
+}
+
+/**
+ * Monthly credit balance for the signed-in user in the current Stripe env.
+ * Zero when there is no signed-in user. Refreshes on demand and after any
+ * subscription-table change (matches useSubscription).
+ */
+export function useCredits(): Balance & { loading: boolean; refetch: () => void } {
+  const { userId } = useAuth();
+  const [state, setState] = useState<Balance & { loading: boolean }>(
+    () => ({ ...balanceFor(0, 0), loading: true }),
+  );
+
+  const load = useCallback(async () => {
+    if (!userId) { setState({ ...balanceFor(0, 0), loading: false }); return; }
+    let env = "sandbox";
+    try { env = getStripeEnvironment(); } catch { /* ignore */ }
+    try {
+      const { data, error } = await supabase.rpc("credit_balance" as never, {
+        _user_id: userId,
+        _env: env,
+        _cap: CAP_PRO_MONTHLY,
+      } as never);
+      if (error || !data) {
+        setState({ ...balanceFor(0, CAP_PRO_MONTHLY), loading: false });
+        return;
+      }
+      const row = (Array.isArray(data) ? data[0] : data) as
+        | { used: number; cap: number; remaining: number } | null | undefined;
+      setState({
+        used: Number(row?.used ?? 0),
+        cap: Number(row?.cap ?? CAP_PRO_MONTHLY),
+        remaining: Number(row?.remaining ?? CAP_PRO_MONTHLY),
+        loading: false,
+      });
+    } catch {
+      setState({ ...balanceFor(0, CAP_PRO_MONTHLY), loading: false });
+    }
+  }, [userId]);
+
+  useEffect(() => { load(); }, [load]);
+
+  return { ...state, refetch: load };
 }

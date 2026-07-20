@@ -20,6 +20,8 @@ import { PricingModal } from "@/components/PricingModal";
 import { AccountModal } from "@/components/AccountModal";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
+import { authFetch } from "@/lib/auth-fetch";
+import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
 
 import { classifyTask } from "@/lib/task-classifier";
 import { tryDeterministicEdit } from "@/lib/deterministic-edits";
@@ -353,9 +355,27 @@ function Index() {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [pricingInitialPrice, setPricingInitialPrice] = useState<string | undefined>(undefined);
   const [accountOpen, setAccountOpen] = useState(false);
   const { userId: authUserId, email: authEmail } = useAuth();
   const { isPro } = useSubscription();
+
+  // Global paywall handler — authFetch dispatches obs:paywall on 401/402
+  // from any gated route. Open PricingModal and surface a terminal note
+  // without losing the user's in-flight work.
+  useEffect(() => {
+    function onPaywall(e: Event) {
+      const ce = e as CustomEvent<{ envelope: { code: string; message: string; suggestedPriceId?: string } }>;
+      const env = ce.detail?.envelope;
+      if (!env) return;
+      setPricingInitialPrice(env.suggestedPriceId);
+      setPricingOpen(true);
+      setTerminal((t) => [...t, `⚠ ${env.message}`]);
+    }
+    window.addEventListener("obs:paywall", onPaywall as EventListener);
+    return () => window.removeEventListener("obs:paywall", onPaywall as EventListener);
+  }, []);
+
 
   const [libraryBuilds, setLibraryBuilds] = useState<Array<{ id: string; title: string; created_at: string; prompt: string; share_slug: string; byte_size: number }>>([]);
   const [composerHeight, setComposerHeight] = useState<number>(() => {
@@ -458,7 +478,7 @@ function Index() {
 
   // ─── Free-tier gates (5 AI generations/day; Save requires Pro or one-time purchase) ───
   const FREE_DAILY_LIMIT = 5;
-  const [pricingInitialPrice, setPricingInitialPrice] = useState<string | undefined>(undefined);
+  // pricingInitialPrice is declared above with the paywall handler.
   function todayKey() { return "obs.gen_count." + new Date().toISOString().slice(0, 10); }
   function getTodayGenCount(): number {
     if (typeof window === "undefined") return 0;
@@ -514,7 +534,7 @@ function Index() {
         clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
         localStorage.setItem("obs.client_id", clientId);
       }
-      const res = await fetch("/api/public/builds", {
+      const res = await authFetch("/api/public/builds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1149,7 +1169,7 @@ function Index() {
       abortRef.current = patchController;
       try {
         setTerminal((t) => [...t, `→ Patch mode → ${modelForPatch}`]);
-        const pRes = await fetch("/api/patch", {
+        const pRes = await authFetch("/api/patch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: patchController.signal,
@@ -1329,7 +1349,7 @@ function Index() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const res = await fetch("/api/generate", {
+      const res = await authFetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1651,7 +1671,7 @@ function Index() {
           localStorage.setItem("obs.client_id", clientId);
         }
         const lib = (localStorage.getItem("obs.library_code") || "").trim();
-        fetch("/api/public/builds", {
+        authFetch("/api/public/builds", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1929,7 +1949,7 @@ function Index() {
                     clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
                     localStorage.setItem("obs.client_id", clientId);
                   }
-                  const res = await fetch("/api/public/builds", {
+                  const res = await authFetch("/api/public/builds", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({
