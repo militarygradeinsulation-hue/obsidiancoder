@@ -244,14 +244,14 @@ export const Route = createFileRoute("/api/generate")({
         let entitlement: EntitlementResult | null = null;
         let settled = false;
         const streamUsage = new StreamingUsageAccumulator();
-        let opForSettle: string = "generate_html";
+        let opForSettle: Operation = "generate_html";
         let modelForSettle: string = "unknown";
         const imageUsages: UsageRecord[] = [];
         const settleSuccess = async () => {
           if (settled) return;
           settled = true;
           if (!entitlement) return;
-          const parsed = streamUsage.finalize();
+          const parsed = streamUsage.hasUsage() ? streamUsage.snapshot() : null;
           const est = estimateUsdForCall({
             model: parsed?.model ?? modelForSettle,
             inputTokens: parsed?.inputTokens ?? 0,
