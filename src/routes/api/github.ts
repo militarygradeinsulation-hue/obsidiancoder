@@ -3,11 +3,11 @@ import { z } from "zod";
 import {
   requirePaidOperation,
   denialResponse,
-  commitReservation,
-  refundReservation,
-  logOwnerUsage,
+  settleOperation,
   type EntitlementResult,
 } from "@/lib/credit-gate.server";
+import { makeUsage } from "@/lib/usage-record";
+import { newRequestId } from "@/lib/ai-errors";
 
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify"), token: z.string().min(10).max(400) }),
@@ -191,22 +191,19 @@ export const Route = createFileRoute("/api/github")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const requestId = newRequestId();
         let entitlement: EntitlementResult | null = null;
-        let committed = false;
+        let settled = false;
         try {
           const parsed = bodySchema.parse(await request.json());
 
-          // ALL GitHub actions require paid entitlement (owner or active Pro).
-          // Only `deploy` charges credits; verify/listRepos/import are free
-          // reads for the entitled user — but the entitlement check itself
-          // must pass first to block free-tier callers.
           if (parsed.action === "deploy") {
-            entitlement = await requirePaidOperation(request, "github_deploy");
+            entitlement = await requirePaidOperation(request, "github_deploy", requestId);
             if (entitlement.kind === "denied" && entitlement.denial) {
-              return denialResponse(entitlement.denial);
+              return denialResponse(entitlement.denial, requestId);
             }
           } else {
-            // Owner cookie → allow. Otherwise require active Pro (no charge).
+            // Free-tier gate for verify/listRepos/import: owner cookie OR active Pro.
             const { isUnlockedServer } = await import("@/lib/gate.server");
             if (!(await isUnlockedServer())) {
               const { resolveUserFromRequest, hasActivePro, serverStripeEnv } = await import("@/lib/credit-gate.server");
@@ -243,7 +240,7 @@ export const Route = createFileRoute("/api/github")({
             const file = await importRepo(parsed.token, parsed.owner, parsed.repo);
             return Response.json({ ok: true, ...file });
           }
-          // deploy
+          // deploy — flat 1-credit success charge (no upstream token cost)
           const user = await getUser(parsed.token);
           const name = slugify(parsed.repo);
           const repoInfo = await ensureRepo(parsed.token, user.login, name, parsed.isPrivate);
@@ -254,20 +251,20 @@ export const Route = createFileRoute("/api/github")({
           await putFile(parsed.token, user.login, name, "README.md", readme, "Add README", branch);
           let pages: { html_url: string; alreadyEnabled: boolean } | null = null;
           if (parsed.enablePages) {
-            try {
-              pages = await enablePages(parsed.token, user.login, name, branch);
-            } catch (e) {
-              pages = null;
-            }
+            try { pages = await enablePages(parsed.token, user.login, name, branch); }
+            catch { pages = null; }
           }
-          // Commit the deploy charge.
-          const ent = entitlement as EntitlementResult | null;
-          if (ent?.kind === "pro" && ent.reservation) {
-            committed = true;
-            await commitReservation(ent.reservation.reservationId);
-          } else if (ent?.kind === "owner") {
-            committed = true;
-            await logOwnerUsage("github_deploy", 0);
+          if (entitlement) {
+            settled = true;
+            await settleOperation(entitlement, {
+              kind: "success",
+              usage: makeUsage({
+                provider: "github", operation: "github_deploy",
+                actualCostUsd: 0, costBasis: "actual", providerUsed: true, status: "committed",
+                credits: 1,
+                meta: { repo: name, pages: !!pages },
+              }),
+            });
           }
           return Response.json({
             ok: true,
@@ -276,10 +273,9 @@ export const Route = createFileRoute("/api/github")({
             pages,
           });
         } catch (err) {
-          const ent = entitlement as EntitlementResult | null;
-          if (!committed && ent?.kind === "pro" && ent.reservation) {
-            committed = true;
-            await refundReservation(ent.reservation.reservationId);
+          if (!settled && entitlement) {
+            try { await settleOperation(entitlement, { kind: "no_provider", errorCode: "github_deploy_failed" }); }
+            catch { /* already settled */ }
           }
           const msg = err instanceof Error ? err.message : "GitHub request failed.";
           return Response.json({ error: msg }, { status: 400 });

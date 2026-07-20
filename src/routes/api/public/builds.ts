@@ -44,33 +44,35 @@ export const Route = createFileRoute("/api/public/builds")({
       // Public save: cloud save requires either owner cookie OR a signed-in
       // Pro user with credits. Local editing does not hit this route.
       POST: async ({ request }) => {
-        const { requirePaidOperation, denialResponse, commitReservation, refundReservation, logOwnerUsage } =
+        const { requirePaidOperation, denialResponse, settleOperation } =
           await import("@/lib/credit-gate.server");
-        const entitlement = await requirePaidOperation(request, "cloud_save");
+        const { makeUsage } = await import("@/lib/usage-record");
+        const { newRequestId } = await import("@/lib/ai-errors");
+        const requestId = newRequestId();
+        const entitlement = await requirePaidOperation(request, "cloud_save", requestId);
         if (entitlement.kind === "denied" && entitlement.denial) {
-          return denialResponse(entitlement.denial);
+          return denialResponse(entitlement.denial, requestId);
         }
+        // cloud_save has no external provider — usage is a fixed minimum
+        // when it succeeds. Pre-provider (validation) failures refund.
+        const successUsage = () => makeUsage({
+          provider: "internal", model: null, operation: "cloud_save",
+          providerUsed: true, status: "committed",
+          // Zero external cost — the reservation itself is the meter.
+          actualCostUsd: 0, costBasis: "actual", credits: 1,
+        });
         try {
           const body = (await request.json()) as {
-            title?: string;
-            prompt?: string;
-            html?: string;
-            model?: string;
-            session_id?: string;
-            client_id?: string;
-            library_code?: string;
+            title?: string; prompt?: string; html?: string; model?: string;
+            session_id?: string; client_id?: string; library_code?: string;
           };
           if (!body.html || body.html.length < 20) {
-            if (entitlement.kind === "pro" && entitlement.reservation) {
-              await refundReservation(entitlement.reservation.reservationId);
-            }
+            await settleOperation(entitlement, { kind: "no_provider", errorCode: "missing_html" });
             return new Response("Missing html", { status: 400 });
           }
           const libCode = (body.library_code || "").trim();
           if (libCode && (libCode.length < 4 || libCode.length > 64)) {
-            if (entitlement.kind === "pro" && entitlement.reservation) {
-              await refundReservation(entitlement.reservation.reservationId);
-            }
+            await settleOperation(entitlement, { kind: "no_provider", errorCode: "invalid_library_code" });
             return new Response("Invalid library_code", { status: 400 });
           }
           const genSlug = () => {
@@ -96,22 +98,15 @@ export const Route = createFileRoute("/api/public/builds")({
             .select("id, share_slug")
             .single();
           if (error) {
-            if (entitlement.kind === "pro" && entitlement.reservation) {
-              await refundReservation(entitlement.reservation.reservationId);
-            }
+            // DB rejection = no external cost incurred, refund.
+            await settleOperation(entitlement, { kind: "no_provider", errorCode: "db_insert_failed" });
             return new Response(error.message, { status: 500 });
           }
-          if (entitlement.kind === "pro" && entitlement.reservation) {
-            await commitReservation(entitlement.reservation.reservationId);
-          } else if (entitlement.kind === "owner") {
-            await logOwnerUsage("cloud_save", 0);
-          }
+          await settleOperation(entitlement, { kind: "success", usage: successUsage() });
           const r = data as { id: string; share_slug: string };
           return Response.json({ id: r.id, share_slug: r.share_slug });
         } catch (err) {
-          if (entitlement.kind === "pro" && entitlement.reservation) {
-            await refundReservation(entitlement.reservation.reservationId);
-          }
+          try { await settleOperation(entitlement, { kind: "no_provider", errorCode: "cloud_save_internal" }); } catch { /* already settled */ }
           const msg = err instanceof Error ? err.message : "Save failed";
           return new Response(msg, { status: 500 });
         }

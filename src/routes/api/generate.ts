@@ -9,11 +9,11 @@ import { compactHtmlForContext } from "@/lib/context-compactor";
 import {
   requirePaidOperation,
   denialResponse,
-  commitReservation,
-  refundReservation,
-  logOwnerUsage,
+  settleOperation,
 } from "@/lib/credit-gate.server";
 import type { EntitlementResult } from "@/lib/credit-gate.server";
+import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, type UsageRecord } from "@/lib/usage-record";
+import type { Operation } from "@/lib/credit-gate";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -242,12 +242,60 @@ export const Route = createFileRoute("/api/generate")({
         // We defer the entitlement decision to after we parse `data` so we can
         // pick the right operation cost — but auth/owner check comes first.
         let entitlement: EntitlementResult | null = null;
-        let committed = false;
-        const refundOnFailure = async () => {
-          const e = entitlement as EntitlementResult | null;
-          if (e?.kind === "pro" && e.reservation && !committed) {
-            await refundReservation(e.reservation.reservationId);
+        let settled = false;
+        const streamUsage = new StreamingUsageAccumulator();
+        let opForSettle: Operation = "generate_html";
+        let modelForSettle: string = "unknown";
+        const imageUsages: UsageRecord[] = [];
+        const settleSuccess = async () => {
+          if (settled) return;
+          settled = true;
+          if (!entitlement) return;
+          const parsed = streamUsage.hasUsage() ? streamUsage.snapshot() : null;
+          const est = estimateUsdForCall({
+            model: parsed?.model ?? modelForSettle,
+            inputTokens: parsed?.inputTokens ?? 0,
+            outputTokens: parsed?.outputTokens ?? 0,
+            providerUsed: true,
+          });
+          const llmUsage = makeUsage({
+            provider: "lovable",
+            model: parsed?.model ?? modelForSettle,
+            operation: opForSettle,
+            inputTokens: parsed?.inputTokens ?? 0,
+            outputTokens: parsed?.outputTokens ?? 0,
+            totalTokens: parsed?.totalTokens ?? 0,
+            estimatedCostUsd: est.usd,
+            costBasis: est.basis,
+            providerUsed: true,
+            status: "committed",
+          });
+          const imageCost = imageUsages.reduce((s, u) => s + (u.actualCostUsd ?? u.estimatedCostUsd ?? 0), 0);
+          const imageTokens = imageUsages.reduce((s, u) => s + (u.totalTokens ?? 0), 0);
+          const merged: UsageRecord = {
+            ...llmUsage,
+            estimatedCostUsd: (llmUsage.estimatedCostUsd ?? 0) + imageCost,
+            totalTokens: (llmUsage.totalTokens ?? 0) + imageTokens,
+            imageCount: imageUsages.length,
+          };
+          await settleOperation(entitlement, { kind: "success", usage: merged });
+        };
+        const settleFailure = async (errorCode?: string) => {
+          if (settled) return;
+          settled = true;
+          if (!entitlement) return;
+          // If images were generated (provider work happened), record as failed.
+          if (imageUsages.length > 0) {
+            const imageCost = imageUsages.reduce((s, u) => s + (u.actualCostUsd ?? u.estimatedCostUsd ?? 0), 0);
+            const failedUsage = makeUsage({
+              provider: "lovable", model: modelForSettle, operation: opForSettle,
+              estimatedCostUsd: imageCost, costBasis: "estimated", providerUsed: true,
+              imageCount: imageUsages.length, status: "failed", errorCode,
+            });
+            await settleOperation(entitlement, { kind: "failed_with_usage", usage: failedUsage, errorCode });
+            return;
           }
+          await settleOperation(entitlement, { kind: "no_provider", errorCode });
         };
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
@@ -270,7 +318,8 @@ export const Route = createFileRoute("/api/generate")({
           // Entitlement check — after validation so we know if this is a
           // cheaper advisory op or full HTML generation.
           const op = data.advisory ? "enhance_prompt" : "generate_html";
-          entitlement = await requirePaidOperation(request, op);
+          opForSettle = op;
+          entitlement = await requirePaidOperation(request, op, requestId);
           if (entitlement.kind === "denied" && entitlement.denial) {
             return denialResponse(entitlement.denial, requestId);
           }
@@ -448,6 +497,8 @@ export const Route = createFileRoute("/api/generate")({
           timing.headers_ms = Math.round(headersAt - openedAt);
           timing.first_byte_ms = Math.round(performance.now() - t0);
 
+          modelForSettle = modelUsed;
+
           // Compose an SSE parser over the buffered sniff bytes + rest of the stream.
           const stream = new ReadableStream<Uint8Array>({
             async start(controller) {
@@ -460,15 +511,9 @@ export const Route = createFileRoute("/api/generate")({
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
                 if (ok) {
-                  // Commit the reservation now that the stream produced content.
-                  const ent = entitlement as EntitlementResult | null;
-                  if (ent?.kind === "pro" && ent.reservation) {
-                    committed = true;
-                    // Fire and forget — do not block the stream close on commit.
-                    commitReservation(ent.reservation.reservationId, requestId).catch(() => {});
-                  } else if (ent?.kind === "owner") {
-                    logOwnerUsage(op, 0, requestId).catch(() => {});
-                  }
+                  // Settle the reservation now that the stream produced content.
+                  // Fire and forget — do not block stream close on the DB write.
+                  settleSuccess().catch(() => {});
                   try {
                     if (!data.advisory && compacted.imagesReplaced > 0) {
                       const phJson = JSON.stringify(compacted.placeholders);
@@ -479,8 +524,8 @@ export const Route = createFileRoute("/api/generate")({
                   recordSuccess(breakerKeyGen);
                   controller.close();
                 } else {
-                  // Refund pro credits — nothing usable was produced.
-                  refundOnFailure().catch(() => {});
+                  // No usable output — refund unless the provider still did work.
+                  settleFailure(err instanceof Error ? err.message.slice(0, 60) : "stream_failed").catch(() => {});
                   recordFailure(breakerKeyGen);
                   controller.error(err ?? new Error("ai_upstream_empty"));
                 }
@@ -492,6 +537,10 @@ export const Route = createFileRoute("/api/generate")({
                     const line = buffer.slice(0, idx).trim();
                     buffer = buffer.slice(idx + 1);
                     if (!line.startsWith("data:")) continue;
+                    // Feed the accumulator so we capture final usage stats
+                    // (OpenAI + Gemini variants) — parsed internally, NEVER
+                    // written into the HTML the user receives.
+                    streamUsage.push(line);
                     const payload = line.slice(5).trim();
                     if (payload === "[DONE]") {
                       finalize(emittedBytes > 0);
@@ -546,7 +595,7 @@ export const Route = createFileRoute("/api/generate")({
           });
         } catch (err) {
           // Refund any pending reservation on synchronous failure.
-          await refundOnFailure();
+          await settleFailure(err instanceof AiError ? err.code : "generate_internal");
           const aiErr = err instanceof AiError
             ? err
             : new AiError({
