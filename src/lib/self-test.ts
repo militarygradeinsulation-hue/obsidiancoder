@@ -899,9 +899,113 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(legacyRefs.FREE_DAILY_LIMIT === undefined, "entitlement: FREE_DAILY_LIMIT is not a global"));
   }
 
+  // ────────────────────────────────────────────────────────────────
+  // Usage ledger (mocked usage_reserve / usage_finalize / usage_refund /
+  // usage_balance) — mirrors the SQL contract; no live DB / provider calls.
+  // ────────────────────────────────────────────────────────────────
+  {
+    const { UsageLedger } = await import("./usage-ledger-mock");
+    const NOW = 1_700_000_000_000;
+    const PS = NOW - 5 * 24 * 3600_000;
+    const PE = NOW + 25 * 24 * 3600_000;
+    const CAP = 1000;
+
+    // 1. Exact subscription periods drive the window (not calendar-month).
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "u1", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const bal = l.balance("u1", "sandbox", CAP);
+      results.push(assert(bal.active && bal.periodStart === PS && bal.periodEnd === PE,
+        "usage_ledger: balance reports exact subscription period"));
+    }
+
+    // 2. Missing period blocks; expired period blocks; future period blocks.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "u2", env: "sandbox", status: "active", periodStart: null, periodEnd: null });
+      const r = l.reserve("u2", 10, CAP, "sandbox", "generate_html", "req_a");
+      results.push(assert(r === "no_period", "usage_ledger: null period blocks reserve"));
+      results.push(assert(l.balance("u2", "sandbox", CAP).active === false, "usage_ledger: null period balance inactive"));
+
+      const l2 = new UsageLedger(); l2.now = () => NOW;
+      l2.addSub({ userId: "u3", env: "sandbox", status: "active", periodStart: NOW - 100_000, periodEnd: NOW - 1 });
+      results.push(assert(l2.reserve("u3", 10, CAP, "sandbox", "op", "req_b") === "no_period",
+        "usage_ledger: expired period blocks reserve"));
+
+      const l3 = new UsageLedger(); l3.now = () => NOW;
+      l3.addSub({ userId: "u4", env: "sandbox", status: "active", periodStart: NOW + 3600_000, periodEnd: NOW + 7200_000 });
+      results.push(assert(l3.reserve("u4", 10, CAP, "sandbox", "op", "req_c") === "no_period",
+        "usage_ledger: future period blocks reserve"));
+    }
+
+    // 3. Idempotency — same request_id returns same row, does not double-charge.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "u5", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r1 = l.reserve("u5", 10, CAP, "sandbox", "generate_html", "REQ-1") as { reservationId: string; idempotent: boolean; credits: number };
+      const r2 = l.reserve("u5", 10, CAP, "sandbox", "generate_html", "REQ-1") as { reservationId: string; idempotent: boolean; credits: number };
+      results.push(assert(r1.reservationId === r2.reservationId && r2.idempotent === true && r1.credits === 10,
+        "usage_ledger: idempotent request_id returns same reservation"));
+      const bal = l.balance("u5", "sandbox", CAP);
+      results.push(assert(bal.reserved === 10 && bal.used === 0, "usage_ledger: idempotency does not double-reserve"));
+    }
+
+    // 4. Concurrency — two racing reservations cannot exceed cap.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "u6", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r1 = l.reserve("u6", 600, CAP, "sandbox", "op", "reqA");
+      const r2 = l.reserve("u6", 500, CAP, "sandbox", "op", "reqB");
+      const r3 = l.reserve("u6", 400, CAP, "sandbox", "op", "reqC");
+      results.push(assert(r1 && typeof r1 === "object" && r3 && typeof r3 === "object" && r2 === null,
+        "usage_ledger: cap enforced across concurrent reservations"));
+      const bal = l.balance("u6", "sandbox", CAP);
+      results.push(assert(bal.reserved === 1000 && bal.remaining === 0,
+        "usage_ledger: total reserved equals cap after fill"));
+    }
+
+    // 5. Finalization — updates same pending row (in-place).
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "u7", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r = l.reserve("u7", 10, CAP, "sandbox", "op", "reqF") as { reservationId: string };
+      const rowsBefore = l.rows.size;
+      const ok = l.finalize(r.reservationId, 4, "committed");
+      results.push(assert(ok && l.rows.size === rowsBefore, "usage_ledger: finalize does not insert a second row"));
+      const row = l.rows.get(r.reservationId)!;
+      results.push(assert(row.status === "committed" && row.creditsCharged === 4 && row.creditsReserved === 4,
+        "usage_ledger: finalize updates status + charge in place"));
+      // Idempotent — second call returns true, does not change values.
+      results.push(assert(l.finalize(r.reservationId, 99, "committed") === true && row.creditsCharged === 4,
+        "usage_ledger: finalize is idempotent for terminal rows"));
+
+      const bal = l.balance("u7", "sandbox", CAP);
+      results.push(assert(bal.used === 4 && bal.reserved === 0, "usage_ledger: balance reflects committed usage only"));
+    }
+
+    // 6. Refund — clears pending reservation, does not affect committed rows.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "u8", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r = l.reserve("u8", 10, CAP, "sandbox", "op", "reqR") as { reservationId: string };
+      results.push(assert(l.refund(r.reservationId) === true, "usage_ledger: refund pending row succeeds"));
+      results.push(assert(l.refund(r.reservationId) === true, "usage_ledger: refund is idempotent"));
+      const bal = l.balance("u8", "sandbox", CAP);
+      results.push(assert(bal.used === 0 && bal.reserved === 0 && bal.remaining === CAP,
+        "usage_ledger: refund releases credits"));
+
+      // Cannot refund a committed row.
+      const r2 = l.reserve("u8", 5, CAP, "sandbox", "op", "reqR2") as { reservationId: string };
+      l.finalize(r2.reservationId, 5);
+      results.push(assert(l.refund(r2.reservationId) === false,
+        "usage_ledger: refund rejected on committed row"));
+    }
+  }
+
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };
 }
+
 
 

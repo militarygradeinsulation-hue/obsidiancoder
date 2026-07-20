@@ -58,10 +58,10 @@ export const Route = createFileRoute("/api/public/entitlement")({
           };
           return new Response(JSON.stringify(snap), { headers: NO_STORE });
         }
-        // Active Pro — pull period + credit balance via admin.
+        // Active Pro — pull the subscription-window balance from usage_balance.
         let periodStart: string | null = null;
         let periodEnd: string | null = null;
-        let used = 0, reserved = 0, remaining = CAP_PRO_MONTHLY;
+        let used = 0, reserved = 0, remaining = 0;
         let subStatus: string | null = "active";
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -79,24 +79,25 @@ export const Route = createFileRoute("/api/public/entitlement")({
             periodStart = r.current_period_start;
             periodEnd = r.current_period_end;
           }
-          const { data: bal } = await supabaseAdmin.rpc("credit_balance_period" as never, {
+          const { data: bal } = await supabaseAdmin.rpc("usage_balance" as never, {
             _user_id: user.userId, _env: env, _cap: CAP_PRO_MONTHLY,
           } as never);
           const row = (Array.isArray(bal) ? bal[0] : bal) as
-            | { used: number; reserved: number; cap: number; remaining: number; period_start: string; period_end: string }
+            | { used: number; reserved: number; cap: number; remaining: number; period_start: string | null; period_end: string | null; active: boolean }
             | null | undefined;
           if (row) {
             used = Number(row.used ?? 0);
             reserved = Number(row.reserved ?? 0);
-            remaining = Number(row.remaining ?? CAP_PRO_MONTHLY);
-            periodStart = periodStart ?? row.period_start ?? null;
-            periodEnd = periodEnd ?? row.period_end ?? null;
+            remaining = Number(row.remaining ?? 0);
+            periodStart = row.period_start ?? periodStart;
+            periodEnd = row.period_end ?? periodEnd;
           }
         } catch { /* best-effort */ }
         const snap: EntitlementSnapshot = {
           mode: "pro", authed: true, subStatus, environment: env,
           periodStart, periodEnd, used, reserved, cap: CAP_PRO_MONTHLY, remaining,
         };
+
         return new Response(JSON.stringify(snap), { headers: NO_STORE });
       },
     },

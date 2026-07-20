@@ -384,6 +384,58 @@ export type Database = {
           used_before: number
         }[]
       }
+      usage_balance: {
+        Args: { _cap: number; _env: string; _user_id: string }
+        Returns: {
+          active: boolean
+          cap: number
+          period_end: string
+          period_start: string
+          remaining: number
+          reserved: number
+          used: number
+        }[]
+      }
+      usage_finalize: {
+        Args: {
+          _actual_cost_usd?: number
+          _actual_credits: number
+          _cost_basis?: string
+          _error_code?: string
+          _estimated_cost_usd?: number
+          _image_count?: number
+          _input_tokens?: number
+          _meta?: Json
+          _model?: string
+          _output_tokens?: number
+          _provider?: string
+          _request_id: string
+          _reservation_id: string
+          _status?: string
+          _total_tokens?: number
+        }
+        Returns: boolean
+      }
+      usage_refund: { Args: { _reservation_id: string }; Returns: boolean }
+      usage_reserve: {
+        Args: {
+          _amount: number
+          _cap: number
+          _env: string
+          _operation: string
+          _request_id: string
+          _user_id: string
+        }
+        Returns: {
+          credits: number
+          idempotent: boolean
+          period_end: string
+          period_start: string
+          remaining_after: number
+          reservation_id: string
+          used_before: number
+        }[]
+      }
     }
     Enums: {
       [_ in never]: never

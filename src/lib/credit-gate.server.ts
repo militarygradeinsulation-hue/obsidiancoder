@@ -1,17 +1,18 @@
 // Server-only credit gate. Never import from client bundles.
 //
-// Runtime flow (as of the usage-ledger conversion):
+// Runtime flow (usage_* ledger — the ONLY runtime billing surface):
 //   1. requirePaidOperation(request, op, requestId)
-//        → owner cookie OR bearer → active Pro → reserve_credits_v2(requestId)
+//        → owner cookie OR bearer → active Pro (real period) → usage_reserve(requestId)
 //        → returns EntitlementResult { kind, reservation?, denial? }.
 //   2. Caller does the work, then builds a UsageRecord.
-//   3. settleOperation(ent, requestId, outcome) commits, refunds, or logs
-//      owner activity as appropriate and writes a row to `ai_usage`.
+//   3. settleOperation(ent, outcome) commits (usage_finalize), refunds
+//      (usage_refund), or logs owner activity. usage_finalize UPDATES the
+//      same pending ai_usage row — no second insert.
 //
-// Legacy `reserve_credits` / `commit_credits` RPCs are NEVER called from
-// runtime paths anymore — only `reserve_credits_v2`, `finalize_credits`, and
-// `refund_credits`. The pure JS ReservationLedger in `credit-gate.ts` still
-// mirrors the SQL contract for unit tests.
+// Legacy `reserve_credits*` / `finalize_credits` / `refund_credits` RPCs
+// are NOT called from any runtime path. The pure JS ReservationLedger in
+// `credit-gate.ts` mirrors the SQL contract for unit tests.
+
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
@@ -116,19 +117,22 @@ export interface EntitlementResult {
 }
 
 /**
- * Atomic, idempotent reservation via `reserve_credits_v2`. The same
- * `requestId` returns the same reservation row without double-charging —
- * the SQL enforces the invariant, we just carry the id through.
+ * Atomic, idempotent reservation via `usage_reserve`. The same
+ * `requestId` returns the same ai_usage row — SQL enforces the invariant.
+ * Returns `{ reservation | null | "no_period" }`:
+ *   - reservation: successful reservation (or the existing idempotent row)
+ *   - null:        cap would be exceeded (no row created)
+ *   - "no_period": subscription is missing / expired current period
  */
-async function reserveCreditsV2(
+async function usageReserve(
   user: AuthedUser,
   operation: Operation,
   env: Environment,
   requestId: string,
-): Promise<Reservation | null> {
+): Promise<Reservation | null | "no_period"> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const amount = costForOperation(operation);
-  const { data, error } = await supabaseAdmin.rpc("reserve_credits_v2" as never, {
+  const { data, error } = await supabaseAdmin.rpc("usage_reserve" as never, {
     _user_id: user.userId,
     _amount: amount,
     _cap: CAP_PRO_MONTHLY,
@@ -136,7 +140,10 @@ async function reserveCreditsV2(
     _operation: operation,
     _request_id: requestId,
   } as never);
-  if (error) throw new Error(`reserve_credits_v2 failed: ${error.message}`);
+  if (error) {
+    if (/no_active_subscription_period/.test(error.message)) return "no_period";
+    throw new Error(`usage_reserve failed: ${error.message}`);
+  }
   const row = (Array.isArray(data) ? data[0] : data) as
     | { reservation_id: string; credits: number; used_before: number; remaining_after: number; idempotent: boolean }
     | null
@@ -154,32 +161,48 @@ async function reserveCreditsV2(
 }
 
 /**
- * Finalize a reservation to `actualCredits`. Errors are surfaced — settlement
- * failures must never be silently swallowed (a swallowed finalize would leak
- * the reservation as pending forever).
+ * Finalize a reservation in-place (usage_finalize UPDATEs the pending row
+ * — no second insert). Idempotent for already-terminal rows.
+ * Errors are surfaced; a swallowed failure would leak the reservation.
  */
-async function finalizeReservation(
+async function usageFinalize(
   reservationId: string,
   actualCredits: number,
   requestId: string,
+  status: "committed" | "failed",
+  usage?: UsageRecord,
+  errorCode?: string,
 ): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin.rpc("finalize_credits" as never, {
+  const { data, error } = await supabaseAdmin.rpc("usage_finalize" as never, {
     _reservation_id: reservationId,
     _actual_credits: Math.max(0, Math.floor(actualCredits)),
     _request_id: requestId,
+    _status: status,
+    _error_code: errorCode ?? usage?.errorCode ?? null,
+    _provider: usage?.provider ?? null,
+    _model: usage?.model ?? null,
+    _input_tokens: usage?.inputTokens ?? 0,
+    _output_tokens: usage?.outputTokens ?? 0,
+    _total_tokens: usage?.totalTokens ?? 0,
+    _image_count: usage?.imageCount ?? 0,
+    _actual_cost_usd: usage?.actualCostUsd ?? null,
+    _estimated_cost_usd: usage?.estimatedCostUsd ?? null,
+    _cost_basis: usage?.costBasis ?? null,
+    _meta: usage?.meta ?? null,
   } as never);
-  if (error) throw new Error(`finalize_credits failed: ${error.message}`);
-  if (data === false) throw new Error("finalize_credits returned false (reservation missing or wrong state)");
+  if (error) throw new Error(`usage_finalize failed: ${error.message}`);
+  if (data === false) throw new Error("usage_finalize returned false (reservation missing)");
 }
 
-async function refundReservation(reservationId: string): Promise<void> {
+async function usageRefundReservation(reservationId: string): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { error } = await supabaseAdmin.rpc("refund_credits" as never, {
+  const { error } = await supabaseAdmin.rpc("usage_refund" as never, {
     _reservation_id: reservationId,
   } as never);
-  if (error) throw new Error(`refund_credits failed: ${error.message}`);
+  if (error) throw new Error(`usage_refund failed: ${error.message}`);
 }
+
 
 export interface OwnerUsageMeta {
   provider?: string;
@@ -276,7 +299,16 @@ export async function requirePaidOperation(
     };
   }
 
-  const reservation = await reserveCreditsV2(user, operation, env, requestId);
+  const reservation = await usageReserve(user, operation, env, requestId);
+  if (reservation === "no_period") {
+    return {
+      kind: "denied", env, requestId, user,
+      denial: creditsRequiredEnvelope({
+        code: "not_pro", operation,
+        message: "Your Pro subscription has no active billing period. Renew or contact support.",
+      }),
+    };
+  }
   if (!reservation) {
     return {
       kind: "denied", env, requestId, user,
@@ -289,6 +321,7 @@ export async function requirePaidOperation(
   }
   return { kind: "pro", env, requestId, user, reservation };
 }
+
 
 export function denialResponse(denial: CreditsRequiredEnvelope, requestId?: string): Response {
   const status = denial.code === "auth_required" ? 401 : 402;
@@ -309,16 +342,15 @@ export type SettleOutcome =
   | { kind: "no_provider"; errorCode?: string };
 
 /**
- * Commit / refund / log the reservation to durable storage in ONE call.
+ * Commit / refund / log the reservation in ONE call.
  *   - denied      → no-op (denial already returned to the caller).
  *   - owner       → writes an ai_usage row + owner_usage log (credits=0).
- *   - pro success → finalize_credits(actualCredits) + ai_usage(status=committed).
- *   - pro failed_with_usage → finalize_credits(actualCredits) + ai_usage(status=failed).
- *   - pro no_provider → refund_credits (no ai_usage row; nothing consumed).
+ *   - pro success → usage_finalize(charge, status='committed') — updates the pending row.
+ *   - pro failed_with_usage → usage_finalize(charge, status='failed').
+ *   - pro no_provider → usage_refund (releases the pending reservation).
  *
- * RPC errors are NOT swallowed. If Supabase rejects the settlement we throw so
- * the caller can log the drift — a swallowed failure means a stuck pending
- * reservation the user pays for forever.
+ * RPC errors are NOT swallowed. A swallowed failure would leave a stuck
+ * pending reservation the user pays for forever.
  */
 export async function settleOperation(
   ent: EntitlementResult,
@@ -327,10 +359,7 @@ export async function settleOperation(
   if (ent.kind === "denied") return;
 
   if (ent.kind === "owner") {
-    if (outcome.kind === "no_provider") {
-      // Nothing metered for the owner either.
-      return;
-    }
+    if (outcome.kind === "no_provider") return;
     const usage = outcome.usage;
     await logOwnerUsage(usage.operation, 0, ent.requestId, {
       provider: usage.provider,
@@ -352,39 +381,17 @@ export async function settleOperation(
   if (!res) return;
 
   if (outcome.kind === "no_provider") {
-    await refundReservation(res.reservationId);
+    await usageRefundReservation(res.reservationId);
     return;
   }
 
   const usage = outcome.usage;
   const charge = Math.max(0, Math.min(usage.credits, res.credits));
-  await finalizeReservation(res.reservationId, charge, ent.requestId);
-
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const status = outcome.kind === "success" ? "committed" : "failed";
-  const errorCode = outcome.kind === "failed_with_usage" ? outcome.errorCode ?? usage.errorCode : usage.errorCode;
-
-  const { error } = await supabaseAdmin.from("ai_usage" as never).insert({
-    request_id: ent.requestId,
-    user_id: ent.user?.userId ?? null,
-    actor_type: "user",
-    operation: usage.operation,
-    provider: usage.provider,
-    model: usage.model ?? null,
-    input_tokens: usage.inputTokens,
-    output_tokens: usage.outputTokens,
-    total_tokens: usage.totalTokens,
-    image_count: usage.imageCount,
-    actual_cost_usd: usage.actualCostUsd ?? null,
-    estimated_cost_usd: usage.estimatedCostUsd ?? null,
-    cost_basis: usage.costBasis,
-    credits_reserved: res.credits,
-    credits_charged: charge,
-    status,
-    error_code: errorCode ?? null,
-    environment: ent.env,
-    meta: usage.meta ?? null,
-  } as never);
-  if (error) throw new Error(`ai_usage insert failed: ${error.message}`);
+  const errorCode = outcome.kind === "failed_with_usage"
+    ? (outcome.errorCode ?? usage.errorCode)
+    : usage.errorCode;
+  await usageFinalize(res.reservationId, charge, ent.requestId, status, usage, errorCode);
 }
+
 
