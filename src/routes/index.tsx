@@ -750,6 +750,24 @@ function Index() {
     setTab("preview");
     setError(null);
     setTerminal((t) => [...t, `→ Reverted to "${version.label}"`]);
+    const restoreOpId = newOperationId();
+    setLastOperation({
+      operationId: restoreOpId,
+      startedAt: Date.now(),
+      finishedAt: Date.now(),
+      durationMs: 0,
+      requestedModel: version.metadata?.model ?? "n/a",
+      actualModel: version.metadata?.actualModel ?? version.metadata?.model ?? "n/a",
+      strategy: "restore",
+      taskType: version.metadata?.taskType ?? "unknown",
+      providerChain: version.metadata?.providerChain?.slice() ?? [],
+      imageProviders: version.metadata?.imageProviders,
+      imageCount: version.metadata?.imageCount,
+      validationStatus: version.metadata?.validation.status,
+      outcome: "restored",
+      rollbackId: version.id,
+      reason: version.label.slice(0, 60),
+    });
     try {
       appendLedgerEvent({ kind: "version-restored", outcome: "restored", note: version.label });
       setIntelligenceTick((n) => n + 1);
