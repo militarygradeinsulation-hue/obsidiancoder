@@ -11,6 +11,9 @@ import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
+import { BuilderErrorBoundary } from "../components/BuilderErrorBoundary";
+import IntroSplash from "../components/IntroSplash";
+
 
 function NotFoundComponent() {
   return (
@@ -77,28 +80,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Obsidian — Make Your Ideas Impossible To Ignore." },
+      { title: "Aetheris Obsidian — Tell it what to build" },
       {
         name: "description",
-        content: "Obsidian removes the translation tax between idea, design, code, and refinement. The result is less tool friction, fewer broken handoffs, and more potential.",
+        content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
       },
       { property: "og:site_name", content: "Aetheris Coder" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "Obsidian — Make Your Ideas Impossible To Ignore." },
-      { name: "twitter:title", content: "Obsidian — Make Your Ideas Impossible To Ignore." },
-      { property: "og:description", content: "Obsidian removes the translation tax between idea, design, code, and refinement. The result is less tool friction, fewer broken handoffs, and more potential." },
-      { name: "twitter:description", content: "Obsidian removes the translation tax between idea, design, code, and refinement. The result is less tool friction, fewer broken handoffs, and more potential." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784521010366-13368.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784521010366-13368.webp" },
+      { property: "og:title", content: "Aetheris Obsidian — Tell it what to build" },
+      { name: "twitter:title", content: "Aetheris Obsidian — Tell it what to build" },
+      { property: "og:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
+      { name: "twitter:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/95c02ebb-f0f5-43e9-814b-0c46901dece5/id-preview-f969d54d--bbfc65dd-76bc-44ba-98f1-fd9ab610072c.lovable.app-1784213248324.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/95c02ebb-f0f5-43e9-814b-0c46901dece5/id-preview-f969d54d--bbfc65dd-76bc-44ba-98f1-fd9ab610072c.lovable.app-1784213248324.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
       },
     ],
   }),
@@ -127,8 +131,12 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-      <Outlet />
+      <BuilderErrorBoundary>
+        <IntroSplash />
+        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+        <Outlet />
+      </BuilderErrorBoundary>
     </QueryClientProvider>
   );
 }
+
