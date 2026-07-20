@@ -87,7 +87,7 @@ export function PricingModal({ onClose, initialPriceId }: { onClose: () => void;
         )}
 
         {userId && !selected && (
-          <div className="p-6 grid gap-4 sm:grid-cols-3">
+          <div className="p-6 grid gap-4 sm:grid-cols-2">
             {/* Free Local — descriptive only, no checkout */}
             <div className="rounded-xl border border-white/10 bg-white/[0.02] p-5 flex flex-col opacity-90">
               <div className="flex items-center gap-2 mb-2">
