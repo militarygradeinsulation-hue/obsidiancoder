@@ -208,7 +208,7 @@ export function creditsRequiredEnvelope(args: {
     cap: args.cap,
     remaining,
     suggestedPriceId: args.code === "not_pro" || args.code === "credits_required"
-      ? "obsidian_pro_monthly"
+      ? "obsidian_creator_monthly"
       : undefined,
   };
 }
