@@ -1443,6 +1443,18 @@ function Index() {
         charactersAdded: fullDiff.charsAdded,
         charactersRemoved: fullDiff.charsRemoved,
       }));
+      try {
+        appendLedgerEvent({
+          kind: "fullgen-accepted",
+          taskType: classification.taskType,
+          strategy: "full-generation",
+          model: modelForServer,
+          outcome: "ok",
+          durationMs: durationMsGen,
+          validationStatus: validation.status,
+        });
+        setIntelligenceTick((n) => n + 1);
+      } catch { /* best-effort */ }
       // Auto-save to the user's private library (keyed by their library code).
       try {
         let clientId = localStorage.getItem("obs.client_id");
