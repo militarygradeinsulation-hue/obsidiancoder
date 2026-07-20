@@ -1585,6 +1585,63 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
       "hasActivePro: query only ever uses the verified user id"));
   }
 
+  // ------------------------------------------------------------------
+  // Redirect safety + auth URL builder (src/lib/redirect-safe.ts)
+  // ------------------------------------------------------------------
+  {
+    const { isSafeInternalRedirect, safeRedirectOr, buildAuthUrl } = await import("./redirect-safe");
+
+    for (const good of ["/", "/gallery", "/unlock?intent=buy&checkout=1", "/x#y"]) {
+      results.push(assert(isSafeInternalRedirect(good), `redirect-safe: accepts ${good}`));
+    }
+    for (const bad of [
+      "http://evil.com", "https://evil.com/x", "javascript:alert(1)",
+      "//evil.com/x", "/\\evil.com", "  /x", "\t/x", "\n/x",
+      "", "x", "mailto:a@b.c", 123 as unknown, null, undefined,
+    ]) {
+      results.push(assert(!isSafeInternalRedirect(bad), `redirect-safe: rejects ${String(bad)}`));
+    }
+
+    results.push(assert(safeRedirectOr("//evil", "/fallback") === "/fallback",
+      "safeRedirectOr: unsafe → fallback"));
+    results.push(assert(safeRedirectOr("/ok", "/fallback") === "/ok",
+      "safeRedirectOr: safe passes through"));
+
+    const url = buildAuthUrl("signup", "/unlock?intent=buy&checkout=1");
+    results.push(assert(url.startsWith("/auth?"), "buildAuthUrl: internal"));
+    results.push(assert(url.includes("mode=signup"), "buildAuthUrl: mode param"));
+    results.push(assert(url.includes("redirect=%2Funlock%3Fintent%3Dbuy%26checkout%3D1"),
+      "buildAuthUrl: redirect encoded"));
+    const url2 = buildAuthUrl("signin", "https://evil.com");
+    results.push(assert(url2 === "/auth?mode=signin&redirect=%2F",
+      "buildAuthUrl: unsafe redirect collapses to /"));
+  }
+
+  // ------------------------------------------------------------------
+  // Checkout state machine (src/lib/checkout-state.ts)
+  // ------------------------------------------------------------------
+  {
+    const { nextCheckoutState, checkoutErrorFromThrow } = await import("./checkout-state");
+    results.push(assert(nextCheckoutState("idle", { type: "open" }) === "loading",
+      "checkout-state: open → loading"));
+    results.push(assert(nextCheckoutState("loading", { type: "ready" }) === "ready",
+      "checkout-state: ready"));
+    results.push(assert(nextCheckoutState("loading", { type: "error" }) === "error",
+      "checkout-state: error"));
+    results.push(assert(nextCheckoutState("error", { type: "retry" }) === "loading",
+      "checkout-state: retry re-enters loading"));
+    results.push(assert(nextCheckoutState("ready", { type: "cancel" }) === "idle",
+      "checkout-state: cancel → idle"));
+    results.push(assert(checkoutErrorFromThrow(new Error("boom")) === "boom",
+      "checkout-state: extracts Error.message"));
+    results.push(assert(checkoutErrorFromThrow("nope") === "nope",
+      "checkout-state: passes through string"));
+    results.push(assert(typeof checkoutErrorFromThrow({}) === "string",
+      "checkout-state: fallback for unknown"));
+  }
+
+
+
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
