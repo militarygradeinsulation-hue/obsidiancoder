@@ -77,7 +77,8 @@ export const PLAN_TIERS: PlanTier[] = [
       "Priority AI models and faster generations",
       "Custom domains and GitHub deploys",
     ],
-    cta: "waitlist",
+    priceId: "obsidian_professional_monthly",
+    cta: "checkout",
     icon: Briefcase,
   },
   {
