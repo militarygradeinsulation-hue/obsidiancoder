@@ -12,7 +12,7 @@ import {
   settleOperation,
 } from "@/lib/credit-gate.server";
 import type { EntitlementResult } from "@/lib/credit-gate.server";
-import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, type UsageRecord } from "@/lib/usage-record";
+import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "@/lib/usage-record";
 import type { Operation } from "@/lib/credit-gate";
 
 const messageSchema = z.object({
@@ -191,14 +191,22 @@ async function generateOneImage(apiKey: string, prompt: string, slot: string, re
   return null;
 }
 
+/** Result of planAndGenerateImages — images + a usage record per successful call. */
+interface ImagePhaseResult {
+  images: PlannedImage[];
+  usages: UsageRecord[];
+  planUsage: UsageRecord | null;
+}
+
 async function planAndGenerateImages(
   apiKey: string,
   prompt: string,
   currentHtml: string,
   requestId: string,
   signal: AbortSignal,
-): Promise<PlannedImage[]> {
-  if (!VISUAL_KEYWORDS.test(prompt)) return [];
+): Promise<ImagePhaseResult> {
+  if (!VISUAL_KEYWORDS.test(prompt)) return { images: [], usages: [], planUsage: null };
+  let planUsage: UsageRecord | null = null;
   try {
     const planRes = await aiFetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -217,17 +225,44 @@ async function planAndGenerateImages(
       { breakerKey: "lovable/plan", stage: "plan", requestId, attemptTimeoutMs: 4000, totalTimeoutMs: 6000, maxAttempts: 1, signal },
     );
     const guarded = await readGuarded(planRes.response, { expected: "application/json" });
-    if (!guarded.ok) return [];
-    const planJson = JSON.parse(guarded.text) as { choices?: Array<{ message?: { content?: string } }> };
+    if (!guarded.ok) return { images: [], usages: [], planUsage: null };
+    const planJson = JSON.parse(guarded.text) as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown; model?: string };
+    // Capture planning usage — provider work happened regardless of decision.
+    const parsedPlanUsage = parseUsageFromChatJson(planJson);
+    const planEst = estimateUsdForCall({
+      model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+      providerUsed: true,
+    });
+    planUsage = makeUsage({
+      provider: "lovable", model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+      operation: "generate_html",
+      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+      totalTokens: parsedPlanUsage?.totalTokens ?? 0,
+      estimatedCostUsd: planEst.usd, costBasis: planEst.basis,
+      providerUsed: true, status: "committed",
+      meta: { phase: "image_plan" },
+    });
     const parsed = JSON.parse(planJson.choices?.[0]?.message?.content ?? "{}");
     const plans: Array<{ slot?: string; prompt: string }> = Array.isArray(parsed.images)
       ? parsed.images.filter((x: unknown) => !!x && typeof (x as { prompt?: unknown }).prompt === "string").slice(0, 2)
       : [];
-    if (!plans.length) return [];
+    if (!plans.length) return { images: [], usages: [], planUsage };
     const results = await Promise.all(plans.map((p) => generateOneImage(apiKey, p.prompt, p.slot ?? "image", requestId, signal)));
-    return results.filter((x): x is PlannedImage => !!x);
+    const images = results.filter((x): x is PlannedImage => !!x);
+    // One UsageRecord per successful image (conservative per-image cost).
+    const usages: UsageRecord[] = images.map((img) => makeUsage({
+      provider: img.providerUsed, model: img.providerUsed,
+      operation: "generate_image",
+      imageCount: 1, estimatedCostUsd: IMAGE_COST_USD, costBasis: "estimated",
+      providerUsed: true, status: "committed",
+      meta: { slot: img.slot },
+    }));
+    return { images, usages, planUsage };
   } catch {
-    return [];
+    return { images: [], usages: [], planUsage };
   }
 }
 
@@ -369,9 +404,12 @@ export const Route = createFileRoute("/api/generate")({
           //    asked for imagery or opted in via wantImages. This is what was
           //    silently adding 12-17s to every non-visual build.
           const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
-          const images = wantImages
+          const imagePhase = wantImages
             ? await planAndGenerateImages(apiKey, data.prompt, contextHtml, requestId, clientAbort)
-            : [];
+            : { images: [], usages: [], planUsage: null };
+          const images = imagePhase.images;
+          imageUsages.push(...imagePhase.usages);
+          if (imagePhase.planUsage) imageUsages.push(imagePhase.planUsage);
           const t_images = performance.now();
           timing.image_ms = Math.round(t_images - t_ctx);
           timing.image_count = images.length;
@@ -426,6 +464,8 @@ export const Route = createFileRoute("/api/generate")({
                   model,
                   messages,
                   stream: true,
+                  // Ask the gateway for a final usage frame at the end of the SSE.
+                  stream_options: { include_usage: true },
                   ...(model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
                 }),
               },
@@ -505,15 +545,29 @@ export const Route = createFileRoute("/api/generate")({
               let buffer = sniffBuffer;
               let emittedBytes = 0;
               const streamStartedAt = performance.now();
-              const finalize = (ok: boolean, err?: unknown) => {
+              const finalize = async (ok: boolean, err?: unknown) => {
                 const totalMs = Math.round(performance.now() - t0);
                 timing.stream_ms = Math.round(performance.now() - streamStartedAt);
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
                 if (ok) {
-                  // Settle the reservation now that the stream produced content.
-                  // Fire and forget — do not block stream close on the DB write.
-                  settleSuccess().catch(() => {});
+                  // Await settlement before closing so a settlement failure
+                  // surfaces as a stream error instead of silently succeeding.
+                  // The pending ai_usage row remains recoverable on failure.
+                  try {
+                    await settleSuccess();
+                  } catch (settleErr) {
+                    recordFailure(breakerKeyGen);
+                    controller.error(
+                      new AiError({
+                        code: "billing_settlement_error",
+                        stage: "generate",
+                        requestId,
+                        message: settleErr instanceof Error ? settleErr.message.slice(0, 120) : "settlement failed",
+                      }),
+                    );
+                    return;
+                  }
                   try {
                     if (!data.advisory && compacted.imagesReplaced > 0) {
                       const phJson = JSON.stringify(compacted.placeholders);
@@ -524,8 +578,16 @@ export const Route = createFileRoute("/api/generate")({
                   recordSuccess(breakerKeyGen);
                   controller.close();
                 } else {
-                  // No usable output — refund unless the provider still did work.
-                  settleFailure(err instanceof Error ? err.message.slice(0, 60) : "stream_failed").catch(() => {});
+                  // No usable output. If the provider still did work (streaming
+                  // usage present OR image usages recorded), we record a failed
+                  // charge; otherwise we fully refund. Await either path so a
+                  // settlement failure surfaces instead of being swallowed.
+                  try {
+                    await settleFailure(err instanceof Error ? err.message.slice(0, 60) : "stream_failed");
+                  } catch {
+                    // Leave the pending row for a retry — but still error the
+                    // stream so the client sees a definitive failure.
+                  }
                   recordFailure(breakerKeyGen);
                   controller.error(err ?? new Error("ai_upstream_empty"));
                 }

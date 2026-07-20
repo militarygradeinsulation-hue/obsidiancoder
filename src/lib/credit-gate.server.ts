@@ -174,6 +174,12 @@ async function usageFinalize(
   errorCode?: string,
 ): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  // Pass full actualCredits (not clamped to reservation) so the DB can perform
+  // a cap-safe top-up when the provider consumed more than we envelope-reserved.
+  // The single remaining SQL overload accepts _cap and enforces the monthly
+  // ceiling atomically; charge above the reservation is allowed only when
+  // (period_used_excluding_this_row + actual) <= _cap, otherwise the DB caps
+  // the charge and sets meta.cap_limited=true.
   const { data, error } = await supabaseAdmin.rpc("usage_finalize" as never, {
     _reservation_id: reservationId,
     _actual_credits: Math.max(0, Math.floor(actualCredits)),
@@ -190,6 +196,7 @@ async function usageFinalize(
     _estimated_cost_usd: usage?.estimatedCostUsd ?? null,
     _cost_basis: usage?.costBasis ?? null,
     _meta: usage?.meta ?? null,
+    _cap: CAP_PRO_MONTHLY,
   } as never);
   if (error) throw new Error(`usage_finalize failed: ${error.message}`);
   if (data === false) throw new Error("usage_finalize returned false (reservation missing)");
@@ -386,7 +393,10 @@ export async function settleOperation(
   }
 
   const usage = outcome.usage;
-  const charge = Math.max(0, Math.min(usage.credits, res.credits));
+  // Pass full actual credits — do NOT clamp to reservation. The DB performs
+  // cap-safe top-up (charge above the reservation is allowed only when the
+  // period stays within CAP_PRO_MONTHLY) and reports back via meta.cap_limited.
+  const charge = Math.max(0, Math.floor(usage.credits));
   const status = outcome.kind === "success" ? "committed" : "failed";
   const errorCode = outcome.kind === "failed_with_usage"
     ? (outcome.errorCode ?? usage.errorCode)

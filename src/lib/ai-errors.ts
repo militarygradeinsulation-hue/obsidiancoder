@@ -15,6 +15,7 @@ export type AiErrorCode =
   | "ai_timeout"
   | "ai_cancelled"
   | "ai_circuit_open"
+  | "billing_settlement_error" // usage_finalize/usage_refund DB error after provider work
   | "ai_internal";
 
 export type AiErrorStage = "plan" | "image" | "generate" | "patch" | "validate";
@@ -40,6 +41,7 @@ const RETRYABLE: Record<AiErrorCode, boolean> = {
   ai_timeout: true,
   ai_cancelled: false,
   ai_circuit_open: true,
+  billing_settlement_error: false,
   ai_internal: false,
 };
 
@@ -54,6 +56,7 @@ const DEFAULT_MESSAGES: Record<AiErrorCode, string> = {
   ai_timeout: "The request took too long and was cancelled.",
   ai_cancelled: "Cancelled.",
   ai_circuit_open: "AI provider is temporarily cooling down after repeated failures.",
+  billing_settlement_error: "Provider work completed but usage settlement failed. Your reservation is preserved and will be reconciled.",
   ai_internal: "Something went wrong on our side.",
 };
 
