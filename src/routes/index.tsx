@@ -24,6 +24,8 @@ import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
 import { requirePaidAction } from "@/lib/action-guard";
 import { authFetch } from "@/lib/auth-fetch";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
+import { lockSite } from "@/lib/gate.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 import { classifyTask } from "@/lib/task-classifier";
 import { tryDeterministicEdit } from "@/lib/deterministic-edits";
