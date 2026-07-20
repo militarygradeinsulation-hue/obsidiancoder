@@ -820,6 +820,120 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
       "credit-gate: retrying same request_id returns same reservation, does not double-charge"));
   }
 
+  // ─── credit gate: reservation envelope (separate from final charge) ──
+  {
+    const cg = await import("./credit-gate");
+
+    // 1. Envelope map is distinct from OPERATION_COST and matches spec.
+    results.push(assert(
+      cg.reservationForOperation("generate_html") === 60 &&
+        cg.reservationForOperation("generate_html_patch") === 20 &&
+        cg.reservationForOperation("generate_image") === 40 &&
+        cg.reservationForOperation("enhance_prompt") === 5 &&
+        cg.reservationForOperation("cloud_save") === 1 &&
+        cg.reservationForOperation("cloud_share") === 1 &&
+        cg.reservationForOperation("github_deploy") === 2,
+      "envelope: reservationForOperation returns spec envelope for every operation",
+    ));
+    results.push(assert(
+      cg.reservationForOperation("generate_html") !== cg.costForOperation("generate_html") &&
+        cg.reservationForOperation("generate_image") !== cg.costForOperation("generate_image"),
+      "envelope: reservation and OPERATION_COST are separate values",
+    ));
+    results.push(assert(
+      cg.RESERVATION_ENVELOPE !== (cg as unknown as { OPERATION_COST: unknown }).OPERATION_COST,
+      "envelope: RESERVATION_ENVELOPE is a distinct map from OPERATION_COST",
+    ));
+    try {
+      (cg.reservationForOperation as (op: string) => number)("nope");
+      results.push(assert(false, "envelope: unknown op should throw"));
+    } catch {
+      results.push(assert(true, "envelope: unknown op throws"));
+    }
+
+    // 2. Reservation hold vs final charge — unused envelope releases.
+    const { UsageLedger } = await import("./usage-ledger-mock");
+    const now = 1_800_000_000_000;
+    const ledger = new UsageLedger();
+    ledger.now = () => now;
+    ledger.addSub({
+      userId: "u1", env: "sandbox", status: "active",
+      periodStart: now - 1000, periodEnd: now + 86_400_000,
+    });
+    const envelope = cg.reservationForOperation("generate_html"); // 60
+    const r = ledger.reserve("u1", envelope, cg.CAP_PRO_MONTHLY, "sandbox", "generate_html", "req_env_1");
+    results.push(assert(
+      r !== null && r !== "no_period" && r.credits === 60,
+      "envelope: reservation holds envelope credits (60)",
+    ));
+    // Final actual charge is much smaller than envelope — 3 credits ($0.015).
+    const fin = ledger.finalize((r as { reservationId: string }).reservationId, 3, "req_env_1", "committed", cg.CAP_PRO_MONTHLY);
+    results.push(assert(
+      fin.ok && fin.charged === 3 && !fin.capLimited,
+      "envelope: finalize charges actual (3), not envelope (60) — unused hold released",
+    ));
+    const bal = ledger.balance("u1", "sandbox", cg.CAP_PRO_MONTHLY);
+    results.push(assert(
+      bal.used === 3 && bal.reserved === 0 && bal.remaining === cg.CAP_PRO_MONTHLY - 3,
+      "envelope: after finalize, only actual credits count against cap — 57 released",
+    ));
+
+    // 3. Simultaneous requests cannot reserve beyond CAP_PRO_MONTHLY (1000).
+    const ledger2 = new UsageLedger();
+    ledger2.now = () => now;
+    ledger2.addSub({
+      userId: "u2", env: "sandbox", status: "active",
+      periodStart: now - 1000, periodEnd: now + 86_400_000,
+    });
+    let accepted = 0, rejected = 0;
+    const bigEnv = cg.reservationForOperation("generate_html"); // 60
+    // 20 * 60 = 1200 requested; cap is 1000 → at most floor(1000/60)=16 accepted.
+    for (let i = 0; i < 20; i++) {
+      const res = ledger2.reserve("u2", bigEnv, cg.CAP_PRO_MONTHLY, "sandbox", "generate_html", `req_par_${i}`);
+      if (res && res !== "no_period") accepted++; else if (res === null) rejected++;
+    }
+    const bal2 = ledger2.balance("u2", "sandbox", cg.CAP_PRO_MONTHLY);
+    results.push(assert(
+      accepted === 16 && rejected === 4 && bal2.reserved === 16 * bigEnv && bal2.reserved <= cg.CAP_PRO_MONTHLY,
+      "envelope: simultaneous envelope reservations stop at CAP_PRO_MONTHLY (1000)",
+    ));
+
+    // 4. Refund releases the entire envelope (not just the eventual charge).
+    const ledger3 = new UsageLedger();
+    ledger3.now = () => now;
+    ledger3.addSub({
+      userId: "u3", env: "sandbox", status: "active",
+      periodStart: now - 1000, periodEnd: now + 86_400_000,
+    });
+    const held = ledger3.reserve("u3", cg.reservationForOperation("generate_image"), cg.CAP_PRO_MONTHLY, "sandbox", "generate_image", "req_ref_1");
+    const ok = held && held !== "no_period" ? ledger3.refund(held.reservationId) : false;
+    const bal3 = ledger3.balance("u3", "sandbox", cg.CAP_PRO_MONTHLY);
+    results.push(assert(
+      ok === true && bal3.reserved === 0 && bal3.used === 0 && bal3.remaining === cg.CAP_PRO_MONTHLY,
+      "envelope: refund releases full envelope (no_provider outcomes release the hold)",
+    ));
+
+    // 5. Final charge can even be BELOW the per-op OPERATION_COST when the
+    //    provider returned zero-cost usage (e.g. an aborted stream with no
+    //    tokens). The DB accepts _actual_credits=0 and simply commits 0.
+    const ledger4 = new UsageLedger();
+    ledger4.now = () => now;
+    ledger4.addSub({
+      userId: "u4", env: "sandbox", status: "active",
+      periodStart: now - 1000, periodEnd: now + 86_400_000,
+    });
+    const r4 = ledger4.reserve("u4", cg.reservationForOperation("enhance_prompt"), cg.CAP_PRO_MONTHLY, "sandbox", "enhance_prompt", "req_zero_1");
+    const fin4 = r4 && r4 !== "no_period"
+      ? ledger4.finalize(r4.reservationId, 0, "req_zero_1", "committed", cg.CAP_PRO_MONTHLY)
+      : { ok: false, charged: -1, capLimited: false };
+    results.push(assert(
+      fin4.ok && fin4.charged === 0,
+      "envelope: final charge may be 0 while envelope was 5 — hold fully released",
+    ));
+  }
+
+
+
   // ---- Local Only entitlement + client action guard ----
   {
     const cg = await import("./credit-gate");
