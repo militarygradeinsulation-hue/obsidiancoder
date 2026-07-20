@@ -103,6 +103,19 @@ export default function IntroSplash() {
           onError={() => setVideoError("video failed to load")}
         />
       )}
+      <h1 className="obs-intro-word" aria-label="Obsidian">
+        {"OBSIDIAN".split("").map((ch, i) => (
+          <span
+            key={i}
+            className="obs-intro-letter"
+            style={{ animationDelay: `${0.15 + i * 0.09}s` }}
+          >
+            {ch}
+          </span>
+        ))}
+      </h1>
+      <div className="obs-intro-line" />
+
       {isDev && videoError && (
         <div
           style={{
