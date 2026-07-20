@@ -12,6 +12,8 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { BuilderErrorBoundary } from "../components/BuilderErrorBoundary";
+import IntroSplash from "../components/IntroSplash";
+
 
 function NotFoundComponent() {
   return (
