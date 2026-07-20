@@ -433,12 +433,18 @@ export const Route = createFileRoute("/api/generate")({
             },
           });
 
+          const providersSummary = images.length
+            ? images.map((i) => `${i.slot}:${i.providerUsed}`).join(",")
+            : "none";
           return new Response(stream, {
             headers: {
               "Content-Type": "text/plain; charset=utf-8",
               "Cache-Control": "no-store",
               "X-Accel-Buffering": "no",
               "X-Request-Id": requestId,
+              "X-Obs-Image-Providers": providersSummary,
+              "X-Obs-Image-Count": String(images.length),
+              "Access-Control-Expose-Headers": "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count",
             },
           });
         } catch (err) {
