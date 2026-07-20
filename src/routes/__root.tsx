@@ -6,6 +6,7 @@ import {
   useRouter,
   HeadContent,
   Scripts,
+  redirect,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
@@ -75,7 +76,40 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
+// Public paths that never require an unlock session. Everything else is
+// treated as a sandbox route and is gated behind /unlock.
+const PUBLIC_PATH_PREFIXES = [
+  "/unlock",
+  "/auth",
+  "/terms",
+  "/privacy",
+  "/waitlist",
+  "/sitemap.xml",
+  "/api/", // server routes (public API + protected API handle their own auth)
+  "/_serverFn", // TanStack server-function RPC
+  "/.lovable", // platform paths
+];
+
+function isPublicPath(pathname: string): boolean {
+  if (pathname === "/sitemap.xml") return true;
+  return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`) || pathname === p.replace(/\/$/, ""));
+}
+
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
+  beforeLoad: async ({ location }) => {
+    if (isPublicPath(location.pathname)) return;
+    const { ensureUnlocked } = await import("@/lib/gate.functions");
+    try {
+      const { unlocked } = await ensureUnlocked();
+      if (!unlocked) {
+        throw redirect({ to: "/unlock" });
+      }
+    } catch (err) {
+      // Rethrow redirect; swallow transport errors so the page can still
+      // render its own gate as a fallback.
+      if (err && typeof err === "object" && "isRedirect" in (err as object)) throw err;
+    }
+  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
