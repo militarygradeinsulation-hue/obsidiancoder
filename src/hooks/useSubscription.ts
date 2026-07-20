@@ -73,11 +73,6 @@ export function useSubscription(): {
     return () => { supabase.removeChannel(ch); };
   }, [userId, load]);
 
-  // Server is the source of truth for entitlement. The client hook is a
-  // display-only heuristic; no localStorage overrides. The owner site-password
-  // session bypasses the server gate via cookie, but it is NEVER treated as
-  // Pro on the client (that would fake up the UI without affecting server
-  // enforcement). Use `useEntitlement()` for the canonical mode signal.
   const now = Date.now();
   const isPro = !!subscription
     && ["active", "trialing"].includes(subscription.status)
@@ -87,9 +82,10 @@ export function useSubscription(): {
 }
 
 /**
- * Credit balance bound to the user's active subscription period (or current
- * calendar month if no subscription). Includes reserved (pending) credits and
- * exact period start/end. Server is source of truth.
+ * Credit balance. Consumes ONLY the same-origin `/api/public/entitlement`
+ * endpoint, which verifies owner cookie / bearer server-side and accepts no
+ * account ID from the client. The browser can never point this query at
+ * another user's ledger.
  */
 export function useCredits(): Balance & { loading: boolean; refetch: () => void; periodStart: string | null; periodEnd: string | null } {
   const { userId } = useAuth();
@@ -98,39 +94,36 @@ export function useCredits(): Balance & { loading: boolean; refetch: () => void;
   );
 
   const load = useCallback(async () => {
-    if (!userId) {
-      setState({ ...balanceFor(0, 0), loading: false, periodStart: null, periodEnd: null });
-      return;
-    }
-    let env = "sandbox";
-    try { env = getStripeEnvironment(); } catch { /* ignore */ }
     try {
-      // Subscription-window balance from the unified ai_usage ledger.
-      const { data, error } = await supabase.rpc("usage_balance" as never, {
-        _user_id: userId,
-        _env: env,
-        _cap: CAP_PRO_MONTHLY,
-      } as never);
-      if (error || !data) {
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      const res = await fetch("/api/public/entitlement", {
+        method: "GET",
+        credentials: "include",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!res.ok) {
         setState({ ...balanceFor(0, 0), loading: false, periodStart: null, periodEnd: null });
         return;
       }
-      const row = (Array.isArray(data) ? data[0] : data) as
-        | { used: number; reserved: number; cap: number; remaining: number; period_start: string | null; period_end: string | null; active: boolean }
-        | null | undefined;
+      const snap = await res.json() as {
+        used: number; reserved: number; cap: number; remaining: number;
+        periodStart: string | null; periodEnd: string | null;
+      };
       setState({
-        used: Number(row?.used ?? 0),
-        reserved: Number(row?.reserved ?? 0),
-        cap: Number(row?.cap ?? CAP_PRO_MONTHLY),
-        remaining: Number(row?.remaining ?? 0),
+        used: Number(snap.used ?? 0),
+        reserved: Number(snap.reserved ?? 0),
+        cap: Number(snap.cap ?? CAP_PRO_MONTHLY),
+        remaining: Number(snap.remaining ?? 0),
         loading: false,
-        periodStart: row?.period_start ?? null,
-        periodEnd: row?.period_end ?? null,
+        periodStart: snap.periodStart ?? null,
+        periodEnd: snap.periodEnd ?? null,
       });
-
     } catch {
-      setState({ ...balanceFor(0, CAP_PRO_MONTHLY), loading: false, periodStart: null, periodEnd: null });
+      setState({ ...balanceFor(0, 0), loading: false, periodStart: null, periodEnd: null });
     }
+    // userId is intentionally in deps so refetch runs on sign-in / sign-out.
+    void userId;
   }, [userId]);
 
   useEffect(() => { load(); }, [load]);

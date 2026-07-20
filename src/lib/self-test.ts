@@ -968,17 +968,16 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     {
       const l = new UsageLedger(); l.now = () => NOW;
       l.addSub({ userId: "u7", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
-      const r = l.reserve("u7", 10, CAP, "sandbox", "op", "reqF") as { reservationId: string };
+      const r = l.reserve("u7", 10, CAP, "sandbox", "generate_html", "reqF") as { reservationId: string };
       const rowsBefore = l.rows.size;
-      const ok = l.finalize(r.reservationId, 4, "committed");
-      results.push(assert(ok && l.rows.size === rowsBefore, "usage_ledger: finalize does not insert a second row"));
+      const fin = l.finalize(r.reservationId, 4, "reqF", "committed");
+      results.push(assert(fin.ok && !fin.capLimited && l.rows.size === rowsBefore, "usage_ledger: finalize does not insert a second row"));
       const row = l.rows.get(r.reservationId)!;
       results.push(assert(row.status === "committed" && row.creditsCharged === 4 && row.creditsReserved === 4,
         "usage_ledger: finalize updates status + charge in place"));
-      // Idempotent — second call returns true, does not change values.
-      results.push(assert(l.finalize(r.reservationId, 99, "committed") === true && row.creditsCharged === 4,
+      const fin2 = l.finalize(r.reservationId, 99, "reqF", "committed");
+      results.push(assert(fin2.ok && row.creditsCharged === 4,
         "usage_ledger: finalize is idempotent for terminal rows"));
-
       const bal = l.balance("u7", "sandbox", CAP);
       results.push(assert(bal.used === 4 && bal.reserved === 0, "usage_ledger: balance reflects committed usage only"));
     }
@@ -987,18 +986,110 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     {
       const l = new UsageLedger(); l.now = () => NOW;
       l.addSub({ userId: "u8", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
-      const r = l.reserve("u8", 10, CAP, "sandbox", "op", "reqR") as { reservationId: string };
+      const r = l.reserve("u8", 10, CAP, "sandbox", "generate_html", "reqR") as { reservationId: string };
       results.push(assert(l.refund(r.reservationId) === true, "usage_ledger: refund pending row succeeds"));
       results.push(assert(l.refund(r.reservationId) === true, "usage_ledger: refund is idempotent"));
       const bal = l.balance("u8", "sandbox", CAP);
       results.push(assert(bal.used === 0 && bal.reserved === 0 && bal.remaining === CAP,
         "usage_ledger: refund releases credits"));
-
-      // Cannot refund a committed row.
-      const r2 = l.reserve("u8", 5, CAP, "sandbox", "op", "reqR2") as { reservationId: string };
-      l.finalize(r2.reservationId, 5);
+      const r2 = l.reserve("u8", 5, CAP, "sandbox", "generate_html", "reqR2") as { reservationId: string };
+      l.finalize(r2.reservationId, 5, "reqR2");
       results.push(assert(l.refund(r2.reservationId) === false,
         "usage_ledger: refund rejected on committed row"));
+    }
+
+    // 7. Identity isolation — one request_id in two accounts creates two rows.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "uA", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      l.addSub({ userId: "uB", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const rA = l.reserve("uA", 10, CAP, "sandbox", "generate_html", "sharedReq") as { reservationId: string };
+      const rB = l.reserve("uB", 10, CAP, "sandbox", "generate_html", "sharedReq") as { reservationId: string };
+      results.push(assert(rA.reservationId !== rB.reservationId,
+        "usage_ledger: same request_id across accounts creates distinct rows"));
+      const bA = l.balance("uA", "sandbox", CAP);
+      const bB = l.balance("uB", "sandbox", CAP);
+      results.push(assert(bA.reserved === 10 && bB.reserved === 10,
+        "usage_ledger: balances isolated per user"));
+    }
+
+    // 8. Retry from an expired / different period must be rejected.
+    {
+      const l = new UsageLedger();
+      l.now = () => NOW;
+      l.addSub({ userId: "uP", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r1 = l.reserve("uP", 10, CAP, "sandbox", "generate_html", "sameReq") as { reservationId: string };
+      results.push(assert(!!r1.reservationId, "usage_ledger: first reservation in period 1 succeeds"));
+      const PS2 = PE + 1;
+      const PE2 = PE + 30 * 24 * 3600_000;
+      l.now = () => PS2 + 3600_000;
+      l.subs = [{ userId: "uP", env: "sandbox", status: "active", periodStart: PS2, periodEnd: PE2 }];
+      let rejected = false;
+      try { l.reserve("uP", 10, CAP, "sandbox", "generate_html", "sameReq"); } catch { rejected = true; }
+      results.push(assert(rejected, "usage_ledger: retry from a different period is rejected"));
+    }
+
+    // 9. Input validation — env, operation, amount, cap, request_id bounds.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "uV", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const cases: Array<[() => unknown, string]> = [
+        [() => l.reserve("uV", 10, CAP, "prod" as string, "generate_html", "v1"), "invalid_environment"],
+        [() => l.reserve("uV", 10, CAP, "sandbox", "BAD-OP!", "v2"), "invalid_operation"],
+        [() => l.reserve("uV", 0, CAP, "sandbox", "generate_html", "v3"), "invalid_amount"],
+        [() => l.reserve("uV", -5, CAP, "sandbox", "generate_html", "v4"), "invalid_amount"],
+        [() => l.reserve("uV", 1001, CAP, "sandbox", "generate_html", "v5"), "invalid_amount"],
+        [() => l.reserve("uV", 10, -1, "sandbox", "generate_html", "v6"), "invalid_cap"],
+        [() => l.reserve("uV", 10, CAP, "sandbox", "generate_html", ""), "request_id required"],
+      ];
+      let allRejected = true;
+      for (const [fn, label] of cases) {
+        let threw = false;
+        try { fn(); } catch { threw = true; }
+        if (!threw) { allRejected = false; results.push(assert(false, `usage_ledger: validation should reject ${label}`)); }
+      }
+      results.push(assert(allRejected, "usage_ledger: reserve validates env/operation/amount/cap/request_id"));
+    }
+
+    // 10. Atomic top-up — actual > reservation, room remains under cap.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "uT", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r = l.reserve("uT", 10, CAP, "sandbox", "generate_html", "topupReq") as { reservationId: string };
+      const fin = l.finalize(r.reservationId, 25, "topupReq", "committed", CAP);
+      results.push(assert(fin.ok && !fin.capLimited && fin.charged === 25,
+        "usage_ledger: finalize tops up above reservation when cap allows"));
+      const row = l.rows.get(r.reservationId)!;
+      results.push(assert(row.creditsCharged === 25 && row.creditsReserved === 25,
+        "usage_ledger: top-up updates row credits to actual"));
+    }
+
+    // 11. Cap-limited finalization — actual exceeds available credits.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "uC", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const filler = l.reserve("uC", 950, CAP, "sandbox", "generate_html", "filler") as { reservationId: string };
+      l.finalize(filler.reservationId, 950, "filler", "committed", CAP);
+      const r = l.reserve("uC", 10, CAP, "sandbox", "generate_html", "capReq") as { reservationId: string };
+      const fin = l.finalize(r.reservationId, 500, "capReq", "committed", CAP);
+      results.push(assert(fin.capLimited === true && fin.charged === 50,
+        "usage_ledger: cap-limited charge equals remaining credits, never exceeds cap"));
+      const row = l.rows.get(r.reservationId)!;
+      results.push(assert(row.meta.cap_limited === true && row.meta.requested_credits === 500 && row.meta.available_credits === 50,
+        "usage_ledger: cap-limited flag + evidence recorded in meta"));
+      const bal = l.balance("uC", "sandbox", CAP);
+      results.push(assert(bal.used === 1000 && bal.remaining === 0,
+        "usage_ledger: cap-limited finalization never exceeds cap"));
+    }
+
+    // 12. Finalize verifies request_id belongs to reservation.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "uX", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r = l.reserve("uX", 10, CAP, "sandbox", "generate_html", "rightReq") as { reservationId: string };
+      let mismatch = false;
+      try { l.finalize(r.reservationId, 5, "wrongReq", "committed"); } catch { mismatch = true; }
+      results.push(assert(mismatch, "usage_ledger: finalize rejects wrong request_id"));
     }
   }
 
