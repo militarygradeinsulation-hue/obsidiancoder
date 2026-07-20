@@ -665,7 +665,7 @@ function emptyResult(reason: string, checkpoint: string): FusionResult {
       estimatedBytes: 0,
     },
     provenance: { entries: [] },
-    validation: { status: "ok", issues: [], summary: reason },
+    validation: { status: "passed", issues: [], summary: reason },
     metrics: {
       projectsCombined: 0, filesAdded: 0, filesDeduplicated: 0,
       conflictsResolved: 0, conflictsRequiringInput: 0, routesCreated: 0,
