@@ -326,6 +326,7 @@ function Index() {
   const [intelligenceTick, setIntelligenceTick] = useState<number>(0);
   const [lastIntent, setLastIntent] = useState<ResolvedIntent | undefined>(undefined);
   const [lastDecision, setLastDecision] = useState<RoutingDecision | undefined>(undefined);
+  const [lastOperation, setLastOperation] = useState<OperationSummary | undefined>(undefined);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
