@@ -14,6 +14,87 @@ export type Database = {
   }
   public: {
     Tables: {
+      ai_usage: {
+        Row: {
+          actor_type: string
+          actual_cost_usd: number | null
+          cost_basis: string
+          created_at: string
+          credits_charged: number
+          credits_reserved: number
+          environment: string
+          error_code: string | null
+          estimated_cost_usd: number | null
+          id: string
+          image_count: number
+          input_tokens: number
+          meta: Json
+          model: string | null
+          operation: string
+          output_tokens: number
+          provider: string | null
+          request_id: string
+          status: string
+          subscription_period_end: string | null
+          subscription_period_start: string | null
+          total_tokens: number
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          actor_type: string
+          actual_cost_usd?: number | null
+          cost_basis?: string
+          created_at?: string
+          credits_charged?: number
+          credits_reserved?: number
+          environment?: string
+          error_code?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          image_count?: number
+          input_tokens?: number
+          meta?: Json
+          model?: string | null
+          operation: string
+          output_tokens?: number
+          provider?: string | null
+          request_id: string
+          status?: string
+          subscription_period_end?: string | null
+          subscription_period_start?: string | null
+          total_tokens?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          actor_type?: string
+          actual_cost_usd?: number | null
+          cost_basis?: string
+          created_at?: string
+          credits_charged?: number
+          credits_reserved?: number
+          environment?: string
+          error_code?: string | null
+          estimated_cost_usd?: number | null
+          id?: string
+          image_count?: number
+          input_tokens?: number
+          meta?: Json
+          model?: string | null
+          operation?: string
+          output_tokens?: number
+          provider?: string | null
+          request_id?: string
+          status?: string
+          subscription_period_end?: string | null
+          subscription_period_start?: string | null
+          total_tokens?: number
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       builds: {
         Row: {
           byte_size: number
@@ -244,6 +325,25 @@ export type Database = {
           used: number
         }[]
       }
+      credit_balance_period: {
+        Args: { _cap: number; _env: string; _user_id: string }
+        Returns: {
+          cap: number
+          period_end: string
+          period_start: string
+          remaining: number
+          reserved: number
+          used: number
+        }[]
+      }
+      finalize_credits: {
+        Args: {
+          _actual_credits: number
+          _request_id: string
+          _reservation_id: string
+        }
+        Returns: boolean
+      }
       has_active_pro: {
         Args: { check_env?: string; user_uuid: string }
         Returns: boolean
@@ -262,6 +362,23 @@ export type Database = {
           _user_id: string
         }
         Returns: {
+          remaining_after: number
+          reservation_id: string
+          used_before: number
+        }[]
+      }
+      reserve_credits_v2: {
+        Args: {
+          _amount: number
+          _cap: number
+          _env: string
+          _operation: string
+          _request_id: string
+          _user_id: string
+        }
+        Returns: {
+          credits: number
+          idempotent: boolean
           remaining_after: number
           reservation_id: string
           used_before: number
