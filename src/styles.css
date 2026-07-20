@@ -1443,6 +1443,7 @@ body.is-resizing-composer * { user-select: none !important; }
   flex-shrink: 0;
 }
 .obs-composer-send:disabled { opacity: 0.35; }
+.obs-composer > .obs-composer-send { order: 100; margin-left: auto; }
 .obs-composer-attach {
   display: grid; place-items: center;
   width: 30px; height: 30px;
