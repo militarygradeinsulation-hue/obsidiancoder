@@ -56,6 +56,7 @@ export type VersionMetadata = {
   runtimeErrors?: number;
   rollbackId?: string;          // the version id this build can be rolled back TO
   learningSignals?: string[];   // signalsUsed from the RoutingDecision
+  engineering?: EngineeringSummary;  // Chief Engineer multi-agent review
 };
 
 export function summarizeMetadata(m: VersionMetadata): string {
