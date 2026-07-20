@@ -219,6 +219,8 @@ function Index() {
   const [activeId, setActiveId] = useState<string>(INITIAL_SESSION.id);
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
+  const [ideaOffset, setIdeaOffset] = useState(0);
+  const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
