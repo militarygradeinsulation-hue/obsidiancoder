@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import videoAsset from "@/assets/obsidian-intro.mp4.asset.json";
+import { resolveIntroVideo } from "@/lib/intro-asset";
 
 const WORD = "OBSIDIAN";
-const VIDEO_URL = videoAsset.url;
+const RESOLVED = resolveIntroVideo();
+const VIDEO_URL = RESOLVED.url;
 
 const LETTER_STAGGER_MS = 180;
 const FADE_LEAD_MS = 900;
@@ -16,6 +17,8 @@ export default function IntroSplash() {
   const [fadeOut, setFadeOut] = useState(false);
   const [reducedMotion, setReducedMotion] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(RESOLVED.ok ? null : (RESOLVED.reason ?? "asset unresolved"));
+  const isDev = typeof import.meta !== "undefined" && (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV === true;
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -100,7 +103,7 @@ export default function IntroSplash() {
       className={`obs-intro-splash${fadeOut ? " is-leaving" : ""}`}
       aria-hidden="true"
     >
-      {!reducedMotion && (
+      {!reducedMotion && RESOLVED.ok && (
         <video
           ref={videoRef}
           className="obs-intro-video"
@@ -108,7 +111,21 @@ export default function IntroSplash() {
           autoPlay
           playsInline
           preload="auto"
+          onError={() => setVideoError("video failed to load")}
         />
+      )}
+      {isDev && videoError && (
+        <div
+          style={{
+            position: "absolute", top: 16, left: 16, zIndex: 3,
+            padding: "8px 12px", borderRadius: 6,
+            background: "rgba(220,38,38,0.9)", color: "#fff",
+            fontFamily: "monospace", fontSize: 12, maxWidth: "50vw",
+          }}
+          role="alert"
+        >
+          Intro video error: {videoError}
+        </div>
       )}
       <div className="obs-intro-glow" />
       <h1 className="obs-intro-word">
