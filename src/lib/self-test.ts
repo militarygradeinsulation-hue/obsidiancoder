@@ -1622,22 +1622,26 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   // ------------------------------------------------------------------
   {
     const { nextCheckoutState, checkoutErrorFromThrow } = await import("./checkout-state");
-    results.push(assert(nextCheckoutState("idle", { type: "open" }) === "loading",
-      "checkout-state: open → loading"));
-    results.push(assert(nextCheckoutState("loading", { type: "ready" }) === "ready",
-      "checkout-state: ready"));
-    results.push(assert(nextCheckoutState("loading", { type: "error" }) === "error",
-      "checkout-state: error"));
-    results.push(assert(nextCheckoutState("error", { type: "retry" }) === "loading",
-      "checkout-state: retry re-enters loading"));
-    results.push(assert(nextCheckoutState("ready", { type: "cancel" }) === "idle",
-      "checkout-state: cancel → idle"));
-    results.push(assert(checkoutErrorFromThrow(new Error("boom")) === "boom",
-      "checkout-state: extracts Error.message"));
-    results.push(assert(checkoutErrorFromThrow("nope") === "nope",
-      "checkout-state: passes through string"));
-    results.push(assert(typeof checkoutErrorFromThrow({}) === "string",
-      "checkout-state: fallback for unknown"));
+    // error result → error state
+    const errS = nextCheckoutState({ error: "nope" });
+    results.push(assert(errS.kind === "error" && errS.message === "nope",
+      "checkout-state: error result → error state"));
+    // valid clientSecret → ready
+    const ready = nextCheckoutState({ clientSecret: "cs_123" });
+    results.push(assert(ready.kind === "ready" && "clientSecret" in ready && ready.clientSecret === "cs_123",
+      "checkout-state: clientSecret → ready"));
+    // empty clientSecret → error (unavailable)
+    const empty = nextCheckoutState({ clientSecret: "" });
+    results.push(assert(empty.kind === "error" && /unavailable/i.test(empty.message),
+      "checkout-state: empty clientSecret → error"));
+    // thrown Error → error with message
+    const t1 = checkoutErrorFromThrow(new Error("boom"));
+    results.push(assert(t1.kind === "error" && t1.message === "boom",
+      "checkout-state: throw Error → error message"));
+    // unknown throw → error with fallback copy
+    const t2 = checkoutErrorFromThrow({});
+    results.push(assert(t2.kind === "error" && t2.message.length > 0,
+      "checkout-state: unknown throw → fallback message"));
   }
 
 
