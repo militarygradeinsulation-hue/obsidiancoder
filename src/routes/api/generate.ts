@@ -275,16 +275,19 @@ export const Route = createFileRoute("/api/generate")({
           const t0 = performance.now();
           const timing: Record<string, number | string | boolean> = {};
 
-          // 1) Context compaction — huge base64 data URLs and giant inline
-          //    <style>/<script> blocks are the #1 cause of blown token budgets
-          //    and 15-30s time-to-first-token.
+          // 1) Context compaction — LOSSLESS. Only large embedded base64
+          //    image bodies are replaced with stable placeholder tokens. CSS,
+          //    JS, HTML structure, prose, and the document tail are preserved
+          //    verbatim. The placeholder map is streamed back to the client at
+          //    the end so it can restore originals and verify integrity before
+          //    saving.
           const compacted = data.currentHtml
             ? compactHtmlForContext(data.currentHtml)
-            : { html: "", originalBytes: 0, bytes: 0, dataUrlsStripped: 0, blocksTruncated: 0, cappedAtEnd: false };
+            : { html: "", originalBytes: 0, bytes: 0, imagesReplaced: 0, placeholders: {} as Record<string, string> };
           const contextHtml = compacted.html;
           timing.ctx_in = compacted.originalBytes;
           timing.ctx_out = compacted.bytes;
-          timing.ctx_stripped = compacted.dataUrlsStripped;
+          timing.ctx_images = compacted.imagesReplaced;
           const t_ctx = performance.now();
           timing.compact_ms = Math.round(t_ctx - t0);
 
@@ -432,8 +435,15 @@ export const Route = createFileRoute("/api/generate")({
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
                 if (ok) {
-                  // Trailer HTML comment — parsed & stripped by the client.
+                  // Trailers — parsed & stripped by the client BEFORE the
+                  // document is validated or saved. Order matters: the timing
+                  // trailer stays anchored to the very end so the client's
+                  // end-anchored regex reliably peels it off first.
                   try {
+                    if (!data.advisory && compacted.imagesReplaced > 0) {
+                      const phJson = JSON.stringify(compacted.placeholders);
+                      controller.enqueue(encoder.encode(`\n<!--OBS_PLACEHOLDERS:${phJson}-->`));
+                    }
                     controller.enqueue(encoder.encode(`\n<!--OBS_TIMING:${JSON.stringify(timing)}-->`));
                   } catch { /* stream already closing */ }
                   recordSuccess(breakerKeyGen);
