@@ -2333,8 +2333,8 @@ function Index() {
             </div>
 
             {/* Core 4.0 — Adaptive Intelligence */}
-            <IntelligencePanel refreshKey={intelligenceTick} intent={lastIntent} decision={lastDecision} />
-            <StrategyExplanation />
+            <IntelligencePanel refreshKey={intelligenceTick} intent={lastIntent} decision={lastDecision} lastOperation={lastOperation} />
+            <StrategyExplanation decision={lastDecision} lastOperation={lastOperation} />
             <LearningPanel onChange={() => setIntelligenceTick((n) => n + 1)} />
 
             <div className="obs-rail-heading" id="rail-build">Build · files, versions, design</div>
