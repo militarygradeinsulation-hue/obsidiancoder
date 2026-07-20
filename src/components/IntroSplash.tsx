@@ -6,22 +6,48 @@ const VIDEO_URL = RESOLVED.url;
 
 const FADE_LEAD_MS = 900;
 const FALLBACK_DURATION_MS = 9500;
+const HARD_MAX_MS = 12000;
+const SEEN_KEY = "obs_intro_seen_v1";
 
 export default function IntroSplash() {
-  const [show, setShow] = useState(true);
+  // Client-only: avoid SSR Suspense/hydration issues that could leave a
+  // full-screen overlay stuck on the live site.
+  const [mounted, setMounted] = useState(false);
+  const [show, setShow] = useState(false);
   const [fadeOut, setFadeOut] = useState(false);
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [videoError, setVideoError] = useState<string | null>(RESOLVED.ok ? null : (RESOLVED.reason ?? "asset unresolved"));
   const isDev = typeof import.meta !== "undefined" && (import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV === true;
 
   useEffect(() => {
+    setMounted(true);
+    // Only show intro once per session so it never freezes navigation on repeat visits.
+    try {
+      if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(SEEN_KEY)) {
+        return;
+      }
+      sessionStorage.setItem(SEEN_KEY, "1");
+    } catch {}
+    setShow(true);
+  }, []);
+
+  const dismiss = () => {
+    setFadeOut(true);
+    window.setTimeout(() => setShow(false), 500);
+  };
+
+  useEffect(() => {
     if (!show) return;
 
     let fadeTimer = 0;
     let doneTimer = 0;
+    let hardTimer = 0;
 
-    const video = videoRef.current;
-    if (!video) return;
+    // Absolute safety net: force-remove overlay no matter what.
+    hardTimer = window.setTimeout(() => {
+      setFadeOut(true);
+      setShow(false);
+    }, HARD_MAX_MS);
 
     const scheduleFromDuration = (durationMs: number) => {
       window.clearTimeout(fadeTimer);
@@ -33,6 +59,15 @@ export default function IntroSplash() {
 
     scheduleFromDuration(FALLBACK_DURATION_MS);
 
+    const video = videoRef.current;
+    if (!video) {
+      return () => {
+        window.clearTimeout(fadeTimer);
+        window.clearTimeout(doneTimer);
+        window.clearTimeout(hardTimer);
+      };
+    }
+
     const onMeta = () => {
       if (isFinite(video.duration) && video.duration > 0) {
         scheduleFromDuration(Math.round(video.duration * 1000));
@@ -41,30 +76,23 @@ export default function IntroSplash() {
     const onEnded = () => {
       setFadeOut(true);
       window.clearTimeout(doneTimer);
-      doneTimer = window.setTimeout(() => setShow(false), 900);
+      doneTimer = window.setTimeout(() => setShow(false), 700);
     };
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("ended", onEnded);
 
-    // Start muted so autoplay is guaranteed, then immediately try to unmute.
     video.muted = true;
     video.volume = 1.0;
     video.playsInline = true;
     const tryUnmute = () => {
-      try {
-        video.muted = false;
-        video.volume = 1.0;
-      } catch {}
+      try { video.muted = false; video.volume = 1.0; } catch {}
     };
     const p = video.play();
     if (p && typeof p.then === "function") {
       p.then(tryUnmute).catch(() => {
-        // If autoplay with sound is blocked, unmute on first user interaction.
         const onGesture = () => {
           tryUnmute();
           video.play().catch(() => {});
-          window.removeEventListener("pointerdown", onGesture);
-          window.removeEventListener("keydown", onGesture);
         };
         window.addEventListener("pointerdown", onGesture, { once: true });
         window.addEventListener("keydown", onGesture, { once: true });
@@ -73,23 +101,26 @@ export default function IntroSplash() {
       tryUnmute();
     }
 
-
-
     return () => {
       window.clearTimeout(fadeTimer);
       window.clearTimeout(doneTimer);
+      window.clearTimeout(hardTimer);
       video.removeEventListener("loadedmetadata", onMeta);
       video.removeEventListener("ended", onEnded);
       try { video.pause(); } catch {}
     };
   }, [show]);
 
-  if (!show) return null;
+  if (!mounted || !show) return null;
 
   return (
     <div
       className={`obs-intro-splash${fadeOut ? " is-leaving" : ""}`}
-      aria-hidden="true"
+      role="button"
+      tabIndex={0}
+      aria-label="Skip intro"
+      onClick={dismiss}
+      onKeyDown={(e) => { if (e.key === "Escape" || e.key === "Enter" || e.key === " ") dismiss(); }}
     >
       {RESOLVED.ok && (
         <video
@@ -100,9 +131,25 @@ export default function IntroSplash() {
           muted
           playsInline
           preload="auto"
-          onError={() => setVideoError("video failed to load")}
+          onError={() => { setVideoError("video failed to load"); dismiss(); }}
         />
       )}
+
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); dismiss(); }}
+        style={{
+          position: "absolute", top: 16, right: 16, zIndex: 5,
+          padding: "8px 14px", borderRadius: 999,
+          background: "rgba(0,0,0,0.55)", color: "#f2eee7",
+          border: "1px solid rgba(244,161,37,0.4)",
+          fontFamily: "Inter, sans-serif", fontSize: 13, cursor: "pointer",
+          backdropFilter: "blur(8px)",
+        }}
+        aria-label="Skip intro"
+      >
+        Skip →
+      </button>
 
       {isDev && videoError && (
         <div
