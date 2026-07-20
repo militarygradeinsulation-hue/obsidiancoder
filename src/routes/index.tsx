@@ -516,7 +516,7 @@ function Index() {
         clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
         localStorage.setItem("obs.client_id", clientId);
       }
-      const res = await fetch("/api/public/builds", {
+      const res = await authFetch("/api/public/builds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1151,7 +1151,7 @@ function Index() {
       abortRef.current = patchController;
       try {
         setTerminal((t) => [...t, `→ Patch mode → ${modelForPatch}`]);
-        const pRes = await fetch("/api/patch", {
+        const pRes = await authFetch("/api/patch", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           signal: patchController.signal,
@@ -1331,7 +1331,7 @@ function Index() {
     const controller = new AbortController();
     abortRef.current = controller;
     try {
-      const res = await fetch("/api/generate", {
+      const res = await authFetch("/api/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1653,7 +1653,7 @@ function Index() {
           localStorage.setItem("obs.client_id", clientId);
         }
         const lib = (localStorage.getItem("obs.library_code") || "").trim();
-        fetch("/api/public/builds", {
+        authFetch("/api/public/builds", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -1931,7 +1931,7 @@ function Index() {
                     clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
                     localStorage.setItem("obs.client_id", clientId);
                   }
-                  const res = await fetch("/api/public/builds", {
+                  const res = await authFetch("/api/public/builds", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({

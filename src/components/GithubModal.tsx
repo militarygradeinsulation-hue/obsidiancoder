@@ -19,7 +19,7 @@ type DeployResult = {
 const TOKEN_KEY = "obs.gh.token";
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
-  const r = await fetch("/api/github", {
+  const r = await authFetch("/api/github", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),
