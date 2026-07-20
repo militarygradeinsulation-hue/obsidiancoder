@@ -101,21 +101,43 @@ function Unlock() {
   function startPurchase() {
     setError(null);
     if (!session) {
-      // Send to auth, then return here with checkout=1
-      const dest = "/unlock?intent=buy&checkout=1";
-      window.location.assign(`/auth?redirect=${encodeURIComponent(dest)}`);
+      // Send to auth in signup mode, then return here with checkout=1.
+      window.location.assign(buildAuthUrl("signup", "/unlock?intent=buy&checkout=1"));
       return;
     }
     setShowCheckout(true);
   }
 
   function goSignIn() {
-    window.location.assign(`/auth?redirect=${encodeURIComponent("/unlock?intent=signin")}`);
+    // Existing customers: land on auth in signin mode; the auth-state
+    // listener on this page then verifies Pro and unlocks the app.
+    window.location.assign(buildAuthUrl("signin", "/unlock"));
   }
 
   async function signOutAndReset() {
     await supabase.auth.signOut();
     setShowCheckout(false);
+  }
+
+  // --- Tab keyboard navigation (WAI-ARIA authoring practices) --------------
+  const tabOrder: Intent[] = ["buy", "code"];
+  const tabRefs = useRef<Record<Intent, HTMLButtonElement | null>>({ buy: null, code: null });
+  function focusTab(t: Intent) {
+    setTab(t);
+    // Focus follows selection so screen-reader users hear the panel change.
+    requestAnimationFrame(() => tabRefs.current[t]?.focus());
+  }
+  function onTabKeyDown(e: KeyboardEvent<HTMLButtonElement>) {
+    const idx = tabOrder.indexOf(tab);
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") {
+      e.preventDefault(); focusTab(tabOrder[(idx + 1) % tabOrder.length]);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowUp") {
+      e.preventDefault(); focusTab(tabOrder[(idx - 1 + tabOrder.length) % tabOrder.length]);
+    } else if (e.key === "Home") {
+      e.preventDefault(); focusTab(tabOrder[0]);
+    } else if (e.key === "End") {
+      e.preventDefault(); focusTab(tabOrder[tabOrder.length - 1]);
+    }
   }
 
   return (
