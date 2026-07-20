@@ -190,8 +190,11 @@ function Unlock() {
             aria-selected={tab === "buy"}
             aria-controls="panel-buy"
             id="tab-buy"
+            tabIndex={tab === "buy" ? 0 : -1}
+            ref={(el) => { tabRefs.current.buy = el; }}
             className={`unlock-tab ${tab === "buy" ? "is-active" : ""}`}
             onClick={() => setTab("buy")}
+            onKeyDown={onTabKeyDown}
             type="button"
           >
             Get Obsidian Pro
@@ -201,8 +204,11 @@ function Unlock() {
             aria-selected={tab === "code"}
             aria-controls="panel-code"
             id="tab-code"
+            tabIndex={tab === "code" ? 0 : -1}
+            ref={(el) => { tabRefs.current.code = el; }}
             className={`unlock-tab ${tab === "code" ? "is-active" : ""}`}
             onClick={() => setTab("code")}
+            onKeyDown={onTabKeyDown}
             type="button"
           >
             Access Code
