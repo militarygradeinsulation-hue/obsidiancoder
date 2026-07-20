@@ -1296,6 +1296,7 @@ function Index() {
           currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
           history: current.messages.slice(-4),
           model: modelForServer,
+          pickerModel: current.model,
           advisory: !previewMode,
         }),
         signal: controller.signal,
@@ -1304,8 +1305,19 @@ function Index() {
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       const imgProviders = res.headers.get("x-obs-image-providers");
       const imgCount = Number(res.headers.get("x-obs-image-count") || "0");
+      const modelUsedHeader = res.headers.get("x-obs-model-used");
+      const fallbackHeader = res.headers.get("x-obs-fallback");
+      const firstByteHeader = res.headers.get("x-obs-first-byte-ms");
+      const compactInHeader = Number(res.headers.get("x-obs-compact-in") || "0");
+      const compactOutHeader = Number(res.headers.get("x-obs-compact-out") || "0");
       if (imgCount > 0 && imgProviders && imgProviders !== "none") {
         setTerminal((t) => [...t, `→ Images: ${imgCount} via ${imgProviders}`]);
+      }
+      if (fallbackHeader === "1" && modelUsedHeader && modelUsedHeader !== modelForServer) {
+        setTerminal((t) => [...t, `⇢ Slow-model fallback → ${modelUsedHeader} (first byte ${firstByteHeader}ms)`]);
+      }
+      if (compactInHeader > compactOutHeader + 1024) {
+        setTerminal((t) => [...t, `→ Context: ${(compactInHeader / 1024).toFixed(1)}KB → ${(compactOutHeader / 1024).toFixed(1)}KB`]);
       }
       // AI error envelope arrives as JSON — never treat it as generated code.
       if (ctype.includes("application/json")) {
@@ -1326,12 +1338,13 @@ function Index() {
       let acc = "";
       let firstChunkAt = 0;
       let lastPaint = 0;
+      const stripTrailer = (s: string) => s.replace(/\s*<!--OBS_TIMING:[\s\S]*?-->\s*$/, "");
       const paintPreview = (force = false) => {
         if (!previewMode) return;
         const now = performance.now();
         if (!force && now - lastPaint < 120) return;
         lastPaint = now;
-        const cleaned = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
+        const cleaned = stripTrailer(acc).replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
         setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: cleaned } : s));
       };
       if (previewMode) setTab("preview");
@@ -1345,6 +1358,17 @@ function Index() {
         }
         paintPreview();
       }
+
+      // Extract & log the server-side timing trailer, then strip it before use.
+      const trailerMatch = acc.match(/<!--OBS_TIMING:([\s\S]*?)-->\s*$/);
+      if (trailerMatch) {
+        try {
+          const t = JSON.parse(trailerMatch[1]) as Record<string, number | string | boolean>;
+          setTerminal((tt) => [...tt, `→ Timing: compact ${t.compact_ms}ms · plan/img ${t.image_ms}ms · first ${t.first_byte_ms}ms · stream ${t.stream_ms}ms · total ${t.total_ms}ms`]);
+        } catch { /* trailer malformed; ignore */ }
+        acc = acc.slice(0, trailerMatch.index).trimEnd();
+      }
+
 
       if (!previewMode) {
         const reply = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim() || "(no response)";

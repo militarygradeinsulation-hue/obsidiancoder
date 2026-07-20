@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { resolveModel } from "@/lib/models";
+import { resolveModel, isFastTier, DEFAULT_MODEL } from "@/lib/models";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded, firstChunkLooksBad } from "@/lib/upstream-guard";
 import { recordFailure, recordSuccess } from "@/lib/circuit-breaker";
+import { compactHtmlForContext } from "@/lib/context-compactor";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -17,6 +18,11 @@ const inputSchema = z.object({
   history: z.array(messageSchema).max(8).optional().default([]),
   model: z.string().optional().transform((m) => resolveModel(m)),
   advisory: z.boolean().optional().default(false),
+  // Raw picker value from the client ("auto" or a specific model id). Used to
+  // decide whether we're allowed to silently fall back on time-to-first-byte.
+  pickerModel: z.string().optional(),
+  // Explicit opt-in for generated imagery. Bypasses the tight keyword filter.
+  wantImages: z.boolean().optional().default(false),
 });
 
 
@@ -266,24 +272,47 @@ export const Route = createFileRoute("/api/generate")({
           }
 
           const clientAbort = request.signal;
-          const images = data.advisory
-            ? []
-            : await planAndGenerateImages(apiKey, data.prompt, data.currentHtml, requestId, clientAbort);
+          const t0 = performance.now();
+          const timing: Record<string, number | string | boolean> = {};
+
+          // 1) Context compaction — huge base64 data URLs and giant inline
+          //    <style>/<script> blocks are the #1 cause of blown token budgets
+          //    and 15-30s time-to-first-token.
+          const compacted = data.currentHtml
+            ? compactHtmlForContext(data.currentHtml)
+            : { html: "", originalBytes: 0, bytes: 0, dataUrlsStripped: 0, blocksTruncated: 0, cappedAtEnd: false };
+          const contextHtml = compacted.html;
+          timing.ctx_in = compacted.originalBytes;
+          timing.ctx_out = compacted.bytes;
+          timing.ctx_stripped = compacted.dataUrlsStripped;
+          const t_ctx = performance.now();
+          timing.compact_ms = Math.round(t_ctx - t0);
+
+          // 2) Image planning — skipped entirely unless the user explicitly
+          //    asked for imagery or opted in via wantImages. This is what was
+          //    silently adding 12-17s to every non-visual build.
+          const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
+          const images = wantImages
+            ? await planAndGenerateImages(apiKey, data.prompt, contextHtml, requestId, clientAbort)
+            : [];
+          const t_images = performance.now();
+          timing.image_ms = Math.round(t_images - t_ctx);
+          timing.image_count = images.length;
 
           const messages: Array<{ role: string; content: string }> = [
             { role: "system", content: data.advisory ? ADVISORY_PROMPT : SYSTEM_PROMPT },
             ...data.history,
           ];
-          if (!data.advisory && data.currentHtml) {
+          if (!data.advisory && contextHtml) {
             messages.push({
               role: "system",
-              content: `The current HTML document is:\n\n${data.currentHtml}\n\nBuild upon it.`,
+              content: `The current HTML document is:\n\n${contextHtml}\n\nBuild upon it.`,
             });
           }
-          if (data.advisory && data.currentHtml) {
+          if (data.advisory && contextHtml) {
             messages.push({
               role: "system",
-              content: `For reference only — the user's current build (do NOT rewrite it, just advise):\n\n${data.currentHtml.slice(0, 8000)}`,
+              content: `For reference only — the user's current build (do NOT rewrite it, just advise):\n\n${contextHtml.slice(0, 8000)}`,
             });
           }
           if (!data.advisory && images.length) {
@@ -298,81 +327,122 @@ export const Route = createFileRoute("/api/generate")({
           }
           messages.push({ role: "user", content: data.prompt });
 
-
-          const upstreamRes = await aiFetch(
-            "https://ai.gateway.lovable.dev/v1/chat/completions",
-            {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${apiKey}`,
-              },
-              body: JSON.stringify({
-                model: data.model,
-                messages,
-                stream: true,
-                ...(data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
-              }),
-            },
-            {
-              breakerKey: `lovable/generate:${data.model}`,
-              stage: "generate",
-              requestId,
-              signal: clientAbort,
-              stream: true,
-            },
-          );
-
-          const upstream = upstreamRes.response;
-          if (!upstream.body) {
-            recordFailure(`lovable/generate:${data.model}`);
-            throw new AiError({ code: "ai_upstream_empty", stage: "generate", requestId });
-          }
-
-          // First-chunk validation: if the "stream" is actually a proxy HTML page,
-          // reject BEFORE emitting anything to the client.
           const decoder = new TextDecoder();
           const encoder = new TextEncoder();
-          const reader = upstream.body.getReader();
-          let sniffBuffer = "";
-          const contentType = upstream.headers.get("content-type");
+          const explicit = !!(data.pickerModel && data.pickerModel !== "auto");
 
-          // Read up to ~4KB or first useful chunk for sniffing.
-          let firstChunk: { done: boolean; value: Uint8Array | undefined } | null = null;
-          while (sniffBuffer.length < 4096) {
-            const r = await reader.read();
-            firstChunk = r;
-            if (r.done) break;
-            sniffBuffer += decoder.decode(r.value, { stream: true });
-            if (sniffBuffer.trim().length > 0) break;
+          // openStream: open an upstream chat/completions stream against `model`,
+          // read enough bytes to guard against proxy HTML, and hand back the
+          // reader + buffered prefix. Bounded by `budgetMs` end-to-end so we
+          // can decide whether to fall back to the fast tier.
+          async function openStream(model: string, budgetMs: number) {
+            const t_open = performance.now();
+            const res = await aiFetch(
+              "https://ai.gateway.lovable.dev/v1/chat/completions",
+              {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${apiKey}`,
+                },
+                body: JSON.stringify({
+                  model,
+                  messages,
+                  stream: true,
+                  ...(model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
+                }),
+              },
+              {
+                breakerKey: `lovable/generate:${model}`,
+                stage: "generate",
+                requestId,
+                signal: clientAbort,
+                stream: true,
+                totalTimeoutMs: budgetMs,
+              },
+            );
+            const body = res.response.body;
+            if (!body) {
+              recordFailure(`lovable/generate:${model}`);
+              throw new AiError({ code: "ai_upstream_empty", stage: "generate", requestId });
+            }
+            const rdr = body.getReader();
+            const ct = res.response.headers.get("content-type");
+            let sniff = "";
+            let first: { done: boolean; value: Uint8Array | undefined } | null = null;
+            const remaining = () => Math.max(500, budgetMs - (performance.now() - t_open));
+            while (sniff.length < 4096) {
+              const r = await Promise.race<{ done: boolean; value: Uint8Array | undefined }>([
+                rdr.read(),
+                new Promise((_, rej) => setTimeout(() => rej(new Error("first_byte_timeout")), remaining())),
+              ]);
+              first = r;
+              if (r.done) break;
+              sniff += decoder.decode(r.value, { stream: true });
+              if (sniff.trim().length > 0) break;
+            }
+            const guard = firstChunkLooksBad(sniff, ct);
+            if (guard.bad) {
+              try { await rdr.cancel(); } catch { /* ignore */ }
+              recordFailure(`lovable/generate:${model}`);
+              const code =
+                guard.reason === "html_body" || guard.reason === "proxy_error"
+                  ? "ai_upstream_html"
+                  : "ai_upstream_malformed";
+              throw new AiError({
+                code,
+                stage: "generate",
+                requestId,
+                message: sanitizeUpstreamMessage(sniff, "Upstream returned a non-stream response."),
+              });
+            }
+            return { reader: rdr, sniffBuffer: sniff, firstChunk: first, model, openedAt: t_open, headersAt: performance.now() };
           }
 
-          const guard = firstChunkLooksBad(sniffBuffer, contentType);
-          if (guard.bad) {
-            try { await reader.cancel(); } catch { /* ignore */ }
-            recordFailure(`lovable/generate:${data.model}`);
-            const code =
-              guard.reason === "html_body" || guard.reason === "proxy_error"
-                ? "ai_upstream_html"
-                : "ai_upstream_malformed";
-            throw new AiError({
-              code,
-              stage: "generate",
-              requestId,
-              message: sanitizeUpstreamMessage(sniffBuffer, "Upstream returned a non-stream response."),
-            });
+          // 3) Open upstream. On any first-byte failure — timeout, malformed
+          //    HTML, empty body — silently retry once against the fastest
+          //    reliable model, but only when the user didn't pin a model.
+          let opened;
+          let fallbackReason = "";
+          try {
+            opened = await openStream(data.model, 8_000);
+          } catch (err) {
+            const canFallback = !explicit && data.model !== DEFAULT_MODEL && !isFastTier(data.model);
+            if (!canFallback) throw err;
+            fallbackReason = err instanceof Error ? err.message.slice(0, 60) : "unknown";
+            opened = await openStream(DEFAULT_MODEL, 15_000);
           }
-
-          // Do NOT recordSuccess yet — only after the stream has produced at
-          // least one valid content delta. A stream that emits zero content is
-          // treated as ai_upstream_empty and counts as a breaker failure.
-          const breakerKeyGen = `lovable/generate:${data.model}`;
+          const { reader, sniffBuffer, firstChunk, model: modelUsed, openedAt, headersAt } = opened;
+          const breakerKeyGen = `lovable/generate:${modelUsed}`;
+          timing.model = modelUsed;
+          timing.fallback = !!fallbackReason;
+          if (fallbackReason) timing.fallback_reason = fallbackReason;
+          timing.headers_ms = Math.round(headersAt - openedAt);
+          timing.first_byte_ms = Math.round(performance.now() - t0);
 
           // Compose an SSE parser over the buffered sniff bytes + rest of the stream.
           const stream = new ReadableStream<Uint8Array>({
             async start(controller) {
               let buffer = sniffBuffer;
               let emittedBytes = 0;
+              const streamStartedAt = performance.now();
+              const finalize = (ok: boolean, err?: unknown) => {
+                const totalMs = Math.round(performance.now() - t0);
+                timing.stream_ms = Math.round(performance.now() - streamStartedAt);
+                timing.total_ms = totalMs;
+                timing.emitted_bytes = emittedBytes;
+                if (ok) {
+                  // Trailer HTML comment — parsed & stripped by the client.
+                  try {
+                    controller.enqueue(encoder.encode(`\n<!--OBS_TIMING:${JSON.stringify(timing)}-->`));
+                  } catch { /* stream already closing */ }
+                  recordSuccess(breakerKeyGen);
+                  controller.close();
+                } else {
+                  recordFailure(breakerKeyGen);
+                  controller.error(err ?? new Error("ai_upstream_empty"));
+                }
+              };
               try {
                 const drain = () => {
                   let idx;
@@ -382,13 +452,7 @@ export const Route = createFileRoute("/api/generate")({
                     if (!line.startsWith("data:")) continue;
                     const payload = line.slice(5).trim();
                     if (payload === "[DONE]") {
-                      if (emittedBytes === 0) {
-                        recordFailure(breakerKeyGen);
-                        controller.error(new Error("ai_upstream_empty"));
-                        return true;
-                      }
-                      recordSuccess(breakerKeyGen);
-                      controller.close();
+                      finalize(emittedBytes > 0);
                       return true;
                     }
                     try {
@@ -403,32 +467,16 @@ export const Route = createFileRoute("/api/generate")({
                   return false;
                 };
                 if (drain()) return;
-                if (firstChunk?.done) {
-                  if (emittedBytes === 0) {
-                    recordFailure(breakerKeyGen);
-                    controller.error(new Error("ai_upstream_empty"));
-                  } else {
-                    recordSuccess(breakerKeyGen);
-                    controller.close();
-                  }
-                  return;
-                }
+                if (firstChunk?.done) { finalize(emittedBytes > 0); return; }
                 while (true) {
                   const { done, value } = await reader.read();
                   if (done) break;
                   buffer += decoder.decode(value, { stream: true });
                   if (drain()) return;
                 }
-                if (emittedBytes === 0) {
-                  recordFailure(breakerKeyGen);
-                  controller.error(new Error("ai_upstream_empty"));
-                } else {
-                  recordSuccess(breakerKeyGen);
-                  controller.close();
-                }
+                finalize(emittedBytes > 0);
               } catch (err) {
-                recordFailure(breakerKeyGen);
-                controller.error(err);
+                finalize(false, err);
               }
             },
           });
@@ -444,7 +492,14 @@ export const Route = createFileRoute("/api/generate")({
               "X-Request-Id": requestId,
               "X-Obs-Image-Providers": providersSummary,
               "X-Obs-Image-Count": String(images.length),
-              "Access-Control-Expose-Headers": "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count",
+              "X-Obs-Model-Used": modelUsed,
+              "X-Obs-Model-Requested": data.model,
+              "X-Obs-Fallback": fallbackReason ? "1" : "0",
+              "X-Obs-First-Byte-Ms": String(timing.first_byte_ms),
+              "X-Obs-Compact-In": String(compacted.originalBytes),
+              "X-Obs-Compact-Out": String(compacted.bytes),
+              "Access-Control-Expose-Headers":
+                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out",
             },
           });
         } catch (err) {
