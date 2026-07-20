@@ -36,6 +36,16 @@ import { resolveScope, refusalOnPatchFailure } from "./code-surgeon";
 import { resolveIntroVideo } from "./intro-asset";
 import { compactHtmlForContext, restoreAndVerify } from "./context-compactor";
 import { isFastTier, DEFAULT_MODEL } from "./models";
+import {
+  inventoryProject as fus_inventory,
+  detectConflicts as fus_detectConflicts,
+  generatePlan as fus_generatePlan,
+  fuseProjects as fus_fuse,
+  rollbackFusion as fus_rollback,
+  contentHash as fus_hash,
+  type FusionConflict,
+  type FusionProvenance,
+} from "./project-fusion";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
