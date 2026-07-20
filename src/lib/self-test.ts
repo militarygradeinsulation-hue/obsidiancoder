@@ -1482,11 +1482,115 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     }
   }
 
+  // ------------- hasActivePro entitlement gate -------------
+  {
+    const { isActiveProRow, hasActiveProWithClient } = await import("./credit-gate.server");
+    const now = new Date("2026-07-20T12:00:00Z");
+    const inPeriod = {
+      status: "active",
+      current_period_start: "2026-07-01T00:00:00Z",
+      current_period_end: "2026-08-01T00:00:00Z",
+    };
+    results.push(assert(isActiveProRow(inPeriod, now) === true,
+      "hasActivePro: active row inside period passes"));
+    results.push(assert(isActiveProRow({ ...inPeriod, status: "trialing" }, now) === true,
+      "hasActivePro: trialing row inside period passes"));
+    results.push(assert(isActiveProRow({ ...inPeriod, current_period_end: "2026-07-10T00:00:00Z" }, now) === false,
+      "hasActivePro: expired period fails"));
+    results.push(assert(isActiveProRow({ ...inPeriod, current_period_start: "2026-08-01T00:00:00Z", current_period_end: "2026-09-01T00:00:00Z" }, now) === false,
+      "hasActivePro: future period fails"));
+    results.push(assert(isActiveProRow({ ...inPeriod, current_period_start: null }, now) === false,
+      "hasActivePro: null period_start fails"));
+    results.push(assert(isActiveProRow({ ...inPeriod, current_period_end: null }, now) === false,
+      "hasActivePro: null period_end fails"));
+    results.push(assert(isActiveProRow({ ...inPeriod, status: "canceled" }, now) === false,
+      "hasActivePro: canceled status fails"));
+    results.push(assert(isActiveProRow({ ...inPeriod, status: "past_due" }, now) === false,
+      "hasActivePro: past_due status fails"));
+    results.push(assert(isActiveProRow(null, now) === false,
+      "hasActivePro: missing row fails"));
+
+    // Mock client — records which user_id/environment values were queried,
+    // proving the caller-supplied id is the only one consulted. A "forged"
+    // id in some other field cannot alter which account is checked.
+    type Row = { status: string; current_period_start: string | null; current_period_end: string | null };
+    function makeClient(rowsByUser: Record<string, Row | null>) {
+      const calls: Array<{ user_id?: string; environment?: string }> = [];
+      const client = {
+        from(_t: string) {
+          const state: { user_id?: string; environment?: string } = {};
+          const chain = {
+            select() { return chain; },
+            eq(col: string, val: string) {
+              if (col === "user_id") state.user_id = val;
+              else if (col === "environment") state.environment = val;
+              return chain;
+            },
+            in() { return chain; },
+            order() { return chain; },
+            limit() { return chain; },
+            async maybeSingle() {
+              calls.push({ ...state });
+              const row = state.user_id ? rowsByUser[state.user_id] ?? null : null;
+              return { data: row, error: null };
+            },
+          };
+          return chain;
+        },
+      } as unknown as Parameters<typeof hasActiveProWithClient>[0];
+      return { client, calls };
+    }
+
+    const proUser = "verified-pro-uuid";
+    const forgedUser = "attacker-supplied-uuid";
+    const { client, calls } = makeClient({
+      [proUser]: inPeriod,
+      [forgedUser]: inPeriod, // even if forged id existed as a real Pro, the verified id path must be the ONLY one queried
+    });
+
+    const okPro = await hasActiveProWithClient(client, proUser, "live", now);
+    results.push(assert(okPro === true, "hasActivePro: valid pro user via admin client passes"));
+    results.push(assert(calls.length === 1 && calls[0].user_id === proUser && calls[0].environment === "live",
+      "hasActivePro: queries verified user id + environment only"));
+
+    const { client: c2 } = makeClient({ "no-sub-user": null });
+    const noSub = await hasActiveProWithClient(c2, "no-sub-user", "live", now);
+    results.push(assert(noSub === false, "hasActivePro: user without subscription fails"));
+
+    const { client: c3 } = makeClient({
+      "expired-user": { status: "active", current_period_start: "2026-01-01T00:00:00Z", current_period_end: "2026-02-01T00:00:00Z" },
+    });
+    const expired = await hasActiveProWithClient(c3, "expired-user", "live", now);
+    results.push(assert(expired === false, "hasActivePro: expired subscription fails"));
+
+    const { client: c4 } = makeClient({
+      "canceled-user": { status: "canceled", current_period_start: "2026-07-01T00:00:00Z", current_period_end: "2026-08-01T00:00:00Z" },
+    });
+    const canceled = await hasActiveProWithClient(c4, "canceled-user", "live", now);
+    results.push(assert(canceled === false, "hasActivePro: canceled subscription fails"));
+
+    // Forgery isolation: an attacker who controls a request body cannot
+    // change the id the entitlement check queries. hasActivePro receives
+    // only `user` from resolveUserFromRequest; simulating that here by
+    // passing the verified id and confirming the mock recorded exactly
+    // that id — never the forged one.
+    const { client: c5, calls: calls5 } = makeClient({
+      [proUser]: null,          // verified user is NOT a pro
+      [forgedUser]: inPeriod,   // forged id IS a pro
+    });
+    const forged = await hasActiveProWithClient(c5, proUser, "live", now);
+    results.push(assert(forged === false,
+      "hasActivePro: forged browser id cannot upgrade a non-pro verified user"));
+    results.push(assert(calls5.every((c) => c.user_id === proUser),
+      "hasActivePro: query only ever uses the verified user id"));
+  }
+
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };
 }
+
 
 
 
