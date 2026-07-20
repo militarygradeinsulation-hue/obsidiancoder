@@ -83,8 +83,30 @@ export async function isOwnerSession(): Promise<boolean> {
   }
 }
 
-/** Records owner-bypass usage into the private owner_usage table. Best-effort. */
-export async function logOwnerUsage(operation: Operation, credits: number, requestId?: string): Promise<void> {
+/**
+ * Records owner-bypass usage. Writes to the private owner_usage log (legacy)
+ * AND appends a detailed row to ai_usage so owner activity carries the same
+ * provider/model/tokens/cost metadata as user calls. Best-effort.
+ */
+export interface OwnerUsageMeta {
+  provider?: string;
+  model?: string;
+  inputTokens?: number;
+  outputTokens?: number;
+  totalTokens?: number;
+  imageCount?: number;
+  actualCostUsd?: number;
+  estimatedCostUsd?: number;
+  costBasis?: "actual" | "estimated" | "minimum";
+  environment?: Environment;
+}
+
+export async function logOwnerUsage(
+  operation: Operation,
+  credits: number,
+  requestId?: string,
+  meta?: OwnerUsageMeta,
+): Promise<void> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     await supabaseAdmin.rpc("log_owner_usage" as never, {
@@ -92,6 +114,28 @@ export async function logOwnerUsage(operation: Operation, credits: number, reque
       _credits: credits,
       _request_id: requestId ?? null,
     } as never);
+    // Best-effort detailed ledger row.
+    if (requestId) {
+      await supabaseAdmin.from("ai_usage" as never).insert({
+        request_id: requestId,
+        user_id: null,
+        actor_type: "owner",
+        operation,
+        provider: meta?.provider ?? null,
+        model: meta?.model ?? null,
+        input_tokens: meta?.inputTokens ?? 0,
+        output_tokens: meta?.outputTokens ?? 0,
+        total_tokens: meta?.totalTokens ?? ((meta?.inputTokens ?? 0) + (meta?.outputTokens ?? 0)),
+        image_count: meta?.imageCount ?? 0,
+        actual_cost_usd: meta?.actualCostUsd ?? null,
+        estimated_cost_usd: meta?.estimatedCostUsd ?? null,
+        cost_basis: meta?.costBasis ?? (meta?.actualCostUsd !== undefined ? "actual" : "estimated"),
+        credits_reserved: 0,
+        credits_charged: credits,
+        status: "committed",
+        environment: meta?.environment ?? serverStripeEnv(),
+      } as never);
+    }
   } catch {
     /* private log is best-effort */
   }

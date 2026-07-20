@@ -57,12 +57,45 @@ export function capForPlan(plan: "free" | "pro"): number {
   return plan === "pro" ? CAP_PRO_MONTHLY : CAP_FREE_MONTHLY;
 }
 
-export interface Balance { used: number; cap: number; remaining: number }
+export interface Balance { used: number; reserved: number; cap: number; remaining: number }
 
-export function balanceFor(used: number, cap: number): Balance {
+export function balanceFor(used: number, cap: number, reserved: number = 0): Balance {
   const u = Math.max(0, Math.floor(used));
+  const r = Math.max(0, Math.floor(reserved));
   const c = Math.max(0, Math.floor(cap));
-  return { used: u, cap: c, remaining: Math.max(0, c - u) };
+  return { used: u, reserved: r, cap: c, remaining: Math.max(0, c - u - r) };
+}
+
+/**
+ * Convert an actual (or estimated) provider USD cost to whole credits at
+ * $0.005/credit, applying the per-operation minimum charge. Failed calls
+ * with no provider usage pass usd=0 → charge = 0.
+ */
+export function creditsForUsd(usd: number, operation?: Operation): number {
+  const raw = Number.isFinite(usd) && usd > 0 ? Math.ceil(usd / COST_PER_CREDIT_USD) : 0;
+  if (!operation) return raw;
+  return raw === 0 ? 0 : Math.max(1, raw);
+}
+
+/**
+ * Centralized per-model token pricing table ($ per 1K tokens). Used when
+ * the provider does not return an actual cost. Conservative defaults;
+ * unknown models fall through to a safe minimum.
+ */
+export const TOKEN_RATES_PER_1K_USD: Record<string, { input: number; output: number }> = {
+  "google/gemini-3.1-flash-lite": { input: 0.0001, output: 0.0004 },
+  "google/gemini-3.1-flash":      { input: 0.0003, output: 0.0012 },
+  "google/gemini-3.1-pro-preview":{ input: 0.00125, output: 0.005 },
+  "openai/gpt-5.5":                { input: 0.0025, output: 0.01 },
+  "openai/gpt-5.6":                { input: 0.005,  output: 0.02 },
+};
+export const MIN_CALL_COST_USD = 0.001;
+
+export function estimateUsdFromTokens(model: string, inTok: number, outTok: number): number {
+  const rate = TOKEN_RATES_PER_1K_USD[model];
+  if (!rate) return MIN_CALL_COST_USD;
+  const usd = (inTok / 1000) * rate.input + (outTok / 1000) * rate.output;
+  return usd > 0 ? +usd.toFixed(6) : MIN_CALL_COST_USD;
 }
 
 /** Can we spend `amount` credits given current `used`/`cap`? */

@@ -87,40 +87,48 @@ export function useSubscription(): {
 }
 
 /**
- * Monthly credit balance for the signed-in user in the current Stripe env.
- * Zero when there is no signed-in user. Refreshes on demand and after any
- * subscription-table change (matches useSubscription).
+ * Credit balance bound to the user's active subscription period (or current
+ * calendar month if no subscription). Includes reserved (pending) credits and
+ * exact period start/end. Server is source of truth.
  */
-export function useCredits(): Balance & { loading: boolean; refetch: () => void } {
+export function useCredits(): Balance & { loading: boolean; refetch: () => void; periodStart: string | null; periodEnd: string | null } {
   const { userId } = useAuth();
-  const [state, setState] = useState<Balance & { loading: boolean }>(
-    () => ({ ...balanceFor(0, 0), loading: true }),
+  const [state, setState] = useState<Balance & { loading: boolean; periodStart: string | null; periodEnd: string | null }>(
+    () => ({ ...balanceFor(0, 0), loading: true, periodStart: null, periodEnd: null }),
   );
 
   const load = useCallback(async () => {
-    if (!userId) { setState({ ...balanceFor(0, 0), loading: false }); return; }
+    if (!userId) {
+      setState({ ...balanceFor(0, 0), loading: false, periodStart: null, periodEnd: null });
+      return;
+    }
     let env = "sandbox";
     try { env = getStripeEnvironment(); } catch { /* ignore */ }
     try {
-      const { data, error } = await supabase.rpc("credit_balance" as never, {
+      // Prefer period-scoped RPC; fall back to legacy calendar-month RPC.
+      const { data, error } = await supabase.rpc("credit_balance_period" as never, {
         _user_id: userId,
         _env: env,
         _cap: CAP_PRO_MONTHLY,
       } as never);
       if (error || !data) {
-        setState({ ...balanceFor(0, CAP_PRO_MONTHLY), loading: false });
+        setState({ ...balanceFor(0, CAP_PRO_MONTHLY), loading: false, periodStart: null, periodEnd: null });
         return;
       }
       const row = (Array.isArray(data) ? data[0] : data) as
-        | { used: number; cap: number; remaining: number } | null | undefined;
+        | { used: number; reserved: number; cap: number; remaining: number; period_start: string; period_end: string }
+        | null | undefined;
       setState({
         used: Number(row?.used ?? 0),
+        reserved: Number(row?.reserved ?? 0),
         cap: Number(row?.cap ?? CAP_PRO_MONTHLY),
         remaining: Number(row?.remaining ?? CAP_PRO_MONTHLY),
         loading: false,
+        periodStart: row?.period_start ?? null,
+        periodEnd: row?.period_end ?? null,
       });
     } catch {
-      setState({ ...balanceFor(0, CAP_PRO_MONTHLY), loading: false });
+      setState({ ...balanceFor(0, CAP_PRO_MONTHLY), loading: false, periodStart: null, periodEnd: null });
     }
   }, [userId]);
 
