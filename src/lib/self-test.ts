@@ -34,6 +34,8 @@ import { computeReadiness } from "./readiness-score";
 import { advise } from "./refactor-advisor";
 import { resolveScope, refusalOnPatchFailure } from "./code-surgeon";
 import { resolveIntroVideo } from "./intro-asset";
+import { compactHtmlForContext } from "./context-compactor";
+import { isFastTier, DEFAULT_MODEL } from "./models";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
@@ -639,6 +641,26 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(a.ok === true, `intro-asset: pointer valid (${a.reason ?? "ok"})`));
     results.push(assert(a.url.length > 0 && (a.url.startsWith("/__l5e/") || a.url.startsWith("http")), `intro-asset: url shape ok (${a.url.slice(0, 40)})`));
     results.push(assert(!a.contentType || /^video\//.test(a.contentType), `intro-asset: content-type video (${a.contentType})`));
+  }
+
+  // ---------- Context compactor (perf pipeline) ----------
+  {
+    const bigB64 = "A".repeat(50_000);
+    const html = `<!doctype html><html><body><img src="data:image/png;base64,${bigB64}"><style>${"x".repeat(20_000)}</style><script>${"y".repeat(20_000)}</script></body></html>`;
+    const out = compactHtmlForContext(html);
+    results.push(assert(out.bytes < html.length / 2, `compactor: shrinks large payload (${out.originalBytes}→${out.bytes})`));
+    results.push(assert(out.dataUrlsStripped === 1, `compactor: strips 1 base64 data url (${out.dataUrlsStripped})`));
+    results.push(assert(out.blocksTruncated === 2, `compactor: truncates style + script (${out.blocksTruncated})`));
+    results.push(assert(!/AAAAA{500}/.test(out.html), "compactor: base64 body not retained in output"));
+    const small = compactHtmlForContext(`<p>hello</p>`);
+    results.push(assert(small.dataUrlsStripped === 0 && small.blocksTruncated === 0, "compactor: leaves small html untouched"));
+  }
+
+  // ---------- Model tiers (fallback safety) ----------
+  {
+    results.push(assert(isFastTier(DEFAULT_MODEL), `models: default model is fast-tier (${DEFAULT_MODEL})`));
+    results.push(assert(!isFastTier("google/gemini-3.1-pro-preview"), "models: Gemini Pro is not fast-tier"));
+    results.push(assert(!isFastTier("openai/gpt-5.5"), "models: GPT-5.5 is not fast-tier"));
   }
 
   const passed = results.filter((r) => r.ok).length;
