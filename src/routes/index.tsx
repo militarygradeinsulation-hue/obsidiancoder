@@ -2088,6 +2088,31 @@ function Index() {
                     className="obs-overflow-item"
                     onClick={() => { setOverflowOpen(false); handleNav("git"); }}
                   >Show Git-ready panel</button>
+                  <div className="obs-overflow-sep" />
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    onClick={async () => {
+                      setOverflowOpen(false);
+                      try { await lockSite(); } catch { /* ignore */ }
+                      window.location.assign("/unlock");
+                    }}
+                    title="Return to the access screen. Your Obsidian account stays signed in."
+                  >Lock Workspace</button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    className="obs-overflow-item"
+                    data-testid="topbar-signout"
+                    onClick={async () => {
+                      setOverflowOpen(false);
+                      try { await supabase.auth.signOut(); } catch { /* ignore */ }
+                      try { await lockSite(); } catch { /* ignore */ }
+                      window.location.assign("/unlock");
+                    }}
+                    title="Sign out of your Obsidian account and lock the workspace."
+                  >Sign out</button>
                 </div>
               )}
             </div>
