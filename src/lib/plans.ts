@@ -111,7 +111,8 @@ export const PLAN_TIERS: PlanTier[] = [
       "Dedicated deployment pipelines",
       "Launch-readiness and compliance reviews",
     ],
-    cta: "waitlist",
+    priceId: "obsidian_elite_monthly",
+    cta: "checkout",
     icon: Crown,
   },
   {
