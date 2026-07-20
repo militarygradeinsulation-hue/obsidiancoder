@@ -595,7 +595,7 @@ export const Route = createFileRoute("/api/generate")({
                 }
               };
               try {
-                const drain = () => {
+                const drain = async (): Promise<boolean> => {
                   let idx;
                   while ((idx = buffer.indexOf("\n")) !== -1) {
                     const line = buffer.slice(0, idx).trim();
@@ -607,7 +607,7 @@ export const Route = createFileRoute("/api/generate")({
                     streamUsage.push(line);
                     const payload = line.slice(5).trim();
                     if (payload === "[DONE]") {
-                      finalize(emittedBytes > 0);
+                      await finalize(emittedBytes > 0);
                       return true;
                     }
                     try {
@@ -621,17 +621,17 @@ export const Route = createFileRoute("/api/generate")({
                   }
                   return false;
                 };
-                if (drain()) return;
-                if (firstChunk?.done) { finalize(emittedBytes > 0); return; }
+                if (await drain()) return;
+                if (firstChunk?.done) { await finalize(emittedBytes > 0); return; }
                 while (true) {
                   const { done, value } = await reader.read();
                   if (done) break;
                   buffer += decoder.decode(value, { stream: true });
-                  if (drain()) return;
+                  if (await drain()) return;
                 }
-                finalize(emittedBytes > 0);
+                await finalize(emittedBytes > 0);
               } catch (err) {
-                finalize(false, err);
+                await finalize(false, err);
               }
             },
           });
