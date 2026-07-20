@@ -360,11 +360,21 @@ function Index() {
   const [composerHeight, setComposerHeight] = useState<number>(() => {
     if (typeof window === "undefined") return 72;
     const n = Number(localStorage.getItem("obs.composer_h"));
-    return Number.isFinite(n) && n >= 40 ? Math.min(n, 400) : 72;
+    return Number.isFinite(n) && n >= 40 ? Math.min(n, 800) : 72;
+  });
+  const [composerWidth, setComposerWidth] = useState<number | null>(() => {
+    if (typeof window === "undefined") return null;
+    const n = Number(localStorage.getItem("obs.composer_w"));
+    return Number.isFinite(n) && n >= 240 ? Math.min(n, 1600) : null;
   });
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("obs.composer_h", String(composerHeight));
   }, [composerHeight]);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (composerWidth) localStorage.setItem("obs.composer_w", String(composerWidth));
+    else localStorage.removeItem("obs.composer_w");
+  }, [composerWidth]);
   // Draggable composer position (null = docked in rail).
   const [composerPos, setComposerPos] = useState<{ x: number; y: number } | null>(() => {
     if (typeof window === "undefined") return null;
@@ -2317,10 +2327,22 @@ function Index() {
                   rows={1}
                   className="obs-composer-input"
                   data-testid="composer-input"
-                  style={{ height: composerHeight, resize: "vertical", minHeight: 40, maxHeight: 400, overflow: "auto" }}
+                  style={{
+                    height: composerHeight,
+                    width: composerWidth ?? "100%",
+                    resize: "both",
+                    minHeight: 40,
+                    maxHeight: 800,
+                    minWidth: 240,
+                    maxWidth: "100%",
+                    overflow: "auto",
+                  }}
                   onMouseUp={(e) => {
-                    const h = (e.currentTarget as HTMLTextAreaElement).offsetHeight;
+                    const el = e.currentTarget as HTMLTextAreaElement;
+                    const h = el.offsetHeight;
+                    const w = el.offsetWidth;
                     if (h && h !== composerHeight) setComposerHeight(h);
+                    if (w && w !== (composerWidth ?? 0)) setComposerWidth(w);
                   }}
                 />
 
