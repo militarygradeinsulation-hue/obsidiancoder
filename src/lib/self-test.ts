@@ -1093,6 +1093,138 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     }
   }
 
+  // ────────────────────────────────────────────────────────────────
+  // Streaming billing — SSE usage parsing, HTML metadata exclusion,
+  // image aggregation, fallback aggregation, provider-used stream failure,
+  // no-provider refund, and settlement-failure surfacing.
+  // ────────────────────────────────────────────────────────────────
+  {
+    const { StreamingUsageAccumulator, mergeUsage, makeUsage, IMAGE_COST_USD } = await import("./usage-record");
+    const { UsageLedger } = await import("./usage-ledger-mock");
+    const NOW = 1_700_000_000_000;
+    const PS = NOW - 5 * 24 * 3600_000;
+    const PE = NOW + 25 * 24 * 3600_000;
+    const CAP = 1000;
+
+    // 1. Streaming usage parsing — OpenAI include_usage final frame.
+    {
+      const acc = new StreamingUsageAccumulator();
+      acc.push('data: {"choices":[{"delta":{"content":"hi"}}]}');
+      acc.push('data: {"model":"openai/gpt-5.6","usage":{"prompt_tokens":123,"completion_tokens":45,"total_tokens":168}}');
+      acc.push("data: [DONE]");
+      const snap = acc.snapshot();
+      results.push(assert(acc.hasUsage() && snap.inputTokens === 123 && snap.outputTokens === 45 && snap.totalTokens === 168 && snap.model === "openai/gpt-5.6",
+        "streaming: parses OpenAI usage frame"));
+    }
+
+    // 2. Streaming usage parsing — Gemini usageMetadata variant.
+    {
+      const acc = new StreamingUsageAccumulator();
+      acc.push('data: {"usageMetadata":{"promptTokenCount":50,"candidatesTokenCount":20,"totalTokenCount":70}}');
+      const snap = acc.snapshot();
+      results.push(assert(snap.inputTokens === 50 && snap.outputTokens === 20 && snap.totalTokens === 70,
+        "streaming: parses Gemini usageMetadata"));
+    }
+
+    // 3. HTML output must never contain a usage metadata line — the
+    //    accumulator ingests SSE lines but does NOT contribute to bytes
+    //    emitted to the client. Emulate the drain contract from generate.ts.
+    {
+      const acc = new StreamingUsageAccumulator();
+      let emitted = "";
+      const lines = [
+        'data: {"choices":[{"delta":{"content":"<h1>ok</h1>"}}]}',
+        'data: {"usage":{"prompt_tokens":10,"completion_tokens":2,"total_tokens":12}}',
+        "data: [DONE]",
+      ];
+      for (const line of lines) {
+        acc.push(line);
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (payload === "[DONE]") break;
+        try {
+          const j = JSON.parse(payload);
+          const delta = j.choices?.[0]?.delta?.content;
+          if (typeof delta === "string") emitted += delta;
+        } catch { /* skip */ }
+      }
+      results.push(assert(emitted === "<h1>ok</h1>" && !emitted.includes("usage") && !emitted.includes("prompt_tokens"),
+        "streaming: usage metadata never leaks into emitted HTML"));
+    }
+
+    // 4. Image aggregation — mergeUsage sums image costs + counts.
+    {
+      const llm = makeUsage({ operation: "generate_html", provider: "lovable", model: "m", inputTokens: 100, outputTokens: 50, totalTokens: 150, estimatedCostUsd: 0.01, costBasis: "estimated", providerUsed: true, status: "committed" });
+      const img1 = makeUsage({ operation: "generate_image", provider: "leonardo", model: "leonardo", imageCount: 1, estimatedCostUsd: IMAGE_COST_USD, costBasis: "estimated", providerUsed: true, status: "committed" });
+      const img2 = makeUsage({ operation: "generate_image", provider: "gemini", model: "gemini", imageCount: 1, estimatedCostUsd: IMAGE_COST_USD, costBasis: "estimated", providerUsed: true, status: "committed" });
+      const merged = mergeUsage("generate_html", [llm, img1, img2]);
+      results.push(assert(merged.imageCount === 2 && Math.abs((merged.estimatedCostUsd ?? 0) - (0.01 + IMAGE_COST_USD * 2)) < 1e-9,
+        "streaming: image usages aggregate into merged record"));
+    }
+
+    // 5. Fallback aggregation — a failed attempt with provider work +
+    //    a successful retry produce a committed merged record whose cost
+    //    covers BOTH provider calls.
+    {
+      const attempt1 = makeUsage({ operation: "generate_html", provider: "lovable", model: "big", inputTokens: 200, outputTokens: 0, totalTokens: 200, estimatedCostUsd: 0.02, costBasis: "estimated", providerUsed: true, status: "failed", errorCode: "ai_upstream_html" });
+      const attempt2 = makeUsage({ operation: "generate_html", provider: "lovable", model: "fast", inputTokens: 100, outputTokens: 300, totalTokens: 400, estimatedCostUsd: 0.03, costBasis: "estimated", providerUsed: true, status: "committed" });
+      const merged = mergeUsage("generate_html", [attempt1, attempt2]);
+      results.push(assert(merged.status === "committed" && Math.abs((merged.estimatedCostUsd ?? 0) - 0.05) < 1e-9 && merged.totalTokens === 600,
+        "streaming: fallback attempts aggregate — both provider calls billed"));
+    }
+
+    // 6. Provider-used stream failure — settleFailure charges (does NOT refund)
+    //    when images were generated before the LLM stream broke.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "uS", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r = l.reserve("uS", 20, CAP, "sandbox", "generate_html", "streamFail") as { reservationId: string };
+      // Simulate: 2 images cost ~8 credits; LLM never streamed. failed_with_usage.
+      const fin = l.finalize(r.reservationId, 8, "streamFail", "failed", CAP);
+      const row = l.rows.get(r.reservationId)!;
+      results.push(assert(fin.ok && row.status === "failed" && row.creditsCharged === 8,
+        "streaming: provider-used stream failure charges (no refund)"));
+    }
+
+    // 7. No-provider refund — when nothing hit the provider, refund fully.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "uR", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r = l.reserve("uR", 20, CAP, "sandbox", "generate_html", "noProv") as { reservationId: string };
+      const ok = l.refund(r.reservationId);
+      const row = l.rows.get(r.reservationId)!;
+      const bal = l.balance("uR", "sandbox", CAP);
+      results.push(assert(ok && row.status === "refunded" && bal.used === 0 && bal.reserved === 0,
+        "streaming: no-provider outcome refunds reservation completely"));
+    }
+
+    // 8. Cap top-up under stream — stream reported more actual than reserved,
+    //    but total period usage stays within cap → full actual is charged.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "uT", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r = l.reserve("uT", 10, CAP, "sandbox", "generate_html", "topup") as { reservationId: string };
+      const fin = l.finalize(r.reservationId, 40, "topup", "committed", CAP);
+      results.push(assert(fin.ok && !fin.capLimited && fin.charged === 40,
+        "streaming: stream top-up above reservation charges full actual when cap allows"));
+    }
+
+    // 9. Settlement failure — a finalize error must leave the row pending
+    //    so an out-of-band retry can reconcile. Simulate by attempting
+    //    finalize with a wrong request_id → mock throws; row unchanged.
+    {
+      const l = new UsageLedger(); l.now = () => NOW;
+      l.addSub({ userId: "uE", env: "sandbox", status: "active", periodStart: PS, periodEnd: PE });
+      const r = l.reserve("uE", 10, CAP, "sandbox", "generate_html", "settleReq") as { reservationId: string };
+      let threw = false;
+      try { l.finalize(r.reservationId, 5, "wrongReq", "committed", CAP); } catch { threw = true; }
+      const row = l.rows.get(r.reservationId)!;
+      results.push(assert(threw && row.status === "pending",
+        "streaming: settlement error leaves row pending for recovery"));
+    }
+  }
+
+
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };
