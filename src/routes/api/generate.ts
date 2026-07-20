@@ -595,7 +595,7 @@ export const Route = createFileRoute("/api/generate")({
           });
         } catch (err) {
           // Refund any pending reservation on synchronous failure.
-          await refundOnFailure();
+          await settleFailure(err instanceof AiError ? err.code : "generate_internal");
           const aiErr = err instanceof AiError
             ? err
             : new AiError({
