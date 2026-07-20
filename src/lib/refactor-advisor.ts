@@ -75,12 +75,19 @@ export function advise(input: { html: string; graph?: KnowledgeGraph }): Refacto
       evidence: `${brokenLinks} broken`, effort: "S" });
   }
 
-  // Stale dependencies (CDN version heuristic)
-  for (const d of g.dependencies) {
-    if (STALE_LIBS.some((rx) => rx.test(d))) {
-      out.push({ id: `stale-${d}`, category: "stale-dependency", severity: "medium",
-        message: `Stale dependency detected: ${d}`,
-        evidence: d, effort: "M" });
+  // Stale dependencies (scan raw HTML for any script src / import)
+  const scriptSrcs = (input.html.match(/<script[^>]+src=["']([^"']+)["']/gi) || [])
+    .concat(g.dependencies);
+  const seenStale = new Set<string>();
+  for (const src of scriptSrcs) {
+    for (const rx of STALE_LIBS) {
+      const m = src.match(rx);
+      if (m && !seenStale.has(m[0])) {
+        seenStale.add(m[0]);
+        out.push({ id: `stale-${m[0]}`, category: "stale-dependency", severity: "medium",
+          message: `Stale dependency detected: ${m[0]}`,
+          evidence: src.slice(0, 100), effort: "M" });
+      }
     }
   }
 
