@@ -22,25 +22,19 @@ Rules:
 - Prefer specifics: layout, sections, tone, key components, accessibility.
 - If the user is iterating on an existing build, phrase it as a focused change, not a rebuild.`;
 
-/** A structured error the client can recognize and route to PricingModal. */
-class PaywallError extends Error {
-  status: number;
-  envelope: ReturnType<typeof creditsRequiredEnvelope>;
-  constructor(env: ReturnType<typeof creditsRequiredEnvelope>) {
-    super(env.message);
-    this.name = "PaywallError";
-    this.status = env.code === "auth_required" ? 401 : 402;
-    this.envelope = env;
-  }
-}
+export type EnhanceResult =
+  | { prompt: string }
+  | { paywall: ReturnType<typeof creditsRequiredEnvelope> };
 
 export const enhancePrompt = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
-  .handler(async ({ data }) => {
+  .handler(async ({ data }): Promise<EnhanceResult> => {
     const request = getRequest();
     const entitlement = await requirePaidOperation(request, "enhance_prompt");
     if (entitlement.kind === "denied" && entitlement.denial) {
-      throw new PaywallError(entitlement.denial);
+      // Return the paywall envelope in-band so the client can open
+      // PricingModal without treating it as an error.
+      return { paywall: entitlement.denial };
     }
     let committed = false;
     const refund = async () => {

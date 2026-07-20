@@ -74,10 +74,10 @@ export function useSubscription(): {
   }, [userId, load]);
 
   // Server is the source of truth for entitlement. The client hook is a
-  // display-only heuristic; no localStorage overrides. A "9822" owner session
-  // still bypasses the server gate via the SITE_PASSWORD cookie, but it is
-  // NEVER treated as Pro on the client (which would fake up the UI without
-  // affecting server enforcement).
+  // display-only heuristic; no localStorage overrides. The owner site-password
+  // session bypasses the server gate via cookie, but it is NEVER treated as
+  // Pro on the client (that would fake up the UI without affecting server
+  // enforcement). Use `useEntitlement()` for the canonical mode signal.
   const now = Date.now();
   const isPro = !!subscription
     && ["active", "trialing"].includes(subscription.status)

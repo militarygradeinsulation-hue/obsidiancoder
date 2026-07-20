@@ -196,20 +196,35 @@ export const Route = createFileRoute("/api/github")({
         try {
           const parsed = bodySchema.parse(await request.json());
 
-          // verify / listRepos / import are read-only — allow with either
-          // the owner cookie OR any signed-in user (no credit charge).
-          // deploy is the only paid op here.
+          // ALL GitHub actions require paid entitlement (owner or active Pro).
+          // Only `deploy` charges credits; verify/listRepos/import are free
+          // reads for the entitled user — but the entitlement check itself
+          // must pass first to block free-tier callers.
           if (parsed.action === "deploy") {
             entitlement = await requirePaidOperation(request, "github_deploy");
             if (entitlement.kind === "denied" && entitlement.denial) {
               return denialResponse(entitlement.denial);
             }
           } else {
+            // Owner cookie → allow. Otherwise require active Pro (no charge).
             const { isUnlockedServer } = await import("@/lib/gate.server");
             if (!(await isUnlockedServer())) {
-              const { resolveUserFromRequest } = await import("@/lib/credit-gate.server");
+              const { resolveUserFromRequest, hasActivePro, serverStripeEnv } = await import("@/lib/credit-gate.server");
+              const { creditsRequiredEnvelope } = await import("@/lib/credit-gate");
               const u = await resolveUserFromRequest(request);
-              if (!u) return Response.json({ error: "Sign in to use GitHub." }, { status: 401 });
+              if (!u) {
+                return denialResponse(creditsRequiredEnvelope({
+                  code: "auth_required",
+                  message: "Sign in and activate Obsidian Pro to use GitHub.",
+                }));
+              }
+              const pro = await hasActivePro(u, serverStripeEnv());
+              if (!pro) {
+                return denialResponse(creditsRequiredEnvelope({
+                  code: "not_pro",
+                  message: "GitHub integration requires Obsidian Pro.",
+                }));
+              }
             }
           }
 
