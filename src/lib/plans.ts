@@ -42,7 +42,8 @@ export const PLAN_TIERS: PlanTier[] = [
       "AI-authored code, copy, and imagery",
       "Baseline security and performance checks",
     ],
-    cta: "waitlist",
+    priceId: "obsidian_starter_monthly",
+    cta: "checkout",
     icon: Rocket,
   },
   {
