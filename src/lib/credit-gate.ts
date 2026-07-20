@@ -47,6 +47,35 @@ export function costForOperation(op: Operation): number {
   return c;
 }
 
+/**
+ * RESERVATION_ENVELOPE — conservative UPPER BOUND, in credits, held on the
+ * pending ai_usage row for the duration of an operation. This is a TEMPORARY
+ * HOLD, not the final charge. Final settlement uses actual/estimated provider
+ * cost (via credits-for-usd + per-op minimum) and automatically releases any
+ * unused reserved credits via usage_finalize's in-place UPDATE.
+ *
+ * Envelopes are intentionally larger than OPERATION_COST minimums so a single
+ * request cannot silently exceed its hold and force the DB into cap-limited
+ * top-up mode. Never surface these numbers to end users as "cost".
+ */
+export const RESERVATION_ENVELOPE: Record<Operation, number> = {
+  generate_html: 60,
+  generate_html_patch: 20,
+  generate_image: 40,
+  enhance_prompt: 5,
+  cloud_save: 1,
+  cloud_share: 1,
+  github_deploy: 2,
+};
+
+export function reservationForOperation(op: Operation): number {
+  const c = RESERVATION_ENVELOPE[op];
+  if (!Number.isFinite(c) || c <= 0) {
+    throw new Error(`Unknown operation (reservation): ${String(op)}`);
+  }
+  return c;
+}
+
 export function usdForCredits(credits: number): number {
   if (!Number.isFinite(credits) || credits < 0) return 0;
   return +(credits * COST_PER_CREDIT_USD).toFixed(4);
