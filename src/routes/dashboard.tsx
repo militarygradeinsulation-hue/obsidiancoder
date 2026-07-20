@@ -108,11 +108,37 @@ function DashboardPage() {
                 : "Upgrade to unlock deployments, analytics, and launch readiness."}
             </p>
           </div>
-          {!tier && (
-            <Link to="/unlock" className="dash-cta">
-              See plans <ArrowRight size={14} />
-            </Link>
-          )}
+          <div className="dash-actions">
+            {!tier && (
+              <Link to="/unlock" className="dash-cta">
+                See plans <ArrowRight size={14} />
+              </Link>
+            )}
+            <button
+              type="button"
+              className="dash-ghost"
+              onClick={async () => {
+                try { await lockSite(); } catch { /* ignore */ }
+                window.location.assign("/unlock");
+              }}
+              title="Return to the access screen. Your Obsidian account stays signed in."
+            >
+              <Lock size={13} /> Lock workspace
+            </button>
+            <button
+              type="button"
+              className="dash-ghost"
+              data-testid="dashboard-signout"
+              onClick={async () => {
+                try { await supabase.auth.signOut(); } catch { /* ignore */ }
+                try { await lockSite(); } catch { /* ignore */ }
+                window.location.assign("/unlock");
+              }}
+              title="Sign out of your Obsidian account and lock the workspace."
+            >
+              <LogOut size={13} /> Sign out
+            </button>
+          </div>
         </header>
 
         <section className="dash-grid" aria-label="Business KPIs">
