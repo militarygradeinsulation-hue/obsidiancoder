@@ -12,7 +12,7 @@ const FREE_FEATURES = [
   "Nothing leaves your browser",
 ];
 
-const WAITLIST_MAILTO = "mailto:hello@aetheris.technology?subject=Obsidian%20plan%20waitlist";
+const waitlistHref = (tierId: string) => `/waitlist?tier=${encodeURIComponent(tierId)}`;
 const CONTACT_MAILTO = "mailto:hello@aetheris.technology?subject=Obsidian%20Enterprise%20inquiry";
 
 export function PricingModal({ onClose, initialPriceId }: { onClose: () => void; initialPriceId?: string }) {
@@ -123,10 +123,10 @@ function TierCard({ tier, disabled, onCheckout }: { tier: PlanTier; disabled: bo
     }
     return (
       <a
-        href={WAITLIST_MAILTO}
+        href={waitlistHref(tier.id)}
         className="w-full inline-flex items-center justify-center gap-2 py-2 rounded-md border border-white/15 text-[#f2eee7] hover:bg-white/5 text-sm font-medium transition-colors"
       >
-        Join waitlist
+        Join Early Access
       </a>
     );
   })();

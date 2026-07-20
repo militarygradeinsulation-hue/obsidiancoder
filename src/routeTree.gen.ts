@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as WaitlistRouteImport } from './routes/waitlist'
 import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -22,6 +23,8 @@ import { Route as ApiPatchRouteImport } from './routes/api/patch'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiGithubRouteImport } from './routes/api/github'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
+import { Route as AdminWaitlistRouteImport } from './routes/admin.waitlist'
+import { Route as ApiPublicWaitlistRouteImport } from './routes/api/public/waitlist'
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
@@ -31,6 +34,11 @@ import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/li
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
 import { Route as ApiPublicLibraryCodeIdRouteImport } from './routes/api/public/library.$code.$id'
 
+const WaitlistRoute = WaitlistRouteImport.update({
+  id: '/waitlist',
+  path: '/waitlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const UnlockRoute = UnlockRouteImport.update({
   id: '/unlock',
   path: '/unlock',
@@ -96,6 +104,16 @@ const ApiGenerateRoute = ApiGenerateRouteImport.update({
   path: '/api/generate',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminWaitlistRoute = AdminWaitlistRouteImport.update({
+  id: '/admin/waitlist',
+  path: '/admin/waitlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicWaitlistRoute = ApiPublicWaitlistRouteImport.update({
+  id: '/api/public/waitlist',
+  path: '/api/public/waitlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicSelfTestRoute = ApiPublicSelfTestRouteImport.update({
   id: '/api/public/self-test',
   path: '/api/public/self-test',
@@ -147,6 +165,8 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/unlock': typeof UnlockRoute
+  '/waitlist': typeof WaitlistRoute
+  '/admin/waitlist': typeof AdminWaitlistRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
@@ -155,6 +175,7 @@ export interface FileRoutesByFullPath {
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
+  '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -170,6 +191,8 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/unlock': typeof UnlockRoute
+  '/waitlist': typeof WaitlistRoute
+  '/admin/waitlist': typeof AdminWaitlistRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
@@ -178,6 +201,7 @@ export interface FileRoutesByTo {
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
+  '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -194,6 +218,8 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/unlock': typeof UnlockRoute
+  '/waitlist': typeof WaitlistRoute
+  '/admin/waitlist': typeof AdminWaitlistRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
@@ -202,6 +228,7 @@ export interface FileRoutesById {
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
+  '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -219,6 +246,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/unlock'
+    | '/waitlist'
+    | '/admin/waitlist'
     | '/api/generate'
     | '/api/github'
     | '/api/health'
@@ -227,6 +256,7 @@ export interface FileRouteTypes {
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
+    | '/api/public/waitlist'
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
@@ -242,6 +272,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/unlock'
+    | '/waitlist'
+    | '/admin/waitlist'
     | '/api/generate'
     | '/api/github'
     | '/api/health'
@@ -250,6 +282,7 @@ export interface FileRouteTypes {
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
+    | '/api/public/waitlist'
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
@@ -265,6 +298,8 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/terms'
     | '/unlock'
+    | '/waitlist'
+    | '/admin/waitlist'
     | '/api/generate'
     | '/api/github'
     | '/api/health'
@@ -273,6 +308,7 @@ export interface FileRouteTypes {
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
+    | '/api/public/waitlist'
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
@@ -289,6 +325,8 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   UnlockRoute: typeof UnlockRoute
+  WaitlistRoute: typeof WaitlistRoute
+  AdminWaitlistRoute: typeof AdminWaitlistRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
   ApiGithubRoute: typeof ApiGithubRoute
   ApiHealthRoute: typeof ApiHealthRoute
@@ -297,6 +335,7 @@ export interface RootRouteChildren {
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
   ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
+  ApiPublicWaitlistRoute: typeof ApiPublicWaitlistRoute
   ApiPublicLibraryCodeRoute: typeof ApiPublicLibraryCodeRouteWithChildren
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicShareSlugRoute: typeof ApiPublicShareSlugRoute
@@ -304,6 +343,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/waitlist': {
+      id: '/waitlist'
+      path: '/waitlist'
+      fullPath: '/waitlist'
+      preLoaderRoute: typeof WaitlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/unlock': {
       id: '/unlock'
       path: '/unlock'
@@ -393,6 +439,20 @@ declare module '@tanstack/react-router' {
       path: '/api/generate'
       fullPath: '/api/generate'
       preLoaderRoute: typeof ApiGenerateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/waitlist': {
+      id: '/admin/waitlist'
+      path: '/admin/waitlist'
+      fullPath: '/admin/waitlist'
+      preLoaderRoute: typeof AdminWaitlistRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/waitlist': {
+      id: '/api/public/waitlist'
+      path: '/api/public/waitlist'
+      fullPath: '/api/public/waitlist'
+      preLoaderRoute: typeof ApiPublicWaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/self-test': {
@@ -486,6 +546,8 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   UnlockRoute: UnlockRoute,
+  WaitlistRoute: WaitlistRoute,
+  AdminWaitlistRoute: AdminWaitlistRoute,
   ApiGenerateRoute: ApiGenerateRoute,
   ApiGithubRoute: ApiGithubRoute,
   ApiHealthRoute: ApiHealthRoute,
@@ -494,6 +556,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
   ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
+  ApiPublicWaitlistRoute: ApiPublicWaitlistRoute,
   ApiPublicLibraryCodeRoute: ApiPublicLibraryCodeRouteWithChildren,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicShareSlugRoute: ApiPublicShareSlugRoute,
