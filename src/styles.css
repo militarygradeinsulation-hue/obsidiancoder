@@ -2002,10 +2002,19 @@ body.is-resizing-rail {
 
 /* ============ Intro Splash ============ */
 @keyframes obs-intro-letter-in {
-  0%   { opacity: 0; transform: translateY(28px) scale(0.92); filter: blur(14px); letter-spacing: 0.6em; }
-  60%  { opacity: 1; filter: blur(0); }
-  100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); letter-spacing: 0.28em; }
+  0%   { opacity: 0; transform: translateY(40px) rotateX(-70deg) scale(0.85); filter: blur(18px) brightness(2); letter-spacing: 0.7em; }
+  50%  { opacity: 1; filter: blur(0) brightness(1.4); }
+  100% { opacity: 1; transform: translateY(0) rotateX(0) scale(1); filter: blur(0) brightness(1); letter-spacing: 0.28em; }
 }
+@keyframes obs-intro-letter-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-6px); }
+}
+@keyframes obs-intro-letter-shimmer {
+  0%   { background-position: -200% 50%; }
+  100% { background-position: 200% 50%; }
+}
+
 @keyframes obs-intro-glow-pulse {
   0%, 100% { opacity: 0.35; transform: scale(1); }
   50%      { opacity: 0.7;  transform: scale(1.08); }
@@ -2080,11 +2089,26 @@ body.is-resizing-rail {
 .obs-intro-letter {
   display: inline-block;
   opacity: 0;
-  animation: obs-intro-letter-in 1.1s cubic-bezier(0.2, 0.7, 0.2, 1) forwards;
-  background: linear-gradient(180deg, #fff 0%, #f2eee7 45%, var(--primary, #F4A125) 100%);
+  transform-origin: center bottom;
+  animation:
+    obs-intro-letter-in 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) forwards,
+    obs-intro-letter-float 4s ease-in-out infinite,
+    obs-intro-letter-shimmer 3.5s linear infinite;
+  animation-delay: var(--d, 0s), calc(1.4s + var(--d, 0s)), calc(1.6s + var(--d, 0s));
+  background: linear-gradient(
+    100deg,
+    #f2eee7 0%,
+    #ffffff 35%,
+    var(--primary, #F4A125) 50%,
+    #ffffff 65%,
+    #f2eee7 100%
+  );
+  background-size: 200% 100%;
   -webkit-background-clip: text; background-clip: text;
   -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 0 12px color-mix(in oklab, var(--primary, #F4A125) 60%, transparent));
 }
+
 
 .obs-intro-line {
   position: relative;
