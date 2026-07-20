@@ -1996,6 +1996,7 @@ body.is-resizing-composer * { user-select: none !important; }
   background: color-mix(in oklab, var(--primary) 12%, transparent);
 }
 .obs-overflow-item:disabled { opacity: .45; cursor: not-allowed; }
+.obs-overflow-sep { height: 1px; margin: 4px 0; background: color-mix(in oklab, var(--foreground) 10%, transparent); }
 
 /* Collapsible right-rail cards */
 .obs-rail .obs-card.is-collapsed > *:not(.obs-card-head):not(.obs-card-title) {
