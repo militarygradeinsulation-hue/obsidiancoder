@@ -220,7 +220,7 @@ function Unlock() {
           <section id="panel-buy" role="tabpanel" aria-labelledby="tab-buy">
             {!showCheckout && (
               <>
-                <h2 className="unlock-headline">Build production-ready software with an AI engineering team.</h2>
+                <h2 className="unlock-headline">Build, Launch, and Grow Software with AI.</h2>
 
                 <div className="unlock-price">
                   <span className="price-amount">$30</span>
