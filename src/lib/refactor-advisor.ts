@@ -41,12 +41,14 @@ export function advise(input: { html: string; graph?: KnowledgeGraph }): Refacto
       evidence: `${(g.size / 1024).toFixed(0)} KB`, effort: "M" });
   }
 
-  // Duplicate ids
-  const dupIds = g.ids.length - new Set(g.ids).size;
+  // Duplicate ids (parse raw HTML — knowledge-graph dedupes before we see it)
+  const allIdMatches = (input.html.match(/\bid=["'][^"']+["']/g) || []).map((s) => s);
+  const uniqueIds = new Set(allIdMatches);
+  const dupIds = allIdMatches.length - uniqueIds.size;
   if (dupIds > 0) {
     out.push({ id: "dup-ids", category: "duplication", severity: "high",
       message: `${dupIds} duplicate id(s) — rename to unique.`,
-      evidence: `ids=${g.ids.length}, unique=${new Set(g.ids).size}`, effort: "S" });
+      evidence: `raw=${allIdMatches.length}, unique=${uniqueIds.size}`, effort: "S" });
   }
 
   // Inline script sprawl
