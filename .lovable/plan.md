@@ -1,31 +1,62 @@
-## Goal
-Give Aetheris Obsidian access to every chat/text model available through the Lovable AI Gateway, so users can pick any of them and the auto-router can route to them.
 
-## Changes
+# Obsidian Stabilization + Upgrade Pass
 
-### 1. `src/lib/models.ts` — expand `MODEL_REGISTRY`
-Add the full current chat catalog (keep `google/gemini-3.1-flash-lite` as `DEFAULT_MODEL` for speed). New entries, grouped for the picker label:
+The request spans ~15 concerns across a 2,738-line route file plus routing, learning, image, and intro subsystems. Rather than a single blind rewrite (high regression risk), I'll ship one coordinated edit that fixes the verified issues below, plus a verification pass (typecheck + self-tests). Anything not on this list is out of scope for this turn — I'll call it out at the end.
 
-- Google (current): `gemini-3.1-flash-lite`, `gemini-3.5-flash`, `gemini-3.1-pro-preview`
-- Google (prior/preview): `gemini-3-flash-preview`, `gemini-2.5-pro`, `gemini-2.5-flash`, `gemini-2.5-flash-lite`
-- OpenAI GPT-5.6 (current): `gpt-5.6-luna`, `gpt-5.6-terra`, `gpt-5.6-sol`
-- OpenAI GPT-5.5 / 5.4 (current): `gpt-5.5`, `gpt-5.4`, `gpt-5.4-mini`, `gpt-5.4-nano`
-- OpenAI GPT-5 / 5.2 (prior): `gpt-5`, `gpt-5-mini`, `gpt-5-nano`, `gpt-5.2`
+## What I'll change
 
-`ALLOWED_MODEL_IDS` and `MODEL_PICKER_OPTIONS` regenerate from this array, so no other change is needed there.
+### 1. Respect learning preference (bug fix)
+- `src/routes/index.tsx` currently force-sets `settings.enabled = true` on mount (line ~245), overriding user choice.
+- Remove the force-enable; `DEFAULT_SETTINGS.enabled` already ships `true`, so new users still get learning by default, and disable-then-reload now persists.
 
-### 2. `src/lib/model-router.ts` — refresh tier preferences
-Update `TIER_PREFERENCE` to use the strongest current models per tier:
-- economy: `gemini-3.1-flash-lite`, `gpt-5.4-nano`, `gpt-5.6-luna`
-- balanced: `gemini-3.5-flash`, `gpt-5.6-terra`, `gpt-5.4-mini`
-- advanced: `gpt-5.6-sol`, `gemini-3.1-pro-preview`, `gpt-5.5`, `gemini-2.5-pro`
+### 2. Wire Intelligence panel to live state
+- `IntelligencePanel` accepts `intent` + `decision` props but only `refreshKey` is passed.
+- Lift the latest `RoutingDecision` and `ResolvedIntent` into route state, update them on every submission, and pass to the panel. Bump `intelligenceTick` after ledger writes so "recent events" refreshes too.
 
-### 3. `src/lib/aetheris.functions.ts` — GPT-5.6 reasoning guard
-The current code sends `reasoning_effort: "none"` only for `openai/gpt-5.6*`. That stays correct; no change needed. Confirm the same guard exists in `src/routes/api/generate.ts` and `src/routes/api/patch.ts`; if either omits it, add the same conditional so 5.6 calls don't 400.
+### 3. Close the learning feedback loop
+- On successful generation completion, on "Restore version", and on user-initiated "Retry after failure", call `appendLedgerEvent({ kind: "outcome", ... })` with success/failure + latency so `performance-model` and `preference-learning` actually improve routing over time. Today only classify/strategy/model-selected events are recorded — no outcomes, so scores never converge.
 
-### 4. No UI change required
-The model picker in `src/routes/index.tsx` already renders from `MODEL_PICKER_OPTIONS`, so all new models appear automatically under the existing "Automatic" + list.
+### 4. Surface model fallbacks explicitly
+- Image pipeline (`aetheris.functions.ts`) silently walks Leonardo → Higgsfield → Gemini. Add a returned `providerUsed` field and thread it through to:
+  - the terminal log line ("image via higgsfield after leonardo fail"),
+  - `generation-report`/metadata so the report card shows the actual provider.
+- Same treatment for chat model fallbacks driven by the patch/repair pipeline: surface `fallbackFrom → fallbackTo` in the terminal + report.
 
-## Out of scope
-- Image, TTS, embeddings models (image gen already wired via `google/gemini-3.1-flash-image`; leave as-is unless asked).
-- Fast-mode / `service_tier: "priority"` — separate follow-up if you want it.
+### 5. Route image providers through the reliability layer
+- Leonardo + Higgsfield calls in `aetheris.functions.ts` currently use raw `fetch` with hand-rolled polling.
+- Wrap them in `aiFetch` with per-provider `breakerKey` (`leonardo/generate`, `higgsfield/jobset`), request IDs from `newRequestId()`, `AiError` conversion, and honor the caller's `AbortSignal`.
+- Tighten polling: cap total wall-clock at 25s (was unbounded ~60s), 1.5x backoff, and abort on client cancel.
+
+### 6. Fix right-rail resize math
+- `onRailResizeMove` uses `e.clientX - startX` directly — correct math is `startWidth - delta` because the handle is on the LEFT edge of the rail (dragging right shrinks the rail). This is the "clipping when resizing" symptom.
+- Also clamp against `document.documentElement.clientWidth` and add a `ResizeObserver` to reclamp on window resize so a saved 900px rail on a now-800px viewport doesn't clip.
+
+### 7. Intro autoplay resilience
+- `IntroSplash` starts the visual timeline immediately but the legacy audio effect in `index.tsx` (line ~281) still exists and races the splash on first visit.
+- Delete the legacy first-visit audio effect entirely — the splash owns audio.
+- In `IntroSplash`, keep the muted-autoplay+unmute strategy but add a `visibilitychange` guard: if the tab is hidden on mount, wait for `visible` before starting so the animation doesn't drift past its audio.
+
+### 8. Self-test / typecheck / lint / build fixes
+- Run `bunx tsgo --noEmit`, `bun run lint`, and hit `/api/public/self-test` after changes; fix any failures introduced or already present in the touched modules.
+
+### 9. Dead code / duplication cleanup (bounded)
+- Remove the duplicated first-visit audio effect (see #7).
+- Remove the force-enable useEffect (see #1).
+- Consolidate two near-identical `resolveModel` fallbacks in `generate.ts` and `patch.ts` into a single `parseModelInput` helper in `src/lib/models.ts` (only touch these two call sites).
+
+## Out of scope (explicitly deferred)
+- Full refactor of the 2,738-line `src/routes/index.tsx` — high regression risk; would need its own turn.
+- New Intelligence features beyond wiring (no new charts, no cross-session sync).
+- Rewriting the patch/repair pipeline; only adding fallback surfacing.
+- Any migration or schema change.
+- Any UI redesign beyond the resize-handle fix.
+
+## Verification
+After the edit batch:
+1. `bunx tsgo --noEmit` — must pass clean.
+2. `bun run lint` on touched files — must pass.
+3. `curl localhost:8080/api/public/self-test` — all fixtures green.
+4. Visual sanity via Playwright on `/`: splash plays, rail resizes without clipping, Intelligence panel populates after a submit.
+
+## Confirm before I execute
+This is ~9 targeted edits in ~6 files, not a wholesale rewrite. If you'd rather I *also* tackle a specific item I've deferred (e.g. splitting `routes/index.tsx`), say which and I'll fold it in. Otherwise reply "go" and I'll ship it.
