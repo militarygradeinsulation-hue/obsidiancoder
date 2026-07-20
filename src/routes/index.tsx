@@ -2336,6 +2336,7 @@ function Index() {
                     minWidth: 240,
                     maxWidth: "100%",
                     overflow: "auto",
+                    boxSizing: "border-box",
                   }}
                   onMouseUp={(e) => {
                     const el = e.currentTarget as HTMLTextAreaElement;
