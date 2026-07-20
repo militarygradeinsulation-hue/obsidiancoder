@@ -2327,10 +2327,22 @@ function Index() {
                   rows={1}
                   className="obs-composer-input"
                   data-testid="composer-input"
-                  style={{ height: composerHeight, resize: "vertical", minHeight: 40, maxHeight: 400, overflow: "auto" }}
+                  style={{
+                    height: composerHeight,
+                    width: composerWidth ?? "100%",
+                    resize: "both",
+                    minHeight: 40,
+                    maxHeight: 800,
+                    minWidth: 240,
+                    maxWidth: "100%",
+                    overflow: "auto",
+                  }}
                   onMouseUp={(e) => {
-                    const h = (e.currentTarget as HTMLTextAreaElement).offsetHeight;
+                    const el = e.currentTarget as HTMLTextAreaElement;
+                    const h = el.offsetHeight;
+                    const w = el.offsetWidth;
                     if (h && h !== composerHeight) setComposerHeight(h);
+                    if (w && w !== (composerWidth ?? 0)) setComposerWidth(w);
                   }}
                 />
 
