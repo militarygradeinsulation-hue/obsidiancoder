@@ -1,14 +1,15 @@
 import { createFileRoute, redirect, useRouter, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
-import { StripeEmbeddedCheckout } from "@/components/StripeEmbeddedCheckout";
+import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
+import { buildAuthUrl } from "@/lib/redirect-safe";
 
 const PRO_PRICE_ID = "obsidian_pro_monthly";
 
-type Intent = "buy" | "signin" | "code";
+type Intent = "buy" | "code";
 
 export const Route = createFileRoute("/unlock")({
   validateSearch: (s: Record<string, unknown>) => ({
