@@ -396,26 +396,48 @@ export type Database = {
           used: number
         }[]
       }
-      usage_finalize: {
-        Args: {
-          _actual_cost_usd?: number
-          _actual_credits: number
-          _cost_basis?: string
-          _error_code?: string
-          _estimated_cost_usd?: number
-          _image_count?: number
-          _input_tokens?: number
-          _meta?: Json
-          _model?: string
-          _output_tokens?: number
-          _provider?: string
-          _request_id: string
-          _reservation_id: string
-          _status?: string
-          _total_tokens?: number
-        }
-        Returns: boolean
-      }
+      usage_finalize:
+        | {
+            Args: {
+              _actual_cost_usd?: number
+              _actual_credits: number
+              _cost_basis?: string
+              _error_code?: string
+              _estimated_cost_usd?: number
+              _image_count?: number
+              _input_tokens?: number
+              _meta?: Json
+              _model?: string
+              _output_tokens?: number
+              _provider?: string
+              _request_id: string
+              _reservation_id: string
+              _status?: string
+              _total_tokens?: number
+            }
+            Returns: boolean
+          }
+        | {
+            Args: {
+              _actual_cost_usd?: number
+              _actual_credits: number
+              _cap?: number
+              _cost_basis?: string
+              _error_code?: string
+              _estimated_cost_usd?: number
+              _image_count?: number
+              _input_tokens?: number
+              _meta?: Json
+              _model?: string
+              _output_tokens?: number
+              _provider?: string
+              _request_id: string
+              _reservation_id: string
+              _status?: string
+              _total_tokens?: number
+            }
+            Returns: boolean
+          }
       usage_refund: { Args: { _reservation_id: string }; Returns: boolean }
       usage_reserve: {
         Args: {
