@@ -244,50 +244,15 @@ function Index() {
   // Adaptive learning defaults to ON via DEFAULT_SETTINGS. Respect the user's
   // choice — do NOT force-enable on mount (that overrode a deliberate opt-out).
 
-  // Resizable right-rail / chat width
-  const [railWidth, setRailWidth] = useState<number>(() => {
-    if (typeof window === "undefined") return 320;
-    const n = Number(window.localStorage.getItem("obs.railWidth"));
-    return Number.isFinite(n) && n >= 260 ? n : 320;
-  });
-  useEffect(() => {
-    try { window.localStorage.setItem("obs.railWidth", String(railWidth)); } catch {}
-  }, [railWidth]);
-  // Reclamp rail width against viewport on resize so a saved 900px width
-  // doesn't clip on a narrower screen.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onResize = () => {
-      const vw = document.documentElement.clientWidth || window.innerWidth;
-      const max = Math.min(900, Math.max(320, vw - 260));
-      setRailWidth((w) => Math.max(260, Math.min(max, w)));
-    };
-    window.addEventListener("resize", onResize);
-    onResize();
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  const railResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  function onRailResizeStart(e: React.PointerEvent<HTMLDivElement>) {
-    e.preventDefault();
-    railResizeRef.current = { startX: e.clientX, startWidth: railWidth };
-    document.body.classList.add("is-resizing-rail");
-    window.addEventListener("pointermove", onRailResizeMove);
-    window.addEventListener("pointerup", onRailResizeEnd);
-  }
-  function onRailResizeMove(e: PointerEvent) {
-    if (!railResizeRef.current) return;
-    const delta = e.clientX - railResizeRef.current.startX;
-    const vw = document.documentElement.clientWidth || window.innerWidth;
-    const max = Math.min(900, Math.max(320, vw - 260));
-    const next = Math.max(260, Math.min(max, railResizeRef.current.startWidth - delta));
-    setRailWidth(next);
-  }
-  function onRailResizeEnd() {
-    railResizeRef.current = null;
-    document.body.classList.remove("is-resizing-rail");
-    window.removeEventListener("pointermove", onRailResizeMove);
-    window.removeEventListener("pointerup", onRailResizeEnd);
-  }
+  // Resizable right-rail — logic and math extracted to useRailResize hook.
+  const {
+    railWidth,
+    onResizeStart: onRailResizeStart,
+    onKeyDown: onRailKeyDown,
+    resetWidth: resetRailWidth,
+    ariaMin: railAriaMin,
+    ariaMax: railAriaMax,
+  } = useRailResize();
 
   // First-visit intro audio is owned by <IntroSplash /> now — legacy audio
   // effect removed to prevent double-play + races with the splash timeline.
