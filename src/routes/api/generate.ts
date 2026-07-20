@@ -283,55 +283,38 @@ export const Route = createFileRoute("/api/generate")({
         let opForSettle: Operation = "generate_html";
         let modelForSettle: string = "unknown";
         const imageUsages: UsageRecord[] = [];
+        // Every model request that begins pushes a UsageRecord here on
+        // failure — used by both success (fallback aggregate) and failure
+        // (bill the failed attempt at the per-call minimum).
+        const modelAttempts: UsageRecord[] = [];
         const settleSuccess = async () => {
           if (settled) return;
           settled = true;
           if (!entitlement) return;
-          const parsed = streamUsage.hasUsage() ? streamUsage.snapshot() : null;
-          const est = estimateUsdForCall({
-            model: parsed?.model ?? modelForSettle,
-            inputTokens: parsed?.inputTokens ?? 0,
-            outputTokens: parsed?.outputTokens ?? 0,
-            providerUsed: true,
-          });
-          const llmUsage = makeUsage({
-            provider: "lovable",
-            model: parsed?.model ?? modelForSettle,
+          const snapshot = streamUsage.hasUsage() ? streamUsage.snapshot() : null;
+          const merged = combineSuccessUsage({
             operation: opForSettle,
-            inputTokens: parsed?.inputTokens ?? 0,
-            outputTokens: parsed?.outputTokens ?? 0,
-            totalTokens: parsed?.totalTokens ?? 0,
-            estimatedCostUsd: est.usd,
-            costBasis: est.basis,
-            providerUsed: true,
-            status: "committed",
+            model: modelForSettle,
+            streamSnapshot: snapshot,
+            modelAttempts,
+            imageUsages,
           });
-          const imageCost = imageUsages.reduce((s, u) => s + (u.actualCostUsd ?? u.estimatedCostUsd ?? 0), 0);
-          const imageTokens = imageUsages.reduce((s, u) => s + (u.totalTokens ?? 0), 0);
-          const merged: UsageRecord = {
-            ...llmUsage,
-            estimatedCostUsd: (llmUsage.estimatedCostUsd ?? 0) + imageCost,
-            totalTokens: (llmUsage.totalTokens ?? 0) + imageTokens,
-            imageCount: imageUsages.length,
-          };
           await settleOperation(entitlement, { kind: "success", usage: merged });
         };
         const settleFailure = async (errorCode?: string) => {
           if (settled) return;
           settled = true;
           if (!entitlement) return;
-          // If images were generated (provider work happened), record as failed.
-          if (imageUsages.length > 0) {
-            const imageCost = imageUsages.reduce((s, u) => s + (u.actualCostUsd ?? u.estimatedCostUsd ?? 0), 0);
-            const failedUsage = makeUsage({
-              provider: "lovable", model: modelForSettle, operation: opForSettle,
-              estimatedCostUsd: imageCost, costBasis: "estimated", providerUsed: true,
-              imageCount: imageUsages.length, status: "failed", errorCode,
-            });
-            await settleOperation(entitlement, { kind: "failed_with_usage", usage: failedUsage, errorCode });
-            return;
-          }
-          await settleOperation(entitlement, { kind: "no_provider", errorCode });
+          const snapshot = streamUsage.hasUsage() ? streamUsage.snapshot() : null;
+          const outcome = combineFailureSettlement({
+            operation: opForSettle,
+            model: modelForSettle,
+            streamSnapshot: snapshot,
+            modelAttempts,
+            imageUsages,
+            errorCode,
+          });
+          await settleOperation(entitlement, outcome);
         };
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
