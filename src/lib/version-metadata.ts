@@ -4,6 +4,7 @@
 import type { Classification } from "./task-classifier";
 import type { Tier } from "./model-router";
 import type { ValidationReport } from "./validation";
+import type { EngineeringSummary } from "./chief-engineer";
 
 export type ExecutionStrategy =
   | "deterministic"
@@ -55,6 +56,7 @@ export type VersionMetadata = {
   runtimeErrors?: number;
   rollbackId?: string;          // the version id this build can be rolled back TO
   learningSignals?: string[];   // signalsUsed from the RoutingDecision
+  engineering?: EngineeringSummary;  // Chief Engineer multi-agent review
 };
 
 export function summarizeMetadata(m: VersionMetadata): string {
