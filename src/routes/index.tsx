@@ -260,9 +260,13 @@ function Index() {
   }
   function onRailResizeMove(e: PointerEvent) {
     if (!railResizeRef.current) return;
+    // Handle sits on the LEFT edge of the rail, so dragging right (positive
+    // delta) must SHRINK the rail. Clamp against the current viewport too so
+    // a previously-saved wide rail can't clip a narrower screen.
     const delta = e.clientX - railResizeRef.current.startX;
-    const max = Math.min(900, window.innerWidth - 220);
-    const next = Math.max(260, Math.min(max, railResizeRef.current.startWidth + delta));
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    const max = Math.min(900, Math.max(320, vw - 260));
+    const next = Math.max(260, Math.min(max, railResizeRef.current.startWidth - delta));
     setRailWidth(next);
   }
   function onRailResizeEnd() {
