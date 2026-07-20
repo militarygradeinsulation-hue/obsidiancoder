@@ -98,10 +98,6 @@ export function computeReadiness(input: {
   // Tech debt = detective + repair history
   let debt = scans.detective.score;
   const debtEv = scans.detective.findings.slice(0, 3).map((f) => `debt: ${f.message}`);
-  if (input.engineering?.repairs && input.engineering.repairs > 0) {
-    debt -= Math.min(20, input.engineering.repairs * 5);
-    debtEv.push(`${input.engineering.repairs} repair pass(es)`);
-  }
 
   const axes: AxisScore[] = [
     { axis: "reliability",    score: clamp(reliability), weight: WEIGHTS.reliability,    evidence: reliabilityEv.concat(secEv) },
