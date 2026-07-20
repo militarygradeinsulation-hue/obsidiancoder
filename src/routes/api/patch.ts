@@ -72,7 +72,10 @@ async function callGateway(
   messages: Array<{ role: string; content: string }>,
   requestId: string,
   signal: AbortSignal,
-): Promise<{ ok: true; text: string } | { ok: false; error: AiError }> {
+): Promise<
+  | { ok: true; text: string; usage: UsageRecord }
+  | { ok: false; error: AiError; usage: UsageRecord | null }
+> {
   try {
     const { response } = await aiFetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -80,9 +83,7 @@ async function callGateway(
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model,
-          messages,
-          stream: false,
+          model, messages, stream: false,
           response_format: { type: "json_object" },
           ...(model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
         }),
@@ -91,42 +92,45 @@ async function callGateway(
     );
     const guarded = await readGuarded(response, { expected: "application/json" });
     if (!guarded.ok) {
+      // Provider replied non-JSON — treat as no billable usage. Nothing to
+      // charge (we cannot parse a usage object either).
       const code =
         guarded.reason === "html_body" || guarded.reason === "proxy_error"
           ? "ai_upstream_html"
-          : guarded.reason === "empty"
-            ? "ai_upstream_empty"
-            : "ai_upstream_malformed";
+          : guarded.reason === "empty" ? "ai_upstream_empty" : "ai_upstream_malformed";
       return {
-        ok: false,
-        error: new AiError({
-          code,
-          stage: "patch",
-          requestId,
-          message: sanitizeUpstreamMessage(guarded.sample, "Upstream response was rejected."),
-        }),
+        ok: false, usage: null,
+        error: new AiError({ code, stage: "patch", requestId, message: sanitizeUpstreamMessage(guarded.sample, "Upstream response was rejected.") }),
       };
     }
-    try {
-      const j = JSON.parse(guarded.text);
-      const content = j.choices?.[0]?.message?.content ?? "";
-      return { ok: true, text: String(content) };
-    } catch {
+    let j: unknown;
+    try { j = JSON.parse(guarded.text); }
+    catch {
       return {
-        ok: false,
-        error: new AiError({
-          code: "ai_upstream_malformed",
-          stage: "patch",
-          requestId,
-          message: "Malformed gateway response.",
-        }),
+        ok: false, usage: null,
+        error: new AiError({ code: "ai_upstream_malformed", stage: "patch", requestId, message: "Malformed gateway response." }),
       };
     }
+    const parsedUsage = parseUsageFromChatJson(j);
+    const est = estimateUsdForCall({
+      model: parsedUsage?.model ?? model,
+      inputTokens: parsedUsage?.inputTokens ?? 0,
+      outputTokens: parsedUsage?.outputTokens ?? 0,
+      providerUsed: true,
+    });
+    const usage = makeUsage({
+      provider: "lovable", model: parsedUsage?.model ?? model, operation: "generate_html_patch",
+      inputTokens: parsedUsage?.inputTokens ?? 0, outputTokens: parsedUsage?.outputTokens ?? 0,
+      totalTokens: parsedUsage?.totalTokens ?? 0,
+      estimatedCostUsd: est.usd, costBasis: est.basis, providerUsed: true, status: "committed",
+    });
+    const content = (j as { choices?: Array<{ message?: { content?: string } }> }).choices?.[0]?.message?.content ?? "";
+    return { ok: true, text: String(content), usage };
   } catch (err) {
     const aiErr = err instanceof AiError
       ? err
       : new AiError({ code: "ai_internal", stage: "patch", requestId, message: (err as Error)?.message });
-    return { ok: false, error: aiErr };
+    return { ok: false, error: aiErr, usage: null };
   }
 }
 
@@ -137,24 +141,29 @@ export const Route = createFileRoute("/api/patch")({
         const requestId = newRequestId();
         let entitlement: EntitlementResult | null = null;
         let settled = false;
-        const commit = async () => {
+        const collected: UsageRecord[] = [];
+        const settleSuccess = async () => {
           if (settled) return;
           settled = true;
-          const ent = entitlement;
-          if (ent?.kind === "pro" && ent.reservation) {
-            await commitReservation(ent.reservation.reservationId, requestId).catch(() => {});
-          } else if (ent?.kind === "owner") {
-            await logOwnerUsage("generate_html_patch", 0, requestId).catch(() => {});
-          }
+          if (!entitlement) return;
+          const merged = mergeUsage("generate_html_patch", collected);
+          await settleOperation(entitlement, { kind: "success", usage: merged });
         };
-        const refund = async () => {
+        const settleFailure = async (errorCode?: string) => {
           if (settled) return;
           settled = true;
-          const ent = entitlement;
-          if (ent?.kind === "pro" && ent.reservation) {
-            await refundReservation(ent.reservation.reservationId).catch(() => {});
+          if (!entitlement) return;
+          if (collected.length === 0) {
+            await settleOperation(entitlement, { kind: "no_provider", errorCode });
+            return;
           }
+          const merged = mergeUsage("generate_html_patch", collected);
+          await settleOperation(entitlement, {
+            kind: "failed_with_usage", errorCode,
+            usage: { ...merged, status: "failed", errorCode },
+          });
         };
+
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
           if (!apiKey) {
@@ -162,18 +171,15 @@ export const Route = createFileRoute("/api/patch")({
           }
 
           let data: z.infer<typeof inputSchema>;
-          try {
-            data = inputSchema.parse(await request.json());
-          } catch (err) {
+          try { data = inputSchema.parse(await request.json()); }
+          catch (err) {
             throw new AiError({
-              code: "ai_bad_request",
-              stage: "validate",
-              requestId,
+              code: "ai_bad_request", stage: "validate", requestId,
               message: err instanceof Error ? err.message : "Bad input.",
             });
           }
 
-          entitlement = await requirePaidOperation(request, "generate_html_patch");
+          entitlement = await requirePaidOperation(request, "generate_html_patch", requestId);
           if (entitlement.kind === "denied" && entitlement.denial) {
             return denialResponse(entitlement.denial, requestId);
           }
@@ -203,25 +209,20 @@ export const Route = createFileRoute("/api/patch")({
 
           let modelUsed = data.model;
           const attempt = await callGateway(apiKey, data.model, baseMessages, requestId, request.signal);
+          if (attempt.ok) collected.push(attempt.usage);
 
           if (attempt.ok) {
             const parsed = parsePatchResponse(attempt.text);
             if (parsed.ok) {
-              await commit();
+              await settleSuccess();
               return Response.json({
-                ok: true,
-                patch: parsed.patch,
-                model: modelUsed,
-                fallbackUsed: false,
-                requestId,
-                contextTier: ctx.tier,
-                contextChars: ctx.chars,
-                contextSavings: ctx.savings,
+                ok: true, patch: parsed.patch, model: modelUsed, fallbackUsed: false,
+                requestId, contextTier: ctx.tier, contextChars: ctx.chars, contextSavings: ctx.savings,
               }, { headers: { "X-Request-Id": requestId } });
             }
           }
 
-          // Transport-level, non-retryable error → surface it (charge nothing).
+          // Transport-level, non-retryable error → surface it (no provider usage).
           if (!attempt.ok && !attempt.error.retryable && attempt.error.code !== "ai_upstream_malformed") {
             throw attempt.error;
           }
@@ -236,8 +237,10 @@ export const Route = createFileRoute("/api/patch")({
             { role: "user", content: `Your previous response was invalid: ${parseErr}. Return ONLY a valid JSON patch document matching the schema. No prose, no fences.` },
           ];
           const repair = await callGateway(apiKey, CHEAP_REPAIR_MODEL, repairMessages, requestId, request.signal);
+          if (repair.ok) collected.push(repair.usage);
+
           if (!repair.ok) {
-            await refund();
+            await settleFailure(repair.error.code);
             return Response.json(
               { ok: false, error: repair.error.message, code: repair.error.code, fallbackUsed: true, model: modelUsed, requestId },
               { status: 200, headers: { "X-Request-Id": requestId } },
@@ -245,31 +248,25 @@ export const Route = createFileRoute("/api/patch")({
           }
           const parsed2 = parsePatchResponse(repair.text);
           if (!parsed2.ok) {
-            await refund();
+            // Provider DID work on the repair attempt; charge failed status.
+            await settleFailure("patch_invalid_after_repair");
             return Response.json(
               { ok: false, error: `Patch invalid after repair: ${parsed2.error}`, fallbackUsed: true, model: modelUsed, requestId },
               { status: 200, headers: { "X-Request-Id": requestId } },
             );
           }
-          await commit();
+          await settleSuccess();
           return Response.json({
-            ok: true,
-            patch: parsed2.patch,
-            model: modelUsed,
-            fallbackUsed: true,
-            requestId,
-            contextTier: ctx.tier,
-            contextChars: ctx.chars,
-            contextSavings: ctx.savings,
+            ok: true, patch: parsed2.patch, model: modelUsed, fallbackUsed: true,
+            requestId, contextTier: ctx.tier, contextChars: ctx.chars, contextSavings: ctx.savings,
           }, { headers: { "X-Request-Id": requestId } });
         } catch (err) {
-          await refund();
+          const errorCode = err instanceof AiError ? err.code : "patch_internal";
+          try { await settleFailure(errorCode); } catch { /* already settled */ }
           const aiErr = err instanceof AiError
             ? err
             : new AiError({
-                code: "ai_internal",
-                stage: "patch",
-                requestId,
+                code: "ai_internal", stage: "patch", requestId,
                 message: err instanceof Error ? err.message : "Unexpected error.",
               });
           return aiErr.toResponse();
