@@ -1,9 +1,25 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
+import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { unlockSite } from "@/lib/gate.functions";
 
 export const Route = createFileRoute("/unlock")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    password: typeof s.password === "string" ? s.password : undefined,
+  }),
+  // Server-side fallback: if the form submits natively (JS not hydrated yet),
+  // the browser navigates to /unlock?password=XXXX. Validate here and unlock.
+  beforeLoad: async ({ search }) => {
+    const pwd = (search as { password?: string }).password;
+    if (!pwd) return;
+    const { passwordMatches, setUnlocked } = await import("@/lib/gate.server");
+    const expected = process.env.SITE_PASSWORD;
+    if (expected && passwordMatches(pwd, expected)) {
+      await setUnlocked(true);
+      throw redirect({ to: "/" });
+    }
+    throw redirect({ to: "/unlock" });
+  },
   head: () => ({
     meta: [
       { title: "Unlock — Aetheris Obsidian" },
@@ -13,6 +29,7 @@ export const Route = createFileRoute("/unlock")({
   }),
   component: Unlock,
 });
+
 
 function Unlock() {
   const router = useRouter();
