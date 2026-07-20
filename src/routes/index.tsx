@@ -2902,6 +2902,7 @@ function Index() {
             <div className="obs-palette-list">
               {[
                 { label: "New tab", run: () => { setPaletteOpen(false); addSession(); } },
+                { label: "Combine projects (Fusion)…", run: () => { setPaletteOpen(false); setFusionOpen(true); } },
                 { label: "Clear this session", run: () => { setPaletteOpen(false); clearAll(); } },
                 { label: "Toggle Preview / Code", run: () => { setPaletteOpen(false); setTab(tab === "preview" ? "code" : "preview"); } },
                 { label: "Desktop view", run: () => { setPaletteOpen(false); setDevice("desktop"); } },
