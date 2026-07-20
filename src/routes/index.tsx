@@ -250,6 +250,19 @@ function Index() {
   useEffect(() => {
     try { window.localStorage.setItem("obs.railWidth", String(railWidth)); } catch {}
   }, [railWidth]);
+  // Reclamp rail width against viewport on resize so a saved 900px width
+  // doesn't clip on a narrower screen.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => {
+      const vw = document.documentElement.clientWidth || window.innerWidth;
+      const max = Math.min(900, Math.max(320, vw - 260));
+      setRailWidth((w) => Math.max(260, Math.min(max, w)));
+    };
+    window.addEventListener("resize", onResize);
+    onResize();
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const railResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   function onRailResizeStart(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -260,9 +273,6 @@ function Index() {
   }
   function onRailResizeMove(e: PointerEvent) {
     if (!railResizeRef.current) return;
-    // Handle sits on the LEFT edge of the rail, so dragging right (positive
-    // delta) must SHRINK the rail. Clamp against the current viewport too so
-    // a previously-saved wide rail can't clip a narrower screen.
     const delta = e.clientX - railResizeRef.current.startX;
     const vw = document.documentElement.clientWidth || window.innerWidth;
     const max = Math.min(900, Math.max(320, vw - 260));
@@ -276,26 +286,9 @@ function Index() {
     window.removeEventListener("pointerup", onRailResizeEnd);
   }
 
-  // First-visit intro audio
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (window.sessionStorage.getItem("obs.introPlayed") === "1") return;
-      const audio = new Audio("/__l5e/assets-v1/8131ec77-3185-4b73-a484-17dbe1debdb1/obsidian-intro.m4a");
-      audio.preload = "auto";
-      const markDone = () => { try { window.sessionStorage.setItem("obs.introPlayed", "1"); } catch {} };
-      const tryPlay = () => audio.play().then(markDone).catch(() => {
-        const onInteract = () => {
-          audio.play().then(markDone).catch(() => {});
-          window.removeEventListener("pointerdown", onInteract);
-          window.removeEventListener("keydown", onInteract);
-        };
-        window.addEventListener("pointerdown", onInteract, { once: true });
-        window.addEventListener("keydown", onInteract, { once: true });
-      });
-      tryPlay();
-    } catch {}
-  }, []);
+  // First-visit intro audio is owned by <IntroSplash /> now — legacy audio
+  // effect removed to prevent double-play + races with the splash timeline.
+
 
 
   // Per-card collapse in the right rail. Injects a chevron button into every
