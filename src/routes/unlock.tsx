@@ -1,14 +1,21 @@
-import { createFileRoute, redirect, useRouter } from "@tanstack/react-router";
+import { createFileRoute, redirect, useRouter, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
-import { unlockSite } from "@/lib/gate.functions";
+import { useEffect, useState } from "react";
+import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
+import { supabase } from "@/integrations/supabase/client";
+import { StripeEmbeddedCheckout } from "@/components/StripeEmbeddedCheckout";
+import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
+
+const PRO_PRICE_ID = "obsidian_pro_monthly";
+
+type Intent = "buy" | "signin" | "code";
 
 export const Route = createFileRoute("/unlock")({
   validateSearch: (s: Record<string, unknown>) => ({
     password: typeof s.password === "string" ? s.password : undefined,
+    intent: (s.intent === "buy" || s.intent === "signin" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
+    checkout: s.checkout === "1" ? "1" : undefined,
   }),
-  // Server-side fallback: if the form submits natively (JS not hydrated yet),
-  // the browser navigates to /unlock?password=XXXX. Validate via server fn.
   beforeLoad: async ({ search }) => {
     const pwd = (search as { password?: string }).password;
     if (!pwd) return;
@@ -18,46 +25,99 @@ export const Route = createFileRoute("/unlock")({
   },
   head: () => ({
     meta: [
-      { title: "Unlock — Aetheris Obsidian" },
-      { name: "description", content: "Enter your access code to open Aetheris Obsidian." },
+      { title: "Get Obsidian Pro — Aetheris Obsidian" },
+      { name: "description", content: "Start Obsidian Pro for $30/month or enter your access code. Build production-ready software with an AI engineering team." },
       { name: "robots", content: "noindex,nofollow" },
     ],
   }),
   component: Unlock,
 });
 
-
 function Unlock() {
   const router = useRouter();
+  const search = Route.useSearch();
   const unlock = useServerFn(unlockSite);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const proUnlock = useServerFn(unlockIfPro);
 
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+  const [tab, setTab] = useState<Intent>(search.intent === "code" ? "code" : "buy");
+  const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [session, setSession] = useState<{ userId: string; email: string | null } | null>(null);
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
+  const [expandDetails, setExpandDetails] = useState(false);
+
+  // Track auth session
+  useEffect(() => {
+    let mounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return;
+      setSession(data.session ? { userId: data.session.user.id, email: data.session.user.email ?? null } : null);
+      setSessionLoading(false);
+    });
+    const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
+      setSession(s ? { userId: s.user.id, email: s.user.email ?? null } : null);
+    });
+    return () => { mounted = false; sub.subscription.unsubscribe(); };
+  }, []);
+
+  // Attempt server-verified Pro unlock whenever we have a signed-in session
+  useEffect(() => {
+    if (!session) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { ok } = await proUnlock({});
+        if (cancelled) return;
+        if (ok) {
+          setStatus("Pro access verified — opening Obsidian…");
+          await router.navigate({ to: "/" });
+          router.invalidate();
+        }
+      } catch { /* not pro or transport error — stay on page */ }
+    })();
+    return () => { cancelled = true; };
+  }, [session, proUnlock, router]);
+
+  async function onCodeSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setBusy(true);
-    setError(null);
+    setBusy(true); setError(null);
     const password = String(new FormData(e.currentTarget).get("password") ?? "");
     try {
       const { ok } = await unlock({ data: { password } });
       if (ok) {
         await router.navigate({ to: "/" });
         router.invalidate();
-      } else {
-        setError("Access denied.");
-      }
-    } catch {
-      setError("Something went wrong. Try again.");
-    } finally {
-      setBusy(false);
+      } else setError("Access denied.");
+    } catch { setError("Something went wrong. Try again."); }
+    finally { setBusy(false); }
+  }
+
+  function startPurchase() {
+    setError(null);
+    if (!session) {
+      // Send to auth, then return here with checkout=1
+      const dest = "/unlock?intent=buy&checkout=1";
+      window.location.assign(`/auth?redirect=${encodeURIComponent(dest)}`);
+      return;
     }
+    setShowCheckout(true);
+  }
+
+  function goSignIn() {
+    window.location.assign(`/auth?redirect=${encodeURIComponent("/unlock?intent=signin")}`);
+  }
+
+  async function signOutAndReset() {
+    await supabase.auth.signOut();
+    setShowCheckout(false);
   }
 
   return (
     <div className="unlock-root">
       <style>{unlockCss}</style>
 
-      {/* Ghost digital face — fades in/out occasionally */}
       <div aria-hidden className="unlock-face">
         <svg viewBox="0 0 400 500" preserveAspectRatio="xMidYMid meet">
           <defs>
@@ -70,57 +130,193 @@ function Unlock() {
             </pattern>
           </defs>
           <g fill="none" stroke="url(#faceGrad)" strokeWidth="1.1">
-            {/* Face silhouette */}
             <path d="M200 60 C120 60 90 140 90 220 C90 300 120 400 200 440 C280 400 310 300 310 220 C310 140 280 60 200 60 Z" />
-            {/* Jaw */}
             <path d="M120 300 C150 380 200 430 200 430 C200 430 250 380 280 300" />
-            {/* Nose */}
             <path d="M200 190 L188 270 L200 285 L212 270 L200 190" />
-            {/* Eyes */}
             <ellipse cx="155" cy="215" rx="24" ry="10" />
             <ellipse cx="245" cy="215" rx="24" ry="10" />
             <circle cx="155" cy="215" r="4" fill="#f4a125" />
             <circle cx="245" cy="215" r="4" fill="#f4a125" />
-            {/* Mouth */}
             <path d="M160 340 Q200 360 240 340" />
-            {/* Wireframe contours */}
             <path d="M110 180 Q200 200 290 180" />
             <path d="M105 250 Q200 275 295 250" />
             <path d="M115 320 Q200 345 285 320" />
             <path d="M200 60 L200 440" strokeOpacity="0.3" />
           </g>
-          {/* Scanline overlay */}
           <rect x="0" y="0" width="400" height="500" fill="url(#scan)" />
         </svg>
       </div>
 
-      {/* Noise / grain layer */}
       <div aria-hidden className="unlock-noise" />
 
-      <form onSubmit={onSubmit} className="unlock-card">
+      <main className="unlock-card" role="main" aria-labelledby="unlock-heading">
         <div className="unlock-card-glow" aria-hidden />
-        <div className="unlock-title" data-text="AETHERIS">AETHERIS</div>
-        <div className="unlock-sub">Obsidian // Access Terminal</div>
 
-        <label htmlFor="password" className="unlock-label">Access code</label>
-        <input
-          id="password"
-          name="password"
-          type="password"
-          autoFocus
-          autoComplete="current-password"
-          inputMode="numeric"
-          disabled={busy}
-          className="unlock-input"
-          placeholder="••••"
-        />
-        {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
-        <button type="submit" disabled={busy} className="unlock-btn">
-          {busy ? "AUTHENTICATING…" : "UNLOCK"}
-        </button>
+        <header className="unlock-brand">
+          <div id="unlock-heading" className="unlock-title" data-text="AETHERIS">AETHERIS</div>
+          <div className="unlock-sub">Obsidian // Access Terminal</div>
+        </header>
+
+        {/* Tabs */}
+        <div className="unlock-tabs" role="tablist" aria-label="Access options">
+          <button
+            role="tab"
+            aria-selected={tab === "buy"}
+            aria-controls="panel-buy"
+            id="tab-buy"
+            className={`unlock-tab ${tab === "buy" ? "is-active" : ""}`}
+            onClick={() => setTab("buy")}
+            type="button"
+          >
+            Get Obsidian Pro
+          </button>
+          <button
+            role="tab"
+            aria-selected={tab === "code"}
+            aria-controls="panel-code"
+            id="tab-code"
+            className={`unlock-tab ${tab === "code" ? "is-active" : ""}`}
+            onClick={() => setTab("code")}
+            type="button"
+          >
+            Access Code
+          </button>
+        </div>
+
+        {/* PURCHASE PANEL */}
+        {tab === "buy" && (
+          <section id="panel-buy" role="tabpanel" aria-labelledby="tab-buy">
+            {!showCheckout && (
+              <>
+                <h2 className="unlock-headline">Build production-ready software with an AI engineering team.</h2>
+
+                <div className="unlock-price">
+                  <span className="price-amount">$30</span>
+                  <span className="price-cadence">/month</span>
+                </div>
+                <p className="unlock-allowance">
+                  Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period, reset on your Stripe billing date.
+                </p>
+
+                {status && <div className="unlock-status" role="status">{status}</div>}
+                {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
+
+                <button
+                  type="button"
+                  className="unlock-btn unlock-btn-primary"
+                  onClick={startPurchase}
+                  disabled={sessionLoading}
+                >
+                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Pro — $30/month"}
+                </button>
+
+                <button type="button" className="unlock-btn-secondary" onClick={goSignIn}>
+                  Already purchased? Sign in
+                </button>
+
+                <button
+                  type="button"
+                  className="unlock-disclosure"
+                  aria-expanded={expandDetails}
+                  onClick={() => setExpandDetails((v) => !v)}
+                >
+                  {expandDetails ? "Hide details ▲" : "What you get & how it works ▼"}
+                </button>
+
+                {expandDetails && (
+                  <div className="unlock-details">
+                    <div className="detail-block">
+                      <h3>What you get</h3>
+                      <ul>
+                        <li>AI generation and AI chat</li>
+                        <li>AI code patches and prompt enhancement</li>
+                        <li>AI image generation</li>
+                        <li>Chief Engineer multi-agent review and orchestration</li>
+                        <li>Cloud saves and secure sharing</li>
+                        <li>GitHub and deployment integrations</li>
+                        <li>Project intelligence, validation, rollback, and engineering reports</li>
+                      </ul>
+                    </div>
+                    <div className="detail-block">
+                      <h3>How it works</h3>
+                      <ol>
+                        <li>Create your account</li>
+                        <li>Complete secure Stripe checkout</li>
+                        <li>Return automatically with Pro access enabled</li>
+                      </ol>
+                    </div>
+                    <div className="detail-block">
+                      <h3>What stays free &amp; local</h3>
+                      <p>Local editing, previews, local project storage, deterministic tools, exports, screenshots, and local history remain free and never leave your browser. Credits are consumed only for cloud AI and provider work.</p>
+                    </div>
+                    <p className="detail-trust">Secure billing through Stripe. Cancel anytime.</p>
+                  </div>
+                )}
+
+                <div className="unlock-legal">
+                  <Link to="/terms">Terms</Link>
+                  <span aria-hidden> · </span>
+                  <Link to="/privacy">Privacy</Link>
+                </div>
+              </>
+            )}
+
+            {showCheckout && session && (
+              <div className="unlock-checkout">
+                <div className="checkout-header">
+                  <div>
+                    <div className="checkout-title">Obsidian Pro</div>
+                    <div className="checkout-sub">
+                      Signed in as {session.email ?? "your account"}
+                      <button type="button" onClick={signOutAndReset} className="checkout-signout">
+                        Use another account
+                      </button>
+                    </div>
+                  </div>
+                  <button type="button" onClick={() => setShowCheckout(false)} className="checkout-back">← Back</button>
+                </div>
+                <StripeEmbeddedCheckout priceId={PRO_PRICE_ID} />
+                <p className="checkout-legal">
+                  Secure billing through Stripe. Cancel anytime. By continuing you accept our{" "}
+                  <Link to="/terms">Terms</Link> and <Link to="/privacy">Privacy</Link>.
+                </p>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* ACCESS CODE PANEL */}
+        {tab === "code" && (
+          <section id="panel-code" role="tabpanel" aria-labelledby="tab-code">
+            <h2 className="unlock-headline compact">Private access</h2>
+            <p className="unlock-allowance">Enter your access code to open the Obsidian terminal.</p>
+
+            <form onSubmit={onCodeSubmit} className="unlock-code-form">
+              <label htmlFor="password" className="unlock-label">Access code</label>
+              <input
+                id="password"
+                name="password"
+                type="password"
+                autoComplete="current-password"
+                inputMode="numeric"
+                disabled={busy}
+                className="unlock-input"
+                placeholder="••••"
+              />
+              {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
+              <button type="submit" disabled={busy} className="unlock-btn unlock-btn-primary">
+                {busy ? "AUTHENTICATING…" : "UNLOCK"}
+              </button>
+            </form>
+
+            <button type="button" className="unlock-btn-secondary" onClick={() => setTab("buy")}>
+              Don&apos;t have a code? Get Obsidian Pro
+            </button>
+          </section>
+        )}
 
         <div className="unlock-foot">AETHERIS.TECHNOLOGY</div>
-      </form>
+      </main>
     </div>
   );
 }
@@ -134,191 +330,204 @@ const unlockCss = `
   background: #000;
   color: #f2eee7;
   font-family: Inter, system-ui, sans-serif;
-  padding: 24px;
+  padding: 24px 16px;
   overflow: hidden;
 }
 .unlock-face {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  pointer-events: none;
-  opacity: 0;
-  filter: blur(1.2px) contrast(1.1);
-  mix-blend-mode: screen;
+  position: absolute; inset: 0;
+  display: grid; place-items: center; pointer-events: none;
+  opacity: 0; filter: blur(1.2px) contrast(1.1); mix-blend-mode: screen;
   animation: face-cycle 14s ease-in-out infinite;
 }
 .unlock-face svg {
-  width: min(520px, 70vmin);
-  height: auto;
+  width: min(520px, 70vmin); height: auto;
   filter: drop-shadow(0 0 24px rgba(244,161,37,0.35));
   animation: face-jitter 6s steps(1) infinite;
 }
-@keyframes face-cycle {
-  0%, 100% { opacity: 0; }
-  40% { opacity: 0; }
-  46% { opacity: 0.18; }
-  50% { opacity: 0.32; }
-  54% { opacity: 0.10; }
-  58% { opacity: 0.28; }
-  64% { opacity: 0; }
-}
+@keyframes face-cycle { 0%,100%{opacity:0} 40%{opacity:0} 46%{opacity:.18} 50%{opacity:.32} 54%{opacity:.10} 58%{opacity:.28} 64%{opacity:0} }
 @keyframes face-jitter {
-  0%, 100% { transform: translate(0,0); }
-  20% { transform: translate(-1px, 0.5px); }
-  40% { transform: translate(1.5px, -0.5px); }
-  60% { transform: translate(-0.5px, 1px); }
-  80% { transform: translate(0.5px, -1px); }
+  0%,100%{transform:translate(0,0)}
+  20%{transform:translate(-1px,.5px)} 40%{transform:translate(1.5px,-.5px)}
+  60%{transform:translate(-.5px,1px)} 80%{transform:translate(.5px,-1px)}
 }
 .unlock-noise {
   position: absolute; inset: 0; pointer-events: none;
-  background-image:
-    repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0 1px, transparent 1px 3px);
-  mix-blend-mode: overlay;
-  opacity: 0.7;
+  background-image: repeating-linear-gradient(0deg, rgba(255,255,255,0.015) 0 1px, transparent 1px 3px);
+  mix-blend-mode: overlay; opacity: 0.7;
 }
 .unlock-card {
   position: relative;
-  width: 100%;
-  max-width: 380px;
-  background: rgba(8,8,10,0.75);
-  border: 1px solid rgba(244,161,37,0.25);
-  border-radius: 14px;
-  padding: 30px 28px 22px;
-  box-shadow:
-    0 0 0 1px rgba(244,161,37,0.05),
-    0 30px 80px rgba(0,0,0,0.85),
-    inset 0 1px 0 rgba(255,255,255,0.06);
+  width: 100%; max-width: 440px;
+  background: rgba(8,8,10,0.78);
+  border: 1px solid rgba(244,161,37,0.28);
+  border-radius: 16px;
+  padding: 26px 24px 22px;
+  box-shadow: 0 0 0 1px rgba(244,161,37,0.05), 0 30px 80px rgba(0,0,0,0.85), inset 0 1px 0 rgba(255,255,255,0.06);
   backdrop-filter: blur(14px);
-  animation: card-float 6s ease-in-out infinite, card-glitch 7s steps(1) infinite;
+  animation: card-float 6s ease-in-out infinite;
 }
 .unlock-card-glow {
-  position: absolute; inset: -1px; border-radius: 14px; pointer-events: none;
-  background: linear-gradient(120deg, transparent 30%, rgba(244,161,37,0.25) 50%, transparent 70%);
-  background-size: 200% 100%;
-  animation: shimmer 4s linear infinite;
-  mix-blend-mode: overlay;
-  opacity: 0.6;
+  position: absolute; inset: -1px; border-radius: 16px; pointer-events: none;
+  background: linear-gradient(120deg, transparent 30%, rgba(244,161,37,0.22) 50%, transparent 70%);
+  background-size: 200% 100%; animation: shimmer 5s linear infinite;
+  mix-blend-mode: overlay; opacity: 0.55;
 }
-@keyframes card-float {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-6px); }
-}
-@keyframes card-glitch {
-  0%, 92%, 100% { transform: translate(0,0); filter: none; }
-  93% { transform: translate(-2px, 0); filter: hue-rotate(-15deg); }
-  94% { transform: translate(2px, 1px); }
-  95% { transform: translate(-1px, -1px); filter: hue-rotate(10deg); }
-  96% { transform: translate(0,0); }
-}
-@keyframes shimmer {
-  0% { background-position: 200% 0; }
-  100% { background-position: -100% 0; }
-}
+@keyframes card-float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+@keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-100% 0} }
+
+.unlock-brand { text-align: left; margin-bottom: 18px; }
 .unlock-title {
   position: relative;
   font-family: Fraunces, Georgia, serif;
-  font-size: 28px;
-  letter-spacing: 6px;
-  color: #f2eee7;
+  font-size: 30px; letter-spacing: 6px; color: #f2eee7;
   text-shadow: 0 0 12px rgba(244,161,37,0.3);
 }
 .unlock-title::before, .unlock-title::after {
-  content: attr(data-text);
-  position: absolute; top: 0; left: 0; width: 100%;
-  overflow: hidden;
+  content: attr(data-text); position: absolute; top:0; left:0; width:100%; overflow: hidden;
 }
-.unlock-title::before {
-  color: #f4a125;
-  animation: glitch-1 3.5s infinite steps(1);
-  clip-path: polygon(0 0, 100% 0, 100% 45%, 0 45%);
-}
-.unlock-title::after {
-  color: #7ad4ff;
-  animation: glitch-2 4.2s infinite steps(1);
-  clip-path: polygon(0 55%, 100% 55%, 100% 100%, 0 100%);
-  mix-blend-mode: screen;
-}
-@keyframes glitch-1 {
-  0%, 90%, 100% { transform: translate(0,0); opacity: 0; }
-  91% { transform: translate(-2px, 0); opacity: 0.9; }
-  93% { transform: translate(2px, 0); opacity: 0.9; }
-  95% { transform: translate(-1px, 1px); opacity: 0.6; }
-  97% { opacity: 0; }
-}
-@keyframes glitch-2 {
-  0%, 88%, 100% { transform: translate(0,0); opacity: 0; }
-  89% { transform: translate(2px, 0); opacity: 0.7; }
-  91% { transform: translate(-2px, 1px); opacity: 0.7; }
-  93% { opacity: 0; }
-}
+.unlock-title::before { color:#f4a125; animation: glitch-1 3.5s infinite steps(1); clip-path: polygon(0 0,100% 0,100% 45%,0 45%); }
+.unlock-title::after  { color:#7ad4ff; animation: glitch-2 4.2s infinite steps(1); clip-path: polygon(0 55%,100% 55%,100% 100%,0 100%); mix-blend-mode: screen; }
+@keyframes glitch-1 { 0%,90%,100%{transform:translate(0,0);opacity:0} 91%{transform:translate(-2px,0);opacity:.9} 93%{transform:translate(2px,0);opacity:.9} 95%{transform:translate(-1px,1px);opacity:.6} 97%{opacity:0} }
+@keyframes glitch-2 { 0%,88%,100%{transform:translate(0,0);opacity:0} 89%{transform:translate(2px,0);opacity:.7} 91%{transform:translate(-2px,1px);opacity:.7} 93%{opacity:0} }
 .unlock-sub {
-  margin-top: 8px;
-  font-size: 11px;
-  letter-spacing: 3px;
-  color: rgba(182,188,200,0.7);
-  text-transform: uppercase;
-  margin-bottom: 22px;
+  margin-top: 6px; font-size: 10px; letter-spacing: 3px;
+  color: rgba(182,188,200,0.7); text-transform: uppercase;
 }
+
+.unlock-tabs {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+  padding: 4px; border-radius: 10px;
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(244,161,37,0.15);
+  margin-bottom: 18px;
+}
+.unlock-tab {
+  padding: 9px 10px; border-radius: 7px; border: 0;
+  background: transparent; color: rgba(182,188,200,0.8);
+  font-size: 12px; letter-spacing: 1px; text-transform: uppercase;
+  cursor: pointer; transition: background .15s, color .15s;
+  font-weight: 600;
+}
+.unlock-tab:hover { color: #f2eee7; }
+.unlock-tab:focus-visible { outline: 2px solid #f4a125; outline-offset: 2px; }
+.unlock-tab.is-active {
+  background: linear-gradient(180deg, rgba(244,161,37,.18), rgba(221,147,36,.10));
+  color: #f2eee7;
+  box-shadow: inset 0 0 0 1px rgba(244,161,37,0.35);
+}
+
+.unlock-headline {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 20px; line-height: 1.25; letter-spacing: .2px;
+  color: #f2eee7; margin: 4px 0 14px;
+}
+.unlock-headline.compact { font-size: 18px; margin-bottom: 10px; }
+
+.unlock-price { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
+.price-amount { font-family: Fraunces, Georgia, serif; font-size: 40px; color: #f4a125; letter-spacing: 1px; }
+.price-cadence { font-size: 13px; color: rgba(182,188,200,0.85); letter-spacing: 1px; }
+.unlock-allowance {
+  margin: 6px 0 16px; font-size: 12.5px; line-height: 1.55;
+  color: rgba(182,188,200,0.9);
+}
+.unlock-allowance strong { color: #f2eee7; }
+
+.unlock-btn {
+  width: 100%; padding: 13px 14px; border-radius: 10px; border: 1px solid #dd9324;
+  background: linear-gradient(180deg, #f4a125 0%, #dd9324 100%);
+  color: #0a0a0a; font-weight: 700; font-size: 13px; letter-spacing: 2px;
+  cursor: pointer; text-transform: uppercase; transition: transform .15s, box-shadow .2s;
+}
+.unlock-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 8px 24px rgba(244,161,37,0.35); }
+.unlock-btn:focus-visible { outline: 2px solid #f4a125; outline-offset: 3px; }
+.unlock-btn:disabled { opacity: .6; cursor: wait; }
+
+.unlock-btn-secondary {
+  display: block; width: 100%; margin-top: 10px; padding: 10px;
+  background: transparent; color: rgba(182,188,200,0.85);
+  border: 1px solid rgba(244,161,37,0.22); border-radius: 10px;
+  font-size: 12px; letter-spacing: 1.5px; text-transform: uppercase;
+  cursor: pointer; transition: color .15s, border-color .15s;
+}
+.unlock-btn-secondary:hover { color: #f2eee7; border-color: rgba(244,161,37,0.45); }
+.unlock-btn-secondary:focus-visible { outline: 2px solid #f4a125; outline-offset: 3px; }
+
+.unlock-disclosure {
+  display: block; width: 100%; margin-top: 14px; padding: 8px;
+  background: transparent; border: 0; color: rgba(182,188,200,0.6);
+  font-size: 11px; letter-spacing: 1.5px; text-transform: uppercase; cursor: pointer;
+}
+.unlock-disclosure:hover { color: #f4a125; }
+.unlock-disclosure:focus-visible { outline: 2px solid #f4a125; outline-offset: 2px; border-radius: 4px; }
+
+.unlock-details { margin-top: 6px; border-top: 1px solid rgba(244,161,37,0.15); padding-top: 14px; }
+.detail-block { margin-bottom: 14px; }
+.detail-block h3 {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 13px; color: #f4a125; letter-spacing: 1px;
+  margin: 0 0 6px; text-transform: uppercase;
+}
+.detail-block ul, .detail-block ol { margin: 0; padding-left: 18px; }
+.detail-block li, .detail-block p {
+  font-size: 12px; line-height: 1.6; color: rgba(182,188,200,0.9); margin: 2px 0;
+}
+.detail-trust {
+  margin-top: 8px; font-size: 11.5px; letter-spacing: .5px;
+  color: rgba(182,188,200,0.7); text-align: center;
+}
+
+.unlock-legal {
+  margin-top: 14px; text-align: center;
+  font-size: 11px; color: rgba(182,188,200,0.55); letter-spacing: 1px;
+}
+.unlock-legal a { color: rgba(182,188,200,0.75); text-decoration: underline; text-underline-offset: 3px; }
+.unlock-legal a:hover { color: #f4a125; }
+
+.unlock-code-form { margin-top: 4px; }
 .unlock-label {
-  display: block;
-  font-size: 10px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  color: rgba(182,188,200,0.75);
-  margin-bottom: 8px;
+  display: block; font-size: 10px; letter-spacing: 2px;
+  text-transform: uppercase; color: rgba(182,188,200,0.75); margin-bottom: 8px;
 }
 .unlock-input {
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 8px;
-  border: 1px solid rgba(244,161,37,0.25);
-  background: rgba(0,0,0,0.65);
-  color: #f4a125;
-  font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 18px;
-  letter-spacing: 8px;
-  outline: none;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%; padding: 12px 14px; border-radius: 10px;
+  border: 1px solid rgba(244,161,37,0.25); background: rgba(0,0,0,0.65);
+  color: #f4a125; font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 18px; letter-spacing: 8px; outline: none;
+  transition: border-color .2s, box-shadow .2s; margin-bottom: 12px;
 }
-.unlock-input:focus {
-  border-color: #f4a125;
-  box-shadow: 0 0 0 3px rgba(244,161,37,0.15), 0 0 24px rgba(244,161,37,0.2);
+.unlock-input:focus { border-color: #f4a125; box-shadow: 0 0 0 3px rgba(244,161,37,0.15), 0 0 24px rgba(244,161,37,0.2); }
+
+.unlock-status { margin: 8px 0; font-size: 12px; color: #7ad4ff; letter-spacing: .5px; }
+.unlock-error { margin: 8px 0; font-size: 12px; color: #f4a125; letter-spacing: .5px; }
+
+.unlock-checkout { }
+.checkout-header {
+  display: flex; align-items: flex-start; justify-content: space-between; gap: 12px;
+  margin-bottom: 12px;
 }
-.unlock-error {
-  margin-top: 10px;
-  color: #f4a125;
-  font-size: 12px;
-  letter-spacing: 1px;
-  animation: card-glitch 0.4s steps(1) 2;
+.checkout-title { font-family: Fraunces, Georgia, serif; font-size: 16px; color: #f2eee7; }
+.checkout-sub { font-size: 11px; color: rgba(182,188,200,0.7); margin-top: 2px; }
+.checkout-signout {
+  display: block; margin-top: 4px; background: transparent; border: 0; padding: 0;
+  color: rgba(244,161,37,0.75); font-size: 11px; text-decoration: underline; cursor: pointer;
 }
-.unlock-btn {
-  margin-top: 18px;
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 8px;
-  border: 1px solid #dd9324;
-  background: linear-gradient(180deg, #f4a125 0%, #dd9324 100%);
-  color: #0a0a0a;
-  font-weight: 700;
-  font-size: 13px;
-  letter-spacing: 3px;
-  cursor: pointer;
-  text-transform: uppercase;
-  transition: transform 0.15s, box-shadow 0.2s;
+.checkout-back {
+  background: transparent; color: rgba(182,188,200,0.75); border: 1px solid rgba(244,161,37,0.2);
+  border-radius: 8px; padding: 6px 10px; font-size: 11px; letter-spacing: 1px; cursor: pointer;
 }
-.unlock-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 8px 24px rgba(244,161,37,0.35);
-}
-.unlock-btn:disabled { opacity: 0.6; cursor: wait; }
+.checkout-back:hover { color: #f2eee7; border-color: rgba(244,161,37,0.45); }
+.checkout-legal { margin-top: 12px; font-size: 11px; color: rgba(182,188,200,0.6); text-align: center; }
+.checkout-legal a { color: rgba(182,188,200,0.8); text-decoration: underline; }
+
 .unlock-foot {
-  margin-top: 22px;
-  text-align: center;
-  font-family: Fraunces, Georgia, serif;
-  font-size: 11px;
-  letter-spacing: 4px;
-  color: rgba(244,161,37,0.55);
-  text-transform: uppercase;
+  margin-top: 20px; text-align: center; font-family: Fraunces, Georgia, serif;
+  font-size: 11px; letter-spacing: 4px; color: rgba(244,161,37,0.55); text-transform: uppercase;
+}
+
+@media (max-width: 480px) {
+  .unlock-card { padding: 22px 18px 18px; }
+  .unlock-title { font-size: 26px; letter-spacing: 5px; }
+  .price-amount { font-size: 34px; }
+  .unlock-headline { font-size: 18px; }
 }
 `;
