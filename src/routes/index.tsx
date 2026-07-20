@@ -728,6 +728,45 @@ function Index() {
     setTab("preview");
   }
 
+  const [fusionOpen, setFusionOpen] = useState(false);
+  function commitFusion(c: FusionCommit) {
+    const now = Date.now();
+    const checkpoint: Version = {
+      id: (globalThis.crypto?.randomUUID?.() ?? String(now)),
+      ts: now,
+      html: c.result.checkpointHtml || "",
+      label: "Pre-fusion checkpoint",
+      protected: true,
+    };
+    const fused: Version = {
+      id: (globalThis.crypto?.randomUUID?.() ?? String(now + 1)),
+      ts: now + 1,
+      html: c.html,
+      label: `Fusion (${c.result.plan.mode})`,
+    };
+    const s: Session = {
+      ...newSession(),
+      title: c.title,
+      html: c.html,
+      messages: [
+        { role: "assistant", content: `Fused ${c.result.metrics.projectsCombined} projects (${c.result.plan.mode}). ${c.result.metrics.filesAdded} sections, ${c.result.metrics.filesDeduplicated} deduped, ${c.result.metrics.conflictsResolved} conflicts auto-resolved.` },
+      ],
+      versions: [checkpoint, fused],
+    };
+    setSessions((all) => [...all, s]);
+    setActiveId(s.id);
+    setTerminal((t) => [
+      ...t,
+      `⧗ Fusion: inventory → compatibility → conflict detection → plan → merge → validation → commit`,
+      `✓ Fused ${c.result.metrics.projectsCombined} projects in ${c.result.metrics.totalMs}ms (validated in ${c.result.metrics.validationMs}ms)`,
+      `  · files added ${c.result.metrics.filesAdded} · deduped ${c.result.metrics.filesDeduplicated} · routes ${c.result.metrics.routesCreated}`,
+      `  · conflicts auto-resolved ${c.result.metrics.conflictsResolved} · needs input ${c.result.metrics.conflictsRequiringInput}`,
+    ]);
+    setFusionOpen(false);
+    setTab("preview");
+  }
+
+
   function closeSession(id: string, e: React.MouseEvent) {
     e.stopPropagation();
     setSessions((all) => {
