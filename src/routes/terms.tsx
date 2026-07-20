@@ -30,7 +30,7 @@ function TermsPage() {
           </section>
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">3. Subscriptions and billing</h2>
-            <p>Obsidian Pro is billed at $30 USD per month through Stripe. Each billing period includes an allowance of AI credits used for cloud AI and provider work. Unused credits do not roll over. You may cancel at any time; access continues through the end of the current period.</p>
+            <p>Obsidian Pro is billed at $30 USD per month through Stripe. Each billing period includes an allowance of AI credits used for cloud AI and provider work. Unused credits do not roll over. You may cancel at any time. Under the current cancellation flow, cancellation takes effect immediately and Pro access may end at that time; billing for future periods stops.</p>
           </section>
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">4. Local mode</h2>
