@@ -23,7 +23,7 @@ export type RefactorSuggestion = {
 };
 
 const STALE_LIBS: RegExp[] = [
-  /jquery@?[12]\./i, /bootstrap@?[23]\./i, /moment(?!-timezone)/i, /lodash(?!-es)/i,
+  /jquery[-@/]?[12]\./i, /bootstrap[-@/]?[23]\./i, /moment(?!-timezone)/i, /lodash(?!-es)/i,
 ];
 
 export function advise(input: { html: string; graph?: KnowledgeGraph }): RefactorSuggestion[] {
