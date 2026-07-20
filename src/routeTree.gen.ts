@@ -20,6 +20,7 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiGithubRouteImport } from './routes/api/github'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
+import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/share.$slug'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
@@ -82,6 +83,11 @@ const ApiPublicSelfTestRoute = ApiPublicSelfTestRouteImport.update({
   path: '/api/public/self-test',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicEntitlementRoute = ApiPublicEntitlementRouteImport.update({
+  id: '/api/public/entitlement',
+  path: '/api/public/entitlement',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
   id: '/api/public/builds',
   path: '/api/public/builds',
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/api/patch': typeof ApiPatchRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
@@ -145,6 +152,7 @@ export interface FileRoutesByTo {
   '/api/patch': typeof ApiPatchRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
@@ -165,6 +173,7 @@ export interface FileRoutesById {
   '/api/patch': typeof ApiPatchRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
@@ -186,6 +195,7 @@ export interface FileRouteTypes {
     | '/api/patch'
     | '/checkout/return'
     | '/api/public/builds'
+    | '/api/public/entitlement'
     | '/api/public/self-test'
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
@@ -205,6 +215,7 @@ export interface FileRouteTypes {
     | '/api/patch'
     | '/checkout/return'
     | '/api/public/builds'
+    | '/api/public/entitlement'
     | '/api/public/self-test'
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
@@ -224,6 +235,7 @@ export interface FileRouteTypes {
     | '/api/patch'
     | '/checkout/return'
     | '/api/public/builds'
+    | '/api/public/entitlement'
     | '/api/public/self-test'
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
@@ -244,6 +256,7 @@ export interface RootRouteChildren {
   ApiPatchRoute: typeof ApiPatchRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
+  ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
   ApiPublicLibraryCodeRoute: typeof ApiPublicLibraryCodeRouteWithChildren
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
@@ -329,6 +342,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicSelfTestRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/entitlement': {
+      id: '/api/public/entitlement'
+      path: '/api/public/entitlement'
+      fullPath: '/api/public/entitlement'
+      preLoaderRoute: typeof ApiPublicEntitlementRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/builds': {
       id: '/api/public/builds'
       path: '/api/public/builds'
@@ -409,6 +429,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPatchRoute: ApiPatchRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
+  ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
   ApiPublicLibraryCodeRoute: ApiPublicLibraryCodeRouteWithChildren,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,

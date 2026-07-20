@@ -374,8 +374,8 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   // adaptive-ledger sanitization + bounded storage
   const { appendEvent, clearLedger, loadLedger, summariseLedger, MAX_EVENTS } = await import("./adaptive-ledger");
   clearLedger();
-  const secretEvt = appendEvent({ kind: "request-submitted", note: "call sk_live_" + "a".repeat(20) + " Bearer abc.def unlock 9822 https://x" });
-  results.push(assert(!/sk_live_|Bearer|9822|https:\/\//.test(secretEvt.note ?? ""), `ledger: sanitizes secrets/9822/urls (${secretEvt.note})`));
+  const secretEvt = appendEvent({ kind: "request-submitted", note: "call sk_live_" + "a".repeat(20) + " Bearer abc.def unlock 4711 https://x" });
+  results.push(assert(!/sk_live_|Bearer|unlock\s+\d|https:\/\//.test(secretEvt.note ?? ""), `ledger: sanitizes secrets/unlock-code/urls (${secretEvt.note})`));
   // Bounded storage + summary are pure over an in-memory array (server has no
   // window.localStorage; appendEvent's persistence step no-ops server-side).
   const inMem: import("./adaptive-ledger").LedgerEvent[] = [];
@@ -438,9 +438,9 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
 
   // adaptive-profile export never contains raw secrets or the unlock code
   const { exportProfile } = await import("./adaptive-profile");
-  appendEvent({ kind: "request-submitted", note: "prompt with sk_live_" + "b".repeat(20) + " and 9822" });
+  appendEvent({ kind: "request-submitted", note: "prompt with sk_live_" + "b".repeat(20) + " and unlock 4711" });
   const exported = exportProfile();
-  results.push(assert(!/sk_live_bb|9822/.test(exported), "profile: export scrubs secrets/9822"));
+  results.push(assert(!/sk_live_bb|unlock\s+\d/.test(exported), "profile: export scrubs secrets/unlock-codes"));
   clearLedger();
 
   // Corrupted storage recovery — feeding junk should not throw
@@ -820,13 +820,88 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
       "credit-gate: retrying same request_id returns same reservation, does not double-charge"));
   }
 
+  // ---- Local Only entitlement + client action guard ----
+  {
+    const cg = await import("./credit-gate");
+    const guard = await import("./action-guard");
+    const ent = await import("../hooks/useEntitlement");
 
+    // Free plan cap must be 0 — no free AI, no free cloud writes.
+    results.push(assert(cg.CAP_FREE_MONTHLY === 0, "entitlement: free plan cap is 0 (no free AI credits)"));
 
+    // isPaidMode: only owner/pro count as allowed
+    results.push(assert(ent.isPaidMode("owner") === true, "entitlement: owner is paid mode"));
+    results.push(assert(ent.isPaidMode("pro") === true, "entitlement: pro is paid mode"));
+    results.push(assert(ent.isPaidMode("free") === false, "entitlement: free is NOT paid mode"));
 
+    // Instrument fetch to prove the free-plan guard never touches the network.
+    const origFetch = globalThis.fetch;
+    let fetchCalls = 0;
+    globalThis.fetch = ((..._a: unknown[]) => { fetchCalls += 1; return Promise.resolve(new Response("", { status: 200 })); }) as typeof fetch;
+    // Free-plan guard for every protected op (also proves GH actions blocked).
+    const ops = ["generate_html","generate_html_patch","generate_image","enhance_prompt","cloud_save","cloud_share","github_deploy","github_verify","github_list","github_import","supabase_write","adaptive_write","analytics"] as const;
+    // Seed snapshot as free by dispatching through subscribeEntitlement's
+    // module-level state — call refreshEntitlement with a stubbed fetch.
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      mode: "free", authed: false, subStatus: null, environment: "sandbox",
+      periodStart: null, periodEnd: null, used: 0, reserved: 0, cap: 0, remaining: 0,
+    }), { status: 200 })) as typeof fetch;
+    await ent.refreshEntitlement();
+    // Now count real network calls the guard would make.
+    fetchCalls = 0;
+    globalThis.fetch = ((..._a: unknown[]) => { fetchCalls += 1; return Promise.resolve(new Response("", { status: 200 })); }) as typeof fetch;
+    const freeResults = await Promise.all(ops.map((o) => guard.requirePaidAction(o)));
+    results.push(assert(freeResults.every((r) => r.allowed === false && r.reason === "auth_required"),
+      `guard: free denies every protected op (${freeResults.filter((r) => r.allowed).length}/${freeResults.length} allowed — expected 0)`));
+    results.push(assert(fetchCalls === 0, `guard: free op invokes ZERO network calls (got ${fetchCalls})`));
 
+    // Owner mode: allowed everywhere.
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      mode: "owner", authed: false, subStatus: null, environment: "sandbox",
+      periodStart: null, periodEnd: null, used: 0, reserved: 0, cap: 1000, remaining: 1000,
+    }), { status: 200 })) as typeof fetch;
+    await ent.refreshEntitlement();
+    const ownerResults = await Promise.all(ops.map((o) => guard.requirePaidAction(o)));
+    results.push(assert(ownerResults.every((r) => r.allowed === true), "guard: owner allows every protected op"));
 
+    // Active Pro: allowed.
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      mode: "pro", authed: true, subStatus: "active", environment: "sandbox",
+      periodStart: null, periodEnd: null, used: 0, reserved: 0, cap: 1000, remaining: 1000,
+    }), { status: 200 })) as typeof fetch;
+    await ent.refreshEntitlement();
+    const proResults = await Promise.all(ops.map((o) => guard.requirePaidAction(o)));
+    results.push(assert(proResults.every((r) => r.allowed === true), "guard: active Pro allows every protected op"));
+
+    // Signed-in but no active subscription (canceled/expired): blocked as not_pro.
+    globalThis.fetch = (async () => new Response(JSON.stringify({
+      mode: "free", authed: true, subStatus: "canceled", environment: "sandbox",
+      periodStart: null, periodEnd: null, used: 0, reserved: 0, cap: 0, remaining: 0,
+    }), { status: 200 })) as typeof fetch;
+    await ent.refreshEntitlement();
+    const canceledResults = await Promise.all(ops.map((o) => guard.requirePaidAction(o)));
+    results.push(assert(canceledResults.every((r) => r.allowed === false && r.reason === "not_pro"),
+      "guard: canceled subscription blocked as not_pro"));
+
+    globalThis.fetch = origFetch;
+
+    // 402 envelope shape — client decoder must recognize denial responses.
+    const env402 = cg.creditsRequiredEnvelope({ code: "not_pro", operation: "generate_html" });
+    results.push(assert(env402.ok === false && env402.suggestedPriceId === "obsidian_pro_monthly",
+      "entitlement: not_pro envelope suggests obsidian_pro_monthly"));
+    results.push(assert(cg.isCreditsRequiredEnvelope(env402), "entitlement: envelope round-trips through detector"));
+
+    // Legacy strings must not appear in the client bundle sources.
+    // (Runtime check via import.meta.env / window would need a bundle probe;
+    // this is a lightweight guard against re-introducing the constants.)
+    // We can only assert the constants are gone from this test module's scope:
+    const legacyRefs = { FREE_DAILY_LIMIT: (globalThis as Record<string, unknown>).FREE_DAILY_LIMIT };
+    results.push(assert(legacyRefs.FREE_DAILY_LIMIT === undefined, "entitlement: FREE_DAILY_LIMIT is not a global"));
+  }
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };
 }
+
+

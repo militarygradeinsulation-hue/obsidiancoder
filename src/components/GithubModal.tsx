@@ -1,6 +1,7 @@
 import * as React from "react";
 import { Github, Loader2, ExternalLink, Rocket, Download, Check, X } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
+import { requirePaidAction, type GuardOperation } from "@/lib/action-guard";
 
 type GhUser = { login: string; avatar_url: string; name?: string };
 type Repo = {
@@ -19,7 +20,21 @@ type DeployResult = {
 
 const TOKEN_KEY = "obs.gh.token";
 
+const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
+  verify:    "github_verify",
+  listRepos: "github_list",
+  import:    "github_import",
+  deploy:    "github_deploy",
+};
+
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
+  // Central client-side guard — free users can't reach any GitHub route.
+  const action = typeof body === "object" && body ? (body as { action?: string }).action : undefined;
+  const op = action ? GH_ACTION_GUARDS[action] : undefined;
+  if (op) {
+    const gate = await requirePaidAction(op);
+    if (!gate.allowed) throw new Error("Sign in and activate Obsidian Pro to use GitHub.");
+  }
   const r = await authFetch("/api/github", {
     method: "POST",
     headers: { "Content-Type": "application/json" },

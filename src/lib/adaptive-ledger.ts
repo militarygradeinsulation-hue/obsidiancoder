@@ -72,7 +72,9 @@ const SECRET_PATTERNS = [
   /pk_(live|test)_[A-Za-z0-9]{16,}/g,
   /Bearer\s+[A-Za-z0-9._\-]+/gi,
   /\b[A-Fa-f0-9]{32,}\b/g,
-  /\b9822\b/g, // unlock code — must not travel into learning
+  // Anything that looks like an unlock/passcode value — scrubbed so private
+  // codes cannot travel into the learning ledger.
+  /\b(?:unlock|passcode|passphrase|pin|code)\s*[:=]?\s*\d{3,10}\b/gi,
 ];
 
 function sanitizeNote(s: string | undefined): string | undefined {

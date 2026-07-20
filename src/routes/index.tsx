@@ -20,6 +20,8 @@ import { PricingModal } from "@/components/PricingModal";
 import { AccountModal } from "@/components/AccountModal";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
+import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
+import { requirePaidAction } from "@/lib/action-guard";
 import { authFetch } from "@/lib/auth-fetch";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
 
@@ -346,8 +348,8 @@ function Index() {
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
   const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection>(null);
   // Library code is session-scoped: each new browser session starts blank
-  // and the user re-enters their code (e.g. 9822) to "log in" and load
-  // their prior builds from the server.
+  // and the user re-enters their private code to "log in" and load their
+  // prior builds from the server.
   const [libraryCode, setLibraryCode] = useState<string>(() => {
     if (typeof window === "undefined") return "";
     try { return window.sessionStorage.getItem("obs.library_code") || ""; } catch { return ""; }
@@ -375,6 +377,10 @@ function Index() {
     window.addEventListener("obs:paywall", onPaywall as EventListener);
     return () => window.removeEventListener("obs:paywall", onPaywall as EventListener);
   }, []);
+
+  // Refresh entitlement whenever the auth identity changes so the guard's
+  // snapshot reflects the current session immediately after sign-in/out.
+  useEffect(() => { void refreshEntitlement(); }, [authUserId]);
 
 
   const [libraryBuilds, setLibraryBuilds] = useState<Array<{ id: string; title: string; created_at: string; prompt: string; share_slug: string; byte_size: number }>>([]);
@@ -445,10 +451,18 @@ function Index() {
   async function handleEnhance() {
     const draft = input.trim();
     if (!draft || enhancing || loading) return;
+    const gate = await requirePaidAction("enhance_prompt");
+    if (!gate.allowed) return;
     setEnhancing(true);
     try {
       const res = await runEnhance({ data: { prompt: draft, hasHtml: !!current.html } });
-      if (res?.prompt) setInput(res.prompt);
+      if (res && "paywall" in res) {
+        window.dispatchEvent(new CustomEvent("obs:paywall", {
+          detail: { envelope: res.paywall, status: res.paywall.code === "auth_required" ? 401 : 402, url: "enhance" },
+        }));
+        return;
+      }
+      if (res && "prompt" in res && res.prompt) setInput(res.prompt);
     } catch (e) {
       console.error("enhance failed", e);
     } finally {
@@ -476,18 +490,14 @@ function Index() {
       .catch(() => setLibraryBuilds([]));
   }
 
-  // ─── Free-tier gates (5 AI generations/day; Save requires Pro or one-time purchase) ───
-  const FREE_DAILY_LIMIT = 5;
-  // pricingInitialPrice is declared above with the paywall handler.
-  function todayKey() { return "obs.gen_count." + new Date().toISOString().slice(0, 10); }
-  function getTodayGenCount(): number {
-    if (typeof window === "undefined") return 0;
-    return Number(localStorage.getItem(todayKey()) || "0");
-  }
-  function bumpTodayGenCount() {
-    if (typeof window === "undefined") return;
-    localStorage.setItem(todayKey(), String(getTodayGenCount() + 1));
-  }
+  // ─── Entitlement (mode = owner | pro | free) — the ONLY gate. Free users
+  // get zero AI/cloud/GitHub calls; local editing remains fully functional.
+  const { snap: entitlement } = useEntitlement();
+  const modeLabel =
+    entitlement.mode === "owner" ? "Owner" :
+    entitlement.mode === "pro"   ? "Pro" :
+                                   "Local Only";
+
   function openUpgrade(priceId?: string) {
     setPricingInitialPrice(priceId);
     setPricingOpen(true);
@@ -498,14 +508,10 @@ function Index() {
       setTerminal((t) => [...t, "✗ Nothing to save yet — build something first."]);
       return;
     }
-    if (!authUserId) {
-      setTerminal((t) => [...t, "→ Sign in required to save projects."]);
-      openUpgrade();
-      return;
-    }
-    if (!isPro) {
-      setTerminal((t) => [...t, "→ Save Project requires Obsidian Pro or a one-time Save & Host purchase."]);
-      openUpgrade("save_build_onetime");
+    // Central guard — never allow a cloud save from Local Only.
+    const gate = await requirePaidAction("cloud_save");
+    if (!gate.allowed) {
+      setTerminal((t) => [...t, "→ Save Project requires Obsidian Pro. Local editing and export remain free."]);
       return;
     }
     let code = libraryCode.trim();
@@ -1005,13 +1011,9 @@ function Index() {
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
-    // Free-tier daily cap: 5 AI generations/day unless Obsidian Pro.
-    if (!isPro && getTodayGenCount() >= FREE_DAILY_LIMIT) {
-      setTerminal((t) => [...t, `✗ Daily free limit reached (${FREE_DAILY_LIMIT}/day). Upgrade to Obsidian Pro for unlimited generations.`]);
-      openUpgrade("obsidian_pro_monthly");
-      return;
-    }
-    if (!isPro) bumpTodayGenCount();
+    // Central guard — free/unresolved users never reach the network.
+    const gate = await requirePaidAction("generate_html");
+    if (!gate.allowed) return;
     const activeMode = current.mode;
     // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
     const previewMode = activeMode !== "chat" && activeMode !== "plan";
@@ -1942,6 +1944,11 @@ function Index() {
               disabled={!current.html}
               onClick={async () => {
                 if (!current.html) return;
+                const gate = await requirePaidAction("cloud_share");
+                if (!gate.allowed) {
+                  setTerminal((t) => [...t, "→ Go Live requires Obsidian Pro. Local export remains free."]);
+                  return;
+                }
                 setTerminal((t) => [...t, "→ Publishing shareable link…"]);
                 try {
                   let clientId = localStorage.getItem("obs.client_id");
@@ -2002,33 +2009,23 @@ function Index() {
             >
               <CreditCard className="h-3.5 w-3.5" /> {isPro ? "Pro" : "Upgrade"}
             </button>
-            <button
-              type="button"
-              className={"obs-chip " + (typeof window !== "undefined" && window.localStorage.getItem("obs.adminCode") === "9822" ? "is-on" : "")}
-              onClick={() => {
-                const current = (typeof window !== "undefined" && window.localStorage.getItem("obs.adminCode")) || "";
-                if (current === "9822") {
-                  if (window.confirm("Admin code active (unlimited access). Sign out of code?")) {
-                    window.localStorage.removeItem("obs.adminCode");
-                    window.location.reload();
-                  }
-                  return;
-                }
-                const code = window.prompt("Enter your access code:");
-                if (code == null) return;
-                if (code.trim() === "9822") {
-                  window.localStorage.setItem("obs.adminCode", "9822");
-                  window.localStorage.setItem("obs.library_code", "9822");
-                  window.alert("Welcome, Joseph. Unlimited admin access unlocked.");
-                  window.location.reload();
-                } else {
-                  window.alert("Invalid code.");
-                }
-              }}
-              title="Sign in with access code"
+            <span
+              className={
+                "obs-chip " +
+                (entitlement.mode === "owner" ? "is-on" :
+                 entitlement.mode === "pro"   ? "is-on" :
+                                                "obs-chip-gold")
+              }
+              title={
+                entitlement.mode === "owner" ? "Site owner — unlimited access, all local features unlocked" :
+                entitlement.mode === "pro"   ? `Obsidian Pro · ${entitlement.remaining}/${entitlement.cap} credits left this period` :
+                                               "Local Only — manual editing, preview, and export remain free. AI features require Obsidian Pro."
+              }
+              data-testid="entitlement-pill"
+              aria-label={`Access mode: ${modeLabel}`}
             >
-              <UserIcon className="h-3.5 w-3.5" /> {typeof window !== "undefined" && window.localStorage.getItem("obs.adminCode") === "9822" ? "Admin" : "Code"}
-            </button>
+              <UserIcon className="h-3.5 w-3.5" /> {modeLabel}
+            </span>
             <button
               type="button"
               className="obs-chip"
