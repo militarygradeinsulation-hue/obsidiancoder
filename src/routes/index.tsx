@@ -2015,10 +2015,23 @@ function Index() {
           <aside className="obs-rail">
             <div
               className="obs-rail-handle"
+              role="separator"
+              aria-orientation="vertical"
               aria-label="Resize chat panel"
-              title="Drag to widen or narrow the chat panel"
+              aria-valuenow={railWidth}
+              aria-valuemin={260}
+              aria-valuemax={Math.min(900, typeof window !== "undefined" ? Math.max(320, window.innerWidth - 320) : 900)}
+              tabIndex={0}
+              title="Drag, or use ← → to resize. Double-click / Home to reset."
               onPointerDown={onRailResizeStart}
               onDoubleClick={() => setRailWidth(320)}
+              onKeyDown={(e) => {
+                const step = e.shiftKey ? 40 : 16;
+                const max = typeof window !== "undefined" ? Math.max(320, window.innerWidth - 320) : 900;
+                if (e.key === "ArrowLeft") { e.preventDefault(); setRailWidth((w) => Math.min(900, Math.min(max, w + step))); }
+                else if (e.key === "ArrowRight") { e.preventDefault(); setRailWidth((w) => Math.max(260, w - step)); }
+                else if (e.key === "Home") { e.preventDefault(); setRailWidth(320); }
+              }}
             />
             <div className="obs-rail-tabs" role="tablist" aria-label="Rail sections">
               {RAIL_GROUPS.map((g) => (
