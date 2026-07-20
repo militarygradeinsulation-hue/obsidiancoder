@@ -20,6 +20,8 @@ import { PricingModal } from "@/components/PricingModal";
 import { AccountModal } from "@/components/AccountModal";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
+import { authFetch } from "@/lib/auth-fetch";
+import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
 
 import { classifyTask } from "@/lib/task-classifier";
 import { tryDeterministicEdit } from "@/lib/deterministic-edits";
