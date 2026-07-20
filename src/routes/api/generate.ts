@@ -503,15 +503,33 @@ export const Route = createFileRoute("/api/generate")({
           // 3) Open upstream. On any first-byte failure — timeout, malformed
           //    HTML, empty body — silently retry once against the fastest
           //    reliable model, but only when the user didn't pin a model.
+          // tryOpen: wraps openStream so any failure after aiFetch begins is
+          // captured as a minimum-cost UsageRecord for the attempted model.
+          // On fallback we keep the first record and add the second — settlement
+          // aggregates both into the final total.
+          const tryOpen = async (model: string, budgetMs: number) => {
+            try {
+              return await openStream(model, budgetMs);
+            } catch (err) {
+              modelAttempts.push(modelAttemptUsage({
+                model,
+                operation: opForSettle,
+                errorCode: err instanceof AiError
+                  ? err.code
+                  : err instanceof Error ? err.message.slice(0, 40) : "attempt_failed",
+              }));
+              throw err;
+            }
+          };
           let opened;
           let fallbackReason = "";
           try {
-            opened = await openStream(data.model, 8_000);
+            opened = await tryOpen(data.model, 8_000);
           } catch (err) {
             const canFallback = !explicit && data.model !== DEFAULT_MODEL && !isFastTier(data.model);
             if (!canFallback) throw err;
             fallbackReason = err instanceof Error ? err.message.slice(0, 60) : "unknown";
-            opened = await openStream(DEFAULT_MODEL, 15_000);
+            opened = await tryOpen(DEFAULT_MODEL, 15_000);
           }
           const { reader, sniffBuffer, firstChunk, model: modelUsed, openedAt, headersAt } = opened;
           const breakerKeyGen = `lovable/generate:${modelUsed}`;
