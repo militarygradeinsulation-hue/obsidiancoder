@@ -12,7 +12,7 @@ import {
   settleOperation,
 } from "@/lib/credit-gate.server";
 import type { EntitlementResult } from "@/lib/credit-gate.server";
-import { StreamingUsageAccumulator, makeUsage, mergeUsage, estimateUsdForCall, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "@/lib/usage-record";
+import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "@/lib/usage-record";
 import type { Operation } from "@/lib/credit-gate";
 
 const messageSchema = z.object({
