@@ -716,10 +716,10 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     const invs = [A, B, C].map(fus_inventory);
     results.push(assert(invs.length === 3, "fusion: inventory built for 3 projects"));
     const conflicts = fus_detectConflicts(invs);
-    results.push(assert(conflicts.some((c) => c.kind === "duplicate-id" && c.key === "id:hero"), "fusion: duplicate id detected"));
-    results.push(assert(conflicts.some((c) => c.kind === "route-collision"), "fusion: route collision on duplicate slug"));
-    results.push(assert(conflicts.some((c) => c.kind === "css-var-collision" && c.key === "cssvar:brand"), "fusion: css var collision detected"));
-    results.push(assert(conflicts.some((c) => c.kind === "dependency-version"), "fusion: dep version conflict detected"));
+    results.push(assert(conflicts.some((c: FusionConflict) => c.kind === "duplicate-id" && c.key === "id:hero"), "fusion: duplicate id detected"));
+    results.push(assert(conflicts.some((c: FusionConflict) => c.kind === "route-collision"), "fusion: route collision on duplicate slug"));
+    results.push(assert(conflicts.some((c: FusionConflict) => c.kind === "css-var-collision" && c.key === "cssvar:brand"), "fusion: css var collision detected"));
+    results.push(assert(conflicts.some((c: FusionConflict) => c.kind === "dependency-version"), "fusion: dep version conflict detected"));
 
     const plan = fus_generatePlan(invs, "a", "module");
     results.push(assert(plan.baseProjectId === "a" && plan.operations.length >= 3, "fusion: plan generated with base"));
@@ -728,7 +728,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     const rModule = fus_fuse([A, B, C], "a", "module");
     results.push(assert(rModule.html.includes("alpha-shop__hero") && rModule.html.includes("alpha-shop-2__hero"), "fusion: module mode namespaces ids to avoid collision"));
     results.push(assert(rModule.metrics.projectsCombined === 3, "fusion: metrics.projectsCombined correct"));
-    results.push(assert(rModule.provenance.entries.some((e) => e.sourceProjectId === "a"), "fusion: provenance traces to source"));
+    results.push(assert(rModule.provenance.entries.some((e: FusionProvenance["entries"][number]) => e.sourceProjectId === "a"), "fusion: provenance traces to source"));
 
     // Smart mode dedupes identical inline styles
     const D = { id: "d", title: "Dup A", html: `<!doctype html><html><body><style>.x{color:red}</style><div class="x">D</div></body></html>` };
@@ -752,7 +752,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(rModule.validation.status !== "failed", "fusion: module output passes validation"));
 
     // Provenance covers every source
-    const sources = new Set(rModule.provenance.entries.map((e) => e.sourceProjectId));
+    const sources = new Set(rModule.provenance.entries.map((e: FusionProvenance["entries"][number]) => e.sourceProjectId));
     results.push(assert(sources.has("a") && sources.has("b") && sources.has("c"), "fusion: provenance covers all sources"));
 
     // Content hash is stable
