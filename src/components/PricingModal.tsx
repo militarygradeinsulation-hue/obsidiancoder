@@ -24,9 +24,9 @@ const PLANS: Plan[] = [
     title: "Obsidian Pro",
     price: "$30",
     cadence: "/month",
-    blurb: `Cloud AI, image generation, save, share, and GitHub deploy. Includes ${CAP_PRO_MONTHLY.toLocaleString()} credits per month (~$${PRO_CREDIT_USD} of provider cost at $${COST_PER_CREDIT_USD.toFixed(3)}/credit).`,
+    blurb: `Cloud AI, image generation, save, share, and GitHub deploy. Includes ${CAP_PRO_MONTHLY.toLocaleString()} credits per subscription period (~$${PRO_CREDIT_USD} of provider cost at $${COST_PER_CREDIT_USD.toFixed(3)}/credit).`,
     features: [
-      `${CAP_PRO_MONTHLY.toLocaleString()} credits / month`,
+      `${CAP_PRO_MONTHLY.toLocaleString()} credits per billing period`,
       "Cloud AI generation (Gemini 3 · GPT-5 tiers)",
       "Image generation (Leonardo · Higgsfield · Gemini)",
       "Save to your library, publish share URLs",
@@ -35,21 +35,11 @@ const PLANS: Plan[] = [
     ],
     icon: Sparkles,
   },
-  {
-    priceId: "save_build_onetime",
-    title: "Save & Host a Build",
-    price: "$20",
-    cadence: "one-time",
-    blurb: "Permanently save one build and host it at a public live URL. Does not include ongoing AI generation.",
-    features: [
-      "Keep this build forever",
-      "Public share URL",
-      "No login required to view",
-      "One-time payment",
-    ],
-    icon: Save,
-  },
 ];
+// Save & Host one-time purchase is temporarily unavailable until atomic
+// per-build consumption is wired end-to-end. Keeping the icon import for
+// future re-enable.
+void Save;
 
 export function PricingModal({ onClose, initialPriceId }: { onClose: () => void; initialPriceId?: string }) {
   const { userId, loading } = useAuth();
