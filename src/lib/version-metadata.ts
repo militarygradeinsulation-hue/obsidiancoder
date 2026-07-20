@@ -4,6 +4,7 @@
 import type { Classification } from "./task-classifier";
 import type { Tier } from "./model-router";
 import type { ValidationReport } from "./validation";
+import type { EngineeringSummary } from "./chief-engineer";
 
 export type ExecutionStrategy =
   | "deterministic"
