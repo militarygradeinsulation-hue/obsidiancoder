@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
-import videoAsset from "@/assets/obsidian-intro.mp4.asset.json";
+import { resolveIntroVideo } from "@/lib/intro-asset";
 
 const WORD = "OBSIDIAN";
-const VIDEO_URL = videoAsset.url;
+const RESOLVED = resolveIntroVideo();
+const VIDEO_URL = RESOLVED.url;
 
 const LETTER_STAGGER_MS = 180;
 const FADE_LEAD_MS = 900;
