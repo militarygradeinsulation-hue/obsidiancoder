@@ -37,3 +37,50 @@ export function buildAuthUrl(mode: AuthMode, redirect: string): string {
   p.set("redirect", safe);
   return `/auth?${p.toString()}`;
 }
+
+// ---------------------------------------------------------------------------
+// OAuth handoff (sessionStorage)
+// ---------------------------------------------------------------------------
+// Google OAuth via lovable.auth.signInWithOAuth performs a full-page redirect,
+// so any component state (including the sanitized `redirect` search param) is
+// lost by the time we return. To preserve the intended internal destination
+// (e.g. "/unlock?intent=buy&checkout=1"), we stash a *sanitized* path in
+// sessionStorage before starting OAuth and consume it exactly once on return.
+// Never trust the stored value blindly — always re-validate as a safe
+// internal redirect on read.
+
+export const OAUTH_HANDOFF_KEY = "obs.auth.oauthDest";
+
+type StorageLike = Pick<Storage, "getItem" | "setItem" | "removeItem">;
+
+/** Persist a sanitized internal path so OAuth can resume it on return. */
+export function stashOAuthDest(
+  dest: unknown,
+  storage: StorageLike | null | undefined = safeSessionStorage(),
+): boolean {
+  if (!storage) return false;
+  if (!isSafeInternalRedirect(dest)) return false;
+  try { storage.setItem(OAUTH_HANDOFF_KEY, dest); return true; }
+  catch { return false; }
+}
+
+/** Read-and-clear the stashed path, re-validating before returning it. */
+export function consumeOAuthDest(
+  fallback: string,
+  storage: StorageLike | null | undefined = safeSessionStorage(),
+): string {
+  const safeFallback = isSafeInternalRedirect(fallback) ? fallback : "/";
+  if (!storage) return safeFallback;
+  let raw: string | null = null;
+  try { raw = storage.getItem(OAUTH_HANDOFF_KEY); } catch { raw = null; }
+  try { storage.removeItem(OAUTH_HANDOFF_KEY); } catch { /* ignore */ }
+  return isSafeInternalRedirect(raw) ? raw : safeFallback;
+}
+
+function safeSessionStorage(): StorageLike | null {
+  try {
+    if (typeof window === "undefined") return null;
+    return window.sessionStorage;
+  } catch { return null; }
+}
+

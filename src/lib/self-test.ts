@@ -1618,6 +1618,79 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   }
 
   // ------------------------------------------------------------------
+  // OAuth handoff via sessionStorage (redirect-safe)
+  // ------------------------------------------------------------------
+  {
+    const { stashOAuthDest, consumeOAuthDest, OAUTH_HANDOFF_KEY } = await import("./redirect-safe");
+
+    // Deterministic in-memory Storage-like double.
+    const makeStore = () => {
+      const m = new Map<string, string>();
+      return {
+        store: {
+          getItem: (k: string) => (m.has(k) ? m.get(k)! : null),
+          setItem: (k: string, v: string) => { m.set(k, v); },
+          removeItem: (k: string) => { m.delete(k); },
+        },
+        map: m,
+      };
+    };
+
+    // Safe path → stashed and consumed exactly once
+    {
+      const { store, map } = makeStore();
+      const ok = stashOAuthDest("/unlock?intent=buy&checkout=1", store);
+      results.push(assert(ok === true, "oauth-handoff: safe path stashed"));
+      results.push(assert(map.get(OAUTH_HANDOFF_KEY) === "/unlock?intent=buy&checkout=1",
+        "oauth-handoff: stored under known key"));
+      const first = consumeOAuthDest("/", store);
+      results.push(assert(first === "/unlock?intent=buy&checkout=1",
+        "oauth-handoff: consume returns stashed dest"));
+      results.push(assert(map.has(OAUTH_HANDOFF_KEY) === false,
+        "oauth-handoff: consume clears storage"));
+      const second = consumeOAuthDest("/fallback", store);
+      results.push(assert(second === "/fallback",
+        "oauth-handoff: second consume falls back"));
+    }
+
+    // Unsafe payloads are rejected on stash AND on read (defense in depth)
+    for (const evil of ["https://evil.com", "//evil.com", "javascript:alert(1)", "no-slash"]) {
+      const { store, map } = makeStore();
+      const ok = stashOAuthDest(evil, store);
+      results.push(assert(ok === false, `oauth-handoff: refuses to stash ${evil}`));
+      results.push(assert(map.size === 0, `oauth-handoff: nothing written for ${evil}`));
+    }
+
+    // Poisoned pre-existing storage: refuses to return an unsafe value even
+    // if something else wrote it under the key.
+    {
+      const { store } = makeStore();
+      store.setItem(OAUTH_HANDOFF_KEY, "https://evil.com");
+      const out = consumeOAuthDest("/safe", store);
+      results.push(assert(out === "/safe",
+        "oauth-handoff: poisoned unsafe value ignored on consume"));
+    }
+
+    // Unsafe fallback collapses to "/"
+    {
+      const { store } = makeStore();
+      const out = consumeOAuthDest("//evil", store);
+      results.push(assert(out === "/",
+        "oauth-handoff: unsafe fallback collapses to /"));
+    }
+
+    // Missing storage (SSR): returns fallback, no throw
+    {
+      const out = consumeOAuthDest("/x", null);
+      results.push(assert(out === "/x", "oauth-handoff: null storage → fallback"));
+      const okStash = stashOAuthDest("/x", null);
+      results.push(assert(okStash === false, "oauth-handoff: null storage → stash noop"));
+    }
+  }
+
+
+
+  // ------------------------------------------------------------------
   // Checkout state machine (src/lib/checkout-state.ts)
   // ------------------------------------------------------------------
   {

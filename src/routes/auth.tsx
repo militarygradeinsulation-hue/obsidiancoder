@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-r
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { safeRedirectOr, type AuthMode } from "@/lib/redirect-safe";
+import { safeRedirectOr, stashOAuthDest, consumeOAuthDest, type AuthMode } from "@/lib/redirect-safe";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): { redirect?: string; mode?: AuthMode } => ({
@@ -31,11 +31,15 @@ function AuthPage() {
   const [msg, setMsg] = useState<string | null>(null);
 
   useEffect(() => {
+    // On return from a full-page OAuth redirect, the ?redirect= search may
+    // be gone. Resume from the sessionStorage handoff (validated), then fall
+    // back to the current sanitized `dest`.
+    const resume = () => consumeOAuthDest(dest);
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) window.location.assign(dest);
+      if (data.session) window.location.assign(resume());
     });
     const { data: sub } = supabase.auth.onAuthStateChange((evt, session) => {
-      if (evt === "SIGNED_IN" && session) window.location.assign(dest);
+      if (evt === "SIGNED_IN" && session) window.location.assign(resume());
     });
     return () => sub.subscription.unsubscribe();
   }, [dest, navigate]);
@@ -66,14 +70,16 @@ function AuthPage() {
   async function handleGoogle() {
     setBusy(true); setMsg(null);
     try {
-      // OAuth must return to a public origin route. The auth-state listener
-      // above will then forward to the safe internal `dest`.
+      // Stash the sanitized internal destination BEFORE the OAuth round-trip.
+      // The `redirect_uri` remains the public origin (never a protected
+      // route); the auth-state listener above consumes the stash on return.
+      stashOAuthDest(dest);
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
       });
       if (result.error) throw new Error(result.error.message || "Google sign-in failed");
       if (result.redirected) return;
-      window.location.assign(dest);
+      window.location.assign(consumeOAuthDest(dest));
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Google sign-in failed");
     } finally { setBusy(false); }
