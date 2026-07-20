@@ -76,8 +76,8 @@ export function advise(input: { html: string; graph?: KnowledgeGraph }): Refacto
   }
 
   // Stale dependencies (scan raw HTML for any script src / import)
-  const scriptSrcs = (input.html.match(/<script[^>]+src=["']([^"']+)["']/gi) || [])
-    .concat(g.dependencies);
+  const scriptSrcs: string[] = (input.html.match(/<script[^>]+src=["']([^"']+)["']/gi) || []);
+  scriptSrcs.push(...g.dependencies);
   const seenStale = new Set<string>();
   for (const src of scriptSrcs) {
     for (const rx of STALE_LIBS) {
