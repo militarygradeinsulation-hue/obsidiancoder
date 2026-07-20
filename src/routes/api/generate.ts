@@ -154,7 +154,7 @@ async function providerGemini(apiKey: string, prompt: string, requestId: string,
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({ model: "google/gemini-3-pro-image", messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
       },
-      { breakerKey: "lovable/image", stage: "image", requestId, signal, maxAttempts: 1, totalTimeoutMs: 12_000 },
+      { breakerKey: "lovable/image", stage: "image", requestId, signal, maxAttempts: 1, totalTimeoutMs: 8_000 },
     );
     const g = await readGuarded(r.response, { expected: "application/json" });
     if (!g.ok) return null;
