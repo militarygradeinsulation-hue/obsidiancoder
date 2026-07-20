@@ -46,17 +46,14 @@ export default function IntroSplash() {
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("ended", onEnded);
 
-    // Start the uploaded MP4 immediately. It is the only intro media source.
-    // Muted-first guarantees instant visuals; unmute is attempted in the same task.
+    // Start the uploaded video immediately. It is the only intro media source.
+    // Keep autoplay muted so browsers cannot defer or interrupt the opening.
     video.muted = true;
     video.volume = 0.9;
     video.playsInline = true;
-    const tryUnmute = () => { try { video.muted = false; } catch {} };
     const p = video.play();
     if (p && typeof p.then === "function") {
-      p.then(tryUnmute).catch(() => { tryUnmute(); });
-    } else {
-      tryUnmute();
+      p.catch(() => setVideoError("video autoplay failed"));
     }
 
 
