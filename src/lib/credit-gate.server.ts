@@ -342,16 +342,15 @@ export type SettleOutcome =
   | { kind: "no_provider"; errorCode?: string };
 
 /**
- * Commit / refund / log the reservation to durable storage in ONE call.
+ * Commit / refund / log the reservation in ONE call.
  *   - denied      → no-op (denial already returned to the caller).
  *   - owner       → writes an ai_usage row + owner_usage log (credits=0).
- *   - pro success → finalize_credits(actualCredits) + ai_usage(status=committed).
- *   - pro failed_with_usage → finalize_credits(actualCredits) + ai_usage(status=failed).
- *   - pro no_provider → refund_credits (no ai_usage row; nothing consumed).
+ *   - pro success → usage_finalize(charge, status='committed') — updates the pending row.
+ *   - pro failed_with_usage → usage_finalize(charge, status='failed').
+ *   - pro no_provider → usage_refund (releases the pending reservation).
  *
- * RPC errors are NOT swallowed. If Supabase rejects the settlement we throw so
- * the caller can log the drift — a swallowed failure means a stuck pending
- * reservation the user pays for forever.
+ * RPC errors are NOT swallowed. A swallowed failure would leave a stuck
+ * pending reservation the user pays for forever.
  */
 export async function settleOperation(
   ent: EntitlementResult,
@@ -360,10 +359,7 @@ export async function settleOperation(
   if (ent.kind === "denied") return;
 
   if (ent.kind === "owner") {
-    if (outcome.kind === "no_provider") {
-      // Nothing metered for the owner either.
-      return;
-    }
+    if (outcome.kind === "no_provider") return;
     const usage = outcome.usage;
     await logOwnerUsage(usage.operation, 0, ent.requestId, {
       provider: usage.provider,
@@ -385,39 +381,17 @@ export async function settleOperation(
   if (!res) return;
 
   if (outcome.kind === "no_provider") {
-    await refundReservation(res.reservationId);
+    await usageRefundReservation(res.reservationId);
     return;
   }
 
   const usage = outcome.usage;
   const charge = Math.max(0, Math.min(usage.credits, res.credits));
-  await finalizeReservation(res.reservationId, charge, ent.requestId);
-
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const status = outcome.kind === "success" ? "committed" : "failed";
-  const errorCode = outcome.kind === "failed_with_usage" ? outcome.errorCode ?? usage.errorCode : usage.errorCode;
-
-  const { error } = await supabaseAdmin.from("ai_usage" as never).insert({
-    request_id: ent.requestId,
-    user_id: ent.user?.userId ?? null,
-    actor_type: "user",
-    operation: usage.operation,
-    provider: usage.provider,
-    model: usage.model ?? null,
-    input_tokens: usage.inputTokens,
-    output_tokens: usage.outputTokens,
-    total_tokens: usage.totalTokens,
-    image_count: usage.imageCount,
-    actual_cost_usd: usage.actualCostUsd ?? null,
-    estimated_cost_usd: usage.estimatedCostUsd ?? null,
-    cost_basis: usage.costBasis,
-    credits_reserved: res.credits,
-    credits_charged: charge,
-    status,
-    error_code: errorCode ?? null,
-    environment: ent.env,
-    meta: usage.meta ?? null,
-  } as never);
-  if (error) throw new Error(`ai_usage insert failed: ${error.message}`);
+  const errorCode = outcome.kind === "failed_with_usage"
+    ? (outcome.errorCode ?? usage.errorCode)
+    : usage.errorCode;
+  await usageFinalize(res.reservationId, charge, ent.requestId, status, usage, errorCode);
 }
+
 
