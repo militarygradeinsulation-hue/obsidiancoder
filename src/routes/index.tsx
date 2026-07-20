@@ -1550,7 +1550,8 @@ function Index() {
 
   return (
     <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "")}>
-      <IntroSplash />
+      {/* IntroSplash now mounted in src/routes/__root.tsx so it runs for every route */}
+
 
 
 
