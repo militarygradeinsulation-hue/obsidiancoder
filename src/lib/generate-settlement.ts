@@ -12,6 +12,7 @@
 
 import type { Operation } from "./credit-gate";
 import {
+  MIN_CALL_COST_USD,
   estimateUsdForCall,
   makeUsage,
   mergeUsage,
