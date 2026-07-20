@@ -137,7 +137,25 @@ export const Route = createFileRoute("/api/patch")({
       POST: async ({ request }) => {
         const requestId = newRequestId();
         let entitlement: EntitlementResult | null = null;
-        let committed = false;
+        let settled = false;
+        const commit = async () => {
+          if (settled) return;
+          settled = true;
+          const ent = entitlement;
+          if (ent?.kind === "pro" && ent.reservation) {
+            await commitReservation(ent.reservation.reservationId, requestId).catch(() => {});
+          } else if (ent?.kind === "owner") {
+            await logOwnerUsage("generate_html_patch", 0, requestId).catch(() => {});
+          }
+        };
+        const refund = async () => {
+          if (settled) return;
+          settled = true;
+          const ent = entitlement;
+          if (ent?.kind === "pro" && ent.reservation) {
+            await refundReservation(ent.reservation.reservationId).catch(() => {});
+          }
+        };
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
           if (!apiKey) {
@@ -190,6 +208,7 @@ export const Route = createFileRoute("/api/patch")({
           if (attempt.ok) {
             const parsed = parsePatchResponse(attempt.text);
             if (parsed.ok) {
+              await commit();
               return Response.json({
                 ok: true,
                 patch: parsed.patch,
@@ -203,8 +222,7 @@ export const Route = createFileRoute("/api/patch")({
             }
           }
 
-          // If the first attempt died on a transport-level, non-retryable error,
-          // do not attempt a "repair" — surface the error envelope directly.
+          // Transport-level, non-retryable error → surface it (charge nothing).
           if (!attempt.ok && !attempt.error.retryable && attempt.error.code !== "ai_upstream_malformed") {
             throw attempt.error;
           }
@@ -220,6 +238,7 @@ export const Route = createFileRoute("/api/patch")({
           ];
           const repair = await callGateway(apiKey, CHEAP_REPAIR_MODEL, repairMessages, requestId, request.signal);
           if (!repair.ok) {
+            await refund();
             return Response.json(
               { ok: false, error: repair.error.message, code: repair.error.code, fallbackUsed: true, model: modelUsed, requestId },
               { status: 200, headers: { "X-Request-Id": requestId } },
@@ -227,11 +246,13 @@ export const Route = createFileRoute("/api/patch")({
           }
           const parsed2 = parsePatchResponse(repair.text);
           if (!parsed2.ok) {
+            await refund();
             return Response.json(
               { ok: false, error: `Patch invalid after repair: ${parsed2.error}`, fallbackUsed: true, model: modelUsed, requestId },
               { status: 200, headers: { "X-Request-Id": requestId } },
             );
           }
+          await commit();
           return Response.json({
             ok: true,
             patch: parsed2.patch,
@@ -243,11 +264,7 @@ export const Route = createFileRoute("/api/patch")({
             contextSavings: ctx.savings,
           }, { headers: { "X-Request-Id": requestId } });
         } catch (err) {
-          const ent = entitlement as EntitlementResult | null;
-          if (ent?.kind === "pro" && ent.reservation && !committed) {
-            committed = true; // settled — do not double-settle in finally
-            await refundReservation(ent.reservation.reservationId);
-          }
+          await refund();
           const aiErr = err instanceof AiError
             ? err
             : new AiError({
@@ -257,18 +274,9 @@ export const Route = createFileRoute("/api/patch")({
                 message: err instanceof Error ? err.message : "Unexpected error.",
               });
           return aiErr.toResponse();
-        } finally {
-          // Commit on any successful (non-thrown) path — response already sent.
-          const ent = entitlement as EntitlementResult | null;
-          if (!committed && ent?.kind === "pro" && ent.reservation) {
-            committed = true;
-            commitReservation(ent.reservation.reservationId, requestId).catch(() => {});
-          } else if (!committed && ent?.kind === "owner") {
-            committed = true;
-            logOwnerUsage("generate_html_patch", 0, requestId).catch(() => {});
-          }
         }
       },
     },
   },
 });
+
