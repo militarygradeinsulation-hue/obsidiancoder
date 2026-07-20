@@ -2,32 +2,29 @@ import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-r
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
+import { safeRedirectOr, type AuthMode } from "@/lib/redirect-safe";
 
 export const Route = createFileRoute("/auth")({
-  validateSearch: (s: Record<string, unknown>): { redirect?: string } => ({
+  validateSearch: (s: Record<string, unknown>): { redirect?: string; mode?: AuthMode } => ({
     redirect: typeof s.redirect === "string" ? s.redirect : undefined,
+    mode: s.mode === "signup" || s.mode === "signin" ? (s.mode as AuthMode) : undefined,
   }),
   component: AuthPage,
   head: () => ({
     meta: [
       { title: "Sign in — Aetheris Obsidian" },
       { name: "description", content: "Sign in or create an account to unlock Aetheris Obsidian." },
+      { name: "robots", content: "noindex,nofollow" },
     ],
   }),
 });
 
-function safeRedirect(target: string | undefined): string {
-  if (!target) return "/";
-  if (target.startsWith("/") && !target.startsWith("//")) return target;
-  return "/";
-}
-
 function AuthPage() {
   const navigate = useNavigate();
-  const { redirect } = useSearch({ from: "/auth" });
-  const dest = safeRedirect(redirect);
+  const { redirect, mode: initialMode } = useSearch({ from: "/auth" });
+  const dest = safeRedirectOr(redirect, "/");
 
-  const [mode, setMode] = useState<"signin" | "signup">("signin");
+  const [mode, setMode] = useState<AuthMode>(initialMode ?? "signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -35,10 +32,10 @@ function AuthPage() {
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => {
-      if (data.session) navigate({ to: dest, replace: true });
+      if (data.session) window.location.assign(dest);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((evt, session) => {
-      if (evt === "SIGNED_IN" && session) navigate({ to: dest, replace: true });
+      if (evt === "SIGNED_IN" && session) window.location.assign(dest);
     });
     return () => sub.subscription.unsubscribe();
   }, [dest, navigate]);
@@ -48,9 +45,12 @@ function AuthPage() {
     setBusy(true); setMsg(null);
     try {
       if (mode === "signup") {
+        // Preserve the intended landing after email confirmation as best the
+        // integration supports — Supabase appends its tokens to this URL.
+        const emailRedirectTo = `${window.location.origin}${dest}`;
         const { error } = await supabase.auth.signUp({
           email, password,
-          options: { emailRedirectTo: window.location.origin },
+          options: { emailRedirectTo },
         });
         if (error) throw error;
         setMsg("Check your email to confirm your account.");
@@ -66,12 +66,14 @@ function AuthPage() {
   async function handleGoogle() {
     setBusy(true); setMsg(null);
     try {
+      // OAuth must return to a public origin route. The auth-state listener
+      // above will then forward to the safe internal `dest`.
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
       });
       if (result.error) throw new Error(result.error.message || "Google sign-in failed");
       if (result.redirected) return;
-      navigate({ to: dest, replace: true });
+      window.location.assign(dest);
     } catch (err) {
       setMsg(err instanceof Error ? err.message : "Google sign-in failed");
     } finally { setBusy(false); }
@@ -80,7 +82,7 @@ function AuthPage() {
   return (
     <div className="min-h-screen bg-[#050607] flex items-center justify-center p-4">
       <div className="w-full max-w-sm rounded-2xl border border-[#c9953d]/30 bg-[#0a0b0d] p-6 shadow-2xl">
-        <Link to="/" className="text-xs text-[#B6BCC8] hover:text-[#f2eee7]">← Back</Link>
+        <Link to="/unlock" className="text-xs text-[#B6BCC8] hover:text-[#f2eee7]">← Back</Link>
         <h1 className="mt-2 text-lg font-semibold text-[#f2eee7]">
           {mode === "signin" ? "Sign in to Aetheris Obsidian" : "Create your account"}
         </h1>
@@ -122,7 +124,7 @@ function AuthPage() {
           </button>
         </form>
 
-        {msg && <div className="mt-3 text-xs text-amber-300">{msg}</div>}
+        {msg && <div className="mt-3 text-xs text-amber-300" role="status">{msg}</div>}
 
         <button
           onClick={() => { setMode(mode === "signin" ? "signup" : "signin"); setMsg(null); }}

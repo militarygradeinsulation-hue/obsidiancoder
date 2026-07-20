@@ -22,19 +22,19 @@ function PrivacyPage() {
         <div className="mt-8 space-y-6 text-sm leading-7 text-[#B6BCC8]">
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">Data we collect</h2>
-            <p>Account email, authenticated session tokens, and Stripe subscription state (status and billing period). We do not store payment card data — Stripe handles it.</p>
+            <p>Account email, authenticated session tokens, and subscription state (status and billing period). We do not store payment card data — our payment processor handles it.</p>
           </section>
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">AI usage</h2>
-            <p>When you use cloud AI features, prompts and generated output are transmitted to the selected provider (e.g. OpenAI, Google, Leonardo, Higgsfield) subject to their terms. We record credit accounting metadata (operation, credits used, model, timestamp) to enforce your billing period allowance.</p>
+            <p>When you use cloud AI features, prompts and generated output are transmitted to the selected AI provider subject to that provider's terms. We record credit accounting metadata (operation, credits used, model, timestamp) to enforce your billing period allowance.</p>
           </section>
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">Local data</h2>
             <p>Local projects, previews, history, screenshots, and deterministic edits stay in your browser and are not transmitted to our servers.</p>
           </section>
           <section>
-            <h2 className="text-[#f2eee7] font-semibold mb-2">Cookies</h2>
-            <p>We use a single signed session cookie to keep you signed in and, if applicable, to remember that you have entered a valid access code. No tracking or advertising cookies.</p>
+            <h2 className="text-[#f2eee7] font-semibold mb-2">Cookies and storage</h2>
+            <p>We use essential cookies and local browser storage for authentication, access control, and checkout sessions. This includes cookies set by our authentication provider and by our payment processor during checkout. We do not use tracking or advertising cookies.</p>
           </section>
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">Your controls</h2>
