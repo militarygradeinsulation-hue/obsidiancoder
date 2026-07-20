@@ -357,6 +357,8 @@ function Index() {
   const [stageDetail, setStageDetail] = useState<string>("");
   const [railGroup, setRailGroup] = useState<RailGroupId>("all");
   const [intelligenceTick, setIntelligenceTick] = useState<number>(0);
+  const [lastIntent, setLastIntent] = useState<ResolvedIntent | undefined>(undefined);
+  const [lastDecision, setLastDecision] = useState<RoutingDecision | undefined>(undefined);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
