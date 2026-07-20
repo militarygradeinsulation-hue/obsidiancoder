@@ -268,17 +268,23 @@ export function detectConflicts(invs: FusionInventory[]): FusionConflict[] {
     }
   }
 
-  // Dependency versions (CDN dep strings)
+  // Dependency versions — parse @version from CDN script/link srcs directly.
   const depByName = new Map<string, Map<string, string[]>>();
+  const DEP_RX = /(?:cdn\.jsdelivr\.net\/npm|unpkg\.com|esm\.sh|cdnjs\.cloudflare\.com\/ajax\/libs)\/(@?[\w./-]+?)@([\w.\-]+)/;
   for (const inv of invs) {
-    for (const dep of inv.graph.dependencies) {
-      const [name, version] = dep.split("@");
-      if (!name) continue;
+    const urls: string[] = [];
+    for (const s of inv.graph.scripts) if (s.src) urls.push(s.src);
+    for (const s of inv.graph.styles) if (s.href) urls.push(s.href);
+    for (const url of urls) {
+      const m = DEP_RX.exec(url);
+      if (!m) continue;
+      const name = m[1];
+      const version = m[2];
       if (!depByName.has(name)) depByName.set(name, new Map());
       const byV = depByName.get(name)!;
-      const arr = byV.get(version || "*") ?? [];
+      const arr = byV.get(version) ?? [];
       if (!arr.includes(inv.id)) arr.push(inv.id);
-      byV.set(version || "*", arr);
+      byV.set(version, arr);
     }
   }
   for (const [name, byV] of depByName) {
@@ -289,7 +295,7 @@ export function detectConflicts(invs: FusionInventory[]): FusionConflict[] {
         key: `dep:${name}`,
         sources,
         severity: "high",
-        message: `Dependency "${name}" required at ${byV.size} versions`,
+        message: `Dependency "${name}" required at ${byV.size} versions (${[...byV.keys()].join(", ")})`,
         autoResolvable: false,
       });
     }
