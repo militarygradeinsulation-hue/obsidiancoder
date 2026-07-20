@@ -271,6 +271,15 @@ const dashCss = `
   font-weight: 600; font-size: 13px; text-decoration: none;
 }
 .dash-cta:hover { background: #DD9324; }
+.dash-actions { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dash-ghost {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 12px; border-radius: 10px;
+  background: transparent; color: #F2EEE7;
+  border: 1px solid rgba(255,255,255,0.14);
+  font-size: 12px; font-weight: 500; cursor: pointer;
+}
+.dash-ghost:hover { background: rgba(244,161,37,0.08); border-color: rgba(244,161,37,0.4); }
 
 .dash-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
 .dash-kpi { border: 1px solid rgba(255,255,255,0.08); border-radius: 12px; padding: 14px; background: rgba(255,255,255,0.02); }
