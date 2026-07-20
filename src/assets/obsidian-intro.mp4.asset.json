@@ -1,11 +1,11 @@
 {
   "version": 1,
-  "asset_id": "4002efd9-46dc-4801-a1be-8c3e2b3cc434",
+  "asset_id": "82d43845-225b-43eb-9300-f1ec7b82840b",
   "project_id": "bbfc65dd-76bc-44ba-98f1-fd9ab610072c",
-  "url": "/__l5e/assets-v1/4002efd9-46dc-4801-a1be-8c3e2b3cc434/obsidian-intro.mp4",
-  "r2_key": "a/v1/bbfc65dd-76bc-44ba-98f1-fd9ab610072c/4002efd9-46dc-4801-a1be-8c3e2b3cc434/obsidian-intro.mp4",
-  "original_filename": "obsidian-intro.mp4",
-  "size": 3343849,
-  "content_type": "video/mp4",
-  "created_at": "2026-07-20T03:04:36Z"
+  "url": "/__l5e/assets-v1/82d43845-225b-43eb-9300-f1ec7b82840b/obsidian-intro.webm",
+  "r2_key": "a/v1/bbfc65dd-76bc-44ba-98f1-fd9ab610072c/82d43845-225b-43eb-9300-f1ec7b82840b/obsidian-intro.webm",
+  "original_filename": "obsidian-intro.webm",
+  "size": 1394774,
+  "content_type": "video/webm",
+  "created_at": "2026-07-20T03:05:47Z"
 }
