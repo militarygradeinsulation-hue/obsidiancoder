@@ -29,6 +29,11 @@ import { AiError, isAiErrorEnvelope, newRequestId, sanitizeUpstreamMessage } fro
 import { looksLikeHtml, looksLikeProxyError, readGuarded, firstChunkLooksBad } from "./upstream-guard";
 import { canAttempt, recordFailure, recordSuccess, resetBreaker, BREAKER_CONFIG } from "./circuit-breaker";
 import { reviewBuild, summarizeReport, AGENT_ROLES } from "./chief-engineer";
+import { buildMemoryGraph, checkIntegrity, reachableFrom } from "./project-memory-graph";
+import { computeReadiness } from "./readiness-score";
+import { advise } from "./refactor-advisor";
+import { resolveScope, refusalOnPatchFailure } from "./code-surgeon";
+import { resolveIntroVideo } from "./intro-asset";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
