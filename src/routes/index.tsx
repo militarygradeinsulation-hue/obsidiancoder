@@ -2958,6 +2958,12 @@ function Index() {
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
+      <FusionModal
+        open={fusionOpen}
+        projects={sessions.map((s) => ({ id: s.id, title: s.title || "Untitled", html: s.html || "" }))}
+        onClose={() => setFusionOpen(false)}
+        onCommit={commitFusion}
+      />
       {captureMode && (
         <ScreenCaptureModal
           mode={captureMode}
