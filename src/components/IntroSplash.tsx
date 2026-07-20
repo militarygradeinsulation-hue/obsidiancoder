@@ -46,15 +46,33 @@ export default function IntroSplash() {
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("ended", onEnded);
 
-    // Start the uploaded video immediately. It is the only intro media source.
-    // Keep autoplay muted so browsers cannot defer or interrupt the opening.
+    // Start muted so autoplay is guaranteed, then immediately try to unmute.
     video.muted = true;
-    video.volume = 0.9;
+    video.volume = 1.0;
     video.playsInline = true;
+    const tryUnmute = () => {
+      try {
+        video.muted = false;
+        video.volume = 1.0;
+      } catch {}
+    };
     const p = video.play();
     if (p && typeof p.then === "function") {
-      p.catch(() => setVideoError("video autoplay failed"));
+      p.then(tryUnmute).catch(() => {
+        // If autoplay with sound is blocked, unmute on first user interaction.
+        const onGesture = () => {
+          tryUnmute();
+          video.play().catch(() => {});
+          window.removeEventListener("pointerdown", onGesture);
+          window.removeEventListener("keydown", onGesture);
+        };
+        window.addEventListener("pointerdown", onGesture, { once: true });
+        window.addEventListener("keydown", onGesture, { once: true });
+      });
+    } else {
+      tryUnmute();
     }
+
 
 
     return () => {
