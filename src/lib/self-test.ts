@@ -570,6 +570,77 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(json.readinessScore === sum.readinessScore && Array.isArray(json.approvals), "chief: summary round-trips through JSON"));
   }
 
+  // ---------- Project Memory Graph ----------
+  {
+    const html = `<!doctype html><html lang="en"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>X</title></head><body><h1>X</h1><img src="/a.jpg" alt="a"><a href="/about">About</a><a href="#">broken</a><script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21/lodash.min.js"></script></body></html>`;
+    const versions = [
+      { id: "v2", label: "latest", createdAt: 2, metadata: { engineering: { readinessScore: 82, ok: true, blocked: false, bypassed: false, blockingRoles: [], approvals: [], summary: "", risks: [] } } as unknown as import("./version-metadata").VersionMetadata },
+      { id: "v1", label: "prev", createdAt: 1 },
+    ];
+    const mg = buildMemoryGraph({ html, versions, currentVersionId: "v2" });
+    results.push(assert(mg.nodes.some((n) => n.id === "route:/"), "graph: root route node present"));
+    results.push(assert(mg.nodes.some((n) => n.kind === "dependency"), "graph: dependency extracted"));
+    results.push(assert(mg.nodes.some((n) => n.kind === "version" && n.id === "version:v2"), "graph: version node present"));
+    results.push(assert(mg.edges.some((e) => e.kind === "rollback" && e.from === "version:v2" && e.to === "version:v1"), "graph: rollback edge chains versions"));
+    results.push(assert(mg.edges.some((e) => e.broken === true), "graph: broken '#' link flagged"));
+    const integ = checkIntegrity(mg);
+    results.push(assert(integ.ok, `graph: integrity clean (${integ.issues.join("|")})`));
+    const reach = reachableFrom(mg, "route:/", 2);
+    results.push(assert(reach.size > 3, `graph: reachableFrom root finds ${reach.size} nodes`));
+  }
+
+  // ---------- Readiness Score ----------
+  {
+    const cleanHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Landing</title><meta name="description" content="Get started."></head><body><h1>Landing</h1><img src="/hero.jpg" alt="Hero" loading="lazy"><p>Content</p></body></html>`;
+    const v = validateHtml(cleanHtml);
+    const r = computeReadiness({ html: cleanHtml, validation: v, selfTestPassed: 100, selfTestFailed: 0 });
+    results.push(assert(r.axes.length === 7, `readiness: seven axes (${r.axes.length})`));
+    results.push(assert(r.overall > 60, `readiness: clean page scores > 60 (${r.overall})`));
+    results.push(assert(r.axes.every((a) => a.evidence.length > 0), "readiness: every axis carries evidence"));
+    results.push(assert(r.axes.find((a) => a.axis === "testing")?.score === 100, "readiness: 100/100 tests → testing 100"));
+
+    const badHtml = `<html><body><script>eval("x")</script><img src="/a.jpg"><img src="/b.jpg"><img src="/c.jpg"></body></html>`;
+    const bv = validateHtml(badHtml);
+    const rb = computeReadiness({ html: badHtml, validation: bv });
+    results.push(assert(rb.overall < r.overall, `readiness: unhealthy page scores lower (${rb.overall} < ${r.overall})`));
+  }
+
+  // ---------- Refactor Advisor ----------
+  {
+    const dirty = `<!doctype html><html><head></head><body>${"<div id=\"dup\"></div>".repeat(3)}<button></button><script>1</script><script>2</script><script>3</script><script>4</script><script>5</script><script src="https://code.jquery.com/jquery-1.12.4.min.js"></script></body></html>`;
+    const sug = advise({ html: dirty });
+    results.push(assert(sug.some((s) => s.category === "duplication" && s.id === "dup-ids"), "refactor: duplicate ids flagged"));
+    results.push(assert(sug.some((s) => s.category === "stale-dependency"), "refactor: stale jquery flagged"));
+    results.push(assert(sug.some((s) => s.category === "duplication" && s.id === "inline-scripts"), "refactor: inline scripts flagged"));
+    results.push(assert(sug[0].severity === "high" || sug[0].severity === "medium", `refactor: sorted by severity (${sug[0].severity})`));
+    const cleanSug = advise({ html: `<!doctype html><html lang="en"><head><title>X</title></head><body><p>ok</p></body></html>` });
+    results.push(assert(cleanSug.length === 0, `refactor: clean page yields 0 suggestions (${cleanSug.length})`));
+  }
+
+  // ---------- Code Surgeon ----------
+  {
+    const html = `<div id="hero-cta">Buy</div><div id="pricing-grid">$</div>`;
+    const globalReq = resolveScope({ request: "rewrite the whole page from scratch", html });
+    results.push(assert(!!globalReq.bailReason && globalReq.confidence === 0, "surgeon: refuses global rewrite"));
+    const emptyReq = resolveScope({ request: "make it prettier", html });
+    results.push(assert(!!emptyReq.bailReason, "surgeon: refuses when no scope resolvable"));
+    const idReq = resolveScope({ request: "change the hero-cta text to Subscribe", html });
+    results.push(assert(idReq.anchors.includes("hero-cta") && !idReq.bailReason, `surgeon: anchors on explicit id (${idReq.anchors.join(",")})`));
+    const regionReq = resolveScope({ request: "tighten the pricing section", html });
+    results.push(assert(regionReq.regions.includes("pricing"), `surgeon: matches region (${regionReq.regions.join(",")})`));
+    // On patch failure, MUST NOT propose full regen.
+    const refusal = refusalOnPatchFailure(idReq, "anchor not found");
+    results.push(assert(refusal.ok === false && !/regener|full/i.test(refusal.suggestion), "surgeon: refusal never suggests full regen"));
+  }
+
+  // ---------- Intro asset resolution ----------
+  {
+    const a = resolveIntroVideo();
+    results.push(assert(a.ok === true, `intro-asset: pointer valid (${a.reason ?? "ok"})`));
+    results.push(assert(a.url.length > 0 && (a.url.startsWith("/__l5e/") || a.url.startsWith("http")), `intro-asset: url shape ok (${a.url.slice(0, 40)})`));
+    results.push(assert(!a.contentType || /^video\//.test(a.contentType), `intro-asset: content-type video (${a.contentType})`));
+  }
+
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };
