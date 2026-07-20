@@ -307,7 +307,11 @@ function Unlock() {
                   </div>
                   <button type="button" onClick={() => setShowCheckout(false)} className="checkout-back">← Back</button>
                 </div>
-                <StripeEmbeddedCheckout priceId={PRO_PRICE_ID} />
+                <CheckoutSurface
+                  priceId={PRO_PRICE_ID}
+                  onCancel={() => setShowCheckout(false)}
+                />
+
                 <p className="checkout-legal">
                   Secure billing through Stripe. Cancel anytime. By continuing you accept our{" "}
                   <Link to="/terms">Terms</Link> and <Link to="/privacy">Privacy</Link>.
