@@ -211,12 +211,11 @@ function newSession(): Session {
   };
 }
 
-const INITIAL_SESSION = newSession();
-
 function Index() {
   // streaming via /api/generate
-  const [sessions, setSessions] = useState<Session[]>([INITIAL_SESSION]);
-  const [activeId, setActiveId] = useState<string>(INITIAL_SESSION.id);
+  const initialSession = useMemo(() => newSession(), []);
+  const [sessions, setSessions] = useState<Session[]>(() => [initialSession]);
+  const [activeId, setActiveId] = useState<string>(() => initialSession.id);
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [ideaOffset, setIdeaOffset] = useState(0);
@@ -644,7 +643,7 @@ function Index() {
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
-  }, [current.messages, loading, activeId, input]);
+  }, [current.messages, loading, activeId]);
 
   const previewSrcDoc = useMemo(
     () =>
