@@ -1001,9 +1001,38 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
 
     // 402 envelope shape — client decoder must recognize denial responses.
     const env402 = cg.creditsRequiredEnvelope({ code: "not_pro", operation: "generate_html" });
-    results.push(assert(env402.ok === false && env402.suggestedPriceId === "obsidian_pro_monthly",
-      "entitlement: not_pro envelope suggests obsidian_pro_monthly"));
+    results.push(assert(env402.ok === false && env402.suggestedPriceId === "obsidian_creator_monthly",
+      "entitlement: not_pro envelope suggests obsidian_creator_monthly"));
     results.push(assert(cg.isCreditsRequiredEnvelope(env402), "entitlement: envelope round-trips through detector"));
+
+    // ─── plan catalog: tier ↔ price mapping + legacy compat ───────────────
+    const plans = await import("./plans");
+    results.push(assert(plans.tierForPriceId("obsidian_creator_monthly")?.id === "creator",
+      "plans: creator lookup key resolves to Creator tier"));
+    results.push(assert(plans.tierForPriceId("obsidian_starter_monthly")?.id === "starter",
+      "plans: starter lookup key resolves to Starter tier"));
+    results.push(assert(plans.tierForPriceId("obsidian_professional_monthly")?.id === "professional",
+      "plans: professional lookup key resolves to Professional tier"));
+    results.push(assert(plans.tierForPriceId("obsidian_business_monthly")?.id === "business",
+      "plans: business lookup key resolves to Business tier"));
+    results.push(assert(plans.tierForPriceId("obsidian_elite_monthly")?.id === "elite",
+      "plans: elite lookup key resolves to Elite tier"));
+    results.push(assert(plans.tierForPriceId("obsidian_pro_monthly")?.id === "creator",
+      "plans: legacy obsidian_pro_monthly resolves to Creator tier (backward compat)"));
+    results.push(assert(plans.LEGACY_PRICE_TIER_MAP["obsidian_pro_monthly"] === "creator",
+      "plans: LEGACY_PRICE_TIER_MAP exposes pro→creator mapping"));
+    results.push(assert(plans.tierForPriceId("unknown_key") === undefined,
+      "plans: unknown lookup key returns undefined (no silent fallback)"));
+    results.push(assert(plans.tierForPriceId(null) === undefined && plans.tierForPriceId("") === undefined,
+      "plans: null/empty priceId returns undefined"));
+    const enterprise = plans.getTierById("enterprise");
+    results.push(assert(enterprise?.cta === "contact" && !enterprise?.priceId,
+      "plans: enterprise remains contact-only with no price"));
+    const paidTiers = plans.PLAN_TIERS.filter((t) => t.cta === "checkout");
+    results.push(assert(paidTiers.length === 5 && paidTiers.every((t) => !!t.priceId),
+      "plans: every checkout tier has a Stripe lookup key"));
+    results.push(assert(!paidTiers.some((t) => t.priceId === "obsidian_pro_monthly"),
+      "plans: no checkout tier uses the legacy pro_monthly price for new sales"));
 
     // Legacy strings must not appear in the client bundle sources.
     // (Runtime check via import.meta.env / window would need a bundle probe;
