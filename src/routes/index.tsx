@@ -7,12 +7,12 @@ import {
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
   Trash2, Square, Wand2, GripVertical, Pin, Github, CreditCard, User as UserIcon,
-  Camera, Scissors,
+  Camera, Scissors, RefreshCw,
 } from "lucide-react";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
-import { suggestAddons, type Addon } from "@/lib/prompt-enhance";
+import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
@@ -219,6 +219,16 @@ function Index() {
   const [activeId, setActiveId] = useState<string>(INITIAL_SESSION.id);
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
+  const [ideaOffset, setIdeaOffset] = useState(0);
+  const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
+  // Auto-cycle starter ideas every ~9s when the input is empty so users always see fresh suggestions.
+  useEffect(() => {
+    if (input.trim()) return;
+    const t = window.setInterval(() => {
+      setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
+    }, 9000);
+    return () => window.clearInterval(t);
+  }, [input]);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
@@ -2162,20 +2172,37 @@ function Index() {
                 )}
               </div>
               {(() => {
-                const addons = suggestAddons(input, !!current.html);
-                const label = input.trim() ? "Add to your prompt" : "Try one of these";
+                const isStarters = !input.trim();
+                const addons = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
+                const label = isStarters ? "Try one of these" : "Add to your prompt";
+                const cycleIdeas = () => setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
                 return (
                   <>
-                    <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                    <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                       <span>{label}</span>
-                      <span style={{ opacity: 0.55, fontSize: 10 }}>click to append · free</span>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        {isStarters && (
+                          <button
+                            type="button"
+                            onClick={cycleIdeas}
+                            className="obs-icon-btn"
+                            title="Show new ideas"
+                            aria-label="Show new ideas"
+                            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, opacity: 0.85 }}
+                          >
+                            <RefreshCw className="h-3 w-3" />
+                            <span>New ideas</span>
+                          </button>
+                        )}
+                        <span style={{ opacity: 0.55, fontSize: 10 }}>click to {isStarters ? "build" : "append"} · free</span>
+                      </div>
                     </div>
                     <div className="obs-suggestions">
                       {addons.map((a) => (
                         <button
-                          key={a.id}
+                          key={a.id + ":" + ideaOffset}
                           type="button"
-                          className="obs-suggestion"
+                          className="obs-suggestion obs-idea-in"
                           onClick={() => (input.trim() ? appendAddon(a) : submit(a.snippet))}
                           disabled={loading}
                           title={a.snippet}
