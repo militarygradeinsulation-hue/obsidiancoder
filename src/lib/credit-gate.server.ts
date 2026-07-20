@@ -99,7 +99,7 @@ export async function hasActivePro(user: AuthedUser, env: Environment): Promise<
 
 export interface Reservation {
   reservationId: string;
-  credits: number;              // credits held on the reservation (per-op fixed cost)
+  credits: number;              // envelope credits temporarily held; final charge may be lower
   operation: Operation;
   environment: Environment;
   usedBefore: number;
