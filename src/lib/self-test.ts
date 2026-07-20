@@ -1254,6 +1254,11 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
       const firstFail = modelAttemptUsage({
         model: "openai/gpt-5.6", operation: "generate_html", errorCode: "first_byte_timeout",
       });
+      const successOnly = combineSuccessUsage({
+        operation: "generate_html", model: "google/gemini-3.1-flash",
+        streamSnapshot: { inputTokens: 200, outputTokens: 400, totalTokens: 600 },
+        modelAttempts: [], imageUsages: [],
+      });
       const merged = combineSuccessUsage({
         operation: "generate_html",
         model: "google/gemini-3.1-flash",
@@ -1264,7 +1269,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
       results.push(assert(
         merged.status === "committed" &&
           merged.totalTokens === 600 &&
-          merged.credits >= firstFail.credits + 1,
+          (merged.estimatedCostUsd ?? 0) > (successOnly.estimatedCostUsd ?? 0),
         "generate-settlement: fallback aggregates first-attempt + success",
       ));
     }
