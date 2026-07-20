@@ -38,9 +38,8 @@ interface LocalProjectMeta { id: string; title?: string; updatedAt?: number }
 function readLocalProjects(): LocalProjectMeta[] {
   // Best-effort scan of local project storage; falls back to empty.
   try {
-    const raw = safeGet("obs.projects.index", "[]");
-    const parsed = JSON.parse(raw);
-    if (Array.isArray(parsed)) return parsed as LocalProjectMeta[];
+    const parsed = safeGet<LocalProjectMeta[]>("obs.projects.index");
+    if (Array.isArray(parsed)) return parsed;
   } catch { /* ignore */ }
   return [];
 }
