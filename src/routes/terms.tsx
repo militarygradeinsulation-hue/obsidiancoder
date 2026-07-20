@@ -30,7 +30,7 @@ function TermsPage() {
           </section>
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">3. Subscriptions and billing</h2>
-            <p>Obsidian Pro is billed at $30 USD per month through Stripe. Each billing period includes an allowance of AI credits used for cloud AI and provider work. Unused credits do not roll over. You may cancel at any time. Under the current cancellation flow, cancellation takes effect immediately and Pro access may end at that time; billing for future periods stops.</p>
+            <p>Paid Obsidian plans are billed monthly in USD through Stripe at the price shown on the plan you select (Starter $29, Creator $79, Professional $149, Business $299, Elite $499; Enterprise is custom). Legacy Obsidian Pro subscribers ($30/month) remain grandfathered on their original price. Each billing period includes an allowance of AI credits used for cloud AI and provider work. Unused credits do not roll over. You may cancel at any time. Under the current cancellation flow, cancellation takes effect immediately and paid access may end at that time; billing for future periods stops.</p>
           </section>
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">4. Local mode</h2>
