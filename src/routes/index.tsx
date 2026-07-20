@@ -782,6 +782,10 @@ function Index() {
     setTab("preview");
     setError(null);
     setTerminal((t) => [...t, `→ Reverted to "${version.label}"`]);
+    try {
+      appendLedgerEvent({ kind: "version-restored", outcome: "restored", note: version.label });
+      setIntelligenceTick((n) => n + 1);
+    } catch { /* best-effort */ }
   }
 
   type Attachment =
