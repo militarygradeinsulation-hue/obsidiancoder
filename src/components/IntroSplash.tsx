@@ -5,7 +5,7 @@ const RESOLVED = resolveIntroVideo();
 const VIDEO_URL = RESOLVED.url;
 
 const FADE_LEAD_MS = 900;
-const FALLBACK_DURATION_MS = 7850;
+const FALLBACK_DURATION_MS = 9500;
 
 export default function IntroSplash() {
   const [show, setShow] = useState(true);
@@ -103,18 +103,6 @@ export default function IntroSplash() {
           onError={() => setVideoError("video failed to load")}
         />
       )}
-      <h1 className="obs-intro-word" aria-label="Obsidian">
-        {"OBSIDIAN".split("").map((ch, i) => (
-          <span
-            key={i}
-            className="obs-intro-letter"
-            style={{ ["--d" as string]: `${0.15 + i * 0.09}s` }}
-          >
-            {ch}
-          </span>
-        ))}
-      </h1>
-      <div className="obs-intro-line" />
 
       {isDev && videoError && (
         <div
