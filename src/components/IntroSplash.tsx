@@ -108,7 +108,7 @@ export default function IntroSplash() {
           <span
             key={i}
             className="obs-intro-letter"
-            style={{ animationDelay: `${0.15 + i * 0.09}s` }}
+            style={{ ["--d" as string]: `${0.15 + i * 0.09}s` }}
           >
             {ch}
           </span>
