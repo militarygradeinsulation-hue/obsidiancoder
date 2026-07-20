@@ -238,13 +238,8 @@ function Index() {
     try { window.localStorage.setItem("obs.railCollapsed", railCollapsed ? "1" : "0"); } catch {}
   }, [railCollapsed]);
 
-  // Ensure adaptive learning is ON so the router self-adapts per request.
-  useEffect(() => {
-    try {
-      const s = loadLearningSettings();
-      if (!s.enabled) saveLearningSettings({ ...s, enabled: true });
-    } catch { /* best-effort */ }
-  }, []);
+  // Adaptive learning defaults to ON via DEFAULT_SETTINGS. Respect the user's
+  // choice — do NOT force-enable on mount (that overrode a deliberate opt-out).
 
   // Resizable right-rail / chat width
   const [railWidth, setRailWidth] = useState<number>(() => {
