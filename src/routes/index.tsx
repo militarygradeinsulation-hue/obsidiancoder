@@ -64,7 +64,8 @@ import type { ComponentEntry } from "@/lib/component-library";
 import { runRules, type Rule, type RuleViolation } from "@/lib/rules-engine";
 import { buildGraph } from "@/lib/knowledge-graph";
 import Background from "@/components/Background";
-import { decide as decideRoute } from "@/lib/adaptive-router";
+import { decide as decideRoute, type RoutingDecision } from "@/lib/adaptive-router";
+import { resolveIntent, type ResolvedIntent } from "@/lib/intent-resolver";
 import { appendEvent as appendLedgerEvent } from "@/lib/adaptive-ledger";
 import { loadSettings as loadLearningSettings, saveSettings as saveLearningSettings } from "@/lib/adaptive-profile";
 
@@ -238,13 +239,8 @@ function Index() {
     try { window.localStorage.setItem("obs.railCollapsed", railCollapsed ? "1" : "0"); } catch {}
   }, [railCollapsed]);
 
-  // Ensure adaptive learning is ON so the router self-adapts per request.
-  useEffect(() => {
-    try {
-      const s = loadLearningSettings();
-      if (!s.enabled) saveLearningSettings({ ...s, enabled: true });
-    } catch { /* best-effort */ }
-  }, []);
+  // Adaptive learning defaults to ON via DEFAULT_SETTINGS. Respect the user's
+  // choice — do NOT force-enable on mount (that overrode a deliberate opt-out).
 
   // Resizable right-rail / chat width
   const [railWidth, setRailWidth] = useState<number>(() => {
@@ -255,6 +251,19 @@ function Index() {
   useEffect(() => {
     try { window.localStorage.setItem("obs.railWidth", String(railWidth)); } catch {}
   }, [railWidth]);
+  // Reclamp rail width against viewport on resize so a saved 900px width
+  // doesn't clip on a narrower screen.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const onResize = () => {
+      const vw = document.documentElement.clientWidth || window.innerWidth;
+      const max = Math.min(900, Math.max(320, vw - 260));
+      setRailWidth((w) => Math.max(260, Math.min(max, w)));
+    };
+    window.addEventListener("resize", onResize);
+    onResize();
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
   const railResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
   function onRailResizeStart(e: React.PointerEvent<HTMLDivElement>) {
     e.preventDefault();
@@ -266,8 +275,9 @@ function Index() {
   function onRailResizeMove(e: PointerEvent) {
     if (!railResizeRef.current) return;
     const delta = e.clientX - railResizeRef.current.startX;
-    const max = Math.min(900, window.innerWidth - 220);
-    const next = Math.max(260, Math.min(max, railResizeRef.current.startWidth + delta));
+    const vw = document.documentElement.clientWidth || window.innerWidth;
+    const max = Math.min(900, Math.max(320, vw - 260));
+    const next = Math.max(260, Math.min(max, railResizeRef.current.startWidth - delta));
     setRailWidth(next);
   }
   function onRailResizeEnd() {
@@ -277,26 +287,9 @@ function Index() {
     window.removeEventListener("pointerup", onRailResizeEnd);
   }
 
-  // First-visit intro audio
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (window.sessionStorage.getItem("obs.introPlayed") === "1") return;
-      const audio = new Audio("/__l5e/assets-v1/8131ec77-3185-4b73-a484-17dbe1debdb1/obsidian-intro.m4a");
-      audio.preload = "auto";
-      const markDone = () => { try { window.sessionStorage.setItem("obs.introPlayed", "1"); } catch {} };
-      const tryPlay = () => audio.play().then(markDone).catch(() => {
-        const onInteract = () => {
-          audio.play().then(markDone).catch(() => {});
-          window.removeEventListener("pointerdown", onInteract);
-          window.removeEventListener("keydown", onInteract);
-        };
-        window.addEventListener("pointerdown", onInteract, { once: true });
-        window.addEventListener("keydown", onInteract, { once: true });
-      });
-      tryPlay();
-    } catch {}
-  }, []);
+  // First-visit intro audio is owned by <IntroSplash /> now — legacy audio
+  // effect removed to prevent double-play + races with the splash timeline.
+
 
 
   // Per-card collapse in the right rail. Injects a chevron button into every
@@ -364,6 +357,8 @@ function Index() {
   const [stageDetail, setStageDetail] = useState<string>("");
   const [railGroup, setRailGroup] = useState<RailGroupId>("all");
   const [intelligenceTick, setIntelligenceTick] = useState<number>(0);
+  const [lastIntent, setLastIntent] = useState<ResolvedIntent | undefined>(undefined);
+  const [lastDecision, setLastDecision] = useState<RoutingDecision | undefined>(undefined);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -787,6 +782,10 @@ function Index() {
     setTab("preview");
     setError(null);
     setTerminal((t) => [...t, `→ Reverted to "${version.label}"`]);
+    try {
+      appendLedgerEvent({ kind: "version-restored", outcome: "restored", note: version.label });
+      setIntelligenceTick((n) => n + 1);
+    } catch { /* best-effort */ }
   }
 
   type Attachment =
@@ -969,6 +968,14 @@ function Index() {
       hasAttachments: pendingAttachments.length > 0,
     });
     const adaptiveModel = routing.chosenModel;
+    const resolvedIntent = resolveIntent(basePrompt, {
+      hasHtml: !!stableHtml,
+      attachmentsCount: pendingAttachments.length,
+      recentOperationSummary: current.messages.slice(-2).map((m) => m.content.slice(0, 60)).join(" | "),
+    });
+    setLastIntent(resolvedIntent);
+    setLastDecision(routing);
+    setIntelligenceTick((n) => n + 1);
 
     setError(null);
     setLastAiError(null);
@@ -2270,7 +2277,7 @@ function Index() {
             </div>
 
             {/* Core 4.0 — Adaptive Intelligence */}
-            <IntelligencePanel refreshKey={intelligenceTick} />
+            <IntelligencePanel refreshKey={intelligenceTick} intent={lastIntent} decision={lastDecision} />
             <StrategyExplanation />
             <LearningPanel onChange={() => setIntelligenceTick((n) => n + 1)} />
 
