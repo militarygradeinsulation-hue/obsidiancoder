@@ -9,6 +9,15 @@ import { buildAuthUrl } from "@/lib/redirect-safe";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
+const DEMOS: { slug: string; title: string }[] = [
+  { slug: "0v6h3d1b0k5e60", title: "Demo · Obsidian Build 01" },
+  { slug: "254055672k2h6p", title: "Demo · Obsidian Build 02" },
+  { slug: "68055l616v1f1m", title: "Demo · Obsidian Build 03" },
+  { slug: "6u0k1t5t544959", title: "Demo · Obsidian Build 04" },
+  { slug: "3u6i063s2u000m", title: "Demo · Obsidian Build 05" },
+  { slug: "712q5y47130j3k", title: "Demo · Obsidian Build 06" },
+];
+
 type Intent = "buy" | "code";
 
 export const Route = createFileRoute("/unlock")({
