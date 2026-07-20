@@ -16,6 +16,7 @@ const DEMOS: { slug: string; title: string }[] = [
   { slug: "6u0k1t5t544959", title: "Demo · Obsidian Build 04" },
   { slug: "3u6i063s2u000m", title: "Demo · Obsidian Build 05" },
   { slug: "712q5y47130j3k", title: "Demo · Obsidian Build 06" },
+  { slug: "0o170e051k1558", title: "Demo · Obsidian Build 07" },
 ];
 
 type Intent = "buy" | "code";
