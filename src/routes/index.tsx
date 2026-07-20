@@ -1420,7 +1420,7 @@ function Index() {
             model: modelForServer,
             durationMs,
             summary: "Image placeholder integrity rejected; reverted to stable version.",
-            validation: { status: "failed", summary: "Placeholder integrity failed", issues: [{ severity: "error", message: `Corrupted ${round.corrupted} placeholder(s), ${round.unknown} unknown.` }] },
+            validation: { status: "failed", summary: "Placeholder integrity failed", issues: [{ severity: "blocking", message: `Corrupted ${round.corrupted} placeholder(s), ${round.unknown} unknown.` }] },
             documentChanged: false,
             strategy: "full-generation",
           }));
