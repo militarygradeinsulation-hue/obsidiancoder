@@ -1,8 +1,14 @@
 // Attaches the current Supabase user bearer to same-origin API calls so
 // server routes can meter credits per user. Never sends the bearer to any
 // other origin.
+//
+// Additionally, when the server returns 401 (auth_required) or 402
+// (credits_required / not_pro), we dispatch a global `obs:paywall` window
+// event carrying the parsed envelope. The app listens once and opens the
+// PricingModal without losing the user's in-flight work.
 
 import { supabase } from "@/integrations/supabase/client";
+import { isCreditsRequiredEnvelope, type CreditsRequiredEnvelope } from "./credit-gate";
 
 export async function currentAccessToken(): Promise<string | null> {
   try {
@@ -11,6 +17,21 @@ export async function currentAccessToken(): Promise<string | null> {
   } catch {
     return null;
   }
+}
+
+/** Fired by authFetch on any 401/402 from same-origin routes. */
+export interface ObsPaywallDetail {
+  envelope: CreditsRequiredEnvelope;
+  status: number;
+  url: string;
+}
+
+function isSameOrigin(input: RequestInfo | URL): boolean {
+  try {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.toString() : (input as Request).url;
+    if (url.startsWith("/")) return true;
+    return new URL(url).origin === window.location.origin;
+  } catch { return false; }
 }
 
 export async function authFetch(
@@ -22,5 +43,28 @@ export async function authFetch(
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  return fetch(input, { ...init, headers });
+  const response = await fetch(input, { ...init, headers });
+
+  if ((response.status === 401 || response.status === 402) && isSameOrigin(input) && typeof window !== "undefined") {
+    // Best-effort read of the envelope. We clone so the caller can still
+    // read the body normally.
+    try {
+      const clone = response.clone();
+      const ct = (clone.headers.get("content-type") || "").toLowerCase();
+      if (ct.includes("application/json")) {
+        const body = (await clone.json()) as unknown;
+        if (isCreditsRequiredEnvelope(body)) {
+          window.dispatchEvent(new CustomEvent<ObsPaywallDetail>("obs:paywall", {
+            detail: {
+              envelope: body,
+              status: response.status,
+              url: typeof input === "string" ? input : (input as { url?: string }).url ?? String(input),
+            },
+          }));
+        }
+      }
+    } catch { /* swallow — best-effort surfacing */ }
+  }
+
+  return response;
 }
