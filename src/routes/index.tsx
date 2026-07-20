@@ -68,6 +68,8 @@ import { decide as decideRoute, type RoutingDecision } from "@/lib/adaptive-rout
 import { resolveIntent, type ResolvedIntent } from "@/lib/intent-resolver";
 import { appendEvent as appendLedgerEvent } from "@/lib/adaptive-ledger";
 import { loadSettings as loadLearningSettings, saveSettings as saveLearningSettings } from "@/lib/adaptive-profile";
+import { newOperationId, parseProviderHeader, type OperationSummary } from "@/lib/operation-tracker";
+import { useRailResize } from "@/hooks/useRailResize";
 
 
 
