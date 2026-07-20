@@ -2312,40 +2312,80 @@ function Index() {
                 >
                   {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
                 </button>
-                <textarea
-                  ref={composerRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      submit();
-                    }
-                  }}
-                  placeholder={pendingAttachments.length ? "Describe how to use the attached materials…  (Enter to send, Shift+Enter for newline)" : "Ask Aetheris Obsidian…  (Enter to send, Shift+Enter for newline)"}
-                  disabled={loading}
-                  rows={1}
-                  className="obs-composer-input"
-                  data-testid="composer-input"
+                <div
+                  className="obs-composer-input-wrap"
                   style={{
                     height: composerHeight,
                     width: composerWidth ?? "100%",
-                    resize: "both",
                     minHeight: 40,
                     maxHeight: 800,
                     minWidth: 240,
                     maxWidth: "100%",
-                    overflow: "auto",
-                    boxSizing: "border-box",
                   }}
-                  onMouseUp={(e) => {
-                    const el = e.currentTarget as HTMLTextAreaElement;
-                    const h = el.offsetHeight;
-                    const w = el.offsetWidth;
-                    if (h && h !== composerHeight) setComposerHeight(h);
-                    if (w && w !== (composerWidth ?? 0)) setComposerWidth(w);
-                  }}
-                />
+                >
+                  <textarea
+                    ref={composerRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        submit();
+                      }
+                    }}
+                    placeholder={pendingAttachments.length ? "Describe how to use the attached materials…  (Enter to send, Shift+Enter for newline)" : "Ask Aetheris Obsidian…  (Enter to send, Shift+Enter for newline)"}
+                    disabled={loading}
+                    rows={1}
+                    className="obs-composer-input"
+                    data-testid="composer-input"
+                  />
+                  {(["n","s","e","w","ne","nw","se","sw"] as const).map((dir) => (
+                    <div
+                      key={dir}
+                      className={`obs-composer-resize obs-composer-resize-${dir}`}
+                      role="separator"
+                      aria-label={`Resize ${dir}`}
+                      onPointerDown={(e) => {
+                        e.preventDefault();
+                        (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+                        const wrap = (e.currentTarget.parentElement as HTMLElement);
+                        const rect = wrap.getBoundingClientRect();
+                        const startX = e.clientX;
+                        const startY = e.clientY;
+                        const startW = rect.width;
+                        const startH = rect.height;
+                        const parentW = (wrap.parentElement?.getBoundingClientRect().width) ?? startW;
+                        const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
+                        const onMove = (ev: PointerEvent) => {
+                          const dx = ev.clientX - startX;
+                          const dy = ev.clientY - startY;
+                          let w = startW;
+                          let h = startH;
+                          if (dir.includes("e")) w = startW + dx;
+                          if (dir.includes("w")) w = startW - dx;
+                          if (dir.includes("s")) h = startH + dy;
+                          if (dir.includes("n")) h = startH - dy;
+                          w = clamp(w, 240, parentW);
+                          h = clamp(h, 40, 800);
+                          setComposerWidth(Math.round(w));
+                          setComposerHeight(Math.round(h));
+                        };
+                        const onUp = () => {
+                          window.removeEventListener("pointermove", onMove);
+                          window.removeEventListener("pointerup", onUp);
+                          document.body.classList.remove("is-resizing-composer");
+                        };
+                        document.body.classList.add("is-resizing-composer");
+                        window.addEventListener("pointermove", onMove);
+                        window.addEventListener("pointerup", onUp);
+                      }}
+                      onDoubleClick={() => {
+                        setComposerHeight(72);
+                        setComposerWidth(null);
+                      }}
+                    />
+                  ))}
+                </div>
 
 
                 {loading ? (
