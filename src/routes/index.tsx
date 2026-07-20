@@ -355,9 +355,27 @@ function Index() {
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
+  const [pricingInitialPrice, setPricingInitialPrice] = useState<string | undefined>(undefined);
   const [accountOpen, setAccountOpen] = useState(false);
   const { userId: authUserId, email: authEmail } = useAuth();
   const { isPro } = useSubscription();
+
+  // Global paywall handler — authFetch dispatches obs:paywall on 401/402
+  // from any gated route. Open PricingModal and surface a terminal note
+  // without losing the user's in-flight work.
+  useEffect(() => {
+    function onPaywall(e: Event) {
+      const ce = e as CustomEvent<{ envelope: { code: string; message: string; suggestedPriceId?: string } }>;
+      const env = ce.detail?.envelope;
+      if (!env) return;
+      setPricingInitialPrice(env.suggestedPriceId);
+      setPricingOpen(true);
+      setTerminal((t) => [...t, `⚠ ${env.message}`]);
+    }
+    window.addEventListener("obs:paywall", onPaywall as EventListener);
+    return () => window.removeEventListener("obs:paywall", onPaywall as EventListener);
+  }, []);
+
 
   const [libraryBuilds, setLibraryBuilds] = useState<Array<{ id: string; title: string; created_at: string; prompt: string; share_slug: string; byte_size: number }>>([]);
   const [composerHeight, setComposerHeight] = useState<number>(() => {
