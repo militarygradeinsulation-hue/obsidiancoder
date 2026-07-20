@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate, useSearch } from "@tanstack/react-r
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable";
-import { safeRedirectOr, type AuthMode } from "@/lib/redirect-safe";
+import { safeRedirectOr, stashOAuthDest, consumeOAuthDest, type AuthMode } from "@/lib/redirect-safe";
 
 export const Route = createFileRoute("/auth")({
   validateSearch: (s: Record<string, unknown>): { redirect?: string; mode?: AuthMode } => ({
