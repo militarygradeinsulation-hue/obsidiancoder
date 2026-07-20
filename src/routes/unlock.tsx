@@ -9,6 +9,15 @@ import { buildAuthUrl } from "@/lib/redirect-safe";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
+const DEMOS: { slug: string; title: string }[] = [
+  { slug: "0v6h3d1b0k5e60", title: "Demo · Obsidian Build 01" },
+  { slug: "254055672k2h6p", title: "Demo · Obsidian Build 02" },
+  { slug: "68055l616v1f1m", title: "Demo · Obsidian Build 03" },
+  { slug: "6u0k1t5t544959", title: "Demo · Obsidian Build 04" },
+  { slug: "3u6i063s2u000m", title: "Demo · Obsidian Build 05" },
+  { slug: "712q5y47130j3k", title: "Demo · Obsidian Build 06" },
+];
+
 type Intent = "buy" | "code";
 
 export const Route = createFileRoute("/unlock")({
@@ -353,6 +362,39 @@ function Unlock() {
 
         <div className="unlock-foot">AETHERIS.TECHNOLOGY</div>
       </main>
+
+      <section className="unlock-demos" aria-labelledby="demos-heading">
+        <div className="demos-header">
+          <h2 id="demos-heading" className="demos-title">Live Demos</h2>
+          <p className="demos-sub">Explore builds crafted with Obsidian. View-only — the vibe coder requires access.</p>
+        </div>
+        <div className="demos-grid">
+          {DEMOS.map((d) => (
+            <a
+              key={d.slug}
+              href={`/api/public/share/${d.slug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="demo-card"
+            >
+              <div className="demo-frame" aria-hidden>
+                <iframe
+                  src={`/api/public/share/${d.slug}`}
+                  title={d.title}
+                  loading="lazy"
+                  sandbox=""
+                  tabIndex={-1}
+                />
+                <div className="demo-scrim" />
+              </div>
+              <div className="demo-meta">
+                <span className="demo-name">{d.title}</span>
+                <span className="demo-open">Open ↗</span>
+              </div>
+            </a>
+          ))}
+        </div>
+      </section>
     </div>
   );
 }
@@ -581,4 +623,58 @@ const unlockCss = `
   .price-amount { font-size: 34px; }
   .unlock-headline { font-size: 18px; }
 }
+
+.unlock-demos {
+  position: relative;
+  width: 100%;
+  max-width: 1100px;
+  margin: 40px auto 8px;
+  padding: 0 8px;
+}
+.demos-header { text-align: center; margin-bottom: 18px; }
+.demos-title {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 22px; letter-spacing: 0.5px; color: #f2eee7; margin: 0;
+}
+.demos-sub { margin: 6px 0 0; font-size: 12px; color: #B6BCC8; }
+.demos-grid {
+  display: grid; gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+}
+.demo-card {
+  position: relative; display: block; text-decoration: none;
+  background: rgba(8,8,10,0.7);
+  border: 1px solid rgba(244,161,37,0.22);
+  border-radius: 12px; overflow: hidden;
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.demo-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(244,161,37,0.55);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(244,161,37,0.15);
+}
+.demo-frame {
+  position: relative; width: 100%; aspect-ratio: 16 / 10;
+  background: #050607; overflow: hidden;
+}
+.demo-frame iframe {
+  position: absolute; top: 0; left: 0;
+  width: 200%; height: 200%;
+  transform: scale(0.5); transform-origin: top left;
+  border: 0; pointer-events: none;
+  background: #050607;
+}
+.demo-scrim {
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, transparent 55%, rgba(0,0,0,0.6) 100%);
+  pointer-events: none;
+}
+.demo-meta {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  border-top: 1px solid rgba(244,161,37,0.15);
+}
+.demo-name { font-size: 12px; color: #f2eee7; letter-spacing: 0.3px; }
+.demo-open { font-size: 11px; color: #F4A125; font-weight: 600; }
 `;
