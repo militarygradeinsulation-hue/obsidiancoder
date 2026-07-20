@@ -191,14 +191,22 @@ async function generateOneImage(apiKey: string, prompt: string, slot: string, re
   return null;
 }
 
+/** Result of planAndGenerateImages — images + a usage record per successful call. */
+interface ImagePhaseResult {
+  images: PlannedImage[];
+  usages: UsageRecord[];
+  planUsage: UsageRecord | null;
+}
+
 async function planAndGenerateImages(
   apiKey: string,
   prompt: string,
   currentHtml: string,
   requestId: string,
   signal: AbortSignal,
-): Promise<PlannedImage[]> {
-  if (!VISUAL_KEYWORDS.test(prompt)) return [];
+): Promise<ImagePhaseResult> {
+  if (!VISUAL_KEYWORDS.test(prompt)) return { images: [], usages: [], planUsage: null };
+  let planUsage: UsageRecord | null = null;
   try {
     const planRes = await aiFetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -217,17 +225,44 @@ async function planAndGenerateImages(
       { breakerKey: "lovable/plan", stage: "plan", requestId, attemptTimeoutMs: 4000, totalTimeoutMs: 6000, maxAttempts: 1, signal },
     );
     const guarded = await readGuarded(planRes.response, { expected: "application/json" });
-    if (!guarded.ok) return [];
-    const planJson = JSON.parse(guarded.text) as { choices?: Array<{ message?: { content?: string } }> };
+    if (!guarded.ok) return { images: [], usages: [], planUsage: null };
+    const planJson = JSON.parse(guarded.text) as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown; model?: string };
+    // Capture planning usage — provider work happened regardless of decision.
+    const parsedPlanUsage = parseUsageFromChatJson(planJson);
+    const planEst = estimateUsdForCall({
+      model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+      providerUsed: true,
+    });
+    planUsage = makeUsage({
+      provider: "lovable", model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+      operation: "generate_html",
+      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+      totalTokens: parsedPlanUsage?.totalTokens ?? 0,
+      estimatedCostUsd: planEst.usd, costBasis: planEst.basis,
+      providerUsed: true, status: "committed",
+      meta: { phase: "image_plan" },
+    });
     const parsed = JSON.parse(planJson.choices?.[0]?.message?.content ?? "{}");
     const plans: Array<{ slot?: string; prompt: string }> = Array.isArray(parsed.images)
       ? parsed.images.filter((x: unknown) => !!x && typeof (x as { prompt?: unknown }).prompt === "string").slice(0, 2)
       : [];
-    if (!plans.length) return [];
+    if (!plans.length) return { images: [], usages: [], planUsage };
     const results = await Promise.all(plans.map((p) => generateOneImage(apiKey, p.prompt, p.slot ?? "image", requestId, signal)));
-    return results.filter((x): x is PlannedImage => !!x);
+    const images = results.filter((x): x is PlannedImage => !!x);
+    // One UsageRecord per successful image (conservative per-image cost).
+    const usages: UsageRecord[] = images.map((img) => makeUsage({
+      provider: img.providerUsed, model: img.providerUsed,
+      operation: "generate_image",
+      imageCount: 1, estimatedCostUsd: IMAGE_COST_USD, costBasis: "estimated",
+      providerUsed: true, status: "committed",
+      meta: { slot: img.slot },
+    }));
+    return { images, usages, planUsage };
   } catch {
-    return [];
+    return { images: [], usages: [], planUsage };
   }
 }
 
