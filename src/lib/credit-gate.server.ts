@@ -86,15 +86,81 @@ export async function isOwnerSession(): Promise<boolean> {
   } catch { return false; }
 }
 
-export async function hasActivePro(user: AuthedUser, env: Environment): Promise<boolean> {
+/**
+ * Pure predicate mirroring `public.has_active_pro`: an active/trialing
+ * subscription row with a non-null current_period_start/end window
+ * that contains `now`. Exported for deterministic unit tests.
+ */
+export function isActiveProRow(
+  row: { status?: string | null; current_period_start?: string | null; current_period_end?: string | null } | null | undefined,
+  now: Date = new Date(),
+): boolean {
+  if (!row) return false;
+  if (row.status !== "active" && row.status !== "trialing") return false;
+  if (!row.current_period_start || !row.current_period_end) return false;
+  const start = Date.parse(row.current_period_start);
+  const end = Date.parse(row.current_period_end);
+  if (!Number.isFinite(start) || !Number.isFinite(end)) return false;
+  const t = now.getTime();
+  return start <= t && end > t;
+}
+
+// Minimal client shape used by hasActiveProWithClient. Kept structural so
+// tests can pass a fake without importing @supabase/supabase-js types.
+export interface MinimalSubscriptionQueryClient {
+  from(table: "subscriptions"): {
+    select(cols: string): {
+      eq(col: "user_id", val: string): {
+        eq(col: "environment", val: string): {
+          in(col: "status", vals: readonly string[]): {
+            order(col: "created_at", opts: { ascending: boolean }): {
+              limit(n: number): {
+                maybeSingle(): Promise<{
+                  data: { status: string | null; current_period_start: string | null; current_period_end: string | null } | null;
+                  error: { message: string } | null;
+                }>;
+              };
+            };
+          };
+        };
+      };
+    };
+  };
+}
+
+/**
+ * Queries `public.subscriptions` directly with the passed client and
+ * evaluates the exact-period predicate. The `userId` MUST come from a
+ * verified source (`resolveUserFromRequest`) — never a browser-supplied
+ * body/query value.
+ */
+export async function hasActiveProWithClient(
+  client: MinimalSubscriptionQueryClient,
+  userId: string,
+  env: Environment,
+  now: Date = new Date(),
+): Promise<boolean> {
   try {
-    const sb = userClient(user.token);
-    const { data } = await sb.rpc("has_active_pro" as never, {
-      user_uuid: user.userId,
-      check_env: env,
-    } as never);
-    return !!data;
+    const { data, error } = await client
+      .from("subscriptions")
+      .select("status, current_period_start, current_period_end")
+      .eq("user_id", userId)
+      .eq("environment", env)
+      .in("status", ["active", "trialing"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) return false;
+    return isActiveProRow(data, now);
   } catch { return false; }
+}
+
+export async function hasActivePro(user: AuthedUser, env: Environment): Promise<boolean> {
+  // Service-role admin client bypasses RLS and does not depend on grants
+  // for `public.has_active_pro` (which remains service_role-only). The
+  // verified user id (`user.userId`) must come from resolveUserFromRequest.
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return hasActiveProWithClient(supabaseAdmin as unknown as MinimalSubscriptionQueryClient, user.userId, env);
 }
 
 export interface Reservation {
