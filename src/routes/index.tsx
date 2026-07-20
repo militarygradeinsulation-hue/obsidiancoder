@@ -211,12 +211,10 @@ function newSession(): Session {
   };
 }
 
-const INITIAL_SESSION = newSession();
-
 function Index() {
   // streaming via /api/generate
-  const [sessions, setSessions] = useState<Session[]>([INITIAL_SESSION]);
-  const [activeId, setActiveId] = useState<string>(INITIAL_SESSION.id);
+  const [sessions, setSessions] = useState<Session[]>(() => [newSession()]);
+  const [activeId, setActiveId] = useState<string>(() => sessions[0]?.id ?? newSession().id);
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [ideaOffset, setIdeaOffset] = useState(0);
