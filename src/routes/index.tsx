@@ -72,6 +72,7 @@ import { newOperationId, parseProviderHeader, type OperationSummary } from "@/li
 import { useRailResize } from "@/hooks/useRailResize";
 import { reviewBuild, summarizeReport, type AgentReview } from "@/lib/chief-engineer";
 import { EngineeringConsolePanel } from "@/components/panels/EngineeringConsolePanel";
+import { restoreAndVerify } from "@/lib/context-compactor";
 
 
 
@@ -1359,14 +1360,26 @@ function Index() {
         paintPreview();
       }
 
-      // Extract & log the server-side timing trailer, then strip it before use.
-      const trailerMatch = acc.match(/<!--OBS_TIMING:([\s\S]*?)-->\s*$/);
-      if (trailerMatch) {
+      // Server appends two trailing HTML comments, in this order:
+      //   <!--OBS_PLACEHOLDERS:{json}-->  (optional — only when images were compacted)
+      //   <!--OBS_TIMING:{json}-->        (always)
+      // Strip BOTH before anything else touches `acc`, so validation and the
+      // saved payload never see diagnostic markers.
+      const timingMatch = acc.match(/<!--OBS_TIMING:([\s\S]*?)-->\s*$/);
+      if (timingMatch) {
         try {
-          const t = JSON.parse(trailerMatch[1]) as Record<string, number | string | boolean>;
+          const t = JSON.parse(timingMatch[1]) as Record<string, number | string | boolean>;
           setTerminal((tt) => [...tt, `→ Timing: compact ${t.compact_ms}ms · plan/img ${t.image_ms}ms · first ${t.first_byte_ms}ms · stream ${t.stream_ms}ms · total ${t.total_ms}ms`]);
         } catch { /* trailer malformed; ignore */ }
-        acc = acc.slice(0, trailerMatch.index).trimEnd();
+        acc = acc.slice(0, timingMatch.index).trimEnd();
+      }
+      let placeholderMap: Record<string, string> | null = null;
+      const phMatch = acc.match(/<!--OBS_PLACEHOLDERS:([\s\S]*?)-->\s*$/);
+      if (phMatch) {
+        try {
+          placeholderMap = JSON.parse(phMatch[1]) as Record<string, string>;
+        } catch { placeholderMap = null; }
+        acc = acc.slice(0, phMatch.index).trimEnd();
       }
 
 
@@ -1390,6 +1403,33 @@ function Index() {
       }
 
       let finalHtml = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+
+      // Restore originals for any placeholders the model kept. If a placeholder
+      // was mutated or a partial marker leaked through, REJECT the new version
+      // and keep the prior stable HTML — this is the lossless contract.
+      if (placeholderMap && Object.keys(placeholderMap).length > 0) {
+        const round = restoreAndVerify(finalHtml, placeholderMap);
+        if (!round.ok) {
+          setSessions((all) => all.map((s) => s.id === sessionId
+            ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Rejected: model corrupted ${round.corrupted} image placeholder${round.corrupted === 1 ? "" : "s"}${round.unknown ? ` and hallucinated ${round.unknown}` : ""} — reverted to last stable version.` }] }
+            : s));
+          setTerminal((tt) => [...tt, `✗ Placeholder integrity failed (corrupted=${round.corrupted} unknown=${round.unknown}) — reverted.`]);
+          const durationMs = performance.now() - t0;
+          setLastMetrics(metricsFromClassification(classification, {
+            usedAi: true,
+            model: modelForServer,
+            durationMs,
+            summary: "Image placeholder integrity rejected; reverted to stable version.",
+            validation: { status: "failed", summary: "Placeholder integrity failed", issues: [{ severity: "error", message: `Corrupted ${round.corrupted} placeholder(s), ${round.unknown} unknown.` }] },
+            documentChanged: false,
+            strategy: "full-generation",
+          }));
+          return;
+        }
+        finalHtml = round.html;
+        setTerminal((tt) => [...tt, `→ Images: restored ${round.restored}${round.dropped ? ` · dropped ${round.dropped}` : ""}`]);
+      }
+
       // Safety net: if the "stream" was actually a JSON error envelope smuggled
       // as text/plain, treat it as a failure instead of wrapping it as HTML.
       const trimmedStart = finalHtml.slice(0, 200).trimStart();
