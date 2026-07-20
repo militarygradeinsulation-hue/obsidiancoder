@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { resolveModel } from "@/lib/models";
+import { resolveModel, isFastTier, DEFAULT_MODEL } from "@/lib/models";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded, firstChunkLooksBad } from "@/lib/upstream-guard";
 import { recordFailure, recordSuccess } from "@/lib/circuit-breaker";
+import { compactHtmlForContext } from "@/lib/context-compactor";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -17,6 +18,11 @@ const inputSchema = z.object({
   history: z.array(messageSchema).max(8).optional().default([]),
   model: z.string().optional().transform((m) => resolveModel(m)),
   advisory: z.boolean().optional().default(false),
+  // Raw picker value from the client ("auto" or a specific model id). Used to
+  // decide whether we're allowed to silently fall back on time-to-first-byte.
+  pickerModel: z.string().optional(),
+  // Explicit opt-in for generated imagery. Bypasses the tight keyword filter.
+  wantImages: z.boolean().optional().default(false),
 });
 
 
