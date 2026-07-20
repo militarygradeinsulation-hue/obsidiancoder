@@ -19,6 +19,7 @@ import type { Database } from "@/integrations/supabase/types";
 import {
   CAP_PRO_MONTHLY,
   costForOperation,
+  reservationForOperation,
   creditsRequiredEnvelope,
   type CreditsRequiredEnvelope,
   type Operation,
