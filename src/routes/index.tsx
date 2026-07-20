@@ -936,6 +936,8 @@ function Index() {
       hasAttachments: pendingAttachments.length > 0,
     });
     const adaptiveModel = routing.chosenModel;
+    const requestedModel: string = current.model === "auto" ? routing.plan.model : (current.model as string);
+    const operationId = newOperationId();
     const resolvedIntent = resolveIntent(basePrompt, {
       hasHtml: !!stableHtml,
       attachmentsCount: pendingAttachments.length,
@@ -943,6 +945,18 @@ function Index() {
     });
     setLastIntent(resolvedIntent);
     setLastDecision(routing);
+    setLastOperation({
+      operationId,
+      startedAt: Date.now(),
+      requestedModel,
+      actualModel: adaptiveModel,
+      strategy: routing.chosenStrategy,
+      taskType: classification.taskType,
+      providerChain: [],
+      outcome: "pending",
+      learningSignals: routing.signalsUsed.slice(),
+      rollbackId: current.versions?.[0]?.id,
+    });
     setIntelligenceTick((n) => n + 1);
 
     setError(null);
