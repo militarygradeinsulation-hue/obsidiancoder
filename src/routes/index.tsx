@@ -478,7 +478,7 @@ function Index() {
 
   // ─── Free-tier gates (5 AI generations/day; Save requires Pro or one-time purchase) ───
   const FREE_DAILY_LIMIT = 5;
-  const [pricingInitialPrice, setPricingInitialPrice] = useState<string | undefined>(undefined);
+  // pricingInitialPrice is declared above with the paywall handler.
   function todayKey() { return "obs.gen_count." + new Date().toISOString().slice(0, 10); }
   function getTodayGenCount(): number {
     if (typeof window === "undefined") return 0;
