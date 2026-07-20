@@ -10,7 +10,9 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as UnlockRouteImport } from './routes/unlock'
+import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
@@ -33,9 +35,19 @@ const UnlockRoute = UnlockRouteImport.update({
   path: '/unlock',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryRoute = GalleryRouteImport.update({
@@ -124,7 +136,9 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
+  '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/unlock': typeof UnlockRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
@@ -144,7 +158,9 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
+  '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/unlock': typeof UnlockRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
@@ -165,7 +181,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/gallery': typeof GalleryRoute
+  '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/terms': typeof TermsRoute
   '/unlock': typeof UnlockRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
@@ -187,7 +205,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/gallery'
+    | '/privacy'
     | '/sitemap.xml'
+    | '/terms'
     | '/unlock'
     | '/api/generate'
     | '/api/github'
@@ -207,7 +227,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/gallery'
+    | '/privacy'
     | '/sitemap.xml'
+    | '/terms'
     | '/unlock'
     | '/api/generate'
     | '/api/github'
@@ -227,7 +249,9 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/gallery'
+    | '/privacy'
     | '/sitemap.xml'
+    | '/terms'
     | '/unlock'
     | '/api/generate'
     | '/api/github'
@@ -248,7 +272,9 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
   GalleryRoute: typeof GalleryRoute
+  PrivacyRoute: typeof PrivacyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  TermsRoute: typeof TermsRoute
   UnlockRoute: typeof UnlockRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
   ApiGithubRoute: typeof ApiGithubRoute
@@ -272,11 +298,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UnlockRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/sitemap.xml': {
       id: '/sitemap.xml'
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery': {
@@ -421,7 +461,9 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
   GalleryRoute: GalleryRoute,
+  PrivacyRoute: PrivacyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  TermsRoute: TermsRoute,
   UnlockRoute: UnlockRoute,
   ApiGenerateRoute: ApiGenerateRoute,
   ApiGithubRoute: ApiGithubRoute,
