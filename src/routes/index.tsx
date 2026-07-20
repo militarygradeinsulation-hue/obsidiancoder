@@ -58,6 +58,7 @@ import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/l
 import { EMPTY_COST, foldMetrics, recordRestore, type CostSnapshot } from "@/lib/cost-metrics";
 import { evaluateCommit, type CommitSource } from "@/lib/commit-gate";
 import { stripPreviewOnly } from "@/lib/clean-export";
+import { FusionModal, type FusionCommit } from "@/components/FusionModal";
 import { migrateFromHtml, type Project } from "@/lib/project-model";
 import { record as recordFeedback, type FeedbackEvent } from "@/lib/failure-learning";
 import type { ComponentEntry } from "@/lib/component-library";
