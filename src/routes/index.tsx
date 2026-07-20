@@ -83,10 +83,10 @@ export const Route = createFileRoute("/")({
   },
   head: () => ({
     meta: [
-      { title: "Aetheris Obsidian — Vibe coding, elevated" },
-      { name: "description", content: "A premium prompt-to-page workspace. Deep space palette, warm gold accents, live preview." },
-      { property: "og:title", content: "Aetheris Obsidian — Vibe coding, elevated" },
-      { property: "og:description", content: "A premium prompt-to-page workspace. Deep space palette, warm gold accents, live preview." },
+      { title: "Aetheris Obsidian — Vibe Coding,  Ascended" },
+      { name: "description", content: "Obsidian removes the translation tax between idea, design, code, and refinement. The result is less tool friction, fewer broken handoffs, and less credits lost." },
+      { property: "og:title", content: "Aetheris Obsidian — Vibe Coding,  Ascended" },
+      { property: "og:description", content: "Obsidian removes the translation tax between idea, design, code, and refinement. The result is less tool friction, fewer broken handoffs, and less credits lost." },
       { property: "og:type", content: "website" },
     ],
     links: [{ rel: "canonical", href: "/" }],
