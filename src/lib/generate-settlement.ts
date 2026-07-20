@@ -42,6 +42,9 @@ export function modelAttemptUsage(args: {
     operation: args.operation,
     providerUsed: true,
     status: "failed",
+    // Carry the per-call floor explicitly so mergeUsage aggregates it into
+    // the failed/fallback total instead of dropping to 0 USD.
+    estimatedCostUsd: MIN_CALL_COST_USD,
     costBasis: "minimum",
     errorCode: args.errorCode,
     meta: { phase: "model_attempt" },
