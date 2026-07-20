@@ -1,0 +1,2 @@
+
+REVOKE TRUNCATE, REFERENCES, TRIGGER, MAINTAIN ON public.ai_usage FROM anon, authenticated, PUBLIC;
