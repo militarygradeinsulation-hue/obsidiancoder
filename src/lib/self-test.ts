@@ -770,7 +770,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(cg.capForPlan("free") === 0 && cg.capForPlan("pro") === 1000, "credit-gate: plan caps"));
     const env = cg.creditsRequiredEnvelope({ code: "credits_required", operation: "generate_html", used: 1000, cap: 1000, needed: 10 });
     results.push(assert(cg.isCreditsRequiredEnvelope(env), "credit-gate: envelope guard"));
-    results.push(assert(env.suggestedPriceId === "obsidian_pro_monthly", "credit-gate: suggests Pro price on 402"));
+    results.push(assert(env.suggestedPriceId === "obsidian_creator_monthly", "credit-gate: suggests Creator price on 402"));
     results.push(assert(env.remaining === 0, "credit-gate: envelope computes remaining"));
 
     // creditsForUsd — actual/estimated/minimum + failure = 0
