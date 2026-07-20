@@ -759,6 +759,21 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(fus_hash("abc") === fus_hash("abc") && fus_hash("abc") !== fus_hash("abd"), "fusion: content hash stable & discriminates"));
   }
 
+  // ─── credit gate: math & envelope shape ────────────────────────────
+  {
+    const cg = await import("./credit-gate");
+    const bal = cg.computeBalance({ used: 0.2, limit: 1 });
+    results.push(assert(bal.remaining === 0.8 && bal.pctUsed === 0.2, "credit-gate: balance math"));
+    const env = cg.buildCreditsRequiredEnvelope({ code: "credits_required", message: "x", balance: bal, cost: 0.001, operation: "generate" });
+    results.push(assert(cg.isCreditsRequiredEnvelope(env), "credit-gate: envelope type guard"));
+    results.push(assert(cg.OPERATION_COST.generate > 0 && cg.OPERATION_COST.enhance > 0, "credit-gate: costs positive"));
+    // sufficient / insufficient helper
+    results.push(assert(cg.hasCredits({ used: 0.9, limit: 1 }, 0.05) === true, "credit-gate: hasCredits when sufficient"));
+    results.push(assert(cg.hasCredits({ used: 0.999, limit: 1 }, 0.05) === false, "credit-gate: hasCredits when insufficient"));
+  }
+
+
+
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
