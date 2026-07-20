@@ -7,7 +7,7 @@ import { buildPerformanceModel, scoreAll, best, type Score } from "./performance
 import { loadLedger } from "./adaptive-ledger";
 import { loadPreferences, preferenceFor } from "./preference-learning";
 import { loadSettings } from "./adaptive-profile";
-import { ALLOWED_MODEL_IDS, type ModelId } from "./models";
+import { ALLOWED_MODEL_IDS, isFastTier, type ModelId } from "./models";
 
 export interface RoutingDecision {
   plan: Plan;
@@ -71,11 +71,20 @@ export function decide(input: PlanInput): RoutingDecision {
   if (bestScore) {
     const parts = bestScore.key.split("|");
     const [, , recommendedModel] = parts;
-    if (recommendedModel && recommendedModel !== "any" && recommendedModel !== chosenModel && bestScore.successRate > 0.7) {
+    // Only auto-promote to another model when the perf model is HIGHLY
+    // confident AND the recommendation is a fast-tier model. Silent upgrades
+    // to slow flagships were the biggest source of time-to-first-byte pain.
+    const canPromote =
+      recommendedModel && recommendedModel !== "any" && recommendedModel !== chosenModel
+      && bestScore.successRate > 0.8
+      && isFastTier(recommendedModel);
+    if (canPromote) {
       signalsUsed.push(`perf-model:${bestScore.successRate.toFixed(2)}`);
       chosenModel = asModelId(recommendedModel, chosenModel);
     } else if (recommendedModel === chosenModel) {
       signalsUsed.push(`perf-confirms-default`);
+    } else if (recommendedModel && !isFastTier(recommendedModel)) {
+      signalsIgnored.push(`perf-model:slow-tier-suppressed`);
     }
   } else {
     signalsIgnored.push("perf-model:low-confidence");

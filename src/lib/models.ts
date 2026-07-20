@@ -42,3 +42,19 @@ export function resolveModel(id: string | undefined): ModelId {
   if (!id || id === "auto") return DEFAULT_MODEL;
   return (ALLOWED_MODEL_IDS as readonly string[]).includes(id) ? (id as ModelId) : DEFAULT_MODEL;
 }
+
+// Model tiers — used by the server to decide whether to fall back to the
+// fastest reliable model when time-to-first-byte exceeds budget. Kept
+// intentionally small; anything not listed is treated as "slow".
+export const FAST_MODEL_IDS: readonly string[] = [
+  "google/gemini-3.1-flash-lite",
+  "google/gemini-2.5-flash-lite",
+  "google/gemini-3-flash-preview",
+  "openai/gpt-5.6-luna",
+  "openai/gpt-5.4-nano",
+  "openai/gpt-5-nano",
+];
+
+export function isFastTier(id: string): boolean {
+  return FAST_MODEL_IDS.includes(id);
+}
