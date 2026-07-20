@@ -7,12 +7,14 @@ import { createFileRoute, redirect, Link } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   LayoutDashboard, FolderKanban, Timer, Rocket, DollarSign,
-  ShieldCheck, Gauge, CheckCircle2, ArrowRight, Sparkles, Lock,
+  ShieldCheck, Gauge, CheckCircle2, ArrowRight, Sparkles, Lock, LogOut,
 } from "lucide-react";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
 import { useEntitlement } from "@/hooks/useEntitlement";
 import { DASHBOARD_NAV, PLAN_TIERS, tierForPriceId, tierAtLeast, type PlanTierId } from "@/lib/plans";
 import { safeGet } from "@/lib/safe-storage";
+import { lockSite } from "@/lib/gate.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/dashboard")({
   beforeLoad: async () => {
