@@ -70,20 +70,19 @@ export default function IntroSplash() {
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("ended", onEnded);
 
-    // Try audible autoplay first; if blocked, fall back to muted video.
-    // Never arm click/key/pointer/touch listeners to retry audio later.
-    video.muted = false;
+    // Muted autoplay is always allowed → guarantees instant playback.
+    // Then immediately try to unmute so sound plays if the browser permits.
+    video.muted = true;
     video.volume = 0.9;
     video.playsInline = true;
+    const tryUnmute = () => { try { video.muted = false; } catch {} };
     const p = video.play();
-    if (p && typeof p.catch === "function") {
-      p.catch(() => {
-        try {
-          video.muted = true;
-          void video.play();
-        } catch {}
-      });
+    if (p && typeof p.then === "function") {
+      p.then(tryUnmute).catch(() => { tryUnmute(); });
+    } else {
+      tryUnmute();
     }
+
 
     return () => {
       window.clearTimeout(fadeTimer);
