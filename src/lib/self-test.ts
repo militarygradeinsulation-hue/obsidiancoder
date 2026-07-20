@@ -481,23 +481,34 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   for (let i = 0; i < 100; i++) w = nextRailWidthForKey("ArrowRight", w, 1600);
   results.push(assert(w === RAIL_MIN, `rail-key: repeated ArrowRight bottoms at min (${w})`));
 
-  // learning-disable persistence (round-trip through save/loadSettings)
+  // learning-disable persistence (round-trip through save/loadSettings).
+  // Storage is client-only; on the server safeSet is a no-op, so we only
+  // assert the persistence round-trip when localStorage is present.
   const { saveSettings, loadSettings, DEFAULT_SETTINGS } = await import("./adaptive-profile");
+  const hasStorage = typeof window !== "undefined" && !!window.localStorage;
   const originalSettings = loadSettings();
-  saveSettings({ ...DEFAULT_SETTINGS, enabled: false });
-  const after = loadSettings();
-  results.push(assert(after.enabled === false && after.localOnly === true, "learning: disabled state persists across load"));
-  saveSettings({ ...DEFAULT_SETTINGS, enabled: true });
-  const on = loadSettings();
-  results.push(assert(on.enabled === true, "learning: re-enabling persists"));
-  // adaptive-router honours disabled flag
-  const { decide: decideAgain } = await import("./adaptive-router");
-  saveSettings({ ...DEFAULT_SETTINGS, enabled: false });
-  const decDisabled = decideAgain({ prompt: "add a paragraph", hasHtml: true, mode: "agent", pickerModel: "auto", hasAttachments: false });
-  results.push(assert(decDisabled.signalsIgnored.includes("learning-disabled") && decDisabled.signalsUsed.length === 0,
-    `router: disabled → no learning signals used (used=${decDisabled.signalsUsed.length})`));
-  // restore original settings
-  saveSettings(originalSettings);
+  if (hasStorage) {
+    saveSettings({ ...DEFAULT_SETTINGS, enabled: false });
+    const after = loadSettings();
+    results.push(assert(after.enabled === false && after.localOnly === true, "learning: disabled state persists across load"));
+    saveSettings({ ...DEFAULT_SETTINGS, enabled: true });
+    const on = loadSettings();
+    results.push(assert(on.enabled === true, "learning: re-enabling persists"));
+    // adaptive-router honours disabled flag (client-side only, since it reads settings)
+    const { decide: decideAgain } = await import("./adaptive-router");
+    saveSettings({ ...DEFAULT_SETTINGS, enabled: false });
+    const decDisabled = decideAgain({ prompt: "add a paragraph", hasHtml: true, mode: "agent", pickerModel: "auto", hasAttachments: false });
+    results.push(assert(decDisabled.signalsIgnored.includes("learning-disabled") && decDisabled.signalsUsed.length === 0,
+      `router: disabled → no learning signals used (used=${decDisabled.signalsUsed.length})`));
+    saveSettings(originalSettings);
+  } else {
+    // On server: the shape must at least round-trip through DEFAULT and
+    // loadSettings must never throw; both are enforced by loadSettings itself.
+    results.push(assert(originalSettings.localOnly === true && typeof originalSettings.enabled === "boolean",
+      "learning: server-side settings expose enabled + localOnly"));
+    results.push(assert(DEFAULT_SETTINGS.enabled === true && DEFAULT_SETTINGS.localOnly === true,
+      "learning: DEFAULT_SETTINGS shape stable"));
+  }
 
   // outcome loop — pending → ok summary line survives round-trip
   const op = {
