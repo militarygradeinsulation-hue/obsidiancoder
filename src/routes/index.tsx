@@ -7,16 +7,16 @@ import { generateHtml } from "@/lib/aetheris.functions";
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Aetheris Obsidian — Tell it what to build" },
+      { title: "Transcending the surface-level patterns of mainstream AI" },
       {
         name: "description",
         content:
-          "A creative force multiplier turning intent into production-grade software via system intuition. Code with clarity. Ship with force.",
+          "Obsidian is a creative force multiplier turning intent into production-grade software via system intuition. Code with clarity. Ship with force.",
       },
-      { property: "og:title", content: "Aetheris Obsidian — Tell it what to build" },
+      { property: "og:title", content: "Transcending the surface-level patterns of mainstream AI" },
       {
         property: "og:description",
-        content: "A creative force multiplier turning intent into production-grade software via system intuition. Code with clarity. Ship with force.",
+        content: "Obsidian is a creative force multiplier turning intent into production-grade software via system intuition. Code with clarity. Ship with force.",
       },
       { property: "og:type", content: "website" },
       { property: "og:url", content: "/" },
