@@ -7,7 +7,7 @@ import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 
-const PRO_PRICE_ID = "obsidian_pro_monthly";
+const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
 type Intent = "buy" | "code";
 
@@ -26,10 +26,10 @@ export const Route = createFileRoute("/unlock")({
   },
   head: () => ({
     meta: [
-      { title: "Get Obsidian Pro — Aetheris Obsidian" },
-      { name: "description", content: "Start Obsidian Pro for $30/month or enter your access code. Build production-ready software with an AI engineering team." },
-      { property: "og:title", content: "Get Obsidian Pro — Aetheris Obsidian" },
-      { property: "og:description", content: "Build production-ready software with an AI engineering team. $30/month, 1,000 AI credits per billing period." },
+      { title: "Get Obsidian Creator — Aetheris Obsidian" },
+      { name: "description", content: "Start Obsidian Creator for $79/month or enter your access code. Build production-ready software with an AI engineering team." },
+      { property: "og:title", content: "Get Obsidian Creator — Aetheris Obsidian" },
+      { property: "og:description", content: "Build production-ready software with an AI engineering team. $79/month, 1,000 AI credits per billing period." },
       { property: "og:type", content: "website" },
     ],
     links: [{ rel: "canonical", href: "/unlock" }],
@@ -197,7 +197,7 @@ function Unlock() {
             onKeyDown={onTabKeyDown}
             type="button"
           >
-            Get Obsidian Pro
+            Get Obsidian Creator
           </button>
           <button
             role="tab"
@@ -223,7 +223,7 @@ function Unlock() {
                 <h2 className="unlock-headline">Build, Launch, and Grow Software with AI.</h2>
 
                 <div className="unlock-price">
-                  <span className="price-amount">$30</span>
+                  <span className="price-amount">$79</span>
                   <span className="price-cadence">/month</span>
                 </div>
                 <p className="unlock-allowance">
@@ -239,7 +239,7 @@ function Unlock() {
                   onClick={startPurchase}
                   disabled={sessionLoading}
                 >
-                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Pro — $30/month"}
+                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $79/month"}
                 </button>
 
                 <button type="button" className="unlock-btn-secondary" onClick={goSignIn}>
@@ -297,7 +297,7 @@ function Unlock() {
               <div className="unlock-checkout">
                 <div className="checkout-header">
                   <div>
-                    <div className="checkout-title">Obsidian Pro</div>
+                    <div className="checkout-title">Obsidian Creator</div>
                     <div className="checkout-sub">
                       Signed in as {session.email ?? "your account"}
                       <button type="button" onClick={signOutAndReset} className="checkout-signout">
@@ -308,7 +308,7 @@ function Unlock() {
                   <button type="button" onClick={() => setShowCheckout(false)} className="checkout-back">← Back</button>
                 </div>
                 <CheckoutSurface
-                  priceId={PRO_PRICE_ID}
+                  priceId={CREATOR_PRICE_ID}
                   onCancel={() => setShowCheckout(false)}
                 />
 
@@ -346,7 +346,7 @@ function Unlock() {
             </form>
 
             <button type="button" className="unlock-btn-secondary" onClick={() => setTab("buy")}>
-              Don&apos;t have a code? Get Obsidian Pro
+              Don&apos;t have a code? Get Obsidian Creator
             </button>
           </section>
         )}
