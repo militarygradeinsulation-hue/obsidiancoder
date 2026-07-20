@@ -14,11 +14,10 @@ import { readGuarded } from "@/lib/upstream-guard";
 import {
   requirePaidOperation,
   denialResponse,
-  commitReservation,
-  refundReservation,
-  logOwnerUsage,
+  settleOperation,
   type EntitlementResult,
 } from "@/lib/credit-gate.server";
+import { makeUsage, mergeUsage, estimateUsdForCall, parseUsageFromChatJson, type UsageRecord } from "@/lib/usage-record";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
