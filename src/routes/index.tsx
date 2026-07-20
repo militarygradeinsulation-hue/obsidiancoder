@@ -964,6 +964,14 @@ function Index() {
       hasAttachments: pendingAttachments.length > 0,
     });
     const adaptiveModel = routing.chosenModel;
+    const resolvedIntent = resolveIntent(basePrompt, {
+      hasHtml: !!stableHtml,
+      attachmentsCount: pendingAttachments.length,
+      recentOperationSummary: current.messages.slice(-2).map((m) => m.content.slice(0, 60)).join(" | "),
+    });
+    setLastIntent(resolvedIntent);
+    setLastDecision(routing);
+    setIntelligenceTick((n) => n + 1);
 
     setError(null);
     setLastAiError(null);
