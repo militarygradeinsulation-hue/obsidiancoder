@@ -1863,6 +1863,15 @@ function Index() {
               <button type="button" onClick={addSession} className="obs-icon-btn" aria-label="New tab">
                 <Plus className="h-4 w-4" />
               </button>
+              <button
+                type="button"
+                onClick={() => setFusionOpen(true)}
+                className="obs-chip"
+                aria-label="Combine projects"
+                title="Combine two or more projects into one (Project Fusion)"
+              >
+                <GitMerge className="h-3.5 w-3.5" /> Combine
+              </button>
             </div>
           </div>
           <div className="obs-topbar-right">
