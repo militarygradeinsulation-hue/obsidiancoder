@@ -13,6 +13,7 @@ import {
 } from "@/lib/credit-gate.server";
 import type { EntitlementResult } from "@/lib/credit-gate.server";
 import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, type UsageRecord } from "@/lib/usage-record";
+import type { Operation } from "@/lib/credit-gate";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
