@@ -6,11 +6,10 @@ import { aiFetch } from "./ai-fetch";
 import { AiError, newRequestId } from "./ai-errors";
 import {
   requirePaidOperation,
-  commitReservation,
-  refundReservation,
-  logOwnerUsage,
+  settleOperation,
 } from "./credit-gate.server";
 import { creditsRequiredEnvelope, type CreditsRequiredEnvelope } from "./credit-gate";
+import { makeUsage, estimateUsdForCall, mergeUsage, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "./usage-record";
 
 /** Structured paywall error the client recognizes. */
 class PaywallError extends Error {
@@ -253,41 +252,43 @@ export const generateImage = createServerFn({ method: "POST" })
   )
   .handler(async ({ data }) => {
     const request = getRequest();
-    const entitlement = await requirePaidOperation(request, "generate_image");
+    const requestId = newRequestId();
+    const entitlement = await requirePaidOperation(request, "generate_image", requestId);
     if (entitlement.kind === "denied" && entitlement.denial) {
       throw new PaywallError(entitlement.denial);
     }
-    const refund = async () => {
-      if (entitlement.kind === "pro" && entitlement.reservation) {
-        await refundReservation(entitlement.reservation.reservationId);
-      }
-    };
-    const requestId = newRequestId();
     try {
       const result = await generateImageWithFallback(data.prompt, requestId);
       if (!result.dataUrl || !result.providerUsed) {
-        await refund();
+        // Whether an upstream provider actually did work here is opaque
+        // (each provider swallows its own errors). Treat as "no billable
+        // provider usage" — refund. This matches the aggregate contract:
+        // if we cannot prove usage we do not charge.
+        await settleOperation(entitlement, { kind: "no_provider", errorCode: "image_all_providers_failed" });
         throw new AiError({
-          code: "ai_upstream_5xx",
-          stage: "image",
-          requestId,
+          code: "ai_upstream_5xx", stage: "image", requestId,
           message: `Image generation failed across ${result.providersTried.join(" → ")}.`,
         });
       }
-      if (entitlement.kind === "pro" && entitlement.reservation) {
-        commitReservation(entitlement.reservation.reservationId, requestId).catch(() => {});
-      } else if (entitlement.kind === "owner") {
-        logOwnerUsage("generate_image", 0, requestId).catch(() => {});
-      }
+      const est = estimateUsdForCall({ imageCount: 1, providerUsed: true });
+      await settleOperation(entitlement, {
+        kind: "success",
+        usage: makeUsage({
+          provider: result.providerUsed, model: null, operation: "generate_image",
+          imageCount: 1,
+          actualCostUsd: null, estimatedCostUsd: est.usd, costBasis: est.basis,
+          providerUsed: true, status: "committed",
+          meta: { providers_tried: result.providersTried },
+        }),
+      });
       const out: ImageResult = {
-        dataUrl: result.dataUrl,
-        providerUsed: result.providerUsed,
-        providersTried: result.providersTried,
-        requestId,
+        dataUrl: result.dataUrl, providerUsed: result.providerUsed,
+        providersTried: result.providersTried, requestId,
       };
       return out;
     } catch (err) {
-      await refund();
+      // If the failure predates settlement (e.g. thrown by fallback), refund.
+      try { await settleOperation(entitlement, { kind: "no_provider", errorCode: "image_internal" }); } catch { /* already settled */ }
       throw err;
     }
   });
@@ -333,91 +334,110 @@ export const generateHtml = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
     const request = getRequest();
-    const entitlement = await requirePaidOperation(request, "generate_html");
+    const requestId = newRequestId();
+    const entitlement = await requirePaidOperation(request, "generate_html", requestId);
     if (entitlement.kind === "denied" && entitlement.denial) {
       throw new PaywallError(entitlement.denial);
     }
-    let settled = false;
-    const settle = async (ok: boolean) => {
-      if (settled) return;
-      settled = true;
-      if (entitlement.kind === "pro" && entitlement.reservation) {
-        if (ok) await commitReservation(entitlement.reservation.reservationId);
-        else await refundReservation(entitlement.reservation.reservationId);
-      } else if (entitlement.kind === "owner" && ok) {
-        await logOwnerUsage("generate_html", 0);
-      }
-    };
+    // Accumulator for every provider call (plan + N images + main chat).
+    const subUsage: UsageRecord[] = [];
+    let providerUsed = false;
+    let mainUsage: { inputTokens: number; outputTokens: number; totalTokens: number; model?: string } | null = null;
+    let mainErrorCode: string | undefined;
     try {
-      const requestId = newRequestId();
       const apiKey = process.env.LOVABLE_API_KEY;
-      if (!apiKey) { await settle(false); throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." }); }
+      if (!apiKey) {
+        await settleOperation(entitlement, { kind: "no_provider", errorCode: "ai_unauthorized" });
+        throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." });
+      }
 
-    const plans = await planImages(apiKey, data.prompt, data.currentHtml, requestId);
-    const generatedRaw = plans.length
-      ? await Promise.all(
-          plans.map(async (p, i) => {
-            const r = await generateImageWithFallback(p.prompt, requestId);
-            return r.dataUrl ? { id: `gen-${i}`, slot: p.slot ?? "image", prompt: p.prompt, url: r.dataUrl, providerUsed: r.providerUsed! } : null;
+      const plans = await planImages(apiKey, data.prompt, data.currentHtml, requestId);
+      const generatedRaw = plans.length
+        ? await Promise.all(
+            plans.map(async (p, i) => {
+              const r = await generateImageWithFallback(p.prompt, requestId);
+              if (r.dataUrl && r.providerUsed) {
+                const est = estimateUsdForCall({ imageCount: 1, providerUsed: true });
+                subUsage.push(makeUsage({
+                  provider: r.providerUsed, operation: "generate_image", imageCount: 1,
+                  estimatedCostUsd: est.usd, costBasis: est.basis, providerUsed: true, status: "committed",
+                }));
+                providerUsed = true;
+                return { id: `gen-${i}`, slot: p.slot ?? "image", prompt: p.prompt, url: r.dataUrl, providerUsed: r.providerUsed };
+              }
+              return null;
+            }),
+          )
+        : [];
+      const images = generatedRaw.filter(Boolean) as Array<{ id: string; slot: string; prompt: string; url: string; providerUsed: ImageProvider }>;
+
+      const MAX_HTML_CHARS = 120_000;
+      const MAX_HISTORY = 6;
+      const truncatedHtml = data.currentHtml && data.currentHtml.length > MAX_HTML_CHARS
+        ? data.currentHtml.slice(0, MAX_HTML_CHARS) + "\n<!-- …truncated for context budget… -->"
+        : data.currentHtml;
+      const trimmedHistory = data.history.slice(-MAX_HISTORY).map((m) => ({
+        role: m.role,
+        content: typeof m.content === "string" && m.content.length > 4000 ? m.content.slice(0, 4000) + "…" : m.content,
+      }));
+
+      const messages: Array<{ role: string; content: string }> = [
+        { role: "system", content: SYSTEM_PROMPT },
+        ...trimmedHistory,
+      ];
+      if (truncatedHtml) {
+        messages.push({ role: "system", content: `The current HTML document is:\n\n${truncatedHtml}\n\nBuild upon it.` });
+      }
+      if (images.length) {
+        const list = images.map((img) => `- ${img.id} · slot=${img.slot} · via=${img.providerUsed} · "${img.prompt}"`).join("\n");
+        messages.push({
+          role: "system",
+          content: `Generated images available. Embed with <img src="{{IMAGE:<id>}}" alt="..."> using placeholder tokens. Do NOT swap in other URLs.\n\n${list}`,
+        });
+      }
+      messages.push({ role: "user", content: data.prompt });
+
+      const r = await aiFetch(
+        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({
+            model: data.model, messages,
+            ...(data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
           }),
-        )
-      : [];
-    const images = generatedRaw.filter(Boolean) as Array<{ id: string; slot: string; prompt: string; url: string; providerUsed: ImageProvider }>;
+        },
+        { breakerKey: `chat/${data.model}`, stage: "generate", requestId, maxAttempts: 2, totalTimeoutMs: 90_000 },
+      );
 
-    const MAX_HTML_CHARS = 120_000;
-    const MAX_HISTORY = 6;
-    const truncatedHtml = data.currentHtml && data.currentHtml.length > MAX_HTML_CHARS
-      ? data.currentHtml.slice(0, MAX_HTML_CHARS) + "\n<!-- …truncated for context budget… -->"
-      : data.currentHtml;
-    const trimmedHistory = data.history.slice(-MAX_HISTORY).map((m) => ({
-      role: m.role,
-      content: typeof m.content === "string" && m.content.length > 4000 ? m.content.slice(0, 4000) + "…" : m.content,
-    }));
+      const json = (await r.response.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown; model?: string };
+      providerUsed = true;
+      mainUsage = parseUsageFromChatJson(json);
+      let html = json.choices?.[0]?.message?.content?.trim() ?? "";
+      html = html.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
 
-    const messages: Array<{ role: string; content: string }> = [
-      { role: "system", content: SYSTEM_PROMPT },
-      ...trimmedHistory,
-    ];
-    if (truncatedHtml) {
-      messages.push({ role: "system", content: `The current HTML document is:\n\n${truncatedHtml}\n\nBuild upon it.` });
-    }
-    if (images.length) {
-      const list = images.map((img) => `- ${img.id} · slot=${img.slot} · via=${img.providerUsed} · "${img.prompt}"`).join("\n");
-      messages.push({
-        role: "system",
-        content:
-          `Generated images available. Embed with <img src="{{IMAGE:<id>}}" alt="..."> using placeholder tokens. Do NOT swap in other URLs.\n\n${list}`,
+      for (const img of images) {
+        html = html.split(`{{IMAGE:${img.id}}}`).join(img.url);
+      }
+
+      if (!html.toLowerCase().includes("<!doctype") && !html.toLowerCase().includes("<html")) {
+        html = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${html}</body></html>`;
+      }
+
+      const est = estimateUsdForCall({
+        model: mainUsage?.model ?? data.model,
+        inputTokens: mainUsage?.inputTokens ?? 0,
+        outputTokens: mainUsage?.outputTokens ?? 0,
+        providerUsed: true,
       });
-    }
-    messages.push({ role: "user", content: data.prompt });
-
-    const r = await aiFetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: data.model,
-          messages,
-          ...(data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
-        }),
-      },
-      { breakerKey: `chat/${data.model}`, stage: "generate", requestId, maxAttempts: 2, totalTimeoutMs: 90_000 },
-    );
-
-    const json = (await r.response.json()) as { choices?: Array<{ message?: { content?: string } }> };
-    let html = json.choices?.[0]?.message?.content?.trim() ?? "";
-    html = html.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
-
-    for (const img of images) {
-      html = html.split(`{{IMAGE:${img.id}}}`).join(img.url);
-    }
-
-    if (!html.toLowerCase().includes("<!doctype") && !html.toLowerCase().includes("<html")) {
-      html = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${html}</body></html>`;
-    }
-
-      await settle(true);
+      subUsage.push(makeUsage({
+        provider: "lovable", model: mainUsage?.model ?? data.model, operation: "generate_html",
+        inputTokens: mainUsage?.inputTokens ?? 0, outputTokens: mainUsage?.outputTokens ?? 0,
+        totalTokens: mainUsage?.totalTokens ?? 0,
+        estimatedCostUsd: est.usd, costBasis: est.basis, providerUsed: true, status: "committed",
+      }));
+      const merged = mergeUsage("generate_html", subUsage);
+      await settleOperation(entitlement, { kind: "success", usage: merged });
       return {
         html,
         generatedImages: images.length,
@@ -425,7 +445,22 @@ export const generateHtml = createServerFn({ method: "POST" })
         requestId,
       };
     } catch (err) {
-      await settle(false);
+      mainErrorCode = err instanceof Error ? err.message.slice(0, 60) : "internal";
+      if (!providerUsed && subUsage.length === 0) {
+        try { await settleOperation(entitlement, { kind: "no_provider", errorCode: mainErrorCode }); } catch { /* already settled */ }
+      } else if (subUsage.length > 0) {
+        // Provider usage occurred before the throw — record failed status
+        // with the cost we already know about.
+        const merged = mergeUsage("generate_html", subUsage);
+        try {
+          await settleOperation(entitlement, {
+            kind: "failed_with_usage", errorCode: mainErrorCode,
+            usage: { ...merged, status: "failed", errorCode: mainErrorCode },
+          });
+        } catch { /* already settled */ }
+      }
       throw err;
     }
   });
+// Silence intentionally-unused re-export.
+void IMAGE_COST_USD;
