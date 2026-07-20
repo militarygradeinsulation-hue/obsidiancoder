@@ -63,8 +63,17 @@ export function PricingModal({ onClose, initialPriceId }: { onClose: () => void;
         </div>
 
         {isPro && !credits.loading && (
-          <div className="px-6 py-3 border-b border-white/10 text-xs text-[#B6BCC8]">
-            You have Obsidian Pro · <span className="text-[#f2eee7]">{credits.used.toLocaleString()}</span> / {credits.cap.toLocaleString()} credits used this month · {credits.remaining.toLocaleString()} remaining.
+          <div className="px-6 py-3 border-b border-white/10 text-xs text-[#B6BCC8] space-y-0.5">
+            <div>
+              Obsidian Pro · <span className="text-[#f2eee7]">{credits.used.toLocaleString()}</span> used
+              {credits.reserved > 0 && <> · <span className="text-[#f2eee7]">{credits.reserved.toLocaleString()}</span> reserved</>}
+              {" · "}<span className="text-[#f2eee7]">{credits.remaining.toLocaleString()}</span> of {credits.cap.toLocaleString()} remaining
+            </div>
+            {credits.periodStart && credits.periodEnd && (
+              <div className="opacity-70">
+                Period: {new Date(credits.periodStart).toLocaleDateString()} → {new Date(credits.periodEnd).toLocaleDateString()}
+              </div>
+            )}
           </div>
         )}
 
