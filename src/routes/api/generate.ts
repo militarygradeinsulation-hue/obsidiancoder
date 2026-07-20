@@ -464,6 +464,8 @@ export const Route = createFileRoute("/api/generate")({
                   model,
                   messages,
                   stream: true,
+                  // Ask the gateway for a final usage frame at the end of the SSE.
+                  stream_options: { include_usage: true },
                   ...(model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
                 }),
               },
