@@ -6,6 +6,14 @@ import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded, firstChunkLooksBad } from "@/lib/upstream-guard";
 import { recordFailure, recordSuccess } from "@/lib/circuit-breaker";
 import { compactHtmlForContext } from "@/lib/context-compactor";
+import {
+  requirePaidOperation,
+  denialResponse,
+  commitReservation,
+  refundReservation,
+  logOwnerUsage,
+} from "@/lib/credit-gate.server";
+import type { EntitlementResult } from "@/lib/credit-gate.server";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -229,11 +237,19 @@ export const Route = createFileRoute("/api/generate")({
     handlers: {
       POST: async ({ request }) => {
         const requestId = newRequestId();
-        try {
-          const { isUnlockedServer } = await import("@/lib/gate.server");
-          if (!(await isUnlockedServer())) {
-            throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "Session is locked." });
+        // Dual gate: site-owner cookie OR signed-in Pro user with credits.
+        // Advisory (chat/plan) is a lighter op; full HTML generation is priced higher.
+        // We defer the entitlement decision to after we parse `data` so we can
+        // pick the right operation cost — but auth/owner check comes first.
+        let entitlement: EntitlementResult | null = null;
+        let committed = false;
+        const refundOnFailure = async () => {
+          const e = entitlement as EntitlementResult | null;
+          if (e?.kind === "pro" && e.reservation && !committed) {
+            await refundReservation(e.reservation.reservationId);
           }
+        };
+        try {
           const apiKey = process.env.LOVABLE_API_KEY;
           if (!apiKey) {
             throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "AI is not configured." });
@@ -250,6 +266,15 @@ export const Route = createFileRoute("/api/generate")({
               message: err instanceof Error ? err.message : "Invalid input.",
             });
           }
+
+          // Entitlement check — after validation so we know if this is a
+          // cheaper advisory op or full HTML generation.
+          const op = data.advisory ? "enhance_prompt" : "generate_html";
+          entitlement = await requirePaidOperation(request, op);
+          if (entitlement.kind === "denied" && entitlement.denial) {
+            return denialResponse(entitlement.denial, requestId);
+          }
+
 
           // TEST HOOK — honoured only outside production so it can't be abused
           // against the live deployment.
@@ -435,10 +460,15 @@ export const Route = createFileRoute("/api/generate")({
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
                 if (ok) {
-                  // Trailers — parsed & stripped by the client BEFORE the
-                  // document is validated or saved. Order matters: the timing
-                  // trailer stays anchored to the very end so the client's
-                  // end-anchored regex reliably peels it off first.
+                  // Commit the reservation now that the stream produced content.
+                  const ent = entitlement as EntitlementResult | null;
+                  if (ent?.kind === "pro" && ent.reservation) {
+                    committed = true;
+                    // Fire and forget — do not block the stream close on commit.
+                    commitReservation(ent.reservation.reservationId, requestId).catch(() => {});
+                  } else if (ent?.kind === "owner") {
+                    logOwnerUsage(op, 0, requestId).catch(() => {});
+                  }
                   try {
                     if (!data.advisory && compacted.imagesReplaced > 0) {
                       const phJson = JSON.stringify(compacted.placeholders);
@@ -449,6 +479,8 @@ export const Route = createFileRoute("/api/generate")({
                   recordSuccess(breakerKeyGen);
                   controller.close();
                 } else {
+                  // Refund pro credits — nothing usable was produced.
+                  refundOnFailure().catch(() => {});
                   recordFailure(breakerKeyGen);
                   controller.error(err ?? new Error("ai_upstream_empty"));
                 }
@@ -513,6 +545,8 @@ export const Route = createFileRoute("/api/generate")({
             },
           });
         } catch (err) {
+          // Refund any pending reservation on synchronous failure.
+          await refundOnFailure();
           const aiErr = err instanceof AiError
             ? err
             : new AiError({

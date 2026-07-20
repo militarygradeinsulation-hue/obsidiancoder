@@ -1,8 +1,29 @@
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import { resolveModel } from "./models";
 import { aiFetch } from "./ai-fetch";
 import { AiError, newRequestId } from "./ai-errors";
+import {
+  requirePaidOperation,
+  commitReservation,
+  refundReservation,
+  logOwnerUsage,
+} from "./credit-gate.server";
+import { creditsRequiredEnvelope, type CreditsRequiredEnvelope } from "./credit-gate";
+
+/** Structured paywall error the client recognizes. */
+class PaywallError extends Error {
+  status: number;
+  envelope: CreditsRequiredEnvelope;
+  constructor(env: CreditsRequiredEnvelope) {
+    super(env.message);
+    this.name = "PaywallError";
+    this.status = env.code === "auth_required" ? 401 : 402;
+    this.envelope = env;
+  }
+}
+void creditsRequiredEnvelope;
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -231,23 +252,44 @@ export const generateImage = createServerFn({ method: "POST" })
     z.object({ prompt: z.string().min(1).max(2000) }).parse(data),
   )
   .handler(async ({ data }) => {
-    const requestId = newRequestId();
-    const result = await generateImageWithFallback(data.prompt, requestId);
-    if (!result.dataUrl || !result.providerUsed) {
-      throw new AiError({
-        code: "ai_upstream_5xx",
-        stage: "image",
-        requestId,
-        message: `Image generation failed across ${result.providersTried.join(" → ")}.`,
-      });
+    const request = getRequest();
+    const entitlement = await requirePaidOperation(request, "generate_image");
+    if (entitlement.kind === "denied" && entitlement.denial) {
+      throw new PaywallError(entitlement.denial);
     }
-    const out: ImageResult = {
-      dataUrl: result.dataUrl,
-      providerUsed: result.providerUsed,
-      providersTried: result.providersTried,
-      requestId,
+    const refund = async () => {
+      if (entitlement.kind === "pro" && entitlement.reservation) {
+        await refundReservation(entitlement.reservation.reservationId);
+      }
     };
-    return out;
+    const requestId = newRequestId();
+    try {
+      const result = await generateImageWithFallback(data.prompt, requestId);
+      if (!result.dataUrl || !result.providerUsed) {
+        await refund();
+        throw new AiError({
+          code: "ai_upstream_5xx",
+          stage: "image",
+          requestId,
+          message: `Image generation failed across ${result.providersTried.join(" → ")}.`,
+        });
+      }
+      if (entitlement.kind === "pro" && entitlement.reservation) {
+        commitReservation(entitlement.reservation.reservationId, requestId).catch(() => {});
+      } else if (entitlement.kind === "owner") {
+        logOwnerUsage("generate_image", 0, requestId).catch(() => {});
+      }
+      const out: ImageResult = {
+        dataUrl: result.dataUrl,
+        providerUsed: result.providerUsed,
+        providersTried: result.providersTried,
+        requestId,
+      };
+      return out;
+    } catch (err) {
+      await refund();
+      throw err;
+    }
   });
 
 // ---------- HTML generation ----------
@@ -290,9 +332,26 @@ async function planImages(apiKey: string, prompt: string, currentHtml: string, r
 export const generateHtml = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
-    const requestId = newRequestId();
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." });
+    const request = getRequest();
+    const entitlement = await requirePaidOperation(request, "generate_html");
+    if (entitlement.kind === "denied" && entitlement.denial) {
+      throw new PaywallError(entitlement.denial);
+    }
+    let settled = false;
+    const settle = async (ok: boolean) => {
+      if (settled) return;
+      settled = true;
+      if (entitlement.kind === "pro" && entitlement.reservation) {
+        if (ok) await commitReservation(entitlement.reservation.reservationId);
+        else await refundReservation(entitlement.reservation.reservationId);
+      } else if (entitlement.kind === "owner" && ok) {
+        await logOwnerUsage("generate_html", 0);
+      }
+    };
+    try {
+      const requestId = newRequestId();
+      const apiKey = process.env.LOVABLE_API_KEY;
+      if (!apiKey) { await settle(false); throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." }); }
 
     const plans = await planImages(apiKey, data.prompt, data.currentHtml, requestId);
     const generatedRaw = plans.length
@@ -358,10 +417,15 @@ export const generateHtml = createServerFn({ method: "POST" })
       html = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${html}</body></html>`;
     }
 
-    return {
-      html,
-      generatedImages: images.length,
-      imageProviders: images.map((i) => ({ id: i.id, providerUsed: i.providerUsed })),
-      requestId,
-    };
+      await settle(true);
+      return {
+        html,
+        generatedImages: images.length,
+        imageProviders: images.map((i) => ({ id: i.id, providerUsed: i.providerUsed })),
+        requestId,
+      };
+    } catch (err) {
+      await settle(false);
+      throw err;
+    }
   });

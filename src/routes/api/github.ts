@@ -1,5 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
+import {
+  requirePaidOperation,
+  denialResponse,
+  commitReservation,
+  refundReservation,
+  logOwnerUsage,
+  type EntitlementResult,
+} from "@/lib/credit-gate.server";
 
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify"), token: z.string().min(10).max(400) }),
@@ -183,12 +191,27 @@ export const Route = createFileRoute("/api/github")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        let entitlement: EntitlementResult | null = null;
+        let committed = false;
         try {
-          const { isUnlockedServer } = await import("@/lib/gate.server");
-          if (!(await isUnlockedServer())) {
-            return Response.json({ error: "Session is locked." }, { status: 401 });
-          }
           const parsed = bodySchema.parse(await request.json());
+
+          // verify / listRepos / import are read-only — allow with either
+          // the owner cookie OR any signed-in user (no credit charge).
+          // deploy is the only paid op here.
+          if (parsed.action === "deploy") {
+            entitlement = await requirePaidOperation(request, "github_deploy");
+            if (entitlement.kind === "denied" && entitlement.denial) {
+              return denialResponse(entitlement.denial);
+            }
+          } else {
+            const { isUnlockedServer } = await import("@/lib/gate.server");
+            if (!(await isUnlockedServer())) {
+              const { resolveUserFromRequest } = await import("@/lib/credit-gate.server");
+              const u = await resolveUserFromRequest(request);
+              if (!u) return Response.json({ error: "Sign in to use GitHub." }, { status: 401 });
+            }
+          }
 
           if (parsed.action === "verify") {
             const user = await getUser(parsed.token);
@@ -219,9 +242,17 @@ export const Route = createFileRoute("/api/github")({
             try {
               pages = await enablePages(parsed.token, user.login, name, branch);
             } catch (e) {
-              // Non-fatal — push still succeeded.
               pages = null;
             }
+          }
+          // Commit the deploy charge.
+          const ent = entitlement as EntitlementResult | null;
+          if (ent?.kind === "pro" && ent.reservation) {
+            committed = true;
+            await commitReservation(ent.reservation.reservationId);
+          } else if (ent?.kind === "owner") {
+            committed = true;
+            await logOwnerUsage("github_deploy", 0);
           }
           return Response.json({
             ok: true,
@@ -230,6 +261,11 @@ export const Route = createFileRoute("/api/github")({
             pages,
           });
         } catch (err) {
+          const ent = entitlement as EntitlementResult | null;
+          if (!committed && ent?.kind === "pro" && ent.reservation) {
+            committed = true;
+            await refundReservation(ent.reservation.reservationId);
+          }
           const msg = err instanceof Error ? err.message : "GitHub request failed.";
           return Response.json({ error: msg }, { status: 400 });
         }

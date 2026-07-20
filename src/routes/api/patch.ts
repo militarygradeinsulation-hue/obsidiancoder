@@ -11,6 +11,14 @@ import { buildContext, nextTier, type ContextTier } from "@/lib/staged-context";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded } from "@/lib/upstream-guard";
+import {
+  requirePaidOperation,
+  denialResponse,
+  commitReservation,
+  refundReservation,
+  logOwnerUsage,
+  type EntitlementResult,
+} from "@/lib/credit-gate.server";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
@@ -128,11 +136,9 @@ export const Route = createFileRoute("/api/patch")({
     handlers: {
       POST: async ({ request }) => {
         const requestId = newRequestId();
+        let entitlement: EntitlementResult | null = null;
+        let committed = false;
         try {
-          const { isUnlockedServer } = await import("@/lib/gate.server");
-          if (!(await isUnlockedServer())) {
-            throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "Session is locked." });
-          }
           const apiKey = process.env.LOVABLE_API_KEY;
           if (!apiKey) {
             throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "AI is not configured." });
@@ -148,6 +154,11 @@ export const Route = createFileRoute("/api/patch")({
               requestId,
               message: err instanceof Error ? err.message : "Bad input.",
             });
+          }
+
+          entitlement = await requirePaidOperation(request, "generate_html_patch");
+          if (entitlement.kind === "denied" && entitlement.denial) {
+            return denialResponse(entitlement.denial, requestId);
           }
 
           let tier: ContextTier = data.contextTier;
@@ -232,6 +243,11 @@ export const Route = createFileRoute("/api/patch")({
             contextSavings: ctx.savings,
           }, { headers: { "X-Request-Id": requestId } });
         } catch (err) {
+          const ent = entitlement as EntitlementResult | null;
+          if (ent?.kind === "pro" && ent.reservation && !committed) {
+            committed = true; // settled — do not double-settle in finally
+            await refundReservation(ent.reservation.reservationId);
+          }
           const aiErr = err instanceof AiError
             ? err
             : new AiError({
@@ -241,6 +257,16 @@ export const Route = createFileRoute("/api/patch")({
                 message: err instanceof Error ? err.message : "Unexpected error.",
               });
           return aiErr.toResponse();
+        } finally {
+          // Commit on any successful (non-thrown) path — response already sent.
+          const ent = entitlement as EntitlementResult | null;
+          if (!committed && ent?.kind === "pro" && ent.reservation) {
+            committed = true;
+            commitReservation(ent.reservation.reservationId, requestId).catch(() => {});
+          } else if (!committed && ent?.kind === "owner") {
+            committed = true;
+            logOwnerUsage("generate_html_patch", 0, requestId).catch(() => {});
+          }
         }
       },
     },
