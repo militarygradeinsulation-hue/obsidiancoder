@@ -1,5 +1,6 @@
 import * as React from "react";
 import { Github, Loader2, ExternalLink, Rocket, Download, Check, X } from "lucide-react";
+import { authFetch } from "@/lib/auth-fetch";
 
 type GhUser = { login: string; avatar_url: string; name?: string };
 type Repo = {
