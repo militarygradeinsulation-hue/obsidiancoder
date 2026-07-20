@@ -59,9 +59,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Design system + branded UI generation",
       "Product readiness reports on every build",
     ],
-    // Existing live Stripe price used as the entry checkout while other
-    // tiers finish onboarding through Stripe.
-    priceId: "obsidian_pro_monthly",
+    priceId: "obsidian_creator_monthly",
     cta: "checkout",
     featured: true,
     icon: Sparkles,
