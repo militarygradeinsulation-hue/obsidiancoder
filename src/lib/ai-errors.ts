@@ -41,6 +41,7 @@ const RETRYABLE: Record<AiErrorCode, boolean> = {
   ai_timeout: true,
   ai_cancelled: false,
   ai_circuit_open: true,
+  billing_settlement_error: false,
   ai_internal: false,
 };
 
