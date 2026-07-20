@@ -1285,6 +1285,11 @@ function Index() {
       });
 
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
+      const imgProviders = res.headers.get("x-obs-image-providers");
+      const imgCount = Number(res.headers.get("x-obs-image-count") || "0");
+      if (imgCount > 0 && imgProviders && imgProviders !== "none") {
+        setTerminal((t) => [...t, `→ Images: ${imgCount} via ${imgProviders}`]);
+      }
       // AI error envelope arrives as JSON — never treat it as generated code.
       if (ctype.includes("application/json")) {
         let envelope: unknown = null;
