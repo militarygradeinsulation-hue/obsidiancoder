@@ -81,6 +81,6 @@ export function refusalOnPatchFailure(scope: SurgeonScope, patchError: string): 
   return {
     ok: false,
     reason: `Surgeon patch failed within scope (${scope.regions.join(",") || "anchors"}): ${patchError.slice(0, 200)}`,
-    suggestion: "Narrow the request further or provide the exact element id — full regeneration is disabled in Surgeon Mode.",
+    suggestion: "Narrow the request or provide the exact element id.",
   };
 }
