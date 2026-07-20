@@ -34,7 +34,7 @@ import { computeReadiness } from "./readiness-score";
 import { advise } from "./refactor-advisor";
 import { resolveScope, refusalOnPatchFailure } from "./code-surgeon";
 import { resolveIntroVideo } from "./intro-asset";
-import { compactHtmlForContext } from "./context-compactor";
+import { compactHtmlForContext, restoreAndVerify } from "./context-compactor";
 import { isFastTier, DEFAULT_MODEL } from "./models";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
@@ -643,17 +643,52 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(!a.contentType || /^video\//.test(a.contentType), `intro-asset: content-type video (${a.contentType})`));
   }
 
-  // ---------- Context compactor (perf pipeline) ----------
+  // ---------- Context compactor: LOSSLESS round-trip ----------
   {
     const bigB64 = "A".repeat(50_000);
-    const html = `<!doctype html><html><body><img src="data:image/png;base64,${bigB64}"><style>${"x".repeat(20_000)}</style><script>${"y".repeat(20_000)}</script></body></html>`;
+    const smallB64 = "B".repeat(80);
+    const css = "body{background:#000;color:#fff}" + "/*pad*/".repeat(3_000);
+    const js = "console.log('x');" + "var _p=1;".repeat(3_000);
+    const tail = `<footer>© 2026 Aetheris — end-of-doc marker: END_TAIL_${"z".repeat(500)}_END</footer>`;
+    const html =
+      `<!doctype html><html><head><style>${css}</style></head><body>` +
+      `<img src="data:image/png;base64,${bigB64}" alt="hero">` +
+      `<img src="data:image/gif;base64,${smallB64}" alt="tiny">` +
+      `<img src="data:image/webp;base64,${"C".repeat(600)}" alt="mid">` +
+      `<p>${"hello world ".repeat(500)}</p>` +
+      `<script>${js}</script>${tail}</body></html>`;
+
     const out = compactHtmlForContext(html);
-    results.push(assert(out.bytes < html.length / 2, `compactor: shrinks large payload (${out.originalBytes}→${out.bytes})`));
-    results.push(assert(out.dataUrlsStripped === 1, `compactor: strips 1 base64 data url (${out.dataUrlsStripped})`));
-    results.push(assert(out.blocksTruncated === 2, `compactor: truncates style + script (${out.blocksTruncated})`));
-    results.push(assert(!/AAAAA{500}/.test(out.html), "compactor: base64 body not retained in output"));
+    results.push(assert(out.imagesReplaced === 2, `compactor: replaces 2 large base64 images (${out.imagesReplaced})`));
+    results.push(assert(!out.html.includes("A".repeat(500)), "compactor: large base64 body not retained"));
+    results.push(assert(out.html.includes(smallB64), "compactor: small base64 preserved verbatim"));
+    results.push(assert(out.html.includes(css) && out.html.includes(js), "compactor: CSS and JS preserved verbatim"));
+    results.push(assert(out.html.includes(tail), "compactor: end-of-document preserved verbatim"));
+    results.push(assert(out.html.includes("hello world hello world"), "compactor: prose preserved verbatim"));
+
+    // Lossless round-trip via restore.
+    const round = restoreAndVerify(out.html, out.placeholders);
+    results.push(assert(round.ok && round.corrupted === 0 && round.unknown === 0, `compactor: round-trip verifies (ok=${round.ok} corrupted=${round.corrupted} unknown=${round.unknown})`));
+    results.push(assert(round.html === html, "compactor: round-trip byte-for-byte identical to input"));
+    results.push(assert(round.restored === 2 && round.dropped === 0, `compactor: restored all placeholders (restored=${round.restored} dropped=${round.dropped})`));
+
+    // Mutation detection: chop 3 chars off a placeholder token.
+    const mutated = out.html.replace(/__OBS_IMG_ph_[a-f0-9]{10}_END__/, "__OBS_IMG_ph_deadbeef_END__");
+    const badMut = restoreAndVerify(mutated, out.placeholders);
+    results.push(assert(!badMut.ok && (badMut.corrupted > 0 || badMut.unknown > 0), `compactor: mutated placeholder rejected (corrupted=${badMut.corrupted} unknown=${badMut.unknown})`));
+
+    // Partial-fragment detection.
+    const truncated = out.html.replace(/__OBS_IMG_ph_[a-f0-9]{10}_END__/, "__OBS_IMG_ph_abc");
+    const badTrunc = restoreAndVerify(truncated, out.placeholders);
+    results.push(assert(!badTrunc.ok && badTrunc.corrupted > 0, `compactor: truncated placeholder rejected (corrupted=${badTrunc.corrupted})`));
+
+    // Dropped placeholder (model removed the image entirely) — allowed, ok=true.
+    const dropped = out.html.replace(/<img src="data:image\/png;base64,__OBS_IMG_ph_[a-f0-9]{10}_END__" alt="hero">/, "");
+    const okDrop = restoreAndVerify(dropped, out.placeholders);
+    results.push(assert(okDrop.ok && okDrop.dropped >= 1, `compactor: dropped placeholder allowed and reported (dropped=${okDrop.dropped})`));
+
     const small = compactHtmlForContext(`<p>hello</p>`);
-    results.push(assert(small.dataUrlsStripped === 0 && small.blocksTruncated === 0, "compactor: leaves small html untouched"));
+    results.push(assert(small.imagesReplaced === 0 && small.html === "<p>hello</p>", "compactor: leaves small html untouched"));
   }
 
   // ---------- Model tiers (fallback safety) ----------
