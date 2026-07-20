@@ -2376,6 +2376,14 @@ function Index() {
 
             {/* Core 4.0 — Adaptive Intelligence */}
             <IntelligencePanel refreshKey={intelligenceTick} intent={lastIntent} decision={lastDecision} lastOperation={lastOperation} />
+            <EngineeringConsolePanel
+              live={engineeringLive}
+              report={engineeringReport}
+              running={engineeringRunning}
+              bypass={engineeringBypass}
+              onToggleBypass={setEngineeringBypass}
+              currentStage={stage ?? undefined}
+            />
             <StrategyExplanation decision={lastDecision} lastOperation={lastOperation} />
             <LearningPanel onChange={() => setIntelligenceTick((n) => n + 1)} />
 
