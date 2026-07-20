@@ -5,7 +5,7 @@ const RESOLVED = resolveIntroVideo();
 const VIDEO_URL = RESOLVED.url;
 
 const FADE_LEAD_MS = 900;
-const FALLBACK_DURATION_MS = 10540;
+const FALLBACK_DURATION_MS = 7850;
 
 export default function IntroSplash() {
   const [show, setShow] = useState(true);
