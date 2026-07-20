@@ -9,11 +9,10 @@ import { compactHtmlForContext } from "@/lib/context-compactor";
 import {
   requirePaidOperation,
   denialResponse,
-  commitReservation,
-  refundReservation,
-  logOwnerUsage,
+  settleOperation,
 } from "@/lib/credit-gate.server";
 import type { EntitlementResult } from "@/lib/credit-gate.server";
+import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, type UsageRecord } from "@/lib/usage-record";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
