@@ -70,6 +70,8 @@ import { appendEvent as appendLedgerEvent } from "@/lib/adaptive-ledger";
 import { loadSettings as loadLearningSettings, saveSettings as saveLearningSettings } from "@/lib/adaptive-profile";
 import { newOperationId, parseProviderHeader, type OperationSummary } from "@/lib/operation-tracker";
 import { useRailResize } from "@/hooks/useRailResize";
+import { reviewBuild, summarizeReport, type AgentReview } from "@/lib/chief-engineer";
+import { EngineeringConsolePanel } from "@/components/panels/EngineeringConsolePanel";
 
 
 
