@@ -545,15 +545,29 @@ export const Route = createFileRoute("/api/generate")({
               let buffer = sniffBuffer;
               let emittedBytes = 0;
               const streamStartedAt = performance.now();
-              const finalize = (ok: boolean, err?: unknown) => {
+              const finalize = async (ok: boolean, err?: unknown) => {
                 const totalMs = Math.round(performance.now() - t0);
                 timing.stream_ms = Math.round(performance.now() - streamStartedAt);
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
                 if (ok) {
-                  // Settle the reservation now that the stream produced content.
-                  // Fire and forget — do not block stream close on the DB write.
-                  settleSuccess().catch(() => {});
+                  // Await settlement before closing so a settlement failure
+                  // surfaces as a stream error instead of silently succeeding.
+                  // The pending ai_usage row remains recoverable on failure.
+                  try {
+                    await settleSuccess();
+                  } catch (settleErr) {
+                    recordFailure(breakerKeyGen);
+                    controller.error(
+                      new AiError({
+                        code: "billing_settlement_error",
+                        stage: "generate",
+                        requestId,
+                        message: settleErr instanceof Error ? settleErr.message.slice(0, 120) : "settlement failed",
+                      }),
+                    );
+                    return;
+                  }
                   try {
                     if (!data.advisory && compacted.imagesReplaced > 0) {
                       const phJson = JSON.stringify(compacted.placeholders);
@@ -564,8 +578,16 @@ export const Route = createFileRoute("/api/generate")({
                   recordSuccess(breakerKeyGen);
                   controller.close();
                 } else {
-                  // No usable output — refund unless the provider still did work.
-                  settleFailure(err instanceof Error ? err.message.slice(0, 60) : "stream_failed").catch(() => {});
+                  // No usable output. If the provider still did work (streaming
+                  // usage present OR image usages recorded), we record a failed
+                  // charge; otherwise we fully refund. Await either path so a
+                  // settlement failure surfaces instead of being swallowed.
+                  try {
+                    await settleFailure(err instanceof Error ? err.message.slice(0, 60) : "stream_failed");
+                  } catch {
+                    // Leave the pending row for a retry — but still error the
+                    // stream so the client sees a definitive failure.
+                  }
                   recordFailure(breakerKeyGen);
                   controller.error(err ?? new Error("ai_upstream_empty"));
                 }
