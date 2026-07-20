@@ -7,7 +7,7 @@ import {
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
   Trash2, Square, Wand2, GripVertical, Pin, Github, CreditCard, User as UserIcon,
-  Camera, Scissors, RefreshCw,
+  Camera, Scissors, RefreshCw, GitMerge,
 } from "lucide-react";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { useServerFn } from "@tanstack/react-start";
@@ -58,6 +58,7 @@ import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/l
 import { EMPTY_COST, foldMetrics, recordRestore, type CostSnapshot } from "@/lib/cost-metrics";
 import { evaluateCommit, type CommitSource } from "@/lib/commit-gate";
 import { stripPreviewOnly } from "@/lib/clean-export";
+import { FusionModal, type FusionCommit } from "@/components/FusionModal";
 import { migrateFromHtml, type Project } from "@/lib/project-model";
 import { record as recordFeedback, type FeedbackEvent } from "@/lib/failure-learning";
 import type { ComponentEntry } from "@/lib/component-library";
@@ -726,6 +727,45 @@ function Index() {
     setError(null);
     setTab("preview");
   }
+
+  const [fusionOpen, setFusionOpen] = useState(false);
+  function commitFusion(c: FusionCommit) {
+    const now = Date.now();
+    const checkpoint: Version = {
+      id: (globalThis.crypto?.randomUUID?.() ?? String(now)),
+      ts: now,
+      html: c.result.checkpointHtml || "",
+      label: "Pre-fusion checkpoint",
+      protected: true,
+    };
+    const fused: Version = {
+      id: (globalThis.crypto?.randomUUID?.() ?? String(now + 1)),
+      ts: now + 1,
+      html: c.html,
+      label: `Fusion (${c.result.plan.mode})`,
+    };
+    const s: Session = {
+      ...newSession(),
+      title: c.title,
+      html: c.html,
+      messages: [
+        { role: "assistant", content: `Fused ${c.result.metrics.projectsCombined} projects (${c.result.plan.mode}). ${c.result.metrics.filesAdded} sections, ${c.result.metrics.filesDeduplicated} deduped, ${c.result.metrics.conflictsResolved} conflicts auto-resolved.` },
+      ],
+      versions: [checkpoint, fused],
+    };
+    setSessions((all) => [...all, s]);
+    setActiveId(s.id);
+    setTerminal((t) => [
+      ...t,
+      `⧗ Fusion: inventory → compatibility → conflict detection → plan → merge → validation → commit`,
+      `✓ Fused ${c.result.metrics.projectsCombined} projects in ${c.result.metrics.totalMs}ms (validated in ${c.result.metrics.validationMs}ms)`,
+      `  · files added ${c.result.metrics.filesAdded} · deduped ${c.result.metrics.filesDeduplicated} · routes ${c.result.metrics.routesCreated}`,
+      `  · conflicts auto-resolved ${c.result.metrics.conflictsResolved} · needs input ${c.result.metrics.conflictsRequiringInput}`,
+    ]);
+    setFusionOpen(false);
+    setTab("preview");
+  }
+
 
   function closeSession(id: string, e: React.MouseEvent) {
     e.stopPropagation();
@@ -1823,6 +1863,15 @@ function Index() {
               <button type="button" onClick={addSession} className="obs-icon-btn" aria-label="New tab">
                 <Plus className="h-4 w-4" />
               </button>
+              <button
+                type="button"
+                onClick={() => setFusionOpen(true)}
+                className="obs-chip"
+                aria-label="Combine projects"
+                title="Combine two or more projects into one (Project Fusion)"
+              >
+                <GitMerge className="h-3.5 w-3.5" /> Combine
+              </button>
             </div>
           </div>
           <div className="obs-topbar-right">
@@ -2853,6 +2902,7 @@ function Index() {
             <div className="obs-palette-list">
               {[
                 { label: "New tab", run: () => { setPaletteOpen(false); addSession(); } },
+                { label: "Combine projects (Fusion)…", run: () => { setPaletteOpen(false); setFusionOpen(true); } },
                 { label: "Clear this session", run: () => { setPaletteOpen(false); clearAll(); } },
                 { label: "Toggle Preview / Code", run: () => { setPaletteOpen(false); setTab(tab === "preview" ? "code" : "preview"); } },
                 { label: "Desktop view", run: () => { setPaletteOpen(false); setDevice("desktop"); } },
@@ -2909,6 +2959,12 @@ function Index() {
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
+      <FusionModal
+        open={fusionOpen}
+        projects={sessions.map((s) => ({ id: s.id, title: s.title || "Untitled", html: s.html || "" }))}
+        onClose={() => setFusionOpen(false)}
+        onCommit={commitFusion}
+      />
       {captureMode && (
         <ScreenCaptureModal
           mode={captureMode}

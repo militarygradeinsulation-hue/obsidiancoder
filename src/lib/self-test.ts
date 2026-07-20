@@ -36,6 +36,16 @@ import { resolveScope, refusalOnPatchFailure } from "./code-surgeon";
 import { resolveIntroVideo } from "./intro-asset";
 import { compactHtmlForContext, restoreAndVerify } from "./context-compactor";
 import { isFastTier, DEFAULT_MODEL } from "./models";
+import {
+  inventoryProject as fus_inventory,
+  detectConflicts as fus_detectConflicts,
+  generatePlan as fus_generatePlan,
+  fuseProjects as fus_fuse,
+  rollbackFusion as fus_rollback,
+  contentHash as fus_hash,
+  type FusionConflict,
+  type FusionProvenance,
+} from "./project-fusion";
 
 export type TestResult = { name: string; ok: boolean; detail?: string };
 
@@ -697,6 +707,58 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(!isFastTier("google/gemini-3.1-pro-preview"), "models: Gemini Pro is not fast-tier"));
     results.push(assert(!isFastTier("openai/gpt-5.5"), "models: GPT-5.5 is not fast-tier"));
   }
+
+  // ---------- Project Fusion ----------
+  {
+    const A = { id: "a", title: "Alpha Shop", html: `<!doctype html><html><head><title>A</title><style>:root{--brand:#f00}#hero{color:red}</style></head><body><h1 id="hero">Alpha</h1><script src="https://cdn.jsdelivr.net/npm/lodash@4.17.21"></script></body></html>` };
+    const B = { id: "b", title: "Alpha Shop", html: `<!doctype html><html><head><title>B</title><style>:root{--brand:#0f0}#hero{color:green}</style></head><body><h1 id="hero">Beta</h1><script src="https://cdn.jsdelivr.net/npm/lodash@3.10.1"></script></body></html>` };
+    const C = { id: "c", title: "Gamma Dash", html: `<!doctype html><html><head><title>C</title></head><body><section id="dash"><p>Gamma</p></section></body></html>` };
+    const invs = [A, B, C].map(fus_inventory);
+    results.push(assert(invs.length === 3, "fusion: inventory built for 3 projects"));
+    const conflicts = fus_detectConflicts(invs);
+    results.push(assert(conflicts.some((c: FusionConflict) => c.kind === "duplicate-id" && c.key === "id:hero"), "fusion: duplicate id detected"));
+    results.push(assert(conflicts.some((c: FusionConflict) => c.kind === "route-collision"), "fusion: route collision on duplicate slug"));
+    results.push(assert(conflicts.some((c: FusionConflict) => c.kind === "css-var-collision" && c.key === "cssvar:brand"), "fusion: css var collision detected"));
+    results.push(assert(conflicts.some((c: FusionConflict) => c.kind === "dependency-version"), "fusion: dep version conflict detected"));
+
+    const plan = fus_generatePlan(invs, "a", "module");
+    results.push(assert(plan.baseProjectId === "a" && plan.operations.length >= 3, "fusion: plan generated with base"));
+
+    // Fuse — module mode should namespace ids, isolating collisions
+    const rModule = fus_fuse([A, B, C], "a", "module");
+    results.push(assert(rModule.html.includes("alpha-shop__hero") && rModule.html.includes("alpha-shop-2__hero"), "fusion: module mode namespaces ids to avoid collision"));
+    results.push(assert(rModule.metrics.projectsCombined === 3, "fusion: metrics.projectsCombined correct"));
+    results.push(assert(rModule.provenance.entries.some((e: FusionProvenance["entries"][number]) => e.sourceProjectId === "a"), "fusion: provenance traces to source"));
+
+    // Smart mode dedupes identical inline styles
+    const D = { id: "d", title: "Dup A", html: `<!doctype html><html><body><style>.x{color:red}</style><div class="x">D</div></body></html>` };
+    const E = { id: "e", title: "Dup B", html: `<!doctype html><html><body><style>.x{color:red}</style><div class="x">E</div></body></html>` };
+    const rSmart = fus_fuse([D, E], "d", "smart");
+    results.push(assert(rSmart.metrics.filesDeduplicated >= 1, "fusion: smart merge dedupes identical style block"));
+
+    // Suite generates shell + routes
+    const rSuite = fus_fuse([A, C], "a", "suite");
+    results.push(assert(rSuite.metrics.routesCreated === 2 && rSuite.html.includes("obs-fusion-shell-nav"), "fusion: suite mode builds shared shell"));
+
+    // Rejects <2 projects
+    const rSingle = fus_fuse([A], "a", "module");
+    results.push(assert(!rSingle.ok && rSingle.blockers.length > 0, "fusion: rejects when fewer than 2 projects"));
+
+    // Rollback returns checkpoint
+    const rb = fus_rollback(A.html);
+    results.push(assert(rb.ok && rb.html === A.html, "fusion: rollback returns checkpoint html"));
+
+    // Validation runs on output
+    results.push(assert(rModule.validation.status !== "failed", "fusion: module output passes validation"));
+
+    // Provenance covers every source
+    const sources = new Set(rModule.provenance.entries.map((e: FusionProvenance["entries"][number]) => e.sourceProjectId));
+    results.push(assert(sources.has("a") && sources.has("b") && sources.has("c"), "fusion: provenance covers all sources"));
+
+    // Content hash is stable
+    results.push(assert(fus_hash("abc") === fus_hash("abc") && fus_hash("abc") !== fus_hash("abd"), "fusion: content hash stable & discriminates"));
+  }
+
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
