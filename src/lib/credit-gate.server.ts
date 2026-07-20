@@ -1,17 +1,18 @@
 // Server-only credit gate. Never import from client bundles.
 //
-// Runtime flow (as of the usage-ledger conversion):
+// Runtime flow (usage_* ledger — the ONLY runtime billing surface):
 //   1. requirePaidOperation(request, op, requestId)
-//        → owner cookie OR bearer → active Pro → reserve_credits_v2(requestId)
+//        → owner cookie OR bearer → active Pro (real period) → usage_reserve(requestId)
 //        → returns EntitlementResult { kind, reservation?, denial? }.
 //   2. Caller does the work, then builds a UsageRecord.
-//   3. settleOperation(ent, requestId, outcome) commits, refunds, or logs
-//      owner activity as appropriate and writes a row to `ai_usage`.
+//   3. settleOperation(ent, outcome) commits (usage_finalize), refunds
+//      (usage_refund), or logs owner activity. usage_finalize UPDATES the
+//      same pending ai_usage row — no second insert.
 //
-// Legacy `reserve_credits` / `commit_credits` RPCs are NEVER called from
-// runtime paths anymore — only `reserve_credits_v2`, `finalize_credits`, and
-// `refund_credits`. The pure JS ReservationLedger in `credit-gate.ts` still
-// mirrors the SQL contract for unit tests.
+// Legacy `reserve_credits*` / `finalize_credits` / `refund_credits` RPCs
+// are NOT called from any runtime path. The pure JS ReservationLedger in
+// `credit-gate.ts` mirrors the SQL contract for unit tests.
+
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@/integrations/supabase/types";
