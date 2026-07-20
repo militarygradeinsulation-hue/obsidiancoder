@@ -3,11 +3,11 @@ import { z } from "zod";
 import {
   requirePaidOperation,
   denialResponse,
-  commitReservation,
-  refundReservation,
-  logOwnerUsage,
+  settleOperation,
   type EntitlementResult,
 } from "@/lib/credit-gate.server";
+import { makeUsage } from "@/lib/usage-record";
+import { newRequestId } from "@/lib/ai-errors";
 
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify"), token: z.string().min(10).max(400) }),
