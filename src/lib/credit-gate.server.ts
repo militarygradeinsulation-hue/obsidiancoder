@@ -117,19 +117,22 @@ export interface EntitlementResult {
 }
 
 /**
- * Atomic, idempotent reservation via `reserve_credits_v2`. The same
- * `requestId` returns the same reservation row without double-charging —
- * the SQL enforces the invariant, we just carry the id through.
+ * Atomic, idempotent reservation via `usage_reserve`. The same
+ * `requestId` returns the same ai_usage row — SQL enforces the invariant.
+ * Returns `{ reservation | null | "no_period" }`:
+ *   - reservation: successful reservation (or the existing idempotent row)
+ *   - null:        cap would be exceeded (no row created)
+ *   - "no_period": subscription is missing / expired current period
  */
-async function reserveCreditsV2(
+async function usageReserve(
   user: AuthedUser,
   operation: Operation,
   env: Environment,
   requestId: string,
-): Promise<Reservation | null> {
+): Promise<Reservation | null | "no_period"> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const amount = costForOperation(operation);
-  const { data, error } = await supabaseAdmin.rpc("reserve_credits_v2" as never, {
+  const { data, error } = await supabaseAdmin.rpc("usage_reserve" as never, {
     _user_id: user.userId,
     _amount: amount,
     _cap: CAP_PRO_MONTHLY,
@@ -137,7 +140,10 @@ async function reserveCreditsV2(
     _operation: operation,
     _request_id: requestId,
   } as never);
-  if (error) throw new Error(`reserve_credits_v2 failed: ${error.message}`);
+  if (error) {
+    if (/no_active_subscription_period/.test(error.message)) return "no_period";
+    throw new Error(`usage_reserve failed: ${error.message}`);
+  }
   const row = (Array.isArray(data) ? data[0] : data) as
     | { reservation_id: string; credits: number; used_before: number; remaining_after: number; idempotent: boolean }
     | null
@@ -155,32 +161,48 @@ async function reserveCreditsV2(
 }
 
 /**
- * Finalize a reservation to `actualCredits`. Errors are surfaced — settlement
- * failures must never be silently swallowed (a swallowed finalize would leak
- * the reservation as pending forever).
+ * Finalize a reservation in-place (usage_finalize UPDATEs the pending row
+ * — no second insert). Idempotent for already-terminal rows.
+ * Errors are surfaced; a swallowed failure would leak the reservation.
  */
-async function finalizeReservation(
+async function usageFinalize(
   reservationId: string,
   actualCredits: number,
   requestId: string,
+  status: "committed" | "failed",
+  usage?: UsageRecord,
+  errorCode?: string,
 ): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data, error } = await supabaseAdmin.rpc("finalize_credits" as never, {
+  const { data, error } = await supabaseAdmin.rpc("usage_finalize" as never, {
     _reservation_id: reservationId,
     _actual_credits: Math.max(0, Math.floor(actualCredits)),
     _request_id: requestId,
+    _status: status,
+    _error_code: errorCode ?? usage?.errorCode ?? null,
+    _provider: usage?.provider ?? null,
+    _model: usage?.model ?? null,
+    _input_tokens: usage?.inputTokens ?? 0,
+    _output_tokens: usage?.outputTokens ?? 0,
+    _total_tokens: usage?.totalTokens ?? 0,
+    _image_count: usage?.imageCount ?? 0,
+    _actual_cost_usd: usage?.actualCostUsd ?? null,
+    _estimated_cost_usd: usage?.estimatedCostUsd ?? null,
+    _cost_basis: usage?.costBasis ?? null,
+    _meta: usage?.meta ?? null,
   } as never);
-  if (error) throw new Error(`finalize_credits failed: ${error.message}`);
-  if (data === false) throw new Error("finalize_credits returned false (reservation missing or wrong state)");
+  if (error) throw new Error(`usage_finalize failed: ${error.message}`);
+  if (data === false) throw new Error("usage_finalize returned false (reservation missing)");
 }
 
-async function refundReservation(reservationId: string): Promise<void> {
+async function usageRefundReservation(reservationId: string): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { error } = await supabaseAdmin.rpc("refund_credits" as never, {
+  const { error } = await supabaseAdmin.rpc("usage_refund" as never, {
     _reservation_id: reservationId,
   } as never);
-  if (error) throw new Error(`refund_credits failed: ${error.message}`);
+  if (error) throw new Error(`usage_refund failed: ${error.message}`);
 }
+
 
 export interface OwnerUsageMeta {
   provider?: string;
