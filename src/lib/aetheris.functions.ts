@@ -1,6 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { resolveModel } from "./models";
+import { aiFetch } from "./ai-fetch";
+import { AiError, newRequestId } from "./ai-errors";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -14,6 +16,13 @@ const inputSchema = z.object({
   model: z.string().optional().transform((m) => resolveModel(m)),
 });
 
+export type ImageProvider = "leonardo" | "higgsfield" | "gemini";
+export interface ImageResult {
+  dataUrl: string;
+  providerUsed: ImageProvider;
+  providersTried: ImageProvider[];
+  requestId: string;
+}
 
 const SYSTEM_PROMPT = `You are Aetheris Coder — an elite AI front-end engineer.
 Understand the user's intent immediately. Do not ask clarifying questions. Do not narrate.
@@ -34,106 +43,64 @@ Hard rules:
 - Never remove previously-built features unless explicitly asked.
 - Safe: no third-party scripts, no tracking, no network calls beyond loading the images described above.
 
-Image-generator builds (when the user asks you to build a tool that GENERATES images from a prompt) — strict fidelity rules, no exceptions:
-- The user's typed prompt is the single source of truth. Send it to the image model VERBATIM. Do not rewrite, translate, summarize, "enhance", or moralize it before sending.
-- Do NOT prepend hidden style directives, quality suffixes, negative prompts, artist names, or invented subjects/objects/colors/settings the user did not type. No silent "cinematic, 8k, trending on artstation" garnish.
-- If (and only if) you expose an optional "Enhance prompt" affordance, it must be a separate, clearly-labelled button that shows the rewritten prompt in the input first and lets the user accept, edit, or reject it before generation. The raw prompt path must remain available and default.
-- Show the exact string that was sent to the model next to each result (a small "Prompt used" caption). If any transformation happened, show before → after so the user can see it.
-- Never fabricate a result. If the model returns an error, rate limit, moderation block, or empty payload, render a clear error state with the real message — do NOT display a stock/placeholder image, an Unsplash photo, an emoji, or a previously generated image and pretend it is the new output.
-- Only render images that actually came back from the generation call in this session. Do not seed the gallery with example/demo images unless the user explicitly asked for demo images, and if you do, label them "Example" so they cannot be confused with real generations.
-- Wire the generator to a real image model via a POST to a real endpoint (default: POST /v1/images/generations on the configured gateway, or the endpoint the user specified). Do not simulate generation with setTimeout + a hard-coded image URL. If no key/endpoint is available, render a disabled state that says so — do not fake output.
-- Seed / size / model / count controls in the UI must map 1:1 to the request body. If a control is not wired to the request, remove it. Never show a control that lies about what it does.
-- Preserve every character of the user's prompt in state and in the request — do not trim, lowercase, strip punctuation, collapse whitespace beyond a single trim of leading/trailing spaces, or auto-correct spelling.`;
+Image-generator builds — strict fidelity rules, no exceptions:
+- The user's typed prompt is the single source of truth. Send it VERBATIM. No silent rewrites, style suffixes, or moralizing.
+- If you expose an "Enhance prompt" affordance, it must be a separate button that shows the rewritten prompt in the input first and lets the user accept, edit, or reject it. The raw prompt path stays default.
+- Show the exact string sent to the model beside each result (a "Prompt used" caption). If any transformation happened, show before → after.
+- Never fabricate a result. On error/moderation/empty payload, render a clear error state — never a stock/placeholder/previous image.
+- Only render images that actually came back from a generation call in this session.
+- Wire the generator to a real endpoint (default POST /v1/images/generations). Never simulate with setTimeout + a hardcoded URL. If no key, render a disabled state.
+- Seed/size/model/count controls must map 1:1 to the request body. Remove any control not wired.
+- Preserve every character of the user's prompt in state and request.`;
 
-export const generateImage = createServerFn({ method: "POST" })
-  .inputValidator((data: unknown) =>
-    z.object({ prompt: z.string().min(1).max(2000) }).parse(data),
-  )
-  .handler(async ({ data }) => {
-    // Primary: Leonardo AI (verbatim prompt, no auto-enhance).
-    const leo = await generateWithLeonardo(data.prompt);
-    if (leo) return { dataUrl: leo };
+// ---------- Image providers ----------
 
-    // Secondary: Higgsfield Soul (text-to-image).
-    const hf = await generateWithHiggsfield(data.prompt);
-    if (hf) return { dataUrl: hf };
-
-    // Fallback: Lovable AI Gateway (Gemini 3 Pro Image).
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (apiKey) {
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model: "google/gemini-3-pro-image",
-          messages: [{ role: "user", content: data.prompt }],
-          modalities: ["image", "text"],
-        }),
-      });
-      if (res.ok) {
-        const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-        const b64 = json.data?.[0]?.b64_json;
-        if (b64) return { dataUrl: `data:image/png;base64,${b64}` };
-      } else if (res.status === 429) {
-        throw new Error("Rate limit reached.");
-      } else if (res.status === 402) {
-        throw new Error("AI credits exhausted.");
-      }
-    }
-    throw new Error("Image generation failed. Check LEONARDO_API_KEY / HIGGSFIELD keys.");
-  });
-
-// Higgsfield Soul text-to-image (create job → poll → fetch → base64).
-async function generateWithHiggsfield(prompt: string): Promise<string | null> {
-  const keyId = process.env.HIGGSFIELD_API_KEY_ID;
-  const keySecret = process.env.HIGGSFIELD_API_KEY_SECRET;
-  if (!keyId || !keySecret) return null;
-  const headers = {
-    "Content-Type": "application/json",
-    Accept: "application/json",
-    "hf-api-key": keyId,
-    "hf-secret": keySecret,
-  };
+async function tryLeonardo(prompt: string, requestId: string, signal?: AbortSignal): Promise<string | null> {
+  const key = process.env.LEONARDO_API_KEY;
+  if (!key) return null;
   try {
-    const create = await fetch("https://platform.higgsfield.ai/v1/text2image/soul", {
-      method: "POST",
-      headers,
-      body: JSON.stringify({
-        params: {
+    const create = await aiFetch(
+      "https://cloud.leonardo.ai/api/rest/v1/generations",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, Accept: "application/json" },
+        body: JSON.stringify({
           prompt: prompt.slice(0, 1400),
-          width_and_height: "1024x1024",
-          quality: "1080p",
-          batch_size: 1,
-          seed: Math.floor(Math.random() * 1_000_000),
-          enhance_prompt: false,
-        },
-      }),
-    });
-    if (!create.ok) return null;
-    const cj = (await create.json()) as { id?: string; job_set_id?: string };
-    const jobId = cj.id ?? cj.job_set_id;
-    if (!jobId) return null;
+          modelId: "6b645e3a-d64f-4341-a6d8-7a3690fbf042",
+          width: 1024, height: 1024, num_images: 1,
+          alchemy: false, contrast: 3.5, enhancePrompt: false,
+          presetStyle: "DYNAMIC", public: false,
+        }),
+      },
+      { breakerKey: "leonardo/create", stage: "image", requestId, signal, maxAttempts: 2, totalTimeoutMs: 20_000 },
+    );
+    const cj = (await create.response.json()) as { sdGenerationJob?: { generationId?: string } };
+    const genId = cj.sdGenerationJob?.generationId;
+    if (!genId) return null;
 
-    for (let i = 0; i < 20; i++) {
-      await new Promise((r) => setTimeout(r, 2000));
-      const poll = await fetch(`https://platform.higgsfield.ai/v1/job-sets/${jobId}`, { headers });
-      if (!poll.ok) continue;
-      const pj = (await poll.json()) as {
-        status?: string;
-        jobs?: Array<{ status?: string; results?: { raw?: { url?: string }; min?: { url?: string } } }>;
-      };
-      const job = pj.jobs?.[0];
-      const status = (job?.status ?? pj.status ?? "").toLowerCase();
-      if (status === "completed" || status === "complete" || status === "succeeded") {
-        const url = job?.results?.raw?.url ?? job?.results?.min?.url;
-        if (!url) return null;
-        const img = await fetch(url);
-        if (!img.ok) return null;
-        const buf = await img.arrayBuffer();
-        const b64 = Buffer.from(buf).toString("base64");
-        return `data:image/png;base64,${b64}`;
-      }
-      if (status === "failed" || status === "canceled" || status === "cancelled") return null;
+    const deadline = Date.now() + 25_000;
+    let backoff = 1500;
+    while (Date.now() < deadline) {
+      if (signal?.aborted) return null;
+      await sleep(backoff, signal);
+      backoff = Math.min(3000, Math.round(backoff * 1.25));
+      try {
+        const poll = await aiFetch(
+          `https://cloud.leonardo.ai/api/rest/v1/generations/${genId}`,
+          { headers: { Authorization: `Bearer ${key}`, Accept: "application/json" } },
+          { breakerKey: "leonardo/poll", stage: "image", requestId, signal, maxAttempts: 1, totalTimeoutMs: 8_000 },
+        );
+        const pj = (await poll.response.json()) as {
+          generations_by_pk?: { status?: string; generated_images?: Array<{ url?: string }> };
+        };
+        const g = pj.generations_by_pk;
+        if (g?.status === "COMPLETE") {
+          const url = g.generated_images?.[0]?.url;
+          if (!url) return null;
+          return await downloadAsDataUrl(url, signal);
+        }
+        if (g?.status === "FAILED") return null;
+      } catch { /* keep polling until deadline */ }
     }
     return null;
   } catch {
@@ -141,33 +108,173 @@ async function generateWithHiggsfield(prompt: string): Promise<string | null> {
   }
 }
 
-
-
-
-async function planImages(apiKey: string, prompt: string, currentHtml: string) {
-  // Cheap planning call: ask for up to 4 image prompts as JSON.
-  const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-    body: JSON.stringify({
-      model: "google/gemini-3.1-flash-lite",
-      messages: [
-        {
-          role: "system",
-          content:
-            'You decide whether a web build needs generated images. Return ONLY compact JSON: {"images":[{"slot":"hero|card|logo|bg|icon","prompt":"..."}]}. Include an image ONLY if the user explicitly asks for visuals (image, photo, picture, illustration, logo, banner, hero) or the build is clearly visual (portfolio, gallery, landing page hero). Otherwise return {"images":[]}. Max 4 items. Each prompt: concrete, detailed, style-rich, no text-in-image.',
-        },
-        {
-          role: "user",
-          content: `USER REQUEST: ${prompt}\n\nCURRENT HTML (may be empty): ${currentHtml.slice(0, 2000)}`,
-        },
-      ],
-      response_format: { type: "json_object" },
-    }),
-  });
-  if (!res.ok) return [];
-  const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
+async function tryHiggsfield(prompt: string, requestId: string, signal?: AbortSignal): Promise<string | null> {
+  const keyId = process.env.HIGGSFIELD_API_KEY_ID;
+  const keySecret = process.env.HIGGSFIELD_API_KEY_SECRET;
+  if (!keyId || !keySecret) return null;
+  const headers = {
+    "Content-Type": "application/json", Accept: "application/json",
+    "hf-api-key": keyId, "hf-secret": keySecret,
+  };
   try {
+    const create = await aiFetch(
+      "https://platform.higgsfield.ai/v1/text2image/soul",
+      {
+        method: "POST", headers,
+        body: JSON.stringify({
+          params: {
+            prompt: prompt.slice(0, 1400),
+            width_and_height: "1024x1024", quality: "1080p", batch_size: 1,
+            seed: Math.floor(Math.random() * 1_000_000), enhance_prompt: false,
+          },
+        }),
+      },
+      { breakerKey: "higgsfield/create", stage: "image", requestId, signal, maxAttempts: 2, totalTimeoutMs: 20_000 },
+    );
+    const cj = (await create.response.json()) as { id?: string; job_set_id?: string };
+    const jobId = cj.id ?? cj.job_set_id;
+    if (!jobId) return null;
+
+    const deadline = Date.now() + 30_000;
+    let backoff = 1500;
+    while (Date.now() < deadline) {
+      if (signal?.aborted) return null;
+      await sleep(backoff, signal);
+      backoff = Math.min(3000, Math.round(backoff * 1.25));
+      try {
+        const poll = await aiFetch(
+          `https://platform.higgsfield.ai/v1/job-sets/${jobId}`,
+          { headers },
+          { breakerKey: "higgsfield/poll", stage: "image", requestId, signal, maxAttempts: 1, totalTimeoutMs: 8_000 },
+        );
+        const pj = (await poll.response.json()) as {
+          status?: string;
+          jobs?: Array<{ status?: string; results?: { raw?: { url?: string }; min?: { url?: string } } }>;
+        };
+        const job = pj.jobs?.[0];
+        const status = (job?.status ?? pj.status ?? "").toLowerCase();
+        if (status === "completed" || status === "complete" || status === "succeeded") {
+          const url = job?.results?.raw?.url ?? job?.results?.min?.url;
+          if (!url) return null;
+          return await downloadAsDataUrl(url, signal);
+        }
+        if (status === "failed" || status === "canceled" || status === "cancelled") return null;
+      } catch { /* keep polling */ }
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+async function tryGemini(prompt: string, requestId: string, signal?: AbortSignal): Promise<string | null> {
+  const apiKey = process.env.LOVABLE_API_KEY;
+  if (!apiKey) return null;
+  try {
+    const r = await aiFetch(
+      "https://ai.gateway.lovable.dev/v1/images/generations",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "google/gemini-3-pro-image",
+          messages: [{ role: "user", content: prompt }],
+          modalities: ["image", "text"],
+        }),
+      },
+      { breakerKey: "gemini/image", stage: "image", requestId, signal, maxAttempts: 2, totalTimeoutMs: 45_000 },
+    );
+    const json = (await r.response.json()) as { data?: Array<{ b64_json?: string }> };
+    const b64 = json.data?.[0]?.b64_json;
+    return b64 ? `data:image/png;base64,${b64}` : null;
+  } catch (err) {
+    if (err instanceof AiError && (err.code === "ai_unauthorized" || err.code === "ai_bad_request")) throw err;
+    return null;
+  }
+}
+
+async function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    const t = setTimeout(resolve, ms);
+    signal?.addEventListener("abort", () => { clearTimeout(t); resolve(); }, { once: true });
+  });
+}
+
+async function downloadAsDataUrl(url: string, signal?: AbortSignal): Promise<string | null> {
+  try {
+    const img = await fetch(url, { signal });
+    if (!img.ok) return null;
+    const buf = await img.arrayBuffer();
+    const b64 = Buffer.from(buf).toString("base64");
+    return `data:image/png;base64,${b64}`;
+  } catch {
+    return null;
+  }
+}
+
+async function generateImageWithFallback(prompt: string, requestId: string, signal?: AbortSignal): Promise<{ dataUrl: string | null; providerUsed: ImageProvider | null; providersTried: ImageProvider[] }> {
+  const tried: ImageProvider[] = [];
+  tried.push("leonardo");
+  const leo = await tryLeonardo(prompt, requestId, signal);
+  if (leo) return { dataUrl: leo, providerUsed: "leonardo", providersTried: tried };
+  tried.push("higgsfield");
+  const hf = await tryHiggsfield(prompt, requestId, signal);
+  if (hf) return { dataUrl: hf, providerUsed: "higgsfield", providersTried: tried };
+  tried.push("gemini");
+  const gm = await tryGemini(prompt, requestId, signal);
+  if (gm) return { dataUrl: gm, providerUsed: "gemini", providersTried: tried };
+  return { dataUrl: null, providerUsed: null, providersTried: tried };
+}
+
+export const generateImage = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) =>
+    z.object({ prompt: z.string().min(1).max(2000) }).parse(data),
+  )
+  .handler(async ({ data }) => {
+    const requestId = newRequestId();
+    const result = await generateImageWithFallback(data.prompt, requestId);
+    if (!result.dataUrl || !result.providerUsed) {
+      throw new AiError({
+        code: "ai_upstream_5xx",
+        stage: "image",
+        requestId,
+        message: `Image generation failed across ${result.providersTried.join(" → ")}.`,
+      });
+    }
+    const out: ImageResult = {
+      dataUrl: result.dataUrl,
+      providerUsed: result.providerUsed,
+      providersTried: result.providersTried,
+      requestId,
+    };
+    return out;
+  });
+
+// ---------- HTML generation ----------
+
+async function planImages(apiKey: string, prompt: string, currentHtml: string, requestId: string): Promise<Array<{ slot?: string; prompt: string }>> {
+  try {
+    const r = await aiFetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-lite",
+          messages: [
+            {
+              role: "system",
+              content:
+                'You decide whether a web build needs generated images. Return ONLY compact JSON: {"images":[{"slot":"hero|card|logo|bg|icon","prompt":"..."}]}. Include an image ONLY if the user explicitly asks for visuals or the build is clearly visual (portfolio, gallery, landing hero). Otherwise return {"images":[]}. Max 4 items.',
+            },
+            { role: "user", content: `USER REQUEST: ${prompt}\n\nCURRENT HTML: ${currentHtml.slice(0, 2000)}` },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      },
+      { breakerKey: "gemini/plan", stage: "plan", requestId, maxAttempts: 2, totalTimeoutMs: 20_000 },
+    );
+    const json = (await r.response.json()) as { choices?: Array<{ message?: { content?: string } }> };
     const parsed = JSON.parse(json.choices?.[0]?.message?.content ?? "{}");
     const imgs = Array.isArray(parsed.images) ? parsed.images : [];
     return imgs
@@ -180,125 +287,32 @@ async function planImages(apiKey: string, prompt: string, currentHtml: string) {
   }
 }
 
-// Leonardo AI image generation (create → poll → download → base64).
-async function generateWithLeonardo(prompt: string): Promise<string | null> {
-  const key = process.env.LEONARDO_API_KEY;
-  if (!key) return null;
-  try {
-    const create = await fetch("https://cloud.leonardo.ai/api/rest/v1/generations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}`, Accept: "application/json" },
-      body: JSON.stringify({
-        prompt: prompt.slice(0, 1400),
-        modelId: "6b645e3a-d64f-4341-a6d8-7a3690fbf042", // Leonardo Phoenix 1.0
-        width: 1024,
-        height: 1024,
-        num_images: 1,
-        alchemy: false,
-        contrast: 3.5,
-        enhancePrompt: false,
-        presetStyle: "DYNAMIC",
-        public: false,
-      }),
-    });
-
-    if (!create.ok) return null;
-    const cj = (await create.json()) as { sdGenerationJob?: { generationId?: string } };
-    const genId = cj.sdGenerationJob?.generationId;
-    if (!genId) return null;
-
-    // Poll up to ~30s.
-    for (let i = 0; i < 15; i++) {
-      await new Promise((r) => setTimeout(r, 2000));
-      const poll = await fetch(`https://cloud.leonardo.ai/api/rest/v1/generations/${genId}`, {
-        headers: { Authorization: `Bearer ${key}`, Accept: "application/json" },
-      });
-      if (!poll.ok) continue;
-      const pj = (await poll.json()) as {
-        generations_by_pk?: { status?: string; generated_images?: Array<{ url?: string }> };
-      };
-      const g = pj.generations_by_pk;
-      if (g?.status === "COMPLETE") {
-        const url = g.generated_images?.[0]?.url;
-        if (!url) return null;
-        const img = await fetch(url);
-        if (!img.ok) return null;
-        const buf = await img.arrayBuffer();
-        const b64 = Buffer.from(buf).toString("base64");
-        return `data:image/png;base64,${b64}`;
-      }
-      if (g?.status === "FAILED") return null;
-    }
-    return null;
-  } catch {
-    return null;
-  }
-}
-
-async function generateOneImage(apiKey: string, prompt: string): Promise<string | null> {
-  // Prefer Leonardo AI, then Higgsfield, then Gemini 3 Pro Image.
-  const leo = await generateWithLeonardo(prompt);
-  if (leo) return leo;
-  const hf = await generateWithHiggsfield(prompt);
-  if (hf) return hf;
-
-  try {
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/images/generations", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: "google/gemini-3-pro-image",
-        messages: [{ role: "user", content: prompt }],
-        modalities: ["image", "text"],
-      }),
-    });
-    if (res.ok) {
-      const json = (await res.json()) as { data?: Array<{ b64_json?: string }> };
-      const b64 = json.data?.[0]?.b64_json;
-      if (b64) return `data:image/png;base64,${b64}`;
-    }
-  } catch {
-    /* ignore */
-  }
-  return null;
-}
-
-
-
 export const generateHtml = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => inputSchema.parse(data))
   .handler(async ({ data }) => {
+    const requestId = newRequestId();
     const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("AI is not configured yet.");
+    if (!apiKey) throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." });
 
-    // Plan + generate any visuals in parallel with the main call setup.
-    const plans = await planImages(apiKey, data.prompt, data.currentHtml);
-    const generated = plans.length
+    const plans = await planImages(apiKey, data.prompt, data.currentHtml, requestId);
+    const generatedRaw = plans.length
       ? await Promise.all(
-          plans.map(async (p: { slot?: string; prompt: string }, i: number) => {
-            const url = await generateOneImage(apiKey, p.prompt);
-            return url ? { id: `gen-${i}`, slot: p.slot ?? "image", prompt: p.prompt, url } : null;
+          plans.map(async (p, i) => {
+            const r = await generateImageWithFallback(p.prompt, requestId);
+            return r.dataUrl ? { id: `gen-${i}`, slot: p.slot ?? "image", prompt: p.prompt, url: r.dataUrl, providerUsed: r.providerUsed! } : null;
           }),
         )
       : [];
-    const images = generated.filter(Boolean) as Array<{
-      id: string;
-      slot: string;
-      prompt: string;
-      url: string;
-    }>;
+    const images = generatedRaw.filter(Boolean) as Array<{ id: string; slot: string; prompt: string; url: string; providerUsed: ImageProvider }>;
 
-    // Context budget guardrails — keep well under the gateway's 1M-token cap.
-    const MAX_HTML_CHARS = 120_000; // ~30K tokens
+    const MAX_HTML_CHARS = 120_000;
     const MAX_HISTORY = 6;
     const truncatedHtml = data.currentHtml && data.currentHtml.length > MAX_HTML_CHARS
       ? data.currentHtml.slice(0, MAX_HTML_CHARS) + "\n<!-- …truncated for context budget… -->"
       : data.currentHtml;
     const trimmedHistory = data.history.slice(-MAX_HISTORY).map((m) => ({
       role: m.role,
-      content: typeof m.content === "string" && m.content.length > 4000
-        ? m.content.slice(0, 4000) + "…"
-        : m.content,
+      content: typeof m.content === "string" && m.content.length > 4000 ? m.content.slice(0, 4000) + "…" : m.content,
     }));
 
     const messages: Array<{ role: string; content: string }> = [
@@ -306,49 +320,36 @@ export const generateHtml = createServerFn({ method: "POST" })
       ...trimmedHistory,
     ];
     if (truncatedHtml) {
-      messages.push({
-        role: "system",
-        content: `The current HTML document is:\n\n${truncatedHtml}\n\nBuild upon it.`,
-      });
+      messages.push({ role: "system", content: `The current HTML document is:\n\n${truncatedHtml}\n\nBuild upon it.` });
     }
-    // Reference images by short placeholder tokens; substitute the real data URLs
-    // into the model output afterwards. This keeps base64 blobs out of the prompt.
     if (images.length) {
-      const list = images
-        .map((img) => `- ${img.id} · slot=${img.slot} · "${img.prompt}"`)
-        .join("\n");
+      const list = images.map((img) => `- ${img.id} · slot=${img.slot} · via=${img.providerUsed} · "${img.prompt}"`).join("\n");
       messages.push({
         role: "system",
         content:
-          `Generated images are available. Embed them with <img src="{{IMAGE:<id>}}" alt="..."> using the placeholder tokens below. Do NOT swap in Unsplash or invent URLs — the placeholders will be replaced with the real data URLs after generation. Choose sensible sizes and object-fit.\n\n${list}`,
+          `Generated images available. Embed with <img src="{{IMAGE:<id>}}" alt="..."> using placeholder tokens. Do NOT swap in other URLs.\n\n${list}`,
       });
     }
     messages.push({ role: "user", content: data.prompt });
 
-    const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
-      method: "POST",
-      headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({
-        model: data.model,
-        messages,
-        ...(data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
-      }),
-    });
+    const r = await aiFetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: data.model,
+          messages,
+          ...(data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
+        }),
+      },
+      { breakerKey: `chat/${data.model}`, stage: "generate", requestId, maxAttempts: 2, totalTimeoutMs: 90_000 },
+    );
 
-    if (!res.ok) {
-      const text = await res.text();
-      if (res.status === 429) throw new Error("Rate limit reached. Try again in a moment.");
-      if (res.status === 402) throw new Error("AI credits exhausted for this workspace.");
-      throw new Error(`AI request failed (${res.status}): ${text.slice(0, 300)}`);
-    }
-
-    const json = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string } }>;
-    };
+    const json = (await r.response.json()) as { choices?: Array<{ message?: { content?: string } }> };
     let html = json.choices?.[0]?.message?.content?.trim() ?? "";
     html = html.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
 
-    // Substitute {{IMAGE:<id>}} placeholders with the real base64 data URLs.
     for (const img of images) {
       html = html.split(`{{IMAGE:${img.id}}}`).join(img.url);
     }
@@ -357,6 +358,10 @@ export const generateHtml = createServerFn({ method: "POST" })
       html = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${html}</body></html>`;
     }
 
-    return { html, generatedImages: images.length };
+    return {
+      html,
+      generatedImages: images.length,
+      imageProviders: images.map((i) => ({ id: i.id, providerUsed: i.providerUsed })),
+      requestId,
+    };
   });
-
