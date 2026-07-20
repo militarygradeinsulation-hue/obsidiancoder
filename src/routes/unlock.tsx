@@ -367,7 +367,22 @@ const unlockCss = `
   color: #f2eee7;
   font-family: Inter, system-ui, sans-serif;
   padding: 24px 16px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+.unlock-tab:focus-visible,
+.unlock-btn:focus-visible,
+.unlock-btn-primary:focus-visible,
+.unlock-btn-secondary:focus-visible,
+.unlock-disclosure:focus-visible {
+  outline: 2px solid #F4A125;
+  outline-offset: 2px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .unlock-face, .unlock-face svg, .unlock-card, .unlock-card-glow,
+  .unlock-title::before, .unlock-title::after {
+    animation: none !important;
+  }
 }
 .unlock-face {
   position: absolute; inset: 0;
