@@ -221,14 +221,6 @@ function Index() {
   const [input, setInput] = useState("");
   const [ideaOffset, setIdeaOffset] = useState(0);
   const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
-  // Auto-cycle starter ideas every ~9s when the input is empty so users always see fresh suggestions.
-  useEffect(() => {
-    if (input.trim()) return;
-    const t = window.setInterval(() => {
-      setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
-    }, 9000);
-    return () => window.clearInterval(t);
-  }, [input]);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
