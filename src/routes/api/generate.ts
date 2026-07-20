@@ -241,12 +241,60 @@ export const Route = createFileRoute("/api/generate")({
         // We defer the entitlement decision to after we parse `data` so we can
         // pick the right operation cost — but auth/owner check comes first.
         let entitlement: EntitlementResult | null = null;
-        let committed = false;
-        const refundOnFailure = async () => {
-          const e = entitlement as EntitlementResult | null;
-          if (e?.kind === "pro" && e.reservation && !committed) {
-            await refundReservation(e.reservation.reservationId);
+        let settled = false;
+        const streamUsage = new StreamingUsageAccumulator();
+        let opForSettle: string = "generate_html";
+        let modelForSettle: string = "unknown";
+        const imageUsages: UsageRecord[] = [];
+        const settleSuccess = async () => {
+          if (settled) return;
+          settled = true;
+          if (!entitlement) return;
+          const parsed = streamUsage.finalize();
+          const est = estimateUsdForCall({
+            model: parsed?.model ?? modelForSettle,
+            inputTokens: parsed?.inputTokens ?? 0,
+            outputTokens: parsed?.outputTokens ?? 0,
+            providerUsed: true,
+          });
+          const llmUsage = makeUsage({
+            provider: "lovable",
+            model: parsed?.model ?? modelForSettle,
+            operation: opForSettle,
+            inputTokens: parsed?.inputTokens ?? 0,
+            outputTokens: parsed?.outputTokens ?? 0,
+            totalTokens: parsed?.totalTokens ?? 0,
+            estimatedCostUsd: est.usd,
+            costBasis: est.basis,
+            providerUsed: true,
+            status: "committed",
+          });
+          const imageCost = imageUsages.reduce((s, u) => s + (u.actualCostUsd ?? u.estimatedCostUsd ?? 0), 0);
+          const imageTokens = imageUsages.reduce((s, u) => s + (u.totalTokens ?? 0), 0);
+          const merged: UsageRecord = {
+            ...llmUsage,
+            estimatedCostUsd: (llmUsage.estimatedCostUsd ?? 0) + imageCost,
+            totalTokens: (llmUsage.totalTokens ?? 0) + imageTokens,
+            imageCount: imageUsages.length,
+          };
+          await settleOperation(entitlement, { kind: "success", usage: merged });
+        };
+        const settleFailure = async (errorCode?: string) => {
+          if (settled) return;
+          settled = true;
+          if (!entitlement) return;
+          // If images were generated (provider work happened), record as failed.
+          if (imageUsages.length > 0) {
+            const imageCost = imageUsages.reduce((s, u) => s + (u.actualCostUsd ?? u.estimatedCostUsd ?? 0), 0);
+            const failedUsage = makeUsage({
+              provider: "lovable", model: modelForSettle, operation: opForSettle,
+              estimatedCostUsd: imageCost, costBasis: "estimated", providerUsed: true,
+              imageCount: imageUsages.length, status: "failed", errorCode,
+            });
+            await settleOperation(entitlement, { kind: "failed_with_usage", usage: failedUsage, errorCode });
+            return;
           }
+          await settleOperation(entitlement, { kind: "no_provider", errorCode });
         };
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
@@ -269,7 +317,8 @@ export const Route = createFileRoute("/api/generate")({
           // Entitlement check — after validation so we know if this is a
           // cheaper advisory op or full HTML generation.
           const op = data.advisory ? "enhance_prompt" : "generate_html";
-          entitlement = await requirePaidOperation(request, op);
+          opForSettle = op;
+          entitlement = await requirePaidOperation(request, op, requestId);
           if (entitlement.kind === "denied" && entitlement.denial) {
             return denialResponse(entitlement.denial, requestId);
           }
