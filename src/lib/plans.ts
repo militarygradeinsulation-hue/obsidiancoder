@@ -137,11 +137,27 @@ export function getTierById(id: PlanTierId): PlanTier | undefined {
   return PLAN_TIERS.find((t) => t.id === id);
 }
 
+/**
+ * Legacy Stripe lookup keys → current tier id.
+ * `obsidian_pro_monthly` was the pre-tier $30/mo entry price. Existing
+ * subscribers on that price are treated as Creator so entitlement, plan
+ * badges, and dashboards resolve correctly. NEW checkout for Creator must
+ * use `obsidian_creator_monthly` — never re-route it back to the legacy key.
+ */
+export const LEGACY_PRICE_TIER_MAP: Record<string, PlanTierId> = {
+  obsidian_pro_monthly: "creator",
+};
+
 /** Map a Stripe priceId (or lookup key) back to a tier. */
 export function tierForPriceId(priceId: string | null | undefined): PlanTier | undefined {
   if (!priceId) return undefined;
-  return PLAN_TIERS.find((t) => t.priceId === priceId);
+  const direct = PLAN_TIERS.find((t) => t.priceId === priceId);
+  if (direct) return direct;
+  const legacy = LEGACY_PRICE_TIER_MAP[priceId];
+  if (legacy) return getTierById(legacy);
+  return undefined;
 }
+
 
 /** Plan-aware navigation entries, gated by tier when `minTier` is set. */
 export interface PlanNavItem {
