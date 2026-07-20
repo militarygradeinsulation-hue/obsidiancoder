@@ -8,16 +8,12 @@ export const Route = createFileRoute("/unlock")({
     password: typeof s.password === "string" ? s.password : undefined,
   }),
   // Server-side fallback: if the form submits natively (JS not hydrated yet),
-  // the browser navigates to /unlock?password=XXXX. Validate here and unlock.
+  // the browser navigates to /unlock?password=XXXX. Validate via server fn.
   beforeLoad: async ({ search }) => {
     const pwd = (search as { password?: string }).password;
     if (!pwd) return;
-    const { passwordMatches, setUnlocked } = await import("@/lib/gate.server");
-    const expected = process.env.SITE_PASSWORD;
-    if (expected && passwordMatches(pwd, expected)) {
-      await setUnlocked(true);
-      throw redirect({ to: "/" });
-    }
+    const { ok } = await unlockSite({ data: { password: pwd } });
+    if (ok) throw redirect({ to: "/" });
     throw redirect({ to: "/unlock" });
   },
   head: () => ({
