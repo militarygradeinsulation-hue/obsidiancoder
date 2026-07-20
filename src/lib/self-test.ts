@@ -529,7 +529,41 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   results.push(assert(rejected.rollbackId === "v_prev" && rejected.providerChain.length === 2,
     "op-tracker: rejected op retains rollback + provider chain"));
 
+  // ---------- Chief Engineer multi-agent orchestration ----------
+  {
+    const cleanHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Landing</title><meta name="description" content="Get started."></head><body><h1>Welcome to Landing</h1><p>Sign up to get started with our product.</p><button aria-label="Sign up">Sign up</button><img src="/hero.jpg" alt="Hero"></body></html>`;
+    const okPlan = planFor({ prompt: "landing page", hasHtml: true, mode: "agent", pickerModel: "auto", hasAttachments: false });
+    const okValidation = validateHtml(cleanHtml);
+    const collected: string[] = [];
+    const rpt = reviewBuild({
+      request: "build a landing page for signup",
+      previousHtml: "<html></html>",
+      candidateHtml: cleanHtml,
+      plan: okPlan, validation: okValidation,
+      onAgent: (r) => collected.push(r.role),
+    });
+    results.push(assert(rpt.reviews.length === AGENT_ROLES.length, `chief: all ${AGENT_ROLES.length} agents ran (got ${rpt.reviews.length})`));
+    results.push(assert(rpt.reviews[0].role === "architect", "chief: architect leads reconciled report"));
+    results.push(assert(collected.length === AGENT_ROLES.length, "chief: onAgent fires for every role"));
+    results.push(assert(rpt.ok && !rpt.blocked, `chief: clean page approved (score=${rpt.readinessScore})`));
+    results.push(assert(rpt.readinessScore >= 60, `chief: reasonable readiness score (${rpt.readinessScore})`));
 
+    // Blocking path — inline secret triggers Security block.
+    const dirty = `<!doctype html><html><head><title>X</title></head><body><h1>X</h1><script>const KEY="sk_live_${"a".repeat(20)}";eval(KEY);</script><button></button></body></html>`;
+    const dv = validateHtml(dirty);
+    const rpt2 = reviewBuild({ request: "x", previousHtml: "", candidateHtml: dirty, plan: okPlan, validation: dv });
+    results.push(assert(rpt2.blocked && rpt2.blockingRoles.includes("security"), `chief: security blocks on exposed secret (blocked=${rpt2.blocked}, roles=${rpt2.blockingRoles.join(",")})`));
+    results.push(assert(!rpt2.ok, "chief: blocked report not ok by default"));
+
+    // Bypass override
+    const rpt3 = reviewBuild({ request: "x", previousHtml: "", candidateHtml: dirty, plan: okPlan, validation: dv, bypass: true });
+    results.push(assert(rpt3.ok && rpt3.bypassed, "chief: bypass allows commit despite block"));
+
+    // Summary shape survives serialization
+    const sum = summarizeReport(rpt);
+    const json = JSON.parse(JSON.stringify(sum));
+    results.push(assert(json.readinessScore === sum.readinessScore && Array.isArray(json.approvals), "chief: summary round-trips through JSON"));
+  }
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
