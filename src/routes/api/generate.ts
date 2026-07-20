@@ -46,7 +46,7 @@ Keep the reply skimmable — under ~400 words unless the user explicitly asks fo
 
 type PlannedImage = { slot: string; prompt: string; url: string; providerUsed: "leonardo" | "higgsfield" | "gemini" };
 
-const VISUAL_KEYWORDS = /\b(image|images|photo|photos|picture|pictures|illustration|logo|banner|hero|portfolio|gallery|avatar|thumbnail|artwork|painting|poster|screenshot)\b/i;
+const VISUAL_KEYWORDS = /\b(generate (?:an? )?(?:image|photo|picture|illustration|logo|banner|avatar|poster|artwork)|with (?:an? |real )?(?:image|photo|picture|illustration|logo|banner|avatar|poster|artwork)s?|make (?:me )?(?:an? )?(?:image|logo|banner|poster|illustration))\b/i;
 
 // Multi-provider image helpers — mirror aetheris.functions.ts but scoped to
 // the streaming route with its own AbortSignal.
