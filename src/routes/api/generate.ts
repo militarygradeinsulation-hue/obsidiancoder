@@ -110,7 +110,7 @@ async function providerHiggsfield(prompt: string, requestId: string, signal: Abo
     const create = await aiFetch(
       "https://platform.higgsfield.ai/v1/text2image/soul",
       { method: "POST", headers, body: JSON.stringify({ params: { prompt: prompt.slice(0, 1400), width_and_height: "1024x1024", quality: "1080p", batch_size: 1, seed: Math.floor(Math.random() * 1_000_000), enhance_prompt: false } }) },
-      { breakerKey: "higgsfield/create", stage: "image", requestId, signal, maxAttempts: 2, totalTimeoutMs: 12_000 },
+      { breakerKey: "higgsfield/create", stage: "image", requestId, signal, maxAttempts: 1, totalTimeoutMs: 7_000 },
     );
     const cj = (await create.response.json()) as { id?: string; job_set_id?: string };
     const jobId = cj.id ?? cj.job_set_id;
