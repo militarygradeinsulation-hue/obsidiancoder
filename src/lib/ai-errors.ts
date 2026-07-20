@@ -15,6 +15,7 @@ export type AiErrorCode =
   | "ai_timeout"
   | "ai_cancelled"
   | "ai_circuit_open"
+  | "billing_settlement_error" // usage_finalize/usage_refund DB error after provider work
   | "ai_internal";
 
 export type AiErrorStage = "plan" | "image" | "generate" | "patch" | "validate";
