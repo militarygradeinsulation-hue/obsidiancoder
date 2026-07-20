@@ -497,6 +497,8 @@ export const Route = createFileRoute("/api/generate")({
           timing.headers_ms = Math.round(headersAt - openedAt);
           timing.first_byte_ms = Math.round(performance.now() - t0);
 
+          modelForSettle = modelUsed;
+
           // Compose an SSE parser over the buffered sniff bytes + rest of the stream.
           const stream = new ReadableStream<Uint8Array>({
             async start(controller) {
@@ -509,15 +511,9 @@ export const Route = createFileRoute("/api/generate")({
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
                 if (ok) {
-                  // Commit the reservation now that the stream produced content.
-                  const ent = entitlement as EntitlementResult | null;
-                  if (ent?.kind === "pro" && ent.reservation) {
-                    committed = true;
-                    // Fire and forget — do not block the stream close on commit.
-                    commitReservation(ent.reservation.reservationId, requestId).catch(() => {});
-                  } else if (ent?.kind === "owner") {
-                    logOwnerUsage(op, 0, requestId).catch(() => {});
-                  }
+                  // Settle the reservation now that the stream produced content.
+                  // Fire and forget — do not block stream close on the DB write.
+                  settleSuccess().catch(() => {});
                   try {
                     if (!data.advisory && compacted.imagesReplaced > 0) {
                       const phJson = JSON.stringify(compacted.placeholders);
@@ -528,8 +524,8 @@ export const Route = createFileRoute("/api/generate")({
                   recordSuccess(breakerKeyGen);
                   controller.close();
                 } else {
-                  // Refund pro credits — nothing usable was produced.
-                  refundOnFailure().catch(() => {});
+                  // No usable output — refund unless the provider still did work.
+                  settleFailure(err instanceof Error ? err.message.slice(0, 60) : "stream_failed").catch(() => {});
                   recordFailure(breakerKeyGen);
                   controller.error(err ?? new Error("ai_upstream_empty"));
                 }
@@ -541,6 +537,10 @@ export const Route = createFileRoute("/api/generate")({
                     const line = buffer.slice(0, idx).trim();
                     buffer = buffer.slice(idx + 1);
                     if (!line.startsWith("data:")) continue;
+                    // Feed the accumulator so we capture final usage stats
+                    // (OpenAI + Gemini variants) — parsed internally, NEVER
+                    // written into the HTML the user receives.
+                    streamUsage.push(line);
                     const payload = line.slice(5).trim();
                     if (payload === "[DONE]") {
                       finalize(emittedBytes > 0);
