@@ -45,6 +45,16 @@ export type VersionMetadata = {
     info: number;
   };
   repairAttempts: RepairAttempt[];
+  // ---- Core 4.2: operation provenance (all optional; older versions omit) ----
+  operationId?: string;
+  requestedModel?: string;      // what the picker/router asked for
+  actualModel?: string;         // what the server actually served (post-fallback)
+  providerChain?: string[];     // e.g. ["leonardo","gemini"] or ["openai/gpt-5.5-fallback"]
+  imageProviders?: string;      // raw X-Obs-Image-Providers header if any
+  imageCount?: number;
+  runtimeErrors?: number;
+  rollbackId?: string;          // the version id this build can be rolled back TO
+  learningSignals?: string[];   // signalsUsed from the RoutingDecision
 };
 
 export function summarizeMetadata(m: VersionMetadata): string {
@@ -56,6 +66,7 @@ export function summarizeMetadata(m: VersionMetadata): string {
     m.contextTier !== "none" ? `ctx ${m.contextTier}` : null,
     m.validation.status,
     m.repairAttempts.length ? `repair×${m.repairAttempts.length}` : null,
+    m.providerChain && m.providerChain.length ? `via ${m.providerChain.join("→")}` : null,
   ].filter(Boolean);
   return bits.join(" · ");
 }
