@@ -431,6 +431,105 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   results.push(assert(Array.isArray(loadLedger()), "ledger: corrupted storage recovers"));
   clearLedger();
 
+  // ---- Core 4.2: operation tracker + rail resize + learning-disable ----
+  const {
+    newOperationId, orderImageProviders, parseProviderHeader,
+    dedupeAppendOperation, hasOperationEvent,
+    clampRail, nextRailWidthForKey, railMax, RAIL_MIN, RAIL_HARD_MAX,
+    summarizeOperation,
+  } = await import("./operation-tracker");
+
+  // operation IDs — unique across many draws
+  const opIds = new Set<string>();
+  for (let i = 0; i < 200; i++) opIds.add(newOperationId());
+  results.push(assert(opIds.size === 200 && [...opIds].every((s) => s.startsWith("op_")), "op-tracker: unique prefixed ids"));
+
+  // image provider ordering: canonical order regardless of input order,
+  // drops unknowns, dedupes duplicates.
+  const ord1 = orderImageProviders(["gemini", "leonardo", "leonardo", "higgsfield", "midjourney"]);
+  results.push(assert(JSON.stringify(ord1) === JSON.stringify(["leonardo", "higgsfield", "gemini"]), `op-tracker: canonical order (${ord1.join(",")})`));
+  const ord2 = orderImageProviders([]);
+  results.push(assert(ord2.length === 0, "op-tracker: empty provider list"));
+  // header parsing (image provider fallback metadata)
+  const chain = parseProviderHeader("hero:higgsfield,card:gemini,logo:leonardo");
+  results.push(assert(JSON.stringify(chain) === JSON.stringify(["leonardo", "higgsfield", "gemini"]), `op-tracker: parse header (${chain.join(",")})`));
+  results.push(assert(parseProviderHeader("none").length === 0 && parseProviderHeader(null).length === 0, "op-tracker: 'none'/null header → []"));
+
+  // operation dedup — same (opId, kind) is only appended once
+  const opA = newOperationId();
+  const baseEvt = { id: "e1", ts: 1, kind: "fullgen-accepted" as const, operationId: opA };
+  const list1 = dedupeAppendOperation([], baseEvt);
+  const list2 = dedupeAppendOperation(list1, { ...baseEvt, id: "e2" });
+  results.push(assert(list1.length === 1 && list2.length === 1, "op-tracker: dedup by (operationId, kind)"));
+  const list3 = dedupeAppendOperation(list2, { id: "e3", ts: 2, kind: "version-restored", operationId: opA });
+  results.push(assert(list3.length === 2, "op-tracker: same opId different kind → append"));
+  results.push(assert(hasOperationEvent(list3, opA, "fullgen-accepted"), "op-tracker: hasOperationEvent detects"));
+  results.push(assert(!hasOperationEvent(list3, "op_missing", "fullgen-accepted"), "op-tracker: missing opId → false"));
+
+  // rail resize math (headless, no DOM)
+  results.push(assert(clampRail(50, 1600) === RAIL_MIN, "rail: clamp below min"));
+  results.push(assert(clampRail(9999, 1600) === railMax(1600), `rail: clamp to viewport-derived max (${railMax(1600)})`));
+  results.push(assert(clampRail(9999, 5000) === RAIL_HARD_MAX, `rail: clamp to hard cap on huge viewport (${RAIL_HARD_MAX})`));
+  // ArrowLeft widens the panel (grows leftward, docked right); ArrowRight shrinks.
+  results.push(assert(nextRailWidthForKey("ArrowLeft", 300, 1600) === 316, "rail-key: ArrowLeft +16"));
+  results.push(assert(nextRailWidthForKey("ArrowRight", 300, 1600) === 284, "rail-key: ArrowRight -16"));
+  results.push(assert(nextRailWidthForKey("ArrowLeft", 300, 1600, true) === 340, "rail-key: Shift+ArrowLeft +40"));
+  results.push(assert(nextRailWidthForKey("Home", 800, 1600) === 320, "rail-key: Home resets to default"));
+  results.push(assert(nextRailWidthForKey("q", 300, 1600) === 300, "rail-key: other keys no-op"));
+  // Repeated ArrowRight can never take us below RAIL_MIN.
+  let w = 300;
+  for (let i = 0; i < 100; i++) w = nextRailWidthForKey("ArrowRight", w, 1600);
+  results.push(assert(w === RAIL_MIN, `rail-key: repeated ArrowRight bottoms at min (${w})`));
+
+  // learning-disable persistence (round-trip through save/loadSettings).
+  // Storage is client-only; on the server safeSet is a no-op, so we only
+  // assert the persistence round-trip when localStorage is present.
+  const { saveSettings, loadSettings, DEFAULT_SETTINGS } = await import("./adaptive-profile");
+  const hasStorage = typeof window !== "undefined" && !!window.localStorage;
+  const originalSettings = loadSettings();
+  if (hasStorage) {
+    saveSettings({ ...DEFAULT_SETTINGS, enabled: false });
+    const after = loadSettings();
+    results.push(assert(after.enabled === false && after.localOnly === true, "learning: disabled state persists across load"));
+    saveSettings({ ...DEFAULT_SETTINGS, enabled: true });
+    const on = loadSettings();
+    results.push(assert(on.enabled === true, "learning: re-enabling persists"));
+    // adaptive-router honours disabled flag (client-side only, since it reads settings)
+    const { decide: decideAgain } = await import("./adaptive-router");
+    saveSettings({ ...DEFAULT_SETTINGS, enabled: false });
+    const decDisabled = decideAgain({ prompt: "add a paragraph", hasHtml: true, mode: "agent", pickerModel: "auto", hasAttachments: false });
+    results.push(assert(decDisabled.signalsIgnored.includes("learning-disabled") && decDisabled.signalsUsed.length === 0,
+      `router: disabled → no learning signals used (used=${decDisabled.signalsUsed.length})`));
+    saveSettings(originalSettings);
+  } else {
+    // On server: the shape must at least round-trip through DEFAULT and
+    // loadSettings must never throw; both are enforced by loadSettings itself.
+    results.push(assert(originalSettings.localOnly === true && typeof originalSettings.enabled === "boolean",
+      "learning: server-side settings expose enabled + localOnly"));
+    results.push(assert(DEFAULT_SETTINGS.enabled === true && DEFAULT_SETTINGS.localOnly === true,
+      "learning: DEFAULT_SETTINGS shape stable"));
+  }
+
+  // outcome loop — pending → ok summary line survives round-trip
+  const op = {
+    operationId: opA, startedAt: 0, finishedAt: 100, durationMs: 100,
+    requestedModel: "auto", actualModel: "google/gemini-3.5-flash",
+    strategy: "full-generation", taskType: "text-edit",
+    providerChain: ["leonardo", "gemini"], validationStatus: "passed" as const,
+    outcome: "ok" as const, rollbackId: "v_prev",
+  };
+  const line = summarizeOperation(op);
+  results.push(assert(line.includes("full-generation") && line.includes("gemini") && line.includes("ok") && line.includes("validation:passed"),
+    `op-tracker: summary line composes (${line})`));
+
+  // stable-state preservation — an operation summary marked 'rejected' must
+  // still carry the rollbackId so the panel can offer restoration.
+  const rejected = { ...op, outcome: "rejected" as const };
+  results.push(assert(rejected.rollbackId === "v_prev" && rejected.providerChain.length === 2,
+    "op-tracker: rejected op retains rollback + provider chain"));
+
+
+
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };

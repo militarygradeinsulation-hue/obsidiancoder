@@ -1,18 +1,29 @@
 // Intelligence panel — shows current interpretation, applied preferences,
-// strategy recommendation, and recent learning. All data is local.
+// strategy recommendation, last operation provenance, and recent learning.
+// All data is local.
 
 import * as React from "react";
 import { loadProfile, type AdaptiveProfile } from "@/lib/adaptive-profile";
 import type { ResolvedIntent } from "@/lib/intent-resolver";
 import type { RoutingDecision } from "@/lib/adaptive-router";
+import type { OperationSummary } from "@/lib/operation-tracker";
 
 interface Props {
   intent?: ResolvedIntent;
   decision?: RoutingDecision;
+  lastOperation?: OperationSummary;
   refreshKey?: number;
 }
 
-export function IntelligencePanel({ intent, decision, refreshKey = 0 }: Props) {
+const outcomeColor: Record<OperationSummary["outcome"], string> = {
+  pending: "#c9953d",
+  ok: "#7bd88f",
+  fail: "#ff6b6b",
+  restored: "#c9953d",
+  rejected: "#ff6b6b",
+};
+
+export function IntelligencePanel({ intent, decision, lastOperation, refreshKey = 0 }: Props) {
   const [profile, setProfile] = React.useState<AdaptiveProfile | null>(null);
 
   React.useEffect(() => {
@@ -52,6 +63,36 @@ export function IntelligencePanel({ intent, decision, refreshKey = 0 }: Props) {
               )}
             </div>
           ) : <div style={{ opacity: 0.5 }}>No routing decision yet.</div>}
+        </section>
+        <section data-testid="intelligence-last-op">
+          <div style={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 1, fontSize: 10, marginBottom: 4 }}>Last operation</div>
+          {lastOperation ? (
+            <div>
+              <div>
+                <span style={{ color: outcomeColor[lastOperation.outcome], fontWeight: 600 }}>●</span>{" "}
+                {lastOperation.outcome} · {lastOperation.strategy}
+                {lastOperation.durationMs != null && <span style={{ opacity: 0.7 }}> · {Math.round(lastOperation.durationMs)}ms</span>}
+              </div>
+              <div style={{ opacity: 0.7, marginTop: 2 }}>
+                model: {lastOperation.requestedModel}
+                {lastOperation.actualModel && lastOperation.actualModel !== lastOperation.requestedModel && <> → <b>{lastOperation.actualModel}</b></>}
+              </div>
+              {lastOperation.providerChain.length > 0 && (
+                <div style={{ opacity: 0.7, marginTop: 2 }}>fallback: {lastOperation.providerChain.join(" → ")}</div>
+              )}
+              {(lastOperation.imageCount ?? 0) > 0 && (
+                <div style={{ opacity: 0.7, marginTop: 2 }}>images: {lastOperation.imageCount} · {lastOperation.imageProviders}</div>
+              )}
+              <div style={{ opacity: 0.7, marginTop: 2 }}>
+                validation: {lastOperation.validationStatus ?? "—"}
+                {lastOperation.runtimeErrors != null && <> · runtime errors: {lastOperation.runtimeErrors}</>}
+              </div>
+              {lastOperation.rollbackId && (
+                <div style={{ opacity: 0.6, marginTop: 2 }}>rollback → {lastOperation.rollbackId.slice(0, 8)}</div>
+              )}
+              <div style={{ opacity: 0.4, marginTop: 2, fontFamily: "monospace", fontSize: 10 }}>{lastOperation.operationId}</div>
+            </div>
+          ) : <div style={{ opacity: 0.5 }}>No operation yet.</div>}
         </section>
         <section>
           <div style={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 1, fontSize: 10, marginBottom: 4 }}>Applied preferences</div>

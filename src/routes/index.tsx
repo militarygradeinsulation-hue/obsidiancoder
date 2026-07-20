@@ -68,6 +68,8 @@ import { decide as decideRoute, type RoutingDecision } from "@/lib/adaptive-rout
 import { resolveIntent, type ResolvedIntent } from "@/lib/intent-resolver";
 import { appendEvent as appendLedgerEvent } from "@/lib/adaptive-ledger";
 import { loadSettings as loadLearningSettings, saveSettings as saveLearningSettings } from "@/lib/adaptive-profile";
+import { newOperationId, parseProviderHeader, type OperationSummary } from "@/lib/operation-tracker";
+import { useRailResize } from "@/hooks/useRailResize";
 
 
 
@@ -242,50 +244,15 @@ function Index() {
   // Adaptive learning defaults to ON via DEFAULT_SETTINGS. Respect the user's
   // choice — do NOT force-enable on mount (that overrode a deliberate opt-out).
 
-  // Resizable right-rail / chat width
-  const [railWidth, setRailWidth] = useState<number>(() => {
-    if (typeof window === "undefined") return 320;
-    const n = Number(window.localStorage.getItem("obs.railWidth"));
-    return Number.isFinite(n) && n >= 260 ? n : 320;
-  });
-  useEffect(() => {
-    try { window.localStorage.setItem("obs.railWidth", String(railWidth)); } catch {}
-  }, [railWidth]);
-  // Reclamp rail width against viewport on resize so a saved 900px width
-  // doesn't clip on a narrower screen.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    const onResize = () => {
-      const vw = document.documentElement.clientWidth || window.innerWidth;
-      const max = Math.min(900, Math.max(320, vw - 260));
-      setRailWidth((w) => Math.max(260, Math.min(max, w)));
-    };
-    window.addEventListener("resize", onResize);
-    onResize();
-    return () => window.removeEventListener("resize", onResize);
-  }, []);
-  const railResizeRef = useRef<{ startX: number; startWidth: number } | null>(null);
-  function onRailResizeStart(e: React.PointerEvent<HTMLDivElement>) {
-    e.preventDefault();
-    railResizeRef.current = { startX: e.clientX, startWidth: railWidth };
-    document.body.classList.add("is-resizing-rail");
-    window.addEventListener("pointermove", onRailResizeMove);
-    window.addEventListener("pointerup", onRailResizeEnd);
-  }
-  function onRailResizeMove(e: PointerEvent) {
-    if (!railResizeRef.current) return;
-    const delta = e.clientX - railResizeRef.current.startX;
-    const vw = document.documentElement.clientWidth || window.innerWidth;
-    const max = Math.min(900, Math.max(320, vw - 260));
-    const next = Math.max(260, Math.min(max, railResizeRef.current.startWidth - delta));
-    setRailWidth(next);
-  }
-  function onRailResizeEnd() {
-    railResizeRef.current = null;
-    document.body.classList.remove("is-resizing-rail");
-    window.removeEventListener("pointermove", onRailResizeMove);
-    window.removeEventListener("pointerup", onRailResizeEnd);
-  }
+  // Resizable right-rail — logic and math extracted to useRailResize hook.
+  const {
+    railWidth,
+    onResizeStart: onRailResizeStart,
+    onKeyDown: onRailKeyDown,
+    resetWidth: resetRailWidth,
+    ariaMin: railAriaMin,
+    ariaMax: railAriaMax,
+  } = useRailResize();
 
   // First-visit intro audio is owned by <IntroSplash /> now — legacy audio
   // effect removed to prevent double-play + races with the splash timeline.
@@ -359,6 +326,7 @@ function Index() {
   const [intelligenceTick, setIntelligenceTick] = useState<number>(0);
   const [lastIntent, setLastIntent] = useState<ResolvedIntent | undefined>(undefined);
   const [lastDecision, setLastDecision] = useState<RoutingDecision | undefined>(undefined);
+  const [lastOperation, setLastOperation] = useState<OperationSummary | undefined>(undefined);
   const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
@@ -782,6 +750,24 @@ function Index() {
     setTab("preview");
     setError(null);
     setTerminal((t) => [...t, `→ Reverted to "${version.label}"`]);
+    const restoreOpId = newOperationId();
+    setLastOperation({
+      operationId: restoreOpId,
+      startedAt: Date.now(),
+      finishedAt: Date.now(),
+      durationMs: 0,
+      requestedModel: version.metadata?.model ?? "n/a",
+      actualModel: version.metadata?.actualModel ?? version.metadata?.model ?? "n/a",
+      strategy: "restore",
+      taskType: version.metadata?.taskType ?? "unknown",
+      providerChain: version.metadata?.providerChain?.slice() ?? [],
+      imageProviders: version.metadata?.imageProviders,
+      imageCount: version.metadata?.imageCount,
+      validationStatus: version.metadata?.validation.status,
+      outcome: "restored",
+      rollbackId: version.id,
+      reason: version.label.slice(0, 60),
+    });
     try {
       appendLedgerEvent({ kind: "version-restored", outcome: "restored", note: version.label });
       setIntelligenceTick((n) => n + 1);
@@ -968,6 +954,8 @@ function Index() {
       hasAttachments: pendingAttachments.length > 0,
     });
     const adaptiveModel = routing.chosenModel;
+    const requestedModel: string = current.model === "auto" ? routing.plan.model : (current.model as string);
+    const operationId = newOperationId();
     const resolvedIntent = resolveIntent(basePrompt, {
       hasHtml: !!stableHtml,
       attachmentsCount: pendingAttachments.length,
@@ -975,6 +963,18 @@ function Index() {
     });
     setLastIntent(resolvedIntent);
     setLastDecision(routing);
+    setLastOperation({
+      operationId,
+      startedAt: Date.now(),
+      requestedModel,
+      actualModel: adaptiveModel,
+      strategy: routing.chosenStrategy,
+      taskType: classification.taskType,
+      providerChain: [],
+      outcome: "pending",
+      learningSignals: routing.signalsUsed.slice(),
+      rollbackId: current.versions?.[0]?.id,
+    });
     setIntelligenceTick((n) => n + 1);
 
     setError(null);
@@ -1397,18 +1397,30 @@ function Index() {
       const versionLabel = (basePrompt || pendingAttachments[0]?.name || "Update").slice(0, 48);
       const durationMsGen = performance.now() - t0;
       const fullDiff = diffSummary(stableHtml, finalHtml);
-      const genMeta = buildMetadata({
-        request: basePrompt,
-        classification,
-        strategy: "full-generation",
-        model: modelForServer,
-        durationMs: durationMsGen,
-        charsAdded: fullDiff.charsAdded,
-        charsRemoved: fullDiff.charsRemoved,
-        changed: true,
-        validation,
-        repairAttempts: fullRepairAttempts,
-      });
+      const providerChain = parseProviderHeader(imgProviders);
+      const rollbackId = current.versions?.[0]?.id;
+      const genMeta: VersionMetadata = {
+        ...buildMetadata({
+          request: basePrompt,
+          classification,
+          strategy: "full-generation",
+          model: modelForServer,
+          durationMs: durationMsGen,
+          charsAdded: fullDiff.charsAdded,
+          charsRemoved: fullDiff.charsRemoved,
+          changed: true,
+          validation,
+          repairAttempts: fullRepairAttempts,
+        }),
+        operationId,
+        requestedModel,
+        actualModel: modelForServer,
+        providerChain: providerChain.length ? providerChain.slice() : [modelForServer],
+        imageProviders: imgProviders ?? undefined,
+        imageCount: imgCount || undefined,
+        rollbackId,
+        learningSignals: routing.signalsUsed.slice(),
+      };
       const gateBlockersG = checkCommitGate(stableHtml, finalHtml, "full-generation");
       if (gateBlockersG) {
         setSessions((all) => all.map((s) => s.id === sessionId
@@ -1416,6 +1428,13 @@ function Index() {
           : s));
         setTerminal((t) => [...t, `✗ Rule gate rejected generation: ${gateBlockersG[0].slice(0, 120)}`]);
         pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockersG[0] });
+        setLastOperation((prev) => prev && prev.operationId === operationId ? {
+          ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
+          validationStatus: validation.status, providerChain: genMeta.providerChain ?? [],
+          imageProviders: genMeta.imageProviders, imageCount: genMeta.imageCount,
+          outcome: "rejected", reason: gateBlockersG[0].slice(0, 120),
+        } : prev);
+        setIntelligenceTick((n) => n + 1);
         return;
       }
       const newVersion: Version = makeVersion(finalHtml, versionLabel, genMeta);
@@ -1443,16 +1462,29 @@ function Index() {
         charactersAdded: fullDiff.charsAdded,
         charactersRemoved: fullDiff.charsRemoved,
       }));
+      setLastOperation((prev) => prev && prev.operationId === operationId ? {
+        ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
+        validationStatus: validation.status, providerChain: genMeta.providerChain ?? [],
+        imageProviders: genMeta.imageProviders, imageCount: genMeta.imageCount,
+        outcome: "ok", rollbackId: newVersion.id,
+      } : prev);
       try {
-        appendLedgerEvent({
-          kind: "fullgen-accepted",
-          taskType: classification.taskType,
-          strategy: "full-generation",
-          model: modelForServer,
-          outcome: "ok",
-          durationMs: durationMsGen,
-          validationStatus: validation.status,
-        });
+        // Ledger keys off operationId to prevent double-counting on
+        // Strict-mode double-fire or network retries.
+        const events = (await import("@/lib/adaptive-ledger")).loadLedger();
+        const already = events.some((e) => (e as { operationId?: string }).operationId === operationId && e.kind === "fullgen-accepted");
+        if (!already) {
+          appendLedgerEvent({
+            kind: "fullgen-accepted",
+            taskType: classification.taskType,
+            strategy: "full-generation",
+            model: modelForServer,
+            outcome: "ok",
+            durationMs: durationMsGen,
+            validationStatus: validation.status,
+            note: operationId,
+          });
+        }
         setIntelligenceTick((n) => n + 1);
       } catch { /* best-effort */ }
       // Auto-save to the user's private library (keyed by their library code).
@@ -2036,19 +2068,13 @@ function Index() {
               aria-orientation="vertical"
               aria-label="Resize chat panel"
               aria-valuenow={railWidth}
-              aria-valuemin={260}
-              aria-valuemax={Math.min(900, typeof window !== "undefined" ? Math.max(320, window.innerWidth - 320) : 900)}
+              aria-valuemin={railAriaMin}
+              aria-valuemax={railAriaMax}
               tabIndex={0}
               title="Drag, or use ← → to resize. Double-click / Home to reset."
               onPointerDown={onRailResizeStart}
-              onDoubleClick={() => setRailWidth(320)}
-              onKeyDown={(e) => {
-                const step = e.shiftKey ? 40 : 16;
-                const max = typeof window !== "undefined" ? Math.max(320, window.innerWidth - 320) : 900;
-                if (e.key === "ArrowLeft") { e.preventDefault(); setRailWidth((w) => Math.min(900, Math.min(max, w + step))); }
-                else if (e.key === "ArrowRight") { e.preventDefault(); setRailWidth((w) => Math.max(260, w - step)); }
-                else if (e.key === "Home") { e.preventDefault(); setRailWidth(320); }
-              }}
+              onDoubleClick={resetRailWidth}
+              onKeyDown={onRailKeyDown}
             />
             <div className="obs-rail-tabs" role="tablist" aria-label="Rail sections">
               {RAIL_GROUPS.map((g) => (
@@ -2307,8 +2333,8 @@ function Index() {
             </div>
 
             {/* Core 4.0 — Adaptive Intelligence */}
-            <IntelligencePanel refreshKey={intelligenceTick} intent={lastIntent} decision={lastDecision} />
-            <StrategyExplanation />
+            <IntelligencePanel refreshKey={intelligenceTick} intent={lastIntent} decision={lastDecision} lastOperation={lastOperation} />
+            <StrategyExplanation decision={lastDecision} lastOperation={lastOperation} />
             <LearningPanel onChange={() => setIntelligenceTick((n) => n + 1)} />
 
             <div className="obs-rail-heading" id="rail-build">Build · files, versions, design</div>
