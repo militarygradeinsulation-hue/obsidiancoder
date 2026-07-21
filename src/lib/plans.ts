@@ -78,7 +78,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Custom domains and GitHub deploys",
     ],
     priceId: "obsidian_professional_monthly",
-    cta: "checkout",
+    cta: "waitlist",
     icon: Briefcase,
   },
   {
