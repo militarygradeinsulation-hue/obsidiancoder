@@ -1295,7 +1295,7 @@ const unlockCss = `
   display: grid; place-items: center; padding: 20px;
 }
 .wl-card {
-  position: relative; width: 100%; max-width: 460px;
+  position: relative; width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto;
   background: rgba(10,10,12,0.96); border: 1px solid rgba(244,161,37,0.35);
   border-radius: 14px; padding: 22px 22px 20px;
   box-shadow: 0 30px 80px rgba(0,0,0,0.85);
