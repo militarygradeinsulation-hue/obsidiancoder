@@ -798,6 +798,26 @@ const unlockCss = `
   font-size: 22px; letter-spacing: 0.5px; color: #f2eee7; margin: 0;
 }
 .demos-sub { margin: 6px 0 0; font-size: 12px; color: #B6BCC8; }
+.demo-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; margin: 0 0 18px;
+}
+.demo-chip {
+  appearance: none; cursor: pointer;
+  padding: 6px 12px; border-radius: 999px;
+  font: 500 12px/1 Inter, system-ui, sans-serif;
+  letter-spacing: 0.3px; color: #B6BCC8;
+  background: rgba(17,19,23,0.7);
+  border: 1px solid rgba(244,161,37,0.22);
+  transition: color .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.demo-chip:hover { color: #f2eee7; border-color: rgba(244,161,37,0.45); }
+.demo-chip.is-active {
+  color: #111317; background: #f4a125;
+  border-color: #f4a125;
+  box-shadow: 0 0 0 1px rgba(244,161,37,0.35), 0 6px 18px rgba(244,161,37,0.25);
+}
+.demo-chip:focus-visible { outline: 2px solid #f4a125; outline-offset: 2px; }
 .demos-grid {
   display: grid; gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
