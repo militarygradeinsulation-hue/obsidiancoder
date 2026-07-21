@@ -623,17 +623,17 @@ const unlockCss = `
 .unlock-title {
   position: relative;
   font-family: Fraunces, Georgia, serif;
-  font-size: 34px; letter-spacing: 8px; color: #f2eee7;
-  text-shadow: 0 0 12px rgba(244,161,37,0.45), 0 0 2px rgba(122,212,255,0.35);
+  font-size: 34px; letter-spacing: 8px; color: #c9761f;
+  text-shadow: 0 0 12px rgba(201,118,31,0.55), 0 0 2px rgba(201,118,31,0.4);
   animation: glitch-shake 2.6s infinite steps(1);
   will-change: transform, filter;
 }
 .unlock-title::before, .unlock-title::after {
   content: attr(data-text); position: absolute; top:0; left:0; width:100%; overflow: hidden;
-  pointer-events: none;
+  pointer-events: none; color: #c9761f;
 }
-.unlock-title::before { color:#f4a125; animation: glitch-1 1.6s infinite steps(1); clip-path: polygon(0 0,100% 0,100% 45%,0 45%); text-shadow: 2px 0 rgba(244,161,37,0.6); }
-.unlock-title::after  { color:#7ad4ff; animation: glitch-2 2.1s infinite steps(1); clip-path: polygon(0 55%,100% 55%,100% 100%,0 100%); mix-blend-mode: screen; text-shadow: -2px 0 rgba(122,212,255,0.6); }
+.unlock-title::before { animation: glitch-1 1.6s infinite steps(1); clip-path: polygon(0 0,100% 0,100% 45%,0 45%); text-shadow: 2px 0 rgba(201,118,31,0.7); }
+.unlock-title::after  { animation: glitch-2 2.1s infinite steps(1); clip-path: polygon(0 55%,100% 55%,100% 100%,0 100%); text-shadow: -2px 0 rgba(201,118,31,0.7); }
 @keyframes glitch-shake {
   0%,100% { transform: translate(0,0); filter: none; }
   8%  { transform: translate(-1px,0); }
