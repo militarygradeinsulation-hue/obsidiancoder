@@ -376,24 +376,8 @@ function Unlock() {
                       </ul>
                     </div>
 
-                    <div className="detail-block">
-                      <h3>Pricing tiers</h3>
-                      <div className="tier-grid">
-                        {PLAN_TIERS.map((t) => (
-                          <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
-                            <div className="tier-head">
-                              <span className="tier-name">{t.name}</span>
-                              <span className="tier-price">{t.price}<span className="tier-cadence">{t.cadence}</span></span>
-                            </div>
-                            <div className="tier-headline">{t.headline}</div>
-                            <div className="tier-bestfor">Best for: {t.bestFor}</div>
-                            <ul className="tier-outcomes">
-                              {t.outcomes.map((o) => <li key={o}>{o}</li>)}
-                            </ul>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
+
+
 
                     <div className="detail-block">
                       <h3>How it works</h3>
