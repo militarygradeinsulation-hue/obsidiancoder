@@ -245,16 +245,25 @@ function DemosAdmin() {
               onDrop={() => onDrop(d.id)}
               style={{
                 display: "grid",
-                gridTemplateColumns: "220px 1fr auto",
+                gridTemplateColumns: "28px 220px 1fr auto",
                 gap: 16,
-                background: "#171a20",
-                border: `1px solid ${dragId === d.id ? "#F4A125" : "#22262d"}`,
+                alignItems: "start",
+                background: isSelected ? "#1d2028" : "#171a20",
+                border: `1px solid ${isSelected ? "#F4A125" : dragId === d.id ? "#F4A125" : "#22262d"}`,
                 borderRadius: 12,
                 padding: 12,
                 cursor: "grab",
                 opacity: isSaving ? 0.6 : 1,
               }}
             >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleSelect(d.id)}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Select ${d.title}`}
+                style={{ marginTop: 6, width: 18, height: 18, accentColor: "#F4A125", cursor: "pointer" }}
+              />
               <iframe
                 src={url}
                 title={d.title}
