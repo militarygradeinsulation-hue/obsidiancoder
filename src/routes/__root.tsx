@@ -80,6 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:site_name", content: "Obsidian" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "google-site-verification", content: "MzjGV7yyk-jDOJdDCp4JgaV8wBlBUB8fu-8Lh2aVk2o" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
