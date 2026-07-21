@@ -229,6 +229,12 @@ function Index() {
   const [input, setInput] = useState("");
   const [ideaOffset, setIdeaOffset] = useState(0);
   const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
+  const [aiIdeas, setAiIdeas] = useState<Addon[]>([]);
+  const [aiIdeasLoading, setAiIdeasLoading] = useState(false);
+  const [nextSteps, setNextSteps] = useState<Addon[]>([]);
+  const [nextStepsLoading, setNextStepsLoading] = useState(false);
+  const generateStarterIdeasFn = useServerFn(generateStarterIdeas);
+  const anticipateNextIdeasFn = useServerFn(anticipateNextIdeas);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
