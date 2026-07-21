@@ -44,6 +44,7 @@ const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory
   { slug: "3e2s2m0q2i3b2s", title: "Demo · Obsidian Build 26", category: "Landing", url: "https://obsidianvibe.live/api/public/share/3e2s2m0q2i3b2s#top" },
   { slug: "1i3r07161s0q6h", title: "Demo · Obsidian Build 27", category: "Tool", url: "https://obsidianvibe.live/api/public/share/1i3r07161s0q6h#" },
   { slug: "1i54063l620y0h", title: "Demo · Obsidian Build 28", category: "App", url: "https://obsidianvibe.live/api/public/share/1i54063l620y0h" },
+  { slug: "6j0m0l1y016p44", title: "Demo · Obsidian Build 29", category: "App", url: "https://obsidianvibe.live/api/public/share/6j0m0l1y016p44" },
 ];
 
 type Intent = "buy" | "code";
@@ -91,6 +92,29 @@ function Unlock() {
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
+  const [featuredDemos, setFeaturedDemos] = useState<{ slug: string; title: string; url?: string; category: DemoCategory }[]>([]);
+
+  // Load admin-curated demos so newly promoted builds appear without a code edit.
+  useEffect(() => {
+    let alive = true;
+    supabase
+      .from("featured_demos")
+      .select("slug, title, category, url")
+      .order("sort_order", { ascending: false })
+      .limit(60)
+      .then(({ data }) => {
+        if (!alive || !data) return;
+        setFeaturedDemos(
+          data.map((d) => ({
+            slug: d.slug,
+            title: d.title,
+            url: d.url ?? undefined,
+            category: (DEMO_CATEGORIES as readonly string[]).includes(d.category) ? (d.category as DemoCategory) : "App",
+          })),
+        );
+      });
+    return () => { alive = false; };
+  }, []);
 
 
   // Track auth session
@@ -510,7 +534,7 @@ function Unlock() {
           <div id="demos-grid" className="demos-grid">
             {Array.from(
               new Map(
-                DEMOS
+                [...featuredDemos, ...DEMOS]
                   .filter((d) => demoCategory === "All" || d.category === demoCategory)
                   .map((d) => {
                     const demoUrl = d.url ?? `/api/public/share/${d.slug}`;

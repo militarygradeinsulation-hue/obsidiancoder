@@ -173,6 +173,36 @@ export type Database = {
         }
         Relationships: []
       }
+      featured_demos: {
+        Row: {
+          category: string
+          created_at: string
+          id: string
+          slug: string
+          sort_order: number
+          title: string
+          url: string | null
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          id?: string
+          slug: string
+          sort_order?: number
+          title: string
+          url?: string | null
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          id?: string
+          slug?: string
+          sort_order?: number
+          title?: string
+          url?: string | null
+        }
+        Relationships: []
+      }
       one_time_purchases: {
         Row: {
           amount_paid: number

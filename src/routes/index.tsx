@@ -14,6 +14,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
 import { generateStarterIdeas, anticipateNextIdeas } from "@/lib/ideas.functions";
+import { pushFeaturedDemo } from "@/lib/featured-demos.functions";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
@@ -2070,6 +2071,25 @@ function Index() {
                   window.open(liveUrl, "_blank", "noopener,noreferrer");
                   setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
                   if (libraryCode.trim()) refreshLibrary();
+                  // Admin auto-promote: library code "9822" pushes the fresh
+                  // share into the /unlock public gallery without a code edit.
+                  const adminCode = libraryCode.trim();
+                  if (adminCode === "9822") {
+                    try {
+                      const promoted = await pushFeaturedDemo({
+                        data: {
+                          adminCode,
+                          slug: share_slug,
+                          title: current.title || `Demo · ${share_slug}`,
+                          category: "App",
+                          url: liveUrl,
+                        },
+                      });
+                      if ("ok" in promoted && promoted.ok) {
+                        setTerminal((t) => [...t, "  ★ Added to the public Demos gallery."]);
+                      }
+                    } catch { /* non-fatal */ }
+                  }
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : "publish failed";
                   setTerminal((t) => [...t, `✗ Go Live failed: ${msg}`]);
