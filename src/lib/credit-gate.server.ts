@@ -420,7 +420,7 @@ export async function requirePaidOperation(
       kind: "denied", env, requestId, user,
       denial: creditsRequiredEnvelope({
         code: "credits_required", operation,
-        used: CAP_PRO_MONTHLY, cap: CAP_PRO_MONTHLY,
+        used: cap, cap,
         needed: reservationForOperation(operation),
       }),
     };
