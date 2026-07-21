@@ -49,6 +49,7 @@ function DemosAdmin() {
   const [status, setStatus] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [stats, setStats] = useState<WaitlistStats | null>(null);
 
   function toggleSelect(id: string) {
     setSelected((cur) => {
