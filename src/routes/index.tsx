@@ -231,6 +231,18 @@ function Index() {
   const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
   const [aiIdeas, setAiIdeas] = useState<Addon[]>([]);
   const [aiIdeasLoading, setAiIdeasLoading] = useState(false);
+  const [ideaCategory, setIdeaCategory] = useState<string>("all");
+  const seenIdeaLabelsRef = useRef<Set<string>>(new Set());
+  const [savedIdeas, setSavedIdeas] = useState<Addon[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const raw = window.localStorage.getItem("obs.savedIdeas");
+      return raw ? (JSON.parse(raw) as Addon[]) : [];
+    } catch { return []; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.savedIdeas", JSON.stringify(savedIdeas)); } catch {}
+  }, [savedIdeas]);
   const [nextSteps, setNextSteps] = useState<Addon[]>([]);
   const [nextStepsLoading, setNextStepsLoading] = useState(false);
   const generateStarterIdeasFn = useServerFn(generateStarterIdeas);
