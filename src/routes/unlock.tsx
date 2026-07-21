@@ -5,6 +5,7 @@ import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
+import { PLAN_TIERS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
 import signatureCard from "@/assets/joseph-signature-card.jpeg.asset.json";
@@ -304,17 +305,37 @@ function Unlock() {
                 {expandDetails && (
                   <div className="unlock-details">
                     <div className="detail-block">
-                      <h3>What you get</h3>
+                      <h3>Why Obsidian is different</h3>
                       <ul>
-                        <li>AI generation and AI chat</li>
-                        <li>AI code patches and prompt enhancement</li>
-                        <li>AI image generation</li>
-                        <li>Chief Engineer multi-agent review and orchestration</li>
-                        <li>Cloud saves and secure sharing</li>
-                        <li>GitHub and deployment integrations</li>
-                        <li>Project intelligence, validation, rollback, and engineering reports</li>
+                        <li><strong>An AI engineering team, not a single chat model.</strong> A Chief Engineer routes each request across specialized agents for planning, code, review, security, and rollback — most vibe coders send one prompt to one model and hope.</li>
+                        <li><strong>Production-grade output by default.</strong> Every build is validated, screenshot-tested, and scored on a readiness report covering performance, accessibility, and security before you ship.</li>
+                        <li><strong>Never simulates data.</strong> Obsidian generates real HTML/CSS/JS wired to real APIs and real images — no fake JSON, no placeholder text, no “this is a mock” escape hatches.</li>
+                        <li><strong>Deterministic patches, not full rewrites.</strong> Small changes stay small. A transactional patch engine surgically edits the exact section you asked about and preserves everything else that worked.</li>
+                        <li><strong>Multi-provider AI with automatic failover.</strong> Gemini 3, GPT-5, and Claude — plus Leonardo, Higgsfield, and Gemini for images. If one provider fails or rate-limits, Obsidian switches mid-request and refunds credits when nothing was delivered.</li>
+                        <li><strong>Your library, cross-device.</strong> Builds, saved ideas, and version history follow you across browsers via your private library code — no lock-in, exportable at any time.</li>
+                        <li><strong>Real deploys.</strong> One-click Go Live, GitHub repo + Pages integration, and shareable public URLs baked in.</li>
                       </ul>
                     </div>
+
+                    <div className="detail-block">
+                      <h3>Pricing tiers</h3>
+                      <div className="tier-grid">
+                        {PLAN_TIERS.map((t) => (
+                          <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
+                            <div className="tier-head">
+                              <span className="tier-name">{t.name}</span>
+                              <span className="tier-price">{t.price}<span className="tier-cadence">{t.cadence}</span></span>
+                            </div>
+                            <div className="tier-headline">{t.headline}</div>
+                            <div className="tier-bestfor">Best for: {t.bestFor}</div>
+                            <ul className="tier-outcomes">
+                              {t.outcomes.map((o) => <li key={o}>{o}</li>)}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="detail-block">
                       <h3>How it works</h3>
                       <ol>
@@ -323,10 +344,12 @@ function Unlock() {
                         <li>Return automatically with Pro access enabled</li>
                       </ol>
                     </div>
+
                     <div className="detail-block">
                       <h3>What stays free &amp; local</h3>
                       <p>Local editing, previews, local project storage, deterministic tools, exports, screenshots, and local history remain free and never leave your browser. Credits are consumed only for cloud AI and provider work.</p>
                     </div>
+
                     <p className="detail-trust">Secure billing through Stripe. Cancel anytime.</p>
                   </div>
                 )}
@@ -576,7 +599,7 @@ const unlockCss = `
 }
 .unlock-card {
   position: relative;
-  width: 100%; max-width: 440px;
+  width: 100%; max-width: 620px;
   background: rgba(8,8,10,0.78);
   border: 1px solid rgba(244,161,37,0.28);
   border-radius: 16px;
@@ -729,6 +752,30 @@ const unlockCss = `
   margin-top: 8px; font-size: 11.5px; letter-spacing: .5px;
   color: rgba(182,188,200,0.7); text-align: center;
 }
+
+.tier-grid { display: grid; gap: 10px; margin-top: 4px; }
+.tier-row {
+  border: 1px solid rgba(244,161,37,0.18); border-radius: 10px;
+  padding: 10px 12px; background: rgba(0,0,0,0.35);
+}
+.tier-row.is-featured {
+  border-color: rgba(244,161,37,0.5);
+  box-shadow: 0 0 0 1px rgba(244,161,37,0.15), 0 0 24px rgba(244,161,37,0.08);
+}
+.tier-head {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+  margin-bottom: 2px;
+}
+.tier-name {
+  font-family: Fraunces, Georgia, serif; font-size: 14px; color: #f2eee7;
+  letter-spacing: .5px;
+}
+.tier-price { font-size: 14px; color: #f4a125; font-weight: 600; }
+.tier-cadence { font-size: 11px; color: rgba(244,161,37,0.6); margin-left: 2px; }
+.tier-headline { font-size: 12px; color: rgba(242,238,231,0.85); margin-bottom: 2px; }
+.tier-bestfor { font-size: 11px; color: rgba(182,188,200,0.7); margin-bottom: 4px; font-style: italic; }
+.tier-outcomes { margin: 0; padding-left: 16px; }
+.tier-outcomes li { font-size: 11.5px; line-height: 1.5; color: rgba(182,188,200,0.85); }
 
 .unlock-legal {
   margin-top: 14px; text-align: center;
