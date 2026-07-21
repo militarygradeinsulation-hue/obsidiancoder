@@ -2240,6 +2240,14 @@ function Index() {
             >
               <Github className="h-3.5 w-3.5" /> GitHub
             </button>
+            <CreditBar
+              mode={entitlement.mode}
+              used={Math.max(0, (entitlement.cap ?? 0) - (entitlement.remaining ?? 0))}
+              cap={entitlement.cap ?? 0}
+              remaining={entitlement.remaining ?? 0}
+              cost={current.cost ?? EMPTY_COST}
+              onUpgrade={() => setPricingOpen(true)}
+            />
             <button
               type="button"
               className={"obs-chip " + (isPro ? "is-on" : "obs-chip-gold")}
