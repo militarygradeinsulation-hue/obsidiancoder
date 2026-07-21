@@ -2672,6 +2672,16 @@ function Index() {
                   setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
                   fetchCategoryIdeas(ideaCategory, true);
                 };
+                const dismissIdea = (a: Addon) => {
+                  recordBuiltIdea(a.label);
+                  recordBuiltIdea(a.snippet.slice(0, 60));
+                  setAiIdeas((prev) => prev.filter((p) => p.id !== a.id && p.label !== a.label));
+                  // Keep the rail fresh forever — refill as soon as it thins out.
+                  const remaining = addons.filter((p) => p.id !== a.id && p.label !== a.label).length;
+                  if (remaining < 4 && !aiIdeasLoading) {
+                    fetchCategoryIdeas(ideaCategory, false);
+                  }
+                };
                 const pickCategory = (cat: string) => {
                   setIdeaCategory(cat);
                   setAiIdeas([]);
@@ -2789,22 +2799,39 @@ function Index() {
                               <span>{a.label}</span>
                             </button>
                             {isStarters && (
-                              <button
-                                type="button"
-                                onClick={() => toggleSave(a)}
-                                title={isSaved ? "Remove from saved" : "Save this idea"}
-                                aria-label={isSaved ? `Unsave ${a.label}` : `Save ${a.label}`}
-                                style={{
-                                  background: "transparent",
-                                  border: 0,
-                                  cursor: "pointer",
-                                  padding: 2,
-                                  opacity: isSaved ? 1 : 0.55,
-                                  color: isSaved ? "var(--obs-gold, #F4A125)" : "inherit",
-                                }}
-                              >
-                                {isSaved ? <BookmarkCheck className="h-3 w-3" /> : <Bookmark className="h-3 w-3" />}
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSave(a)}
+                                  title={isSaved ? "Remove from saved" : "Save this idea"}
+                                  aria-label={isSaved ? `Unsave ${a.label}` : `Save ${a.label}`}
+                                  style={{
+                                    background: "transparent",
+                                    border: 0,
+                                    cursor: "pointer",
+                                    padding: 2,
+                                    opacity: isSaved ? 1 : 0.55,
+                                    color: isSaved ? "var(--obs-gold, #F4A125)" : "inherit",
+                                  }}
+                                >
+                                  {isSaved ? <BookmarkCheck className="h-3 w-3" /> : <Bookmark className="h-3 w-3" />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => dismissIdea(a)}
+                                  title="Don't show this again"
+                                  aria-label={`Dismiss ${a.label}`}
+                                  style={{
+                                    background: "transparent",
+                                    border: 0,
+                                    cursor: "pointer",
+                                    padding: 2,
+                                    opacity: 0.45,
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </>
                             )}
                           </span>
                         );
