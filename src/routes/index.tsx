@@ -2588,11 +2588,23 @@ function Index() {
                   { id: "dashboard", label: "Dashboard" },
                   { id: "portfolio", label: "Portfolio" },
                 ];
-                const baseAddons = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
+                const baseAddonsAll = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
+                const isBuilt = (a: Addon) => {
+                  const l = a.label.trim().toLowerCase();
+                  const s = a.snippet.trim().toLowerCase();
+                  for (const k of builtIdeas) {
+                    if (!k) continue;
+                    if (l && (l.includes(k) || k.includes(l))) return true;
+                    if (s && (s.includes(k) || k.includes(s.slice(0, 60)))) return true;
+                  }
+                  return false;
+                };
+                const baseAddons = baseAddonsAll.filter((a) => !isBuilt(a));
+                const filteredAi = aiIdeas.filter((a) => !isBuilt(a));
                 // Idle + a category selected → show AI ideas only (unlimited fresh pool).
                 // Idle + "all" and no AI yet → deterministic starter pool.
                 const addons: Addon[] = isStarters
-                  ? (aiIdeas.length ? aiIdeas.slice(0, 6) : baseAddons)
+                  ? (filteredAi.length ? filteredAi.slice(0, 6) : baseAddons)
                   : baseAddons;
                 const label = isStarters ? "Try one of these" : "Add to your prompt";
                 const savedKey = (a: Addon) => a.snippet.trim().toLowerCase();
@@ -2609,7 +2621,10 @@ function Index() {
                   if (aiIdeasLoading) return;
                   setAiIdeasLoading(true);
                   try {
-                    const exclude = Array.from(seenIdeaLabelsRef.current).slice(-100);
+                    const exclude = Array.from(new Set([
+                      ...Array.from(seenIdeaLabelsRef.current),
+                      ...Array.from(builtIdeas),
+                    ])).slice(-120);
                     const res = await generateStarterIdeasFn({ data: { exclude, count: 8, category: category as never } });
                     const fresh = (res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon));
                     fresh.forEach((f) => seenIdeaLabelsRef.current.add(f.label.toLowerCase()));
