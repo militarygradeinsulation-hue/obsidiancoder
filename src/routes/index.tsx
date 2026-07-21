@@ -2799,22 +2799,39 @@ function Index() {
                               <span>{a.label}</span>
                             </button>
                             {isStarters && (
-                              <button
-                                type="button"
-                                onClick={() => toggleSave(a)}
-                                title={isSaved ? "Remove from saved" : "Save this idea"}
-                                aria-label={isSaved ? `Unsave ${a.label}` : `Save ${a.label}`}
-                                style={{
-                                  background: "transparent",
-                                  border: 0,
-                                  cursor: "pointer",
-                                  padding: 2,
-                                  opacity: isSaved ? 1 : 0.55,
-                                  color: isSaved ? "var(--obs-gold, #F4A125)" : "inherit",
-                                }}
-                              >
-                                {isSaved ? <BookmarkCheck className="h-3 w-3" /> : <Bookmark className="h-3 w-3" />}
-                              </button>
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => toggleSave(a)}
+                                  title={isSaved ? "Remove from saved" : "Save this idea"}
+                                  aria-label={isSaved ? `Unsave ${a.label}` : `Save ${a.label}`}
+                                  style={{
+                                    background: "transparent",
+                                    border: 0,
+                                    cursor: "pointer",
+                                    padding: 2,
+                                    opacity: isSaved ? 1 : 0.55,
+                                    color: isSaved ? "var(--obs-gold, #F4A125)" : "inherit",
+                                  }}
+                                >
+                                  {isSaved ? <BookmarkCheck className="h-3 w-3" /> : <Bookmark className="h-3 w-3" />}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => dismissIdea(a)}
+                                  title="Don't show this again"
+                                  aria-label={`Dismiss ${a.label}`}
+                                  style={{
+                                    background: "transparent",
+                                    border: 0,
+                                    cursor: "pointer",
+                                    padding: 2,
+                                    opacity: 0.45,
+                                  }}
+                                >
+                                  <X className="h-3 w-3" />
+                                </button>
+                              </>
                             )}
                           </span>
                         );
