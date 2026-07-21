@@ -14,6 +14,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
 import { generateStarterIdeas, anticipateNextIdeas } from "@/lib/ideas.functions";
+import { pushFeaturedDemo } from "@/lib/featured-demos.functions";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
