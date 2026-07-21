@@ -37,7 +37,7 @@ async function resolveOrCreateCustomer(
   return created.id;
 }
 
-import { PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
+
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
