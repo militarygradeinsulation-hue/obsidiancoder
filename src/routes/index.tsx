@@ -1848,8 +1848,26 @@ function Index() {
       setLoading(false); setStage(null); markBuildEnd(sessionId);
       setStage(null);
       setStageDetail("");
+      // Idea memory: remember what the user just built so we stop
+      // re-suggesting it in the starter/AI idea rail.
+      try { recordBuiltIdea(basePrompt); } catch {}
     }
   }
+
+  // Drain the multi-prompt queue when a build finishes.
+  useEffect(() => {
+    if (loading) return;
+    if (promptQueue.length === 0) return;
+    const [next, ...rest] = promptQueue;
+    setPromptQueue(rest);
+    // Switch to the tab that queued it so streaming lands in the right place.
+    if (next.sid !== activeId) setActiveId(next.sid);
+    // Defer to next tick so activeId update is applied before submit reads it.
+    const t = setTimeout(() => { void submit(next.prompt); }, 40);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, promptQueue]);
+
 
 
 
