@@ -566,9 +566,109 @@ function Unlock() {
           </div>
         </div>
       </section>
+
+      {waitlistTier && (
+        <WaitlistModal
+          tier={waitlistTier}
+          onClose={() => setWaitlistTier(null)}
+        />
+      )}
     </div>
   );
 }
+
+function WaitlistModal({ tier, onClose }: { tier: string; onClose: () => void }) {
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [company, setCompany] = useState("");
+  const [use, setUse] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const [done, setDone] = useState(false);
+
+  async function submit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setBusy(true); setErr(null);
+    try {
+      const res = await fetch("/api/public/waitlist", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: name.trim(),
+          email: email.trim(),
+          company: company.trim(),
+          intended_use: use.trim() || "General interest",
+          interest_level: "exploring",
+          tier,
+          source: "unlock_whitelist",
+        }),
+      });
+      if (!res.ok) {
+        const t = await res.text().catch(() => "");
+        // Friendly duplicate handling — the DB has a unique-per-email constraint.
+        if (/duplicate|unique|already/i.test(t)) {
+          setDone(true);
+        } else {
+          setErr(t || "Something went wrong. Try again.");
+        }
+      } else {
+        setDone(true);
+      }
+    } catch {
+      setErr("Network error. Try again.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="wl-overlay" role="dialog" aria-modal="true" aria-labelledby="wl-title" onClick={onClose}>
+      <div className="wl-card" onClick={(e) => e.stopPropagation()}>
+        <button type="button" className="wl-close" onClick={onClose} aria-label="Close">×</button>
+        {done ? (
+          <>
+            <h3 id="wl-title" className="wl-title">You're on the list ✦</h3>
+            <p className="wl-body">
+              Thanks — we've saved your request. You'll be among the first contacted for
+              early-access opportunities and any launch discounts we offer. Acceptance and
+              specific discounts aren't guaranteed.
+            </p>
+            <button type="button" className="unlock-btn unlock-btn-primary" onClick={onClose}>
+              Close
+            </button>
+          </>
+        ) : (
+          <>
+            <h3 id="wl-title" className="wl-title">Request Early Access</h3>
+            <p className="wl-sub">
+              Join the Obsidian whitelist. Early members are first to unlock new tiers and
+              may qualify for launch discounts (not guaranteed).
+            </p>
+            <form onSubmit={submit} className="wl-form">
+              <label className="wl-label">Name
+                <input required maxLength={200} className="wl-input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
+              </label>
+              <label className="wl-label">Email
+                <input required type="email" maxLength={320} className="wl-input" value={email} onChange={(e) => setEmail(e.target.value)} autoComplete="email" />
+              </label>
+              <label className="wl-label">Company <span className="wl-optional">(optional)</span>
+                <input maxLength={200} className="wl-input" value={company} onChange={(e) => setCompany(e.target.value)} autoComplete="organization" />
+              </label>
+              <label className="wl-label">Intended use <span className="wl-optional">(optional)</span>
+                <textarea maxLength={2000} rows={3} className="wl-input wl-textarea" value={use} onChange={(e) => setUse(e.target.value)} />
+              </label>
+              {err && <div role="alert" className="unlock-error">⚠ {err}</div>}
+              <button type="submit" disabled={busy} className="unlock-btn unlock-btn-primary">
+                {busy ? "Submitting…" : "Join the Whitelist"}
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 const unlockCss = `
 .unlock-root {
