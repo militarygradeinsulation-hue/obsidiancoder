@@ -243,6 +243,58 @@ function Index() {
   useEffect(() => {
     try { window.localStorage.setItem("obs.savedIdeas", JSON.stringify(savedIdeas)); } catch {}
   }, [savedIdeas]);
+  // Cross-device sync of saved ideas keyed by the user's library code.
+  // On code change: fetch server copy and merge (server wins on conflicts by snippet).
+  // On savedIdeas change: debounce-persist to the server so returning devices see them.
+  const savedIdeasHydratedRef = useRef<string>("");
+  useEffect(() => {
+    const code = (typeof window !== "undefined"
+      ? (window.localStorage.getItem("obs.library_code") || window.sessionStorage.getItem("obs.library_code") || "")
+      : ""
+    ).trim();
+    if (!code || code.length < 4) return;
+    if (savedIdeasHydratedRef.current === code) return;
+    savedIdeasHydratedRef.current = code;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/public/saved-ideas/${encodeURIComponent(code)}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { ideas?: Addon[] };
+        const remote = Array.isArray(data.ideas) ? data.ideas : [];
+        if (cancelled || remote.length === 0) return;
+        setSavedIdeas((local) => {
+          const key = (a: Addon) => (a.snippet || "").trim().toLowerCase();
+          const seen = new Set<string>();
+          const merged: Addon[] = [];
+          for (const item of [...remote, ...local]) {
+            const k = key(item);
+            if (!k || seen.has(k)) continue;
+            seen.add(k);
+            merged.push({ ...item, id: item.id || "saved-" + Math.random().toString(36).slice(2) });
+          }
+          return merged.slice(0, 40);
+        });
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [libraryCode]);
+  useEffect(() => {
+    const code = (typeof window !== "undefined"
+      ? (window.localStorage.getItem("obs.library_code") || window.sessionStorage.getItem("obs.library_code") || "")
+      : ""
+    ).trim();
+    if (!code || code.length < 4) return;
+    if (savedIdeasHydratedRef.current !== code) return; // wait for initial hydrate
+    const handle = window.setTimeout(() => {
+      fetch(`/api/public/saved-ideas/${encodeURIComponent(code)}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ideas: savedIdeas }),
+      }).catch(() => {});
+    }, 600);
+    return () => window.clearTimeout(handle);
+  }, [savedIdeas, libraryCode]);
   const [nextSteps, setNextSteps] = useState<Addon[]>([]);
   const [nextStepsLoading, setNextStepsLoading] = useState(false);
   const generateStarterIdeasFn = useServerFn(generateStarterIdeas);
