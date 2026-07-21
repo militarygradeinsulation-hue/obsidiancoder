@@ -432,6 +432,48 @@ function Unlock() {
           ))}
         </div>
       </section>
+
+      {/* MEET THE ARCHITECT */}
+      <section className="unlock-architect" aria-labelledby="architect-heading">
+        <div className="architect-card">
+          <div className="architect-portrait">
+            <img
+              src={signatureCard.url}
+              alt="Joseph Toney — AI Architect signature card"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+          <div className="architect-body">
+            <h2 id="architect-heading" className="architect-title">Meet the Architect</h2>
+            <p className="architect-name">Joseph Toney</p>
+            <p className="architect-tagline">
+              AI Architect · MS, BA · IBM AI Certified
+            </p>
+            <p className="architect-quote">
+              “I find the cause of chaos and remove it at the source.”
+            </p>
+            <div className="architect-links">
+              <a
+                href="https://Aetheris.Technology"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="architect-link"
+              >
+                Aetheris.Technology
+              </a>
+              <a
+                href="https://www.linkedin.com/in/thejosephtoney"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="architect-link"
+              >
+                LinkedIn
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
