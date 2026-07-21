@@ -1019,6 +1019,21 @@ const unlockCss = `
   font-size: 22px; letter-spacing: 0.5px; color: #f2eee7; margin: 0;
 }
 .demos-sub { margin: 6px 0 0; font-size: 12px; color: #B6BCC8; }
+.demos-toggle {
+  margin-top: 12px;
+  padding: 8px 18px;
+  background: rgba(244,161,37,0.08);
+  border: 1px solid rgba(244,161,37,0.35);
+  color: #F4A125;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.demos-toggle:hover { background: rgba(244,161,37,0.16); border-color: rgba(244,161,37,0.6); }
+.demos-toggle:focus-visible { outline: 2px solid #f4a125; outline-offset: 2px; }
 .demo-chips {
   display: flex; flex-wrap: wrap; gap: 8px;
   justify-content: center; margin: 0 0 18px;
