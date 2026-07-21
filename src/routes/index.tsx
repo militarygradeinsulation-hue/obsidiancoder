@@ -2364,9 +2364,38 @@ function Index() {
               </div>
               {(() => {
                 const isStarters = !input.trim();
-                const addons = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
+                const baseAddons = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
+                // When idle, blend AI-generated ideas in with the deterministic pool.
+                const addons: Addon[] = isStarters && aiIdeas.length
+                  ? [...aiIdeas.slice(0, 2), ...baseAddons].slice(0, Math.max(4, baseAddons.length))
+                  : baseAddons;
                 const label = isStarters ? "Try one of these" : "Add to your prompt";
-                const cycleIdeas = () => setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
+                const cycleIdeas = async () => {
+                  setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
+                  if (aiIdeasLoading) return;
+                  setAiIdeasLoading(true);
+                  try {
+                    const exclude = [
+                      ...baseAddons.map((a) => a.label),
+                      ...aiIdeas.map((a) => a.label),
+                    ];
+                    const res = await generateStarterIdeasFn({ data: { exclude, count: 5 } });
+                    setAiIdeas((prev) => {
+                      const merged = [...(res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon)), ...prev];
+                      const seen = new Set<string>();
+                      return merged.filter((a) => {
+                        const k = a.label.toLowerCase();
+                        if (seen.has(k)) return false;
+                        seen.add(k);
+                        return true;
+                      }).slice(0, 12);
+                    });
+                  } catch {
+                    // silent — deterministic pool still cycled above
+                  } finally {
+                    setAiIdeasLoading(false);
+                  }
+                };
                 return (
                   <>
                     <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -2377,12 +2406,13 @@ function Index() {
                             type="button"
                             onClick={cycleIdeas}
                             className="obs-icon-btn"
-                            title="Show new ideas"
-                            aria-label="Show new ideas"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, opacity: 0.85 }}
+                            title="Generate fresh ideas with AI"
+                            aria-label="Generate fresh ideas with AI"
+                            disabled={aiIdeasLoading}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, opacity: aiIdeasLoading ? 0.5 : 0.85 }}
                           >
-                            <RefreshCw className="h-3 w-3" />
-                            <span>New ideas</span>
+                            {aiIdeasLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                            <span>{aiIdeasLoading ? "Thinking…" : "New ideas"}</span>
                           </button>
                         )}
                         <span style={{ opacity: 0.55, fontSize: 10 }}>click to {isStarters ? "build" : "append"} · free</span>
@@ -2402,6 +2432,34 @@ function Index() {
                         </button>
                       ))}
                     </div>
+                    {!isStarters && (nextStepsLoading || nextSteps.length > 0) && (
+                      <>
+                        <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <Sparkles className="h-3 w-3" style={{ color: "var(--obs-gold, #F4A125)" }} />
+                            Suggested next
+                          </span>
+                          <span style={{ opacity: 0.55, fontSize: 10 }}>
+                            {nextStepsLoading ? "reading your prompt…" : "click to append"}
+                          </span>
+                        </div>
+                        <div className="obs-suggestions">
+                          {nextSteps.map((a) => (
+                            <button
+                              key={"next:" + a.id}
+                              type="button"
+                              className="obs-suggestion obs-idea-in"
+                              onClick={() => appendAddon(a)}
+                              disabled={loading}
+                              title={a.snippet}
+                              style={{ borderColor: "rgba(244,161,37,0.35)" }}
+                            >
+                              <span>{a.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </>
                 );
               })()}
