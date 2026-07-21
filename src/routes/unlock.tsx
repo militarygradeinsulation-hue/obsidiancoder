@@ -11,30 +11,34 @@ import signatureCard from "@/assets/joseph-signature-card.jpeg.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
-const DEMOS: { slug: string; title: string; url?: string }[] = [
-  { slug: "0v6h3d1b0k5e60", title: "Demo · Obsidian Build 01" },
-  { slug: "254055672k2h6p", title: "Demo · Obsidian Build 02" },
-  { slug: "68055l616v1f1m", title: "Demo · Obsidian Build 03" },
-  { slug: "6u0k1t5t544959", title: "Demo · Obsidian Build 04" },
-  { slug: "3u6i063s2u000m", title: "Demo · Obsidian Build 05" },
-  { slug: "712q5y47130j3k", title: "Demo · Obsidian Build 06" },
-  { slug: "0o170e051k1558", title: "Demo · Obsidian Build 07" },
-  { slug: "0w653a21633k5v", title: "Demo · Obsidian Build 08", url: "https://obsidianvibe.live/api/public/share/0w653a21633k5v" },
-  { slug: "3s190o0x3o2r14", title: "Demo · Obsidian Build 09", url: "https://obsidianvibe.live/api/public/share/3s190o0x3o2r14" },
-  { slug: "1l370y43144a2o", title: "Demo · Obsidian Build 10", url: "https://obsidianvibe.live/api/public/share/1l370y43144a2o" },
-  { slug: "0t485n6s6i1203", title: "Demo · Obsidian Build 11", url: "https://obsidianvibe.live/api/public/share/0t485n6s6i1203" },
-  { slug: "5i3e202p646j66", title: "Demo · Obsidian Build 12", url: "https://obsidianvibe.live/api/public/share/5i3e202p646j66" },
-  { slug: "1z63663n0j6c3n", title: "Demo · Obsidian Build 13", url: "https://obsidianvibe.live/api/public/share/1z63663n0j6c3n#home" },
-  { slug: "6t4k4d2h31512r", title: "Demo · Obsidian Build 14", url: "https://obsidianvibe.live/api/public/share/6t4k4d2h31512r" },
-  { slug: "0x1b67096z3d2l", title: "Demo · Obsidian Build 15", url: "https://obsidianvibe.live/api/public/share/0x1b67096z3d2l" },
-  { slug: "4a452v014l4a3d", title: "Demo · Obsidian Build 16", url: "https://obsidianvibe.live/api/public/share/4a452v014l4a3d" },
-  { slug: "4t4k4q2u0e2i0y", title: "Demo · Obsidian Build 17", url: "https://obsidianvibe.live/api/public/share/4t4k4q2u0e2i0y" },
-  { slug: "3u6x2m401k4y6q", title: "Demo · Obsidian Build 18", url: "https://obsidianvibe.live/api/public/share/3u6x2m401k4y6q" },
-  { slug: "6u1l6b255s6n2t", title: "Demo · Obsidian Build 19", url: "https://obsidianvibe.live/api/public/share/6u1l6b255s6n2t#mockup-anchor" },
-  { slug: "214o3v5d1g421g", title: "Demo · Obsidian Build 20", url: "https://obsidianvibe.live/api/public/share/214o3v5d1g421g#live-map" },
-  { slug: "4b3k4t624s4n1l", title: "Demo · Obsidian Build 21", url: "https://obsidianvibe.live/api/public/share/4b3k4t624s4n1l#preview" },
-  { slug: "3s2q0g011p2z3b", title: "Demo · Obsidian Build 22", url: "https://obsidianvibe.live/api/public/share/3s2q0g011p2z3b#home" },
-  { slug: "2e5n3j0y47664q", title: "Demo · Obsidian Build 23", url: "https://obsidianvibe.live/api/public/share/2e5n3j0y47664q#episodes" },
+type DemoCategory = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
+const DEMO_CATEGORIES: readonly DemoCategory[] = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
+
+const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory }[] = [
+  { slug: "0v6h3d1b0k5e60", title: "Demo · Obsidian Build 01", category: "App" },
+  { slug: "254055672k2h6p", title: "Demo · Obsidian Build 02", category: "Landing" },
+  { slug: "68055l616v1f1m", title: "Demo · Obsidian Build 03", category: "Dashboard" },
+  { slug: "6u0k1t5t544959", title: "Demo · Obsidian Build 04", category: "Tool" },
+  { slug: "3u6i063s2u000m", title: "Demo · Obsidian Build 05", category: "Game" },
+  { slug: "712q5y47130j3k", title: "Demo · Obsidian Build 06", category: "Portfolio" },
+  { slug: "0o170e051k1558", title: "Demo · Obsidian Build 07", category: "App" },
+  { slug: "0w653a21633k5v", title: "Demo · Obsidian Build 08", category: "Landing", url: "https://obsidianvibe.live/api/public/share/0w653a21633k5v" },
+  { slug: "3s190o0x3o2r14", title: "Demo · Obsidian Build 09", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/3s190o0x3o2r14" },
+  { slug: "1l370y43144a2o", title: "Demo · Obsidian Build 10", category: "Tool", url: "https://obsidianvibe.live/api/public/share/1l370y43144a2o" },
+  { slug: "0t485n6s6i1203", title: "Demo · Obsidian Build 11", category: "Game", url: "https://obsidianvibe.live/api/public/share/0t485n6s6i1203" },
+  { slug: "5i3e202p646j66", title: "Demo · Obsidian Build 12", category: "Portfolio", url: "https://obsidianvibe.live/api/public/share/5i3e202p646j66" },
+  { slug: "1z63663n0j6c3n", title: "Demo · Obsidian Build 13", category: "App", url: "https://obsidianvibe.live/api/public/share/1z63663n0j6c3n#home" },
+  { slug: "6t4k4d2h31512r", title: "Demo · Obsidian Build 14", category: "Landing", url: "https://obsidianvibe.live/api/public/share/6t4k4d2h31512r" },
+  { slug: "0x1b67096z3d2l", title: "Demo · Obsidian Build 15", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/0x1b67096z3d2l" },
+  { slug: "4a452v014l4a3d", title: "Demo · Obsidian Build 16", category: "Tool", url: "https://obsidianvibe.live/api/public/share/4a452v014l4a3d" },
+  { slug: "4t4k4q2u0e2i0y", title: "Demo · Obsidian Build 17", category: "Game", url: "https://obsidianvibe.live/api/public/share/4t4k4q2u0e2i0y" },
+  { slug: "3u6x2m401k4y6q", title: "Demo · Obsidian Build 18", category: "Portfolio", url: "https://obsidianvibe.live/api/public/share/3u6x2m401k4y6q" },
+  { slug: "6u1l6b255s6n2t", title: "Demo · Obsidian Build 19", category: "App", url: "https://obsidianvibe.live/api/public/share/6u1l6b255s6n2t#mockup-anchor" },
+  { slug: "214o3v5d1g421g", title: "Demo · Obsidian Build 20", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/214o3v5d1g421g#live-map" },
+  { slug: "4b3k4t624s4n1l", title: "Demo · Obsidian Build 21", category: "Landing", url: "https://obsidianvibe.live/api/public/share/4b3k4t624s4n1l#preview" },
+  { slug: "3s2q0g011p2z3b", title: "Demo · Obsidian Build 22", category: "App", url: "https://obsidianvibe.live/api/public/share/3s2q0g011p2z3b#home" },
+  { slug: "2e5n3j0y47664q", title: "Demo · Obsidian Build 23", category: "Game", url: "https://obsidianvibe.live/api/public/share/2e5n3j0y47664q#episodes" },
+  { slug: "4g71725v6y2o5b", title: "Demo · Obsidian Build 24", category: "App", url: "https://obsidianvibe.live/api/public/share/4g71725v6y2o5b" },
 ];
 
 type Intent = "buy" | "code";
