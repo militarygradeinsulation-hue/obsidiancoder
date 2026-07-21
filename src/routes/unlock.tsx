@@ -647,6 +647,10 @@ function WaitlistModal({ tier, onClose }: { tier: string; onClose: () => void })
               Join the Obsidian whitelist. Early members are first to unlock new tiers and
               may qualify for launch discounts (not guaranteed).
             </p>
+            <div className="wl-selected" aria-live="polite">
+              <span className="wl-selected-label">Selected plan</span>
+              <strong className="wl-selected-value">{selectedLabel}</strong>
+            </div>
             <form onSubmit={submit} className="wl-form">
               <label className="wl-label">Name
                 <input required maxLength={200} className="wl-input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
