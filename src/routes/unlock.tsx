@@ -33,6 +33,7 @@ const DEMOS: { slug: string; title: string; url?: string }[] = [
   { slug: "214o3v5d1g421g", title: "Demo · Obsidian Build 20", url: "https://obsidianvibe.live/api/public/share/214o3v5d1g421g#live-map" },
   { slug: "4b3k4t624s4n1l", title: "Demo · Obsidian Build 21", url: "https://obsidianvibe.live/api/public/share/4b3k4t624s4n1l#preview" },
   { slug: "3s2q0g011p2z3b", title: "Demo · Obsidian Build 22", url: "https://obsidianvibe.live/api/public/share/3s2q0g011p2z3b#home" },
+  { slug: "2e5n3j0y47664q", title: "Demo · Obsidian Build 23", url: "https://obsidianvibe.live/api/public/share/2e5n3j0y47664q#episodes" },
 ];
 
 type Intent = "buy" | "code";
