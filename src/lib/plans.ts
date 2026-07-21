@@ -43,7 +43,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Baseline security and performance checks",
     ],
     priceId: "obsidian_starter_monthly",
-    cta: "waitlist",
+    cta: "checkout",
     icon: Rocket,
   },
   {
@@ -78,7 +78,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Custom domains and GitHub deploys",
     ],
     priceId: "obsidian_professional_monthly",
-    cta: "waitlist",
+    cta: "checkout",
     icon: Briefcase,
   },
   {
@@ -95,7 +95,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Revenue and product analytics dashboard",
     ],
     priceId: "obsidian_business_monthly",
-    cta: "waitlist",
+    cta: "checkout",
     icon: Building2,
   },
   {
@@ -112,7 +112,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Launch-readiness and compliance reviews",
     ],
     priceId: "obsidian_elite_monthly",
-    cta: "waitlist",
+    cta: "checkout",
     icon: Crown,
   },
   {
