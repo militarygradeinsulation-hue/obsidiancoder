@@ -89,8 +89,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:title", content: "Aetheris Obsidian — Tell it what to build" },
       { property: "og:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
       { name: "twitter:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784658301261-13798.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784658301261-13798.webp" },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784658400624-13800.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784658400624-13800.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
