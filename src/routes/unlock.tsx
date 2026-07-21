@@ -89,6 +89,7 @@ function Unlock() {
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
   const [expandDetails, setExpandDetails] = useState(false);
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
+  const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
 
 
