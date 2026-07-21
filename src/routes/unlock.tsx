@@ -5,6 +5,7 @@ import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
+import { PLAN_TIERS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
 import signatureCard from "@/assets/joseph-signature-card.jpeg.asset.json";
