@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
+import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
+import { getStripe } from "@/lib/stripe";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
 import { PLAN_TIERS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
