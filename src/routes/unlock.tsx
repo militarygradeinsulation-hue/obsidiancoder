@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
 import { buildAuthUrl } from "@/lib/redirect-safe";
+import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
@@ -38,9 +39,9 @@ export const Route = createFileRoute("/unlock")({
   },
   head: () => ({
     meta: [
-      { title: "Get Obsidian Creator — Aetheris Obsidian" },
+      { title: "Get Obsidian Creator — Obsidian" },
       { name: "description", content: "Start Obsidian Creator for $79/month or enter your access code. Build production-ready software with an AI engineering team." },
-      { property: "og:title", content: "Get Obsidian Creator — Aetheris Obsidian" },
+      { property: "og:title", content: "Get Obsidian Creator — Obsidian" },
       { property: "og:description", content: "Build production-ready software with an AI engineering team. $79/month, 1,000 AI credits per billing period." },
       { property: "og:type", content: "website" },
     ],
@@ -156,6 +157,19 @@ function Unlock() {
     <div className="unlock-root">
       <style>{unlockCss}</style>
 
+      <video
+        className="unlock-video"
+        src={unlockBg.url}
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        aria-hidden
+        tabIndex={-1}
+      />
+      <div aria-hidden className="unlock-video-veil" />
+
       <div aria-hidden className="unlock-face">
         <svg viewBox="0 0 400 500" preserveAspectRatio="xMidYMid meet">
           <defs>
@@ -191,7 +205,7 @@ function Unlock() {
         <div className="unlock-card-glow" aria-hidden />
 
         <header className="unlock-brand">
-          <div id="unlock-heading" className="unlock-title" data-text="AETHERIS">AETHERIS</div>
+          <div id="unlock-heading" className="unlock-title" data-text="OBSIDIAN">OBSIDIAN</div>
           <div className="unlock-sub">Obsidian // Access Terminal</div>
         </header>
 
@@ -363,7 +377,7 @@ function Unlock() {
           </section>
         )}
 
-        <div className="unlock-foot">AETHERIS.TECHNOLOGY</div>
+        <div className="unlock-foot">OBSIDIAN</div>
       </main>
 
       <section className="unlock-demos" aria-labelledby="demos-heading">
@@ -419,6 +433,27 @@ const unlockCss = `
   padding: 24px 16px;
   overflow-x: hidden;
   overflow-y: auto;
+  isolation: isolate;
+}
+.unlock-video {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  object-fit: cover;
+  z-index: -2;
+  pointer-events: none;
+  filter: saturate(1.05) contrast(1.05) brightness(0.85);
+}
+.unlock-video-veil {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.78) 60%, rgba(0,0,0,0.92) 100%),
+    linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.65) 100%);
+  mix-blend-mode: multiply;
 }
 .unlock-tab:focus-visible,
 .unlock-btn:focus-visible,
@@ -480,16 +515,51 @@ const unlockCss = `
 .unlock-title {
   position: relative;
   font-family: Fraunces, Georgia, serif;
-  font-size: 30px; letter-spacing: 6px; color: #f2eee7;
-  text-shadow: 0 0 12px rgba(244,161,37,0.3);
+  font-size: 34px; letter-spacing: 8px; color: #f2eee7;
+  text-shadow: 0 0 12px rgba(244,161,37,0.45), 0 0 2px rgba(122,212,255,0.35);
+  animation: glitch-shake 2.6s infinite steps(1);
+  will-change: transform, filter;
 }
 .unlock-title::before, .unlock-title::after {
   content: attr(data-text); position: absolute; top:0; left:0; width:100%; overflow: hidden;
+  pointer-events: none;
 }
-.unlock-title::before { color:#f4a125; animation: glitch-1 3.5s infinite steps(1); clip-path: polygon(0 0,100% 0,100% 45%,0 45%); }
-.unlock-title::after  { color:#7ad4ff; animation: glitch-2 4.2s infinite steps(1); clip-path: polygon(0 55%,100% 55%,100% 100%,0 100%); mix-blend-mode: screen; }
-@keyframes glitch-1 { 0%,90%,100%{transform:translate(0,0);opacity:0} 91%{transform:translate(-2px,0);opacity:.9} 93%{transform:translate(2px,0);opacity:.9} 95%{transform:translate(-1px,1px);opacity:.6} 97%{opacity:0} }
-@keyframes glitch-2 { 0%,88%,100%{transform:translate(0,0);opacity:0} 89%{transform:translate(2px,0);opacity:.7} 91%{transform:translate(-2px,1px);opacity:.7} 93%{opacity:0} }
+.unlock-title::before { color:#f4a125; animation: glitch-1 1.6s infinite steps(1); clip-path: polygon(0 0,100% 0,100% 45%,0 45%); text-shadow: 2px 0 rgba(244,161,37,0.6); }
+.unlock-title::after  { color:#7ad4ff; animation: glitch-2 2.1s infinite steps(1); clip-path: polygon(0 55%,100% 55%,100% 100%,0 100%); mix-blend-mode: screen; text-shadow: -2px 0 rgba(122,212,255,0.6); }
+@keyframes glitch-shake {
+  0%,100% { transform: translate(0,0); filter: none; }
+  8%  { transform: translate(-1px,0); }
+  16% { transform: translate(1px,-1px); filter: hue-rotate(-8deg); }
+  22% { transform: translate(0,1px); }
+  35% { transform: translate(-2px,0); filter: contrast(1.2); }
+  38% { transform: translate(2px,0); }
+  55% { transform: translate(0,0); }
+  72% { transform: translate(1px,1px); filter: hue-rotate(6deg); }
+  78% { transform: translate(-1px,0); }
+}
+@keyframes glitch-1 {
+  0%,100% { transform: translate(0,0); opacity: 0; }
+  6%  { transform: translate(-3px,0); opacity: .95; clip-path: polygon(0 0,100% 0,100% 45%,0 45%); }
+  9%  { transform: translate(3px,0);  opacity: .85; clip-path: polygon(0 10%,100% 10%,100% 30%,0 30%); }
+  12% { transform: translate(-2px,1px); opacity: .9;  clip-path: polygon(0 60%,100% 60%,100% 80%,0 80%); }
+  15% { opacity: 0; }
+  40% { transform: translate(4px,-1px); opacity: .8; clip-path: polygon(0 20%,100% 20%,100% 55%,0 55%); }
+  43% { opacity: 0; }
+  70% { transform: translate(-4px,2px); opacity: .9; clip-path: polygon(0 5%,100% 5%,100% 35%,0 35%); }
+  73% { opacity: 0; }
+}
+@keyframes glitch-2 {
+  0%,100% { transform: translate(0,0); opacity: 0; }
+  5%  { transform: translate(3px,0);  opacity: .85; clip-path: polygon(0 55%,100% 55%,100% 100%,0 100%); }
+  8%  { transform: translate(-3px,1px); opacity: .8; clip-path: polygon(0 70%,100% 70%,100% 92%,0 92%); }
+  11% { opacity: 0; }
+  32% { transform: translate(-4px,0); opacity: .9; clip-path: polygon(0 40%,100% 40%,100% 65%,0 65%); }
+  35% { opacity: 0; }
+  60% { transform: translate(5px,-1px); opacity: .8; clip-path: polygon(0 15%,100% 15%,100% 42%,0 42%); }
+  63% { opacity: 0; }
+  86% { transform: translate(-2px,2px); opacity: .95; clip-path: polygon(0 78%,100% 78%,100% 100%,0 100%); }
+  89% { opacity: 0; }
+}
 .unlock-sub {
   margin-top: 6px; font-size: 10px; letter-spacing: 3px;
   color: rgba(182,188,200,0.7); text-transform: uppercase;
