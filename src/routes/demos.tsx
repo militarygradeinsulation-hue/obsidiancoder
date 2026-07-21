@@ -39,6 +39,7 @@ function DemosAdmin() {
   const update = useServerFn(updateFeaturedDemo);
   const remove = useServerFn(deleteFeaturedDemo);
   const reorder = useServerFn(reorderFeaturedDemos);
+  const fetchStats = useServerFn(getWaitlistStats);
 
   const [code, setCode] = useState("");
   const [codeInput, setCodeInput] = useState("");
