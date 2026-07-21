@@ -2989,15 +2989,27 @@ function Index() {
 
 
                 {loading ? (
-                  <button
-                    type="button"
-                    onClick={stopGeneration}
-                    aria-label="Stop"
-                    className="obs-composer-send"
-                    title="Stop"
-                  >
-                    <Square className="h-3.5 w-3.5" />
-                  </button>
+                  <>
+                    <button
+                      type="submit"
+                      disabled={!input.trim()}
+                      aria-label="Queue next build"
+                      title="Queue this prompt — runs when the current build finishes"
+                      className="obs-composer-send"
+                      style={{ background: "var(--gold, #f4a125)", color: "#111317" }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopGeneration}
+                      aria-label="Stop"
+                      className="obs-composer-send"
+                      title="Stop current build"
+                    >
+                      <Square className="h-3.5 w-3.5" />
+                    </button>
+                  </>
                 ) : (
                   <button
                     type="submit"
