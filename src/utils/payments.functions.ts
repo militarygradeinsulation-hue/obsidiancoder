@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
 import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
@@ -6,6 +7,10 @@ import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
 type CancelResult = { ok: true } | { error: string };
+
+export const WHITELIST_PRICE_ID = "whitelist_early_access_onetime";
+export const WHITELIST_CAP = 1000;
+
 
 async function resolveOrCreateCustomer(
   stripe: ReturnType<typeof createStripeClient>,
