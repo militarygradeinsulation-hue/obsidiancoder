@@ -1,4 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import {
@@ -12,11 +12,9 @@ type Category = (typeof CATEGORIES)[number];
 const CODE_KEY = "obs.demos.admin_code";
 
 export const Route = createFileRoute("/demos")({
-  beforeLoad: async () => {
-    const { ensureUnlocked } = await import("@/lib/gate.functions");
-    const { unlocked } = await ensureUnlocked();
-    if (!unlocked) throw redirect({ to: "/unlock" });
-  },
+  // Admin-only portal — gated by its own admin code (SITE_PASSWORD) so it
+  // works as a backdoor from the locked /unlock page without requiring the
+  // site session cookie first.
   head: () => ({
     meta: [
       { title: "Live Demos — Admin" },
@@ -48,6 +46,33 @@ function DemosAdmin() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  function toggleSelect(id: string) {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function selectAll() { setSelected(new Set((demos ?? []).map((d) => d.id))); }
+  function clearSelection() { setSelected(new Set()); }
+
+  async function onBulkDelete() {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} demo${selected.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    setError(null); setStatus(null);
+    const ids = Array.from(selected);
+    let failed = 0;
+    for (const id of ids) {
+      const r = await remove({ data: { adminCode: code, id } });
+      if (!r.ok) failed++;
+    }
+    setDemos((cur) => cur ? cur.filter((d) => !selected.has(d.id)) : cur);
+    setSelected(new Set());
+    if (failed) setError(`${failed} deletion${failed === 1 ? "" : "s"} failed`);
+    else setStatus(`Deleted ${ids.length} demo${ids.length === 1 ? "" : "s"}`);
+  }
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(CODE_KEY) : "";
@@ -191,10 +216,26 @@ function DemosAdmin() {
       </section>
 
       <div style={{ display: "grid", gap: 12, padding: "16px 28px 40px" }}>
-        <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: "8px 0 0", color: "#F4A125", fontSize: 20 }}>Demos</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: "8px 0 0", color: "#F4A125", fontSize: 20 }}>Demos</h2>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "#B6BCC8" }}>{selected.size} selected</span>
+            <button type="button" onClick={selectAll} style={toolBtn}>Select all</button>
+            <button type="button" onClick={clearSelection} disabled={selected.size === 0} style={{ ...toolBtn, opacity: selected.size === 0 ? 0.5 : 1 }}>Clear</button>
+            <button
+              type="button"
+              onClick={onBulkDelete}
+              disabled={selected.size === 0}
+              style={{ background: selected.size === 0 ? "transparent" : "#3a2226", color: "#ff8a8a", border: "1px solid #3a2226", padding: "6px 10px", borderRadius: 6, cursor: selected.size === 0 ? "not-allowed" : "pointer", fontSize: 12, opacity: selected.size === 0 ? 0.5 : 1 }}
+            >
+              Delete selected
+            </button>
+          </div>
+        </div>
         {(demos ?? []).map((d) => {
           const url = d.url ?? `https://obsidianvibe.live/api/public/share/${d.slug}`;
           const isSaving = savingId === d.id;
+          const isSelected = selected.has(d.id);
           return (
             <div
               key={d.id}
@@ -204,16 +245,25 @@ function DemosAdmin() {
               onDrop={() => onDrop(d.id)}
               style={{
                 display: "grid",
-                gridTemplateColumns: "220px 1fr auto",
+                gridTemplateColumns: "28px 220px 1fr auto",
                 gap: 16,
-                background: "#171a20",
-                border: `1px solid ${dragId === d.id ? "#F4A125" : "#22262d"}`,
+                alignItems: "start",
+                background: isSelected ? "#1d2028" : "#171a20",
+                border: `1px solid ${isSelected ? "#F4A125" : dragId === d.id ? "#F4A125" : "#22262d"}`,
                 borderRadius: 12,
                 padding: 12,
                 cursor: "grab",
                 opacity: isSaving ? 0.6 : 1,
               }}
             >
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleSelect(d.id)}
+                onClick={(e) => e.stopPropagation()}
+                aria-label={`Select ${d.title}`}
+                style={{ marginTop: 6, width: 18, height: 18, accentColor: "#F4A125", cursor: "pointer" }}
+              />
               <iframe
                 src={url}
                 title={d.title}
@@ -284,4 +334,14 @@ const inputStyle: React.CSSProperties = {
   borderRadius: 6,
   fontFamily: "inherit",
   fontSize: 13,
+};
+
+const toolBtn: React.CSSProperties = {
+  background: "transparent",
+  color: "#F4A125",
+  border: "1px solid rgba(244,161,37,0.35)",
+  padding: "6px 10px",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 12,
 };
