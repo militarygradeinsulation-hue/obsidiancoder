@@ -164,6 +164,33 @@ export async function hasActivePro(user: AuthedUser, env: Environment): Promise<
   return hasActiveProWithClient(supabaseAdmin as unknown as MinimalSubscriptionQueryClient, user.userId, env);
 }
 
+/**
+ * Resolve the caller's active monthly credit cap from their current
+ * subscription's `price_id`. Falls back to CAP_PRO_MONTHLY when the tier
+ * cannot be resolved (legacy rows, unknown price) so paying customers
+ * are never denied service on a mapping gap.
+ */
+export async function capForUser(userId: string, env: Environment): Promise<number> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("subscriptions")
+      .select("price_id")
+      .eq("user_id", userId)
+      .eq("environment", env)
+      .in("status", ["active", "trialing"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const tier = tierForPriceId(data?.price_id)?.id;
+    const cap = tier ? capForTier(tier) : 0;
+    return cap > 0 ? cap : CAP_PRO_MONTHLY;
+  } catch {
+    return CAP_PRO_MONTHLY;
+  }
+}
+
+
 export interface Reservation {
   reservationId: string;
   credits: number;              // envelope credits temporarily held; final charge may be lower
