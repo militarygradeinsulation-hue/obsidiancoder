@@ -2188,3 +2188,193 @@ body.is-resizing-composer * { user-select: none !important; }
 .obs-fusion-risk.is-low { background: rgba(80,200,120,0.15); color: #7bd39a; }
 .obs-fusion-risk.is-medium { background: rgba(201,149,61,0.18); color: #d9ac5c; }
 .obs-fusion-risk.is-high { background: rgba(220,80,80,0.18); color: #e08a8a; }
+
+/* ============================================================
+   Login page — glassy elegant shimmer + floating cards
+   Additive layer; overrides preserve existing structure.
+   ============================================================ */
+
+@keyframes obs-float-a {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(0, -6px, 0); }
+}
+@keyframes obs-float-b {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50%      { transform: translate3d(0, -4px, 0); }
+}
+@keyframes obs-shimmer-sweep {
+  0%   { transform: translateX(-120%) skewX(-18deg); }
+  100% { transform: translateX(220%)  skewX(-18deg); }
+}
+@keyframes obs-edge-pulse {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/* Shared glass surface treatment */
+.unlock-card,
+.tier-row,
+.demo-card,
+.architect-card,
+.wl-card {
+  position: relative;
+  isolation: isolate;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.055) 0%, rgba(255,255,255,0.018) 40%, rgba(10,12,16,0.55) 100%),
+    rgba(14, 16, 20, 0.55) !important;
+  border: 1px solid rgba(255,255,255,0.09) !important;
+  backdrop-filter: blur(22px) saturate(150%);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.10) inset,
+    0 0 0 1px rgba(255,255,255,0.03) inset,
+    0 30px 60px -20px rgba(0,0,0,0.75),
+    0 10px 30px -10px rgba(0,0,0,0.6),
+    0 0 40px -12px rgba(244,161,37,0.18) !important;
+  overflow: hidden;
+}
+
+/* Top highlight edge */
+.unlock-card::before,
+.tier-row::before,
+.demo-card::before,
+.architect-card::before,
+.wl-card::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(140deg,
+    rgba(255,255,255,0.35) 0%,
+    rgba(244,161,37,0.25) 25%,
+    rgba(255,255,255,0.05) 55%,
+    rgba(244,161,37,0.15) 85%,
+    rgba(255,255,255,0.30) 100%);
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+          mask-composite: exclude;
+  pointer-events: none;
+  opacity: 0.75;
+  animation: obs-edge-pulse 6s ease-in-out infinite;
+  z-index: 1;
+}
+
+/* Shimmer sweep */
+.unlock-card::after,
+.tier-row::after,
+.demo-card::after,
+.architect-card::after {
+  content: "";
+  position: absolute;
+  top: 0; left: 0;
+  width: 55%;
+  height: 100%;
+  background: linear-gradient(100deg,
+    transparent 0%,
+    rgba(255,255,255,0.10) 45%,
+    rgba(244,161,37,0.18) 50%,
+    rgba(255,255,255,0.10) 55%,
+    transparent 100%);
+  transform: translateX(-120%) skewX(-18deg);
+  pointer-events: none;
+  z-index: 2;
+  mix-blend-mode: screen;
+  opacity: 0.7;
+}
+
+.unlock-card::after     { animation: obs-shimmer-sweep 9s ease-in-out infinite; animation-delay: 1s; }
+.architect-card::after  { animation: obs-shimmer-sweep 11s ease-in-out infinite; animation-delay: 2s; }
+.demo-card::after       { animation: obs-shimmer-sweep 7s ease-in-out infinite; opacity: 0; transition: opacity .5s; }
+.demo-card:hover::after { opacity: 0.9; }
+.tier-row::after        { animation: obs-shimmer-sweep 8s ease-in-out infinite; opacity: 0; transition: opacity .4s; }
+.tier-row:hover::after,
+.tier-row.is-featured::after { opacity: 0.85; }
+
+/* Ensure interior content sits above pseudo layers */
+.unlock-card > *,
+.tier-row > *,
+.demo-card > *,
+.architect-card > *,
+.wl-card > * { position: relative; z-index: 3; }
+
+/* Floating lift */
+.tier-row     { animation: obs-float-a 7s ease-in-out infinite; will-change: transform; transition: transform .35s ease, box-shadow .35s ease; }
+.demo-card    { animation: obs-float-b 8s ease-in-out infinite; will-change: transform; transition: transform .35s ease, box-shadow .35s ease; }
+.architect-card { animation: obs-float-a 10s ease-in-out infinite; }
+
+.tier-row:nth-child(2n)  { animation-delay: -2s; }
+.tier-row:nth-child(3n)  { animation-delay: -4s; }
+.demo-card:nth-child(2n) { animation-delay: -3s; }
+.demo-card:nth-child(3n) { animation-delay: -5s; }
+
+.tier-row:hover,
+.demo-card:hover {
+  transform: translateY(-6px) scale(1.012);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.14) inset,
+    0 40px 80px -20px rgba(0,0,0,0.85),
+    0 0 60px -10px rgba(244,161,37,0.35) !important;
+}
+
+.tier-row.is-featured {
+  border-color: rgba(244,161,37,0.55) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.18) inset,
+    0 30px 60px -20px rgba(0,0,0,0.8),
+    0 0 55px -8px rgba(244,161,37,0.45) !important;
+}
+
+/* Elevate the primary card slightly more */
+.unlock-card {
+  border-radius: 22px !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.14) inset,
+    0 50px 100px -25px rgba(0,0,0,0.85),
+    0 20px 60px -15px rgba(0,0,0,0.7),
+    0 0 80px -20px rgba(244,161,37,0.28) !important;
+}
+
+/* Buttons — glassy sheen */
+.unlock-btn-primary,
+.tier-cta-primary {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(180deg, #F6B24A 0%, #F4A125 55%, #DD9324 100%) !important;
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.45) inset,
+    0 -1px 0 rgba(0,0,0,0.25) inset,
+    0 12px 30px -8px rgba(244,161,37,0.55),
+    0 4px 12px rgba(0,0,0,0.4) !important;
+  transition: transform .2s ease, box-shadow .25s ease, filter .2s ease;
+}
+.unlock-btn-primary:hover,
+.tier-cta-primary:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.06);
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.55) inset,
+    0 16px 40px -8px rgba(244,161,37,0.7),
+    0 6px 16px rgba(0,0,0,0.5) !important;
+}
+.unlock-btn-primary::after,
+.tier-cta-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(100deg, transparent 30%, rgba(255,255,255,0.55) 50%, transparent 70%);
+  transform: translateX(-120%) skewX(-18deg);
+  animation: obs-shimmer-sweep 4.5s ease-in-out infinite;
+  pointer-events: none;
+  mix-blend-mode: overlay;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tier-row, .demo-card, .architect-card,
+  .unlock-card::after, .tier-row::after, .demo-card::after, .architect-card::after,
+  .unlock-card::before, .tier-row::before, .demo-card::before, .architect-card::before, .wl-card::before,
+  .unlock-btn-primary::after, .tier-cta-primary::after {
+    animation: none !important;
+  }
+}
