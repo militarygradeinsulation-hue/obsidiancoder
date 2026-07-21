@@ -6,15 +6,11 @@ import {
   useRouter,
   HeadContent,
   Scripts,
-  redirect,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
-import { BuilderErrorBoundary } from "../components/BuilderErrorBoundary";
-import IntroSplash from "../components/IntroSplash";
-
 
 function NotFoundComponent() {
   return (
@@ -76,66 +72,34 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   );
 }
 
-// Public paths that never require an unlock session. Everything else is
-// treated as a sandbox route and is gated behind /unlock.
-const PUBLIC_PATH_PREFIXES = [
-  "/unlock",
-  "/auth",
-  "/terms",
-  "/privacy",
-  "/waitlist",
-  "/sitemap.xml",
-  "/api/", // server routes (public API + protected API handle their own auth)
-  "/_serverFn", // TanStack server-function RPC
-  "/.lovable", // platform paths
-];
-
-function isPublicPath(pathname: string): boolean {
-  if (pathname === "/sitemap.xml") return true;
-  return PUBLIC_PATH_PREFIXES.some((p) => pathname === p || pathname.startsWith(p.endsWith("/") ? p : `${p}/`) || pathname === p.replace(/\/$/, ""));
-}
-
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  beforeLoad: async ({ location }) => {
-    if (isPublicPath(location.pathname)) return;
-    const { ensureUnlocked } = await import("@/lib/gate.functions");
-    try {
-      const { unlocked } = await ensureUnlocked();
-      if (!unlocked) {
-        throw redirect({ to: "/unlock" });
-      }
-    } catch (err) {
-      // Rethrow redirect; swallow transport errors so the page can still
-      // render its own gate as a fallback.
-      if (err && typeof err === "object" && "isRedirect" in (err as object)) throw err;
-    }
-  },
   head: () => ({
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Think it, Type it, See it.  For people that can't code." },
+      { title: "Aetheris Obsidian — Tell it what to build" },
       {
         name: "description",
-        content: "Obsidian is your  system builder that's simple & saves you credits. \nThink it \nType it\nSee it\nA tool builder for people that can't code.",
+        content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
       },
       { property: "og:site_name", content: "Aetheris Coder" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "Think it, Type it, See it.  For people that can't code." },
-      { name: "twitter:title", content: "Think it, Type it, See it.  For people that can't code." },
-      { property: "og:description", content: "Obsidian is your  system builder that's simple & saves you credits. \nThink it \nType it\nSee it\nA tool builder for people that can't code." },
-      { name: "twitter:description", content: "Obsidian is your  system builder that's simple & saves you credits. \nThink it \nType it\nSee it\nA tool builder for people that can't code." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784647668409-1000014611.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784647668409-1000014611.webp" },
+      { property: "og:title", content: "Aetheris Obsidian — Tell it what to build" },
+      { name: "twitter:title", content: "Aetheris Obsidian — Tell it what to build" },
+      { property: "og:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
+      { name: "twitter:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
+      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784658301261-13798.webp" },
+      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784658301261-13798.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
+      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
         rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
+        href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap",
       },
     ],
   }),
@@ -164,12 +128,8 @@ function RootComponent() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <BuilderErrorBoundary>
-        <IntroSplash />
-        {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-        <Outlet />
-      </BuilderErrorBoundary>
+      {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+      <Outlet />
     </QueryClientProvider>
   );
 }
-
