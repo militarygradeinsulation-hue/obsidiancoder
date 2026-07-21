@@ -335,3 +335,13 @@ const inputStyle: React.CSSProperties = {
   fontFamily: "inherit",
   fontSize: 13,
 };
+
+const toolBtn: React.CSSProperties = {
+  background: "transparent",
+  color: "#F4A125",
+  border: "1px solid rgba(244,161,37,0.35)",
+  padding: "6px 10px",
+  borderRadius: 6,
+  cursor: "pointer",
+  fontSize: 12,
+};
