@@ -224,13 +224,14 @@ async function usageReserve(
   operation: Operation,
   env: Environment,
   requestId: string,
+  cap: number,
 ): Promise<Reservation | null | "no_period"> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const amount = reservationForOperation(operation);
   const { data, error } = await supabaseAdmin.rpc("usage_reserve" as never, {
     _user_id: user.userId,
     _amount: amount,
-    _cap: CAP_PRO_MONTHLY,
+    _cap: cap,
     _env: env,
     _operation: operation,
     _request_id: requestId,
@@ -252,6 +253,7 @@ async function usageReserve(
     usedBefore: Number(row.used_before ?? 0),
     remainingAfter: Number(row.remaining_after ?? 0),
     idempotent: !!row.idempotent,
+    cap,
   };
 }
 
