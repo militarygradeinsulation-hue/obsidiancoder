@@ -2102,7 +2102,7 @@ function Index() {
             >
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
-            {libraryCode.trim() === "9822" && (
+            {(libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (
               <button
                 type="button"
                 className="obs-chip obs-chip-gold"
