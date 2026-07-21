@@ -46,6 +46,33 @@ function DemosAdmin() {
   const [savingId, setSavingId] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  function toggleSelect(id: string) {
+    setSelected((cur) => {
+      const next = new Set(cur);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+  function selectAll() { setSelected(new Set((demos ?? []).map((d) => d.id))); }
+  function clearSelection() { setSelected(new Set()); }
+
+  async function onBulkDelete() {
+    if (selected.size === 0) return;
+    if (!confirm(`Delete ${selected.size} demo${selected.size === 1 ? "" : "s"}? This cannot be undone.`)) return;
+    setError(null); setStatus(null);
+    const ids = Array.from(selected);
+    let failed = 0;
+    for (const id of ids) {
+      const r = await remove({ data: { adminCode: code, id } });
+      if (!r.ok) failed++;
+    }
+    setDemos((cur) => cur ? cur.filter((d) => !selected.has(d.id)) : cur);
+    setSelected(new Set());
+    if (failed) setError(`${failed} deletion${failed === 1 ? "" : "s"} failed`);
+    else setStatus(`Deleted ${ids.length} demo${ids.length === 1 ? "" : "s"}`);
+  }
 
   useEffect(() => {
     const saved = typeof window !== "undefined" ? localStorage.getItem(CODE_KEY) : "";
