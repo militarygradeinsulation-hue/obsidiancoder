@@ -405,13 +405,34 @@ function Unlock() {
           <h2 id="demos-heading" className="demos-title">Live Demos</h2>
           <p className="demos-sub">Explore builds crafted with Obsidian. View-only — the vibe coder requires access.</p>
         </div>
+        <div className="demo-chips" role="tablist" aria-label="Filter demos by category">
+          {(["All", ...DEMO_CATEGORIES] as const).map((cat) => {
+            const active = demoCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`demo-chip ${active ? "is-active" : ""}`}
+                onClick={() => setDemoCategory(cat)}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
         <div className="demos-grid">
           {Array.from(
-            new Map(DEMOS.map((d) => {
-              const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
-              return [demoUrl, { ...d, demoUrl }] as const;
-            })).values()
-          ).map(({ slug, title, demoUrl }) => (
+            new Map(
+              DEMOS
+                .filter((d) => demoCategory === "All" || d.category === demoCategory)
+                .map((d) => {
+                  const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
+                  return [demoUrl, { ...d, demoUrl }] as const;
+                })
+            ).values()
+          ).map(({ slug, title, demoUrl, category }) => (
             <a
               key={slug}
               href={demoUrl}
@@ -431,7 +452,7 @@ function Unlock() {
               </div>
               <div className="demo-meta">
                 <span className="demo-name">{title}</span>
-                <span className="demo-open">Open ↗</span>
+                <span className="demo-open">{category} ↗</span>
               </div>
             </a>
           ))}
