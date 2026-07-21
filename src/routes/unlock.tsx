@@ -579,6 +579,8 @@ function Unlock() {
 }
 
 function WaitlistModal({ tier, onClose }: { tier: string; onClose: () => void }) {
+  const selected = PLAN_TIERS.find((t) => t.id === tier);
+  const selectedLabel = selected ? `${selected.name} — ${selected.price}${selected.cadence}` : "Any plan";
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [company, setCompany] = useState("");
