@@ -54,6 +54,7 @@ export const Route = createFileRoute("/unlock")({
     password: typeof s.password === "string" ? s.password : undefined,
     intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
     checkout: s.checkout === "1" ? "1" : undefined,
+    priceId: typeof s.priceId === "string" && /^[a-zA-Z0-9_-]+$/.test(s.priceId) ? s.priceId : undefined,
   }),
   beforeLoad: async ({ search }) => {
     const pwd = (search as { password?: string }).password;
@@ -88,6 +89,9 @@ function Unlock() {
   const [session, setSession] = useState<{ userId: string; email: string | null } | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
+  const [selectedPriceId, setSelectedPriceId] = useState<string>(
+    search.priceId && typeof search.priceId === "string" ? search.priceId : CREATOR_PRICE_ID,
+  );
   const [expandDetails, setExpandDetails] = useState(false);
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
@@ -163,11 +167,13 @@ function Unlock() {
     finally { setBusy(false); }
   }
 
-  function startPurchase() {
+  function startPurchase(priceId: string = CREATOR_PRICE_ID) {
     setError(null);
+    setSelectedPriceId(priceId);
     if (!session) {
-      // Send to auth in signup mode, then return here with checkout=1.
-      window.location.assign(buildAuthUrl("signup", "/unlock?intent=buy&checkout=1"));
+      // Send to auth in signup mode, then return here with checkout=1 and the chosen tier.
+      const q = `intent=buy&checkout=1&priceId=${encodeURIComponent(priceId)}`;
+      window.location.assign(buildAuthUrl("signup", `/unlock?${q}`));
       return;
     }
     setShowCheckout(true);
@@ -314,7 +320,7 @@ function Unlock() {
                 <button
                   type="button"
                   className="unlock-btn unlock-btn-primary"
-                  onClick={startPurchase}
+                  onClick={() => startPurchase(CREATOR_PRICE_ID)}
                   disabled={sessionLoading}
                 >
                   {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $79/month"}
@@ -336,15 +342,16 @@ function Unlock() {
                     </button>
                   </div>
                   <p className="plans-sub">
-                    Only <strong>Creator</strong> is available for immediate purchase today. All other tiers are on early-access — join the whitelist to be notified when they launch.
+                    All Obsidian tiers below are live and purchasable through Stripe. Enterprise is contact sales — join the whitelist for early-access pricing on any tier.
                   </p>
                   <div className="tier-grid">
                     {PLAN_TIERS.map((t) => {
-                      const wired = t.priceId === CREATOR_PRICE_ID;
+                      const purchasable = t.cta === "checkout" && !!t.priceId;
+                      const contact = t.cta === "contact";
                       return (
-                        <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""} ${wired ? "" : "is-locked"}`}>
+                        <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""} ${purchasable ? "" : "is-locked"}`}>
                           <div className="tier-head">
-                            <span className="tier-name">{t.name}{!wired && <span className="tier-lock" aria-hidden> · locked</span>}</span>
+                            <span className="tier-name">{t.name}</span>
                             <span className="tier-price">{t.price}<span className="tier-cadence">{t.cadence}</span></span>
                           </div>
                           <div className="tier-headline">{t.headline}</div>
@@ -352,11 +359,12 @@ function Unlock() {
                           <ul className="tier-outcomes">
                             {t.outcomes.map((o) => <li key={o}>{o}</li>)}
                           </ul>
-                          {wired ? (
+                          {purchasable ? (
                             <button
                               type="button"
                               className="tier-cta tier-cta-primary"
-                              onClick={startPurchase}
+                              onClick={() => startPurchase(t.priceId!)}
+                              aria-label={`Buy ${t.name} on Stripe`}
                             >
                               Get {t.name}
                             </button>
@@ -365,9 +373,9 @@ function Unlock() {
                               type="button"
                               className="tier-cta tier-cta-locked"
                               onClick={() => setWaitlistTier(t.id)}
-                              aria-label={`Join early access for ${t.name}`}
+                              aria-label={contact ? `Contact sales for ${t.name}` : `Join early access for ${t.name}`}
                             >
-                              {t.cta === "contact" ? "Request Early Access" : "Join Early Access"}
+                              {contact ? "Contact Sales" : "Join Early Access"}
                             </button>
                           )}
                         </div>
@@ -435,7 +443,9 @@ function Unlock() {
               <div className="unlock-checkout">
                 <div className="checkout-header">
                   <div>
-                    <div className="checkout-title">Obsidian Creator</div>
+                    <div className="checkout-title">
+                      {PLAN_TIERS.find((t) => t.priceId === selectedPriceId)?.name ?? "Obsidian"}
+                    </div>
                     <div className="checkout-sub">
                       Signed in as {session.email ?? "your account"}
                       <button type="button" onClick={signOutAndReset} className="checkout-signout">
@@ -446,7 +456,7 @@ function Unlock() {
                   <button type="button" onClick={() => setShowCheckout(false)} className="checkout-back">← Back</button>
                 </div>
                 <CheckoutSurface
-                  priceId={CREATOR_PRICE_ID}
+                  priceId={selectedPriceId}
                   onCancel={() => setShowCheckout(false)}
                 />
 

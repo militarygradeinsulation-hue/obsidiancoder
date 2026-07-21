@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
-import { tierForPriceId } from "@/lib/plans";
+import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
 
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
@@ -37,14 +37,18 @@ async function resolveOrCreateCustomer(
   return created.id;
 }
 
+
+
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { priceId: string; returnUrl: string; environment: StripeEnv }) => {
     if (!/^[a-zA-Z0-9_-]+$/.test(data.priceId)) throw new Error("Invalid priceId");
-    // Launch policy: only the Creator plan is purchasable via Stripe. All
-    // other tiers must go through the whitelist/early-access flow.
-    if (data.priceId !== "obsidian_creator_monthly") {
-      throw new Error("This plan is on early access — join the whitelist to be notified.");
+    // Launch policy: allow any tier whose Stripe price has been provisioned
+    // in the Obsidian catalog. Enterprise is contact-sales, not self-serve.
+    // Legacy `obsidian_pro_monthly` remains callable for backward compat.
+    const allowed = new Set<string>([...PURCHASABLE_LOOKUP_KEYS, "obsidian_pro_monthly"]);
+    if (!allowed.has(data.priceId)) {
+      throw new Error("This plan is not available for self-serve checkout. Contact sales for Enterprise.");
     }
     return data;
   })

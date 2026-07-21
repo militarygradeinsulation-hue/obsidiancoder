@@ -43,7 +43,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Baseline security and performance checks",
     ],
     priceId: "obsidian_starter_monthly",
-    cta: "waitlist",
+    cta: "checkout",
     icon: Rocket,
   },
   {
@@ -78,7 +78,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Custom domains and GitHub deploys",
     ],
     priceId: "obsidian_professional_monthly",
-    cta: "waitlist",
+    cta: "checkout",
     icon: Briefcase,
   },
   {
@@ -95,7 +95,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Revenue and product analytics dashboard",
     ],
     priceId: "obsidian_business_monthly",
-    cta: "waitlist",
+    cta: "checkout",
     icon: Building2,
   },
   {
@@ -112,7 +112,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Launch-readiness and compliance reviews",
     ],
     priceId: "obsidian_elite_monthly",
-    cta: "waitlist",
+    cta: "checkout",
     icon: Crown,
   },
   {
@@ -157,6 +157,31 @@ export function tierForPriceId(priceId: string | null | undefined): PlanTier | u
   if (legacy) return getTierById(legacy);
   return undefined;
 }
+
+/**
+ * Monthly AI credit cap per tier. Enterprise is negotiated per-contract and
+ * defaults to Elite until custom terms are provisioned. `capForTier(null)`
+ * returns 0 (free plan — no paid AI operations).
+ */
+export const TIER_CREDIT_CAP: Record<PlanTierId, number> = {
+  starter: 400,
+  creator: 1000,
+  professional: 2500,
+  business: 6000,
+  elite: 12000,
+  enterprise: 12000,
+};
+
+export function capForTier(tier: PlanTierId | null | undefined): number {
+  if (!tier) return 0;
+  return TIER_CREDIT_CAP[tier] ?? 0;
+}
+
+/** Lookup keys the server accepts for Stripe checkout (Enterprise is contact-sales). */
+export const PURCHASABLE_LOOKUP_KEYS: readonly string[] = PLAN_TIERS
+  .filter((t) => t.cta === "checkout" && t.priceId)
+  .map((t) => t.priceId!) as readonly string[];
+
 
 
 /** Plan-aware navigation entries, gated by tier when `minTier` is set. */

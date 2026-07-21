@@ -23,6 +23,7 @@ import {
   type CreditsRequiredEnvelope,
   type Operation,
 } from "./credit-gate";
+import { capForTier, tierForPriceId } from "./plans";
 import { makeUsage, type UsageRecord } from "./usage-record";
 
 export type Environment = "sandbox" | "live";
@@ -163,6 +164,33 @@ export async function hasActivePro(user: AuthedUser, env: Environment): Promise<
   return hasActiveProWithClient(supabaseAdmin as unknown as MinimalSubscriptionQueryClient, user.userId, env);
 }
 
+/**
+ * Resolve the caller's active monthly credit cap from their current
+ * subscription's `price_id`. Falls back to CAP_PRO_MONTHLY when the tier
+ * cannot be resolved (legacy rows, unknown price) so paying customers
+ * are never denied service on a mapping gap.
+ */
+export async function capForUser(userId: string, env: Environment): Promise<number> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("subscriptions")
+      .select("price_id")
+      .eq("user_id", userId)
+      .eq("environment", env)
+      .in("status", ["active", "trialing"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const tier = tierForPriceId(data?.price_id)?.id;
+    const cap = tier ? capForTier(tier) : 0;
+    return cap > 0 ? cap : CAP_PRO_MONTHLY;
+  } catch {
+    return CAP_PRO_MONTHLY;
+  }
+}
+
+
 export interface Reservation {
   reservationId: string;
   credits: number;              // envelope credits temporarily held; final charge may be lower
@@ -171,6 +199,7 @@ export interface Reservation {
   usedBefore: number;
   remainingAfter: number;
   idempotent: boolean;          // true when reserve_credits_v2 returned an existing row
+  cap: number;                  // active monthly cap resolved from subscription tier
 }
 
 export interface EntitlementResult {
@@ -195,13 +224,14 @@ async function usageReserve(
   operation: Operation,
   env: Environment,
   requestId: string,
+  cap: number,
 ): Promise<Reservation | null | "no_period"> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const amount = reservationForOperation(operation);
   const { data, error } = await supabaseAdmin.rpc("usage_reserve" as never, {
     _user_id: user.userId,
     _amount: amount,
-    _cap: CAP_PRO_MONTHLY,
+    _cap: cap,
     _env: env,
     _operation: operation,
     _request_id: requestId,
@@ -223,6 +253,7 @@ async function usageReserve(
     usedBefore: Number(row.used_before ?? 0),
     remainingAfter: Number(row.remaining_after ?? 0),
     idempotent: !!row.idempotent,
+    cap,
   };
 }
 
@@ -236,6 +267,7 @@ async function usageFinalize(
   actualCredits: number,
   requestId: string,
   status: "committed" | "failed",
+  cap: number,
   usage?: UsageRecord,
   errorCode?: string,
 ): Promise<void> {
@@ -262,7 +294,7 @@ async function usageFinalize(
     _estimated_cost_usd: usage?.estimatedCostUsd ?? null,
     _cost_basis: usage?.costBasis ?? null,
     _meta: usage?.meta ?? null,
-    _cap: CAP_PRO_MONTHLY,
+    _cap: cap,
   } as never);
   if (error) throw new Error(`usage_finalize failed: ${error.message}`);
   if (data === false) throw new Error("usage_finalize returned false (reservation missing)");
@@ -372,7 +404,8 @@ export async function requirePaidOperation(
     };
   }
 
-  const reservation = await usageReserve(user, operation, env, requestId);
+  const cap = await capForUser(user.userId, env);
+  const reservation = await usageReserve(user, operation, env, requestId, cap);
   if (reservation === "no_period") {
     return {
       kind: "denied", env, requestId, user,
@@ -387,7 +420,7 @@ export async function requirePaidOperation(
       kind: "denied", env, requestId, user,
       denial: creditsRequiredEnvelope({
         code: "credits_required", operation,
-        used: CAP_PRO_MONTHLY, cap: CAP_PRO_MONTHLY,
+        used: cap, cap,
         needed: reservationForOperation(operation),
       }),
     };
@@ -467,7 +500,7 @@ export async function settleOperation(
   const errorCode = outcome.kind === "failed_with_usage"
     ? (outcome.errorCode ?? usage.errorCode)
     : usage.errorCode;
-  await usageFinalize(res.reservationId, charge, ent.requestId, status, usage, errorCode);
+  await usageFinalize(res.reservationId, charge, ent.requestId, status, res.cap, usage, errorCode);
 }
 
 
