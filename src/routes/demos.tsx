@@ -87,7 +87,9 @@ function DemosAdmin() {
     const r = await list({ data: { adminCode } });
     if (!r.ok) { setError(r.error); if (r.error === "not admin") { localStorage.removeItem(CODE_KEY); setCode(""); } return; }
     setDemos(r.demos);
-  }, [list]);
+    const s = await fetchStats({ data: { adminCode } });
+    if (s.ok) setStats(s.stats);
+  }, [list, fetchStats]);
 
   useEffect(() => { if (code) refresh(code); }, [code, refresh]);
 
