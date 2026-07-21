@@ -306,7 +306,8 @@ function Unlock() {
           <section id="panel-buy" role="tabpanel" aria-labelledby="tab-buy">
             {!showCheckout && (
               <>
-                <h2 className="unlock-headline">Build, Launch, and Grow Software with AI.</h2>
+                <h2 className="unlock-headline">Think it, Type it, See it.</h2>
+                <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
 
                 <div className="unlock-price">
                   <span className="price-amount">$79</span>
@@ -925,6 +926,11 @@ const unlockCss = `
   color: #f2eee7; margin: 4px 0 14px;
 }
 .unlock-headline.compact { font-size: 18px; margin-bottom: 10px; }
+.unlock-subheadline {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13.5px; line-height: 1.45;
+  color: rgba(182,188,200,0.95); margin: -8px 0 16px;
+}
 
 .unlock-price { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
 .price-amount { font-family: Fraunces, Georgia, serif; font-size: 40px; color: #f4a125; letter-spacing: 1px; }
@@ -1061,6 +1067,7 @@ const unlockCss = `
   .unlock-title { font-size: 26px; letter-spacing: 5px; }
   .price-amount { font-size: 34px; }
   .unlock-headline { font-size: 18px; }
+  .unlock-subheadline { font-size: 12.5px; margin: -6px 0 14px; }
 }
 
 .unlock-demos {
