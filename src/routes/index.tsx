@@ -377,6 +377,51 @@ function Index() {
     if (typeof window === "undefined") return "";
     try { return window.sessionStorage.getItem("obs.library_code") || ""; } catch { return ""; }
   });
+  // Cross-device sync of saved ideas keyed by the user's library code.
+  // On code change: fetch server copy and merge with local bookmarks.
+  // On savedIdeas change: debounce-persist so returning devices see them.
+  useEffect(() => {
+    const code = libraryCode.trim();
+    if (!code || code.length < 4) return;
+    if (savedIdeasHydratedRef.current === code) return;
+    savedIdeasHydratedRef.current = code;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(`/api/public/saved-ideas/${encodeURIComponent(code)}`);
+        if (!res.ok) return;
+        const data = (await res.json()) as { ideas?: Addon[] };
+        const remote = Array.isArray(data.ideas) ? data.ideas : [];
+        if (cancelled || remote.length === 0) return;
+        setSavedIdeas((local) => {
+          const key = (a: Addon) => (a.snippet || "").trim().toLowerCase();
+          const seen = new Set<string>();
+          const merged: Addon[] = [];
+          for (const item of [...remote, ...local]) {
+            const k = key(item);
+            if (!k || seen.has(k)) continue;
+            seen.add(k);
+            merged.push({ ...item, id: item.id || "saved-" + Math.random().toString(36).slice(2) });
+          }
+          return merged.slice(0, 40);
+        });
+      } catch {}
+    })();
+    return () => { cancelled = true; };
+  }, [libraryCode]);
+  useEffect(() => {
+    const code = libraryCode.trim();
+    if (!code || code.length < 4) return;
+    if (savedIdeasHydratedRef.current !== code) return;
+    const handle = window.setTimeout(() => {
+      fetch(`/api/public/saved-ideas/${encodeURIComponent(code)}`, {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ideas: savedIdeas }),
+      }).catch(() => {});
+    }, 600);
+    return () => window.clearTimeout(handle);
+  }, [savedIdeas, libraryCode]);
   const [libraryOpen, setLibraryOpen] = useState(false);
   const [githubOpen, setGithubOpen] = useState(false);
   const [pricingOpen, setPricingOpen] = useState(false);
