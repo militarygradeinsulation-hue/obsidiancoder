@@ -199,6 +199,7 @@ export interface Reservation {
   usedBefore: number;
   remainingAfter: number;
   idempotent: boolean;          // true when reserve_credits_v2 returned an existing row
+  cap: number;                  // active monthly cap resolved from subscription tier
 }
 
 export interface EntitlementResult {
