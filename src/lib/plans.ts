@@ -95,7 +95,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Revenue and product analytics dashboard",
     ],
     priceId: "obsidian_business_monthly",
-    cta: "checkout",
+    cta: "waitlist",
     icon: Building2,
   },
   {
