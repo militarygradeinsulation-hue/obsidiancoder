@@ -51,6 +51,7 @@ import { RulesPanel, reconcileRules } from "@/components/panels/RulesPanel";
 import IntroSplash from "@/components/IntroSplash";
 import { RuntimePanel, countRuntimeBlockers } from "@/components/panels/RuntimePanel";
 import { CostPanel } from "@/components/panels/CostPanel";
+import { CreditBar } from "@/components/panels/CreditBar";
 import { ExecutionGraphPanel } from "@/components/panels/ExecutionGraphPanel";
 import { FileExplorerPanel } from "@/components/panels/FileExplorerPanel";
 import { InspectorPanel, type InspectorSelection } from "@/components/panels/InspectorPanel";
@@ -253,6 +254,33 @@ function Index() {
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
+  // Per-session build indicator: tab strip shows a spinner when its build is
+  // still in flight even if the user has switched to another tab.
+  const [buildingIds, setBuildingIds] = useState<Set<string>>(() => new Set());
+  const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
+  const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
+  // Multi-prompt queue: submitting while another build runs enqueues.
+  type QueuedPrompt = { sid: string; prompt: string };
+  const [promptQueue, setPromptQueue] = useState<QueuedPrompt[]>([]);
+  // Idea memory (per browser): labels/snippets of ideas the user has already
+  // built so we stop re-suggesting them.
+  const [builtIdeas, setBuiltIdeas] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem("obs.builtIdeas");
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const recordBuiltIdea = (labelOrSnippet: string) => {
+    const key = labelOrSnippet.trim().toLowerCase().slice(0, 120);
+    if (!key) return;
+    setBuiltIdeas((prev) => {
+      if (prev.has(key)) return prev;
+      const n = new Set(prev); n.add(key);
+      try { window.localStorage.setItem("obs.builtIdeas", JSON.stringify(Array.from(n).slice(-400))); } catch {}
+      return n;
+    });
+  };
   const [error, setError] = useState<string | null>(null);
   const [lastAiError, setLastAiError] = useState<AiErrorEnvelope | null>(null);
   const lastSubmitRef = useRef<{ prompt: string; attachments: Attachment[] } | null>(null);
@@ -1105,7 +1133,15 @@ function Index() {
 
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
-    if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
+    if (!basePrompt && pendingAttachments.length === 0) return;
+    // Multi-prompt queue: allow submitting another prompt while one is
+    // building — it will run as soon as the current build finishes.
+    if (loading) {
+      if (!basePrompt) return;
+      setPromptQueue((q) => [...q, { sid: activeId, prompt: basePrompt }].slice(-8));
+      setInput("");
+      return;
+    }
     // Central guard — free/unresolved users never reach the network.
     const gate = await requirePaidAction("generate_html");
     if (!gate.allowed) return;
@@ -1164,6 +1200,7 @@ function Index() {
       title: isFirstUserMsg ? (basePrompt || pendingAttachments[0]?.name || "Untitled").slice(0, 28) : current.title,
     });
     setLoading(true);
+    markBuildStart(activeId);
     setStage("classify");
     setStageDetail(classification.taskType);
     setTerminal((t) => [
@@ -1213,7 +1250,7 @@ function Index() {
               : s));
             setTerminal((t) => [...t, `✗ Rule gate rejected deterministic edit: ${gateBlockers[0].slice(0, 120)}`]);
             pushFeedback(sessionId, { taskType: classification.taskType, strategy: "deterministic", model: null, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockers[0] });
-            setLoading(false); setStage(null);
+            setLoading(false); setStage(null); markBuildEnd(sessionId);
             return;
           }
           const newVersion: Version = makeVersion(det.html, versionLabel, detMeta);
@@ -1243,7 +1280,7 @@ function Index() {
             charactersRemoved: detDiff.charsRemoved,
             fallbackUsed: false,
           }));
-          setLoading(false); setStage(null);
+          setLoading(false); setStage(null); markBuildEnd(sessionId);
           return;
         }
       } else {
@@ -1297,7 +1334,7 @@ function Index() {
           };
           setLastAiError(envelope); setError(envelope.message);
           setTerminal((t) => [...t, `✗ Patch transport: non-JSON body (stable HTML preserved).`]);
-          abortRef.current = null; setLoading(false); setStage(null);
+          abortRef.current = null; setLoading(false); setStage(null); markBuildEnd(sessionId);
           return;
         }
         if (isAiErrorEnvelope(pJson)) {
@@ -1305,7 +1342,7 @@ function Index() {
           // fall through to full generation. Surface it; user can Retry.
           setLastAiError(pJson); setError(pJson.message);
           setTerminal((t) => [...t, `✗ Patch: ${pJson.message} (id ${pJson.requestId})`]);
-          abortRef.current = null; setLoading(false); setStage(null);
+          abortRef.current = null; setLoading(false); setStage(null); markBuildEnd(sessionId);
           return;
         }
 
@@ -1406,7 +1443,7 @@ function Index() {
               charactersRemoved: applied.charsRemoved,
               fallbackUsed: pJson.fallbackUsed,
             }));
-            setLoading(false); setStage(null);
+            setLoading(false); setStage(null); markBuildEnd(sessionId);
             abortRef.current = null;
             return;
           }
@@ -1417,7 +1454,7 @@ function Index() {
             ? { ...s, messages: [...s.messages, { role: "assistant", content: "■ Stopped — preview unchanged." }] }
             : s));
           setTerminal((t) => [...t, "■ Patch stopped by user"]);
-          setLoading(false); setStage(null);
+          setLoading(false); setStage(null); markBuildEnd(sessionId);
           abortRef.current = null;
           return;
         }
@@ -1808,11 +1845,29 @@ function Index() {
       }
     } finally {
       abortRef.current = null;
-      setLoading(false); setStage(null);
+      setLoading(false); setStage(null); markBuildEnd(sessionId);
       setStage(null);
       setStageDetail("");
+      // Idea memory: remember what the user just built so we stop
+      // re-suggesting it in the starter/AI idea rail.
+      try { recordBuiltIdea(basePrompt); } catch {}
     }
   }
+
+  // Drain the multi-prompt queue when a build finishes.
+  useEffect(() => {
+    if (loading) return;
+    if (promptQueue.length === 0) return;
+    const [next, ...rest] = promptQueue;
+    setPromptQueue(rest);
+    // Switch to the tab that queued it so streaming lands in the right place.
+    if (next.sid !== activeId) setActiveId(next.sid);
+    // Defer to next tick so activeId update is applied before submit reads it.
+    const t = setTimeout(() => { void submit(next.prompt); }, 40);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, promptQueue]);
+
 
 
 
@@ -1962,7 +2017,12 @@ function Index() {
                   >
                     <FileCode className="h-3.5 w-3.5" strokeWidth={1.6} />
                     <span className="obs-tab-title">{s.title}</span>
-                    {isActive && s.html && <span className="obs-tab-live">LIVE</span>}
+                    {buildingIds.has(s.id) && <span className="obs-tab-building" aria-label="Building" />}
+                    {(() => {
+                      const q = promptQueue.filter((p) => p.sid === s.id).length;
+                      return q > 0 ? <span className="obs-tab-queued" title={`${q} queued`}>+{q}</span> : null;
+                    })()}
+                    {isActive && s.html && !buildingIds.has(s.id) && <span className="obs-tab-live">LIVE</span>}
                     {sessions.length > 1 && (
                       <span
                         role="button"
@@ -2180,6 +2240,14 @@ function Index() {
             >
               <Github className="h-3.5 w-3.5" /> GitHub
             </button>
+            <CreditBar
+              mode={entitlement.mode}
+              used={Math.max(0, (entitlement.cap ?? 0) - (entitlement.remaining ?? 0))}
+              cap={entitlement.cap ?? 0}
+              remaining={entitlement.remaining ?? 0}
+              cost={current.cost ?? EMPTY_COST}
+              onUpgrade={() => setPricingOpen(true)}
+            />
             <button
               type="button"
               className={"obs-chip " + (isPro ? "is-on" : "obs-chip-gold")}
@@ -2520,11 +2588,23 @@ function Index() {
                   { id: "dashboard", label: "Dashboard" },
                   { id: "portfolio", label: "Portfolio" },
                 ];
-                const baseAddons = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
+                const baseAddonsAll = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
+                const isBuilt = (a: Addon) => {
+                  const l = a.label.trim().toLowerCase();
+                  const s = a.snippet.trim().toLowerCase();
+                  for (const k of builtIdeas) {
+                    if (!k) continue;
+                    if (l && (l.includes(k) || k.includes(l))) return true;
+                    if (s && (s.includes(k) || k.includes(s.slice(0, 60)))) return true;
+                  }
+                  return false;
+                };
+                const baseAddons = baseAddonsAll.filter((a) => !isBuilt(a));
+                const filteredAi = aiIdeas.filter((a) => !isBuilt(a));
                 // Idle + a category selected → show AI ideas only (unlimited fresh pool).
                 // Idle + "all" and no AI yet → deterministic starter pool.
                 const addons: Addon[] = isStarters
-                  ? (aiIdeas.length ? aiIdeas.slice(0, 6) : baseAddons)
+                  ? (filteredAi.length ? filteredAi.slice(0, 6) : baseAddons)
                   : baseAddons;
                 const label = isStarters ? "Try one of these" : "Add to your prompt";
                 const savedKey = (a: Addon) => a.snippet.trim().toLowerCase();
@@ -2541,7 +2621,10 @@ function Index() {
                   if (aiIdeasLoading) return;
                   setAiIdeasLoading(true);
                   try {
-                    const exclude = Array.from(seenIdeaLabelsRef.current).slice(-100);
+                    const exclude = Array.from(new Set([
+                      ...Array.from(seenIdeaLabelsRef.current),
+                      ...Array.from(builtIdeas),
+                    ])).slice(-120);
                     const res = await generateStarterIdeasFn({ data: { exclude, count: 8, category: category as never } });
                     const fresh = (res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon));
                     fresh.forEach((f) => seenIdeaLabelsRef.current.add(f.label.toLowerCase()));
@@ -2906,15 +2989,27 @@ function Index() {
 
 
                 {loading ? (
-                  <button
-                    type="button"
-                    onClick={stopGeneration}
-                    aria-label="Stop"
-                    className="obs-composer-send"
-                    title="Stop"
-                  >
-                    <Square className="h-3.5 w-3.5" />
-                  </button>
+                  <>
+                    <button
+                      type="submit"
+                      disabled={!input.trim()}
+                      aria-label="Queue next build"
+                      title="Queue this prompt — runs when the current build finishes"
+                      className="obs-composer-send"
+                      style={{ background: "var(--gold, #f4a125)", color: "#111317" }}
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={stopGeneration}
+                      aria-label="Stop"
+                      className="obs-composer-send"
+                      title="Stop current build"
+                    >
+                      <Square className="h-3.5 w-3.5" />
+                    </button>
+                  </>
                 ) : (
                   <button
                     type="submit"

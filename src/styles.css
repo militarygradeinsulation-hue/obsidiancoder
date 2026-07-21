@@ -1063,6 +1063,65 @@
   margin-left: 2px;
 }
 .obs-tab-close:hover { opacity: 1; background: rgba(0,0,0,0.4); }
+.obs-tab-building {
+  display: inline-block; width: 8px; height: 8px; border-radius: 50%;
+  background: var(--gold, #f4a125);
+  box-shadow: 0 0 8px rgba(244,161,37,0.7);
+  animation: obs-tab-pulse 1.1s ease-in-out infinite;
+  margin-left: 2px;
+}
+.obs-tab-queued {
+  font-size: 9px; font-weight: 700; letter-spacing: 0.08em;
+  padding: 1px 4px; border-radius: 3px;
+  background: rgba(244,161,37,0.14); color: var(--gold, #f4a125);
+  margin-left: 2px;
+}
+@keyframes obs-tab-pulse {
+  0%,100% { opacity: 0.4; transform: scale(0.85); }
+  50%     { opacity: 1;   transform: scale(1.1); }
+}
+
+/* Credit bar in topbar */
+.obs-credit-bar {
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 6px 10px;
+  min-width: 190px; max-width: 240px;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 8px;
+  background: linear-gradient(180deg, rgba(255,255,255,0.03), rgba(0,0,0,0.25));
+  backdrop-filter: blur(6px);
+}
+.obs-credit-head {
+  display: flex; align-items: center; gap: 6px;
+  font-size: 10.5px; letter-spacing: 0.02em;
+  color: rgba(242,238,231,0.9);
+}
+.obs-credit-head svg { color: var(--gold, #f4a125); }
+.obs-credit-label { font-weight: 600; }
+.obs-credit-sub { margin-left: auto; color: var(--gold, #f4a125); font-variant-numeric: tabular-nums; font-size: 10px; }
+.obs-credit-track {
+  height: 4px; border-radius: 2px; overflow: hidden;
+  background: rgba(255,255,255,0.06);
+}
+.obs-credit-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--gold, #f4a125), #dd9324);
+  transition: width .35s ease;
+}
+.obs-credit-fill.is-warn { background: linear-gradient(90deg, #ff9838, #e04b3a); }
+.obs-credit-foot {
+  display: flex; align-items: center; justify-content: space-between;
+  font-size: 9.5px; color: rgba(182,188,200,0.75);
+  font-family: var(--font-mono, monospace);
+}
+.obs-credit-upgrade {
+  font-size: 9.5px; padding: 1px 6px; border-radius: 3px;
+  background: var(--gold, #f4a125); color: #111317;
+  font-weight: 700; cursor: pointer; border: none;
+}
+.obs-credit-upgrade:hover { filter: brightness(1.1); }
+
+
 
 /* ============ BODY (canvas + rail) ============ */
 .obs-body {
