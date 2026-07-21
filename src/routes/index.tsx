@@ -1250,7 +1250,7 @@ function Index() {
               : s));
             setTerminal((t) => [...t, `✗ Rule gate rejected deterministic edit: ${gateBlockers[0].slice(0, 120)}`]);
             pushFeedback(sessionId, { taskType: classification.taskType, strategy: "deterministic", model: null, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: gateBlockers[0] });
-            setLoading(false); setStage(null);
+            setLoading(false); setStage(null); markBuildEnd(sessionId);
             return;
           }
           const newVersion: Version = makeVersion(det.html, versionLabel, detMeta);
@@ -1280,7 +1280,7 @@ function Index() {
             charactersRemoved: detDiff.charsRemoved,
             fallbackUsed: false,
           }));
-          setLoading(false); setStage(null);
+          setLoading(false); setStage(null); markBuildEnd(sessionId);
           return;
         }
       } else {
@@ -1334,7 +1334,7 @@ function Index() {
           };
           setLastAiError(envelope); setError(envelope.message);
           setTerminal((t) => [...t, `✗ Patch transport: non-JSON body (stable HTML preserved).`]);
-          abortRef.current = null; setLoading(false); setStage(null);
+          abortRef.current = null; setLoading(false); setStage(null); markBuildEnd(sessionId);
           return;
         }
         if (isAiErrorEnvelope(pJson)) {
@@ -1342,7 +1342,7 @@ function Index() {
           // fall through to full generation. Surface it; user can Retry.
           setLastAiError(pJson); setError(pJson.message);
           setTerminal((t) => [...t, `✗ Patch: ${pJson.message} (id ${pJson.requestId})`]);
-          abortRef.current = null; setLoading(false); setStage(null);
+          abortRef.current = null; setLoading(false); setStage(null); markBuildEnd(sessionId);
           return;
         }
 
@@ -1443,7 +1443,7 @@ function Index() {
               charactersRemoved: applied.charsRemoved,
               fallbackUsed: pJson.fallbackUsed,
             }));
-            setLoading(false); setStage(null);
+            setLoading(false); setStage(null); markBuildEnd(sessionId);
             abortRef.current = null;
             return;
           }
@@ -1454,7 +1454,7 @@ function Index() {
             ? { ...s, messages: [...s.messages, { role: "assistant", content: "■ Stopped — preview unchanged." }] }
             : s));
           setTerminal((t) => [...t, "■ Patch stopped by user"]);
-          setLoading(false); setStage(null);
+          setLoading(false); setStage(null); markBuildEnd(sessionId);
           abortRef.current = null;
           return;
         }
@@ -1845,7 +1845,7 @@ function Index() {
       }
     } finally {
       abortRef.current = null;
-      setLoading(false); setStage(null);
+      setLoading(false); setStage(null); markBuildEnd(sessionId);
       setStage(null);
       setStageDetail("");
     }
