@@ -43,6 +43,7 @@ const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory
   { slug: "5j4x38736j4y56", title: "Demo · Obsidian Build 25", category: "App", url: "https://obsidianvibe.live/api/public/share/5j4x38736j4y56" },
   { slug: "3e2s2m0q2i3b2s", title: "Demo · Obsidian Build 26", category: "Landing", url: "https://obsidianvibe.live/api/public/share/3e2s2m0q2i3b2s#top" },
   { slug: "1i3r07161s0q6h", title: "Demo · Obsidian Build 27", category: "Tool", url: "https://obsidianvibe.live/api/public/share/1i3r07161s0q6h#" },
+  { slug: "1i54063l620y0h", title: "Demo · Obsidian Build 28", category: "App", url: "https://obsidianvibe.live/api/public/share/1i54063l620y0h" },
 ];
 
 type Intent = "buy" | "code";
@@ -332,7 +333,7 @@ function Unlock() {
                               className="tier-cta tier-cta-primary"
                               onClick={startPurchase}
                             >
-                              Start {t.name} — {t.price}{t.cadence}
+                              Get {t.name}
                             </button>
                           ) : (
                             <button
@@ -742,7 +743,7 @@ const unlockCss = `
 }
 .unlock-card {
   position: relative;
-  width: 100%; max-width: 620px;
+  width: 100%; max-width: min(1400px, 96vw);
   background: rgba(8,8,10,0.78);
   border: 1px solid rgba(244,161,37,0.28);
   border-radius: 16px;
@@ -896,29 +897,34 @@ const unlockCss = `
   color: rgba(182,188,200,0.7); text-align: center;
 }
 
-.tier-grid { display: grid; gap: 10px; margin-top: 4px; }
+.tier-grid {
+  display: grid; gap: 10px; margin-top: 4px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+@media (max-width: 1100px) { .tier-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (max-width: 640px)  { .tier-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 .tier-row {
   border: 1px solid rgba(244,161,37,0.18); border-radius: 10px;
-  padding: 10px 12px; background: rgba(0,0,0,0.35);
+  padding: 10px 10px; background: rgba(0,0,0,0.35);
+  display: flex; flex-direction: column; min-width: 0;
 }
 .tier-row.is-featured {
   border-color: rgba(244,161,37,0.5);
   box-shadow: 0 0 0 1px rgba(244,161,37,0.15), 0 0 24px rgba(244,161,37,0.08);
 }
 .tier-head {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
-  margin-bottom: 2px;
+  display: flex; flex-direction: column; gap: 2px; margin-bottom: 4px;
 }
 .tier-name {
-  font-family: Fraunces, Georgia, serif; font-size: 14px; color: #f2eee7;
-  letter-spacing: .5px;
+  font-family: Fraunces, Georgia, serif; font-size: 13px; color: #f2eee7;
+  letter-spacing: .3px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.tier-price { font-size: 14px; color: #f4a125; font-weight: 600; }
-.tier-cadence { font-size: 11px; color: rgba(244,161,37,0.6); margin-left: 2px; }
-.tier-headline { font-size: 12px; color: rgba(242,238,231,0.85); margin-bottom: 2px; }
-.tier-bestfor { font-size: 11px; color: rgba(182,188,200,0.7); margin-bottom: 4px; font-style: italic; }
-.tier-outcomes { margin: 0; padding-left: 16px; }
-.tier-outcomes li { font-size: 11.5px; line-height: 1.5; color: rgba(182,188,200,0.85); }
+.tier-price { font-size: 15px; color: #f4a125; font-weight: 600; }
+.tier-cadence { font-size: 10px; color: rgba(244,161,37,0.6); margin-left: 2px; }
+.tier-headline { font-size: 11px; color: rgba(242,238,231,0.75); margin-bottom: 6px; line-height: 1.35; }
+.tier-bestfor, .tier-outcomes { display: none; }
+.tier-row .tier-cta { margin-top: auto; font-size: 11px; padding: 7px 8px; }
+
 
 .unlock-legal {
   margin-top: 14px; text-align: center;
