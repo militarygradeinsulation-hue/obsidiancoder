@@ -205,7 +205,7 @@ function Unlock() {
         <div className="unlock-card-glow" aria-hidden />
 
         <header className="unlock-brand">
-          <div id="unlock-heading" className="unlock-title" data-text="AETHERIS">AETHERIS</div>
+          <div id="unlock-heading" className="unlock-title" data-text="OBSIDIAN">OBSIDIAN</div>
           <div className="unlock-sub">Obsidian // Access Terminal</div>
         </header>
 
