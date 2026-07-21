@@ -54,6 +54,7 @@ export const Route = createFileRoute("/unlock")({
     password: typeof s.password === "string" ? s.password : undefined,
     intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
     checkout: s.checkout === "1" ? "1" : undefined,
+    priceId: typeof s.priceId === "string" && /^[a-zA-Z0-9_-]+$/.test(s.priceId) ? s.priceId : undefined,
   }),
   beforeLoad: async ({ search }) => {
     const pwd = (search as { password?: string }).password;
