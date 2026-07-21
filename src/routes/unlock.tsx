@@ -433,6 +433,27 @@ const unlockCss = `
   padding: 24px 16px;
   overflow-x: hidden;
   overflow-y: auto;
+  isolation: isolate;
+}
+.unlock-video {
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100dvh;
+  object-fit: cover;
+  z-index: -2;
+  pointer-events: none;
+  filter: saturate(1.05) contrast(1.05) brightness(0.85);
+}
+.unlock-video-veil {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.78) 60%, rgba(0,0,0,0.92) 100%),
+    linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.65) 100%);
+  mix-blend-mode: multiply;
 }
 .unlock-tab:focus-visible,
 .unlock-btn:focus-visible,
