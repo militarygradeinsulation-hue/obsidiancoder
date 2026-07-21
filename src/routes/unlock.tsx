@@ -39,9 +39,9 @@ export const Route = createFileRoute("/unlock")({
   },
   head: () => ({
     meta: [
-      { title: "Get Obsidian Creator — Aetheris Obsidian" },
+      { title: "Get Obsidian Creator — Obsidian" },
       { name: "description", content: "Start Obsidian Creator for $79/month or enter your access code. Build production-ready software with an AI engineering team." },
-      { property: "og:title", content: "Get Obsidian Creator — Aetheris Obsidian" },
+      { property: "og:title", content: "Get Obsidian Creator — Obsidian" },
       { property: "og:description", content: "Build production-ready software with an AI engineering team. $79/month, 1,000 AI credits per billing period." },
       { property: "og:type", content: "website" },
     ],
