@@ -83,6 +83,7 @@ function Unlock() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
   const [expandDetails, setExpandDetails] = useState(false);
+  const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
 
   // Track auth session
   useEffect(() => {
