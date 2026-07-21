@@ -377,7 +377,7 @@ function Unlock() {
           </section>
         )}
 
-        <div className="unlock-foot">AETHERIS.TECHNOLOGY</div>
+        <div className="unlock-foot">OBSIDIAN</div>
       </main>
 
       <section className="unlock-demos" aria-labelledby="demos-heading">
