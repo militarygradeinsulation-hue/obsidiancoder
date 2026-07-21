@@ -1,0 +1,16 @@
+# Obsidian
+
+> Obsidian is an AI system builder for people that can't code. Think it, type it, see it — ship production-ready software with an AI engineering team.
+
+Obsidian pairs a live preview builder with an AI engineering pipeline. Users describe what they want in plain language and Obsidian generates, refines, and deploys the app. Paid plans (Starter, Creator, Professional, Business, Elite) unlock credits, higher-capability models, and deployment tooling; Enterprise is contact-sales.
+
+## Pages
+
+- [Home](/): Overview of Obsidian's AI system builder and the "Think it, Type it, See it" workflow.
+- [Unlock / Pricing](/unlock): Plan tiers, pricing, and access options for Obsidian.
+- [Waitlist](/waitlist): Join early access and receive launch updates.
+
+## Optional
+
+- [Privacy Policy](/privacy): How Obsidian handles user data and AI usage.
+- [Terms of Service](/terms): Terms governing access to and use of Obsidian.
