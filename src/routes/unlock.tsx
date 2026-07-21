@@ -1131,96 +1131,121 @@ const unlockCss = `
 
 .unlock-architect {
   position: relative;
-  width: 100%; max-width: 1100px;
-  margin: 28px auto 60px;
-  padding: 0 16px;
+  width: 100%; max-width: 1200px;
+  margin: 40px auto 80px;
+  padding: 0 20px;
 }
 .architect-card {
   display: grid;
-  grid-template-columns: 220px 1fr;
-  gap: 28px;
+  grid-template-columns: 300px 1fr;
+  gap: 36px;
   align-items: center;
-  background: rgba(8,8,10,0.72);
-  border: 1px solid rgba(244,161,37,0.22);
-  border-radius: 16px;
-  padding: 24px;
-  backdrop-filter: blur(14px);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05);
-  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+  background: rgba(8,8,10,0.78);
+  border: 1px solid rgba(244,161,37,0.28);
+  border-radius: 20px;
+  padding: 32px;
+  backdrop-filter: blur(18px);
+  box-shadow:
+    0 28px 80px rgba(0,0,0,0.72),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 0 1px rgba(244,161,37,0.08);
+  transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
 }
 .architect-card:hover {
-  border-color: rgba(244,161,37,0.45);
-  box-shadow: 0 24px 70px rgba(0,0,0,0.75), 0 0 0 1px rgba(244,161,37,0.12);
+  transform: translateY(-4px);
+  border-color: rgba(244,161,37,0.55);
+  box-shadow:
+    0 34px 90px rgba(0,0,0,0.82),
+    0 0 0 1px rgba(244,161,37,0.18),
+    0 0 40px rgba(244,161,37,0.12);
 }
 .architect-portrait {
   position: relative;
-  border-radius: 12px;
+  border-radius: 16px;
   overflow: hidden;
-  border: 1px solid rgba(244,161,37,0.2);
+  border: 1px solid rgba(244,161,37,0.25);
   background: #050607;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+  box-shadow: 0 16px 45px rgba(0,0,0,0.6);
+}
+.architect-portrait::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 16px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  pointer-events: none;
 }
 .architect-portrait img {
   display: block; width: 100%; height: auto;
-  transition: transform .4s ease;
+  transition: transform .45s ease;
 }
-.architect-card:hover .architect-portrait img { transform: scale(1.03); }
+.architect-card:hover .architect-portrait img { transform: scale(1.04); }
 .architect-body { text-align: left; }
 .architect-title {
   font-family: Fraunces, Georgia, serif;
-  font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
-  color: rgba(244,161,37,0.85); margin: 0 0 8px;
+  font-size: 17px; letter-spacing: 2.5px; text-transform: uppercase;
+  color: rgba(244,161,37,0.92); margin: 0 0 10px;
 }
 .architect-name {
   font-family: Fraunces, Georgia, serif;
-  font-size: 28px; color: #f2eee7; margin: 0 0 6px;
-  text-shadow: 0 0 18px rgba(244,161,37,0.25);
+  font-size: 40px; color: #f2eee7; margin: 0 0 8px;
+  text-shadow: 0 0 24px rgba(244,161,37,0.3);
 }
 .architect-tagline {
-  font-size: 13px; letter-spacing: 0.3px;
-  color: rgba(182,188,200,0.85); margin: 0 0 14px;
+  font-size: 16px; letter-spacing: 0.4px;
+  color: rgba(182,188,200,0.9); margin: 0 0 18px;
 }
 .architect-quote {
   font-family: Georgia, serif;
-  font-size: 15px; line-height: 1.55;
-  color: rgba(242,238,231,0.92); font-style: italic;
-  border-left: 2px solid rgba(244,161,37,0.45);
-  padding-left: 14px; margin: 0 0 18px;
+  font-size: 19px; line-height: 1.65;
+  color: rgba(242,238,231,0.95); font-style: italic;
+  border-left: 3px solid rgba(244,161,37,0.55);
+  padding-left: 18px; margin: 0 0 22px;
 }
 .architect-links {
-  display: flex; flex-wrap: wrap; gap: 12px;
+  display: flex; flex-wrap: wrap; gap: 14px;
 }
 .architect-link {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 8px 14px; border-radius: 8px;
-  border: 1px solid rgba(244,161,37,0.25);
-  background: rgba(244,161,37,0.08);
-  color: #f2eee7; font-size: 12px; letter-spacing: 0.5px;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 11px 18px; border-radius: 10px;
+  border: 1px solid rgba(244,161,37,0.3);
+  background: rgba(244,161,37,0.1);
+  color: #f2eee7; font-size: 14px; letter-spacing: 0.6px;
   text-decoration: none; font-weight: 600;
-  transition: background .15s, border-color .15s, color .15s;
+  transition: background .18s, border-color .18s, color .18s, transform .18s;
 }
 .architect-link:hover {
-  background: rgba(244,161,37,0.18);
-  border-color: rgba(244,161,37,0.5);
+  background: rgba(244,161,37,0.22);
+  border-color: rgba(244,161,37,0.6);
   color: #fff;
+  transform: translateY(-2px);
 }
 .architect-link:focus-visible {
   outline: 2px solid #f4a125; outline-offset: 2px;
 }
 
-@media (max-width: 640px) {
+@media (max-width: 800px) {
   .architect-card {
     grid-template-columns: 1fr;
     text-align: center;
-    gap: 20px;
+    gap: 24px;
+    padding: 26px;
   }
-  .architect-portrait { max-width: 200px; margin: 0 auto; }
+  .architect-portrait { max-width: 260px; margin: 0 auto; }
   .architect-body { text-align: center; }
+  .architect-name { font-size: 32px; }
   .architect-quote {
-    border-left: 0; border-top: 2px solid rgba(244,161,37,0.45);
-    padding-left: 0; padding-top: 12px;
+    border-left: 0; border-top: 3px solid rgba(244,161,37,0.55);
+    padding-left: 0; padding-top: 16px;
   }
   .architect-links { justify-content: center; }
+}
+@media (max-width: 480px) {
+  .architect-card { padding: 20px; }
+  .architect-name { font-size: 26px; }
+  .architect-tagline { font-size: 14px; }
+  .architect-quote { font-size: 16px; }
+  .architect-link { font-size: 13px; padding: 9px 14px; }
 }
 .plans-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(244,161,37,0.15); }
 .plans-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
