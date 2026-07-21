@@ -200,6 +200,72 @@ function DemosAdmin() {
         </div>
       )}
 
+      <section style={{ padding: "16px 28px 0" }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: 0, color: "#F4A125", fontSize: 20 }}>Signups</h2>
+            <p style={{ margin: "2px 0 0", color: "#B6BCC8", fontSize: 12 }}>
+              {stats ? `${stats.total} total waitlist entries` : "Loading signup stats…"}
+            </p>
+          </div>
+        </div>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+          {[
+            { label: "Total signups", value: stats?.total ?? 0, accent: "#F4A125" },
+            { label: "Paid ($100)", value: stats?.paid ?? 0, accent: "#7bd88f" },
+            { label: "Unpaid", value: stats?.unpaid ?? 0, accent: "#B6BCC8" },
+            { label: "Last 24h", value: stats?.last_24h ?? 0, accent: "#F4A125" },
+            { label: "Last 7 days", value: stats?.last_7d ?? 0, accent: "#F4A125" },
+          ].map((s) => (
+            <div key={s.label} style={{ background: "#171a20", border: "1px solid #22262d", borderRadius: 12, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, color: "#B6BCC8" }}>{s.label}</div>
+              <div style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 28, color: s.accent, marginTop: 4 }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+        {stats && stats.by_tier.length > 0 && (
+          <div style={{ marginTop: 12, display: "flex", flexWrap: "wrap", gap: 6 }}>
+            {stats.by_tier.map((t) => (
+              <span key={t.tier} style={{ fontSize: 11, color: "#f2eee7", background: "#0b0d10", border: "1px solid #22262d", borderRadius: 999, padding: "4px 10px" }}>
+                {t.tier}: <strong style={{ color: "#F4A125" }}>{t.count}</strong>
+              </span>
+            ))}
+          </div>
+        )}
+        {stats && stats.recent.length > 0 && (
+          <details style={{ marginTop: 12, background: "#171a20", border: "1px solid #22262d", borderRadius: 12, padding: "10px 14px" }}>
+            <summary style={{ cursor: "pointer", color: "#F4A125", fontSize: 13 }}>Recent {stats.recent.length} signups</summary>
+            <div style={{ overflowX: "auto", marginTop: 10 }}>
+              <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ color: "#B6BCC8", textAlign: "left" }}>
+                    <th style={{ padding: "6px 8px" }}>When</th>
+                    <th style={{ padding: "6px 8px" }}>Name</th>
+                    <th style={{ padding: "6px 8px" }}>Email</th>
+                    <th style={{ padding: "6px 8px" }}>Tier</th>
+                    <th style={{ padding: "6px 8px" }}>Interest</th>
+                    <th style={{ padding: "6px 8px" }}>Paid</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {stats.recent.map((r) => (
+                    <tr key={r.id} style={{ borderTop: "1px solid #22262d" }}>
+                      <td style={{ padding: "6px 8px", color: "#B6BCC8", whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleString()}</td>
+                      <td style={{ padding: "6px 8px" }}>{r.name}</td>
+                      <td style={{ padding: "6px 8px" }}><a href={`mailto:${r.email}`} style={{ color: "#F4A125" }}>{r.email}</a></td>
+                      <td style={{ padding: "6px 8px" }}>{r.tier ?? "—"}</td>
+                      <td style={{ padding: "6px 8px" }}>{r.interest_level}</td>
+                      <td style={{ padding: "6px 8px", color: r.paid ? "#7bd88f" : "#B6BCC8" }}>{r.paid ? "yes" : "no"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
+      </section>
+
+
       <section style={{ padding: "16px 28px 8px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
           <div>
