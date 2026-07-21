@@ -2099,6 +2099,68 @@ function Index() {
             >
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
+            {libraryCode.trim() === "9822" && (
+              <button
+                type="button"
+                className="obs-chip obs-chip-gold"
+                disabled={!current.html}
+                onClick={async () => {
+                  if (!current.html) return;
+                  setTerminal((t) => [...t, "→ Pushing to public Demos gallery…"]);
+                  try {
+                    let clientId = localStorage.getItem("obs.client_id");
+                    if (!clientId) {
+                      clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+                      localStorage.setItem("obs.client_id", clientId);
+                    }
+                    const res = await authFetch("/api/public/builds", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        title: current.title,
+                        prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
+                        html: current.html,
+                        model: current.model,
+                        session_id: current.id,
+                        client_id: clientId,
+                        library_code: "9822",
+                      }),
+                    });
+                    if (!res.ok) throw new Error(await res.text());
+                    const { share_slug } = (await res.json()) as { share_slug: string };
+                    const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
+                    const promoted = await pushFeaturedDemo({
+                      data: {
+                        adminCode: "9822",
+                        slug: share_slug,
+                        title: current.title || `Demo · ${share_slug}`,
+                        category: "App",
+                        url: liveUrl,
+                      },
+                    });
+                    if ("ok" in promoted && promoted.ok) {
+                      try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
+                      setTerminal((t) => [
+                        ...t,
+                        `★ Live on Demos: ${liveUrl}`,
+                        "  (Now visible on the login page gallery — URL copied)",
+                      ]);
+                      refreshLibrary();
+                    } else {
+                      const err = "error" in promoted ? promoted.error : "unknown";
+                      setTerminal((t) => [...t, `✗ Promote failed: ${err}`]);
+                    }
+                  } catch (e) {
+                    const msg = e instanceof Error ? e.message : "push failed";
+                    setTerminal((t) => [...t, `✗ Push to Demos failed: ${msg}`]);
+                  }
+                }}
+                title="Publish this build and post it on the login page Demos gallery"
+              >
+                <Rocket className="h-3.5 w-3.5" /> Push to Demos
+              </button>
+            )}
+
             <button
               type="button"
               className="obs-chip"
