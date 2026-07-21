@@ -260,6 +260,24 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_ideas: {
+        Row: {
+          ideas: Json
+          library_code: string
+          updated_at: string
+        }
+        Insert: {
+          ideas?: Json
+          library_code: string
+          updated_at?: string
+        }
+        Update: {
+          ideas?: Json
+          library_code?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           cancel_at_period_end: boolean | null
