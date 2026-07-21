@@ -1203,5 +1203,13 @@ const unlockCss = `
 }
 .wl-input:focus { outline: none; border-color: #f4a125; box-shadow: 0 0 0 2px rgba(244,161,37,0.25); }
 .wl-textarea { resize: vertical; min-height: 60px; }
+.wl-selected {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 8px 10px; margin: 0 0 12px;
+  border: 1px solid rgba(244,161,37,0.3); border-radius: 8px;
+  background: rgba(244,161,37,0.06);
+}
+.wl-selected-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244,161,37,0.75); }
+.wl-selected-value { font-size: 13px; color: #f4a125; font-family: Fraunces, Georgia, serif; }
 `;
 
