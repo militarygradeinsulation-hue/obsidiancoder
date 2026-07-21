@@ -333,7 +333,7 @@ function Unlock() {
                               className="tier-cta tier-cta-primary"
                               onClick={startPurchase}
                             >
-                              Start {t.name} — {t.price}{t.cadence}
+                              Get {t.name}
                             </button>
                           ) : (
                             <button
