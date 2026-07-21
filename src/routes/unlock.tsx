@@ -44,6 +44,7 @@ const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory
   { slug: "3e2s2m0q2i3b2s", title: "Demo · Obsidian Build 26", category: "Landing", url: "https://obsidianvibe.live/api/public/share/3e2s2m0q2i3b2s#top" },
   { slug: "1i3r07161s0q6h", title: "Demo · Obsidian Build 27", category: "Tool", url: "https://obsidianvibe.live/api/public/share/1i3r07161s0q6h#" },
   { slug: "1i54063l620y0h", title: "Demo · Obsidian Build 28", category: "App", url: "https://obsidianvibe.live/api/public/share/1i54063l620y0h" },
+  { slug: "6j0m0l1y016p44", title: "Demo · Obsidian Build 29", category: "App", url: "https://obsidianvibe.live/api/public/share/6j0m0l1y016p44" },
 ];
 
 type Intent = "buy" | "code";
