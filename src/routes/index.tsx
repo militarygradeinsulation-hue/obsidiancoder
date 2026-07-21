@@ -2166,7 +2166,7 @@ function Index() {
             {(libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (
               <button
                 type="button"
-                className="obs-chip obs-chip-gold"
+                className={"obs-chip " + (pushedDemoIds.has(current.id) ? "is-live-demo" : "obs-chip-gold")}
                 disabled={!current.html}
                 onClick={async () => {
                   if (!current.html) return;
@@ -2209,6 +2209,11 @@ function Index() {
                         `★ Live on Demos: ${liveUrl}`,
                         "  (Now visible on the login page gallery — URL copied)",
                       ]);
+                      setPushedDemoIds((prev) => {
+                        const next = new Set(prev);
+                        next.add(current.id);
+                        return next;
+                      });
                       refreshLibrary();
                     } else {
                       const err = "error" in promoted ? promoted.error : "unknown";
@@ -2219,9 +2224,15 @@ function Index() {
                     setTerminal((t) => [...t, `✗ Push to Demos failed: ${msg}`]);
                   }
                 }}
-                title="Publish this build and post it on the login page Demos gallery"
+                title={pushedDemoIds.has(current.id)
+                  ? "Live on the login page Demos gallery — click to push again"
+                  : "Publish this build and post it on the login page Demos gallery"}
               >
-                <Rocket className="h-3.5 w-3.5" /> Push to Demos
+                {pushedDemoIds.has(current.id) ? (
+                  <><Check className="h-3.5 w-3.5" /> Live on Demos</>
+                ) : (
+                  <><Rocket className="h-3.5 w-3.5" /> Push to Demos</>
+                )}
               </button>
             )}
 
