@@ -158,6 +158,31 @@ export function tierForPriceId(priceId: string | null | undefined): PlanTier | u
   return undefined;
 }
 
+/**
+ * Monthly AI credit cap per tier. Enterprise is negotiated per-contract and
+ * defaults to Elite until custom terms are provisioned. `capForTier(null)`
+ * returns 0 (free plan — no paid AI operations).
+ */
+export const TIER_CREDIT_CAP: Record<PlanTierId, number> = {
+  starter: 400,
+  creator: 1000,
+  professional: 2500,
+  business: 6000,
+  elite: 12000,
+  enterprise: 12000,
+};
+
+export function capForTier(tier: PlanTierId | null | undefined): number {
+  if (!tier) return 0;
+  return TIER_CREDIT_CAP[tier] ?? 0;
+}
+
+/** Lookup keys the server accepts for Stripe checkout (Enterprise is contact-sales). */
+export const PURCHASABLE_LOOKUP_KEYS: readonly string[] = PLAN_TIERS
+  .filter((t) => t.cta === "checkout" && t.priceId)
+  .map((t) => t.priceId!) as readonly string[];
+
+
 
 /** Plan-aware navigation entries, gated by tier when `minTier` is set. */
 export interface PlanNavItem {
