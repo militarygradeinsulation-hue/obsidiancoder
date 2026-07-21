@@ -2763,11 +2763,10 @@ function Index() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter" && !e.shiftKey) {
                         e.preventDefault();
-                        submit();
+                        if (!loading) submit();
                       }
                     }}
                     placeholder={pendingAttachments.length ? "Describe how to use the attached materials…  (Enter to send, Shift+Enter for newline)" : "Ask Aetheris Obsidian…  (Enter to send, Shift+Enter for newline)"}
-                    disabled={loading}
                     rows={1}
                     className="obs-composer-input"
                     data-testid="composer-input"
