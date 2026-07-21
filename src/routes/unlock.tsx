@@ -92,6 +92,29 @@ function Unlock() {
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
+  const [featuredDemos, setFeaturedDemos] = useState<{ slug: string; title: string; url?: string; category: DemoCategory }[]>([]);
+
+  // Load admin-curated demos so newly promoted builds appear without a code edit.
+  useEffect(() => {
+    let alive = true;
+    supabase
+      .from("featured_demos")
+      .select("slug, title, category, url")
+      .order("sort_order", { ascending: false })
+      .limit(60)
+      .then(({ data }) => {
+        if (!alive || !data) return;
+        setFeaturedDemos(
+          data.map((d) => ({
+            slug: d.slug,
+            title: d.title,
+            url: d.url ?? undefined,
+            category: (DEMO_CATEGORIES as readonly string[]).includes(d.category) ? (d.category as DemoCategory) : "App",
+          })),
+        );
+      });
+    return () => { alive = false; };
+  }, []);
 
 
   // Track auth session
