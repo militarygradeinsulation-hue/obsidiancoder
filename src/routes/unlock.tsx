@@ -167,11 +167,13 @@ function Unlock() {
     finally { setBusy(false); }
   }
 
-  function startPurchase() {
+  function startPurchase(priceId: string = CREATOR_PRICE_ID) {
     setError(null);
+    setSelectedPriceId(priceId);
     if (!session) {
-      // Send to auth in signup mode, then return here with checkout=1.
-      window.location.assign(buildAuthUrl("signup", "/unlock?intent=buy&checkout=1"));
+      // Send to auth in signup mode, then return here with checkout=1 and the chosen tier.
+      const q = `intent=buy&checkout=1&priceId=${encodeURIComponent(priceId)}`;
+      window.location.assign(buildAuthUrl("signup", `/unlock?${q}`));
       return;
     }
     setShowCheckout(true);
