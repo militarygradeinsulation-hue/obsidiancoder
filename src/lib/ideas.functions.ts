@@ -12,10 +12,37 @@ const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 export type IdeaSuggestion = { id: string; label: string; snippet: string };
 
+const CATEGORIES = [
+  "all",
+  "ai",
+  "app",
+  "game",
+  "productivity",
+  "education",
+  "presentation",
+  "landing",
+  "dashboard",
+  "portfolio",
+] as const;
+
 const starterInput = z.object({
-  exclude: z.array(z.string()).max(80).optional().default([]),
-  count: z.number().int().min(3).max(8).optional().default(5),
+  exclude: z.array(z.string()).max(120).optional().default([]),
+  count: z.number().int().min(3).max(8).optional().default(6),
+  category: z.enum(CATEGORIES).optional().default("all"),
 });
+
+const CATEGORY_GUIDANCE: Record<(typeof CATEGORIES)[number], string> = {
+  all: "Vary widely across creative tools, dashboards, storytelling, utilities, communities, playful microsites.",
+  ai: "AI-powered single-page tools: chat UIs, agents, generators, summarizers, classifiers, playgrounds.",
+  app: "Interactive single-page web apps: utilities, trackers, planners, mini social tools.",
+  game: "Playable browser mini-games: puzzles, arcade, idle/clicker, word, memory, physics, trivia.",
+  productivity: "Productivity tools: task managers, timers, note-takers, planners, focus/habit trackers.",
+  education: "Educational pages: interactive lessons, flashcards, quizzes, explainers, visualizers.",
+  presentation: "Presentation-style pages: pitch decks, slide flows, story scrollers, keynote-style microsites.",
+  landing: "Marketing landing pages for products, apps, events, launches, waitlists.",
+  dashboard: "Analytics/admin dashboards with KPI cards, charts, tables, filters.",
+  portfolio: "Portfolio and personal sites: designers, developers, photographers, agencies, resumes.",
+};
 
 const anticipateInput = z.object({
   draft: z.string().min(1).max(2000),
@@ -86,9 +113,10 @@ Rules:
 - ${data.count} ideas. Each unique. Not generic ("website", "app"); be specific and interesting.
 - label: 2-4 words, Title Case, no emoji.
 - snippet: one imperative sentence starting with "Build a" or "Build an", 12-28 words, mentions 2-3 concrete sections/features.
-- Vary categories (creative tools, dashboards, storytelling, utilities, communities, playful microsites).
-- Avoid anything in the exclude list.`;
-    const user = `variety-seed:${seed}\nexclude:${JSON.stringify(data.exclude)}`;
+- Category focus: ${CATEGORY_GUIDANCE[data.category]}
+- Avoid anything in the exclude list (case-insensitive) and do not repeat concepts already listed.
+- Be inventive — surprising, specific niches beat safe generic picks.`;
+    const user = `category:${data.category}\nvariety-seed:${seed}\nexclude:${JSON.stringify(data.exclude)}`;
     try {
       const raw = await callGateway(system, user);
       const parsed = parseIdeas(raw);
