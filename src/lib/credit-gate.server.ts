@@ -500,7 +500,7 @@ export async function settleOperation(
   const errorCode = outcome.kind === "failed_with_usage"
     ? (outcome.errorCode ?? usage.errorCode)
     : usage.errorCode;
-  await usageFinalize(res.reservationId, charge, ent.requestId, status, usage, errorCode);
+  await usageFinalize(res.reservationId, charge, ent.requestId, status, res.cap, usage, errorCode);
 }
 
 
