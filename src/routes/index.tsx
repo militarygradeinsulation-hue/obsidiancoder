@@ -15,6 +15,18 @@ import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
 import { generateStarterIdeas, anticipateNextIdeas } from "@/lib/ideas.functions";
 import { pushFeaturedDemo } from "@/lib/featured-demos.functions";
+
+type DemoCat = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
+function classifyDemoCategory(...parts: (string | undefined | null)[]): DemoCat {
+  const t = parts.filter(Boolean).join(" ").toLowerCase();
+  const has = (...ks: string[]) => ks.some((k) => t.includes(k));
+  if (has("game", "arcade", "puzzle", "quiz", "trivia", "rpg", "platformer", "shooter", "chess", "tetris", "snake", "maze")) return "Game";
+  if (has("dashboard", "analytics", "admin panel", "metrics", "kpi", "chart", "monitor", "report", "stats", "crm")) return "Dashboard";
+  if (has("portfolio", "resume", "cv ", "about me", "personal site", "photographer", "designer showcase")) return "Portfolio";
+  if (has("landing", "marketing", "hero section", "pricing page", "waitlist", "coming soon", "product page")) return "Landing";
+  if (has("tool", "calculator", "converter", "generator", "utility", "editor", "notepad", "timer", "tracker", "planner")) return "Tool";
+  return "App";
+}
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
