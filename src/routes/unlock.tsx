@@ -328,9 +328,8 @@ function Unlock() {
                   {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $79/month"}
                 </button>
 
-                <button type="button" className="unlock-btn-secondary" onClick={goSignIn}>
-                  Already purchased? Sign in
-                </button>
+
+
 
                 <div className="plans-block" aria-labelledby="plans-heading">
                   <div className="whitelist-hero">
