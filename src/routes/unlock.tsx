@@ -89,6 +89,7 @@ function Unlock() {
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
   const [expandDetails, setExpandDetails] = useState(false);
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
+  const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
 
 
@@ -471,6 +472,19 @@ function Unlock() {
         <div className="demos-header">
           <h2 id="demos-heading" className="demos-title">Live Demos</h2>
           <p className="demos-sub">Explore builds crafted with Obsidian. View-only — the vibe coder requires access.</p>
+          <button
+            type="button"
+            className="demos-toggle"
+            aria-expanded={demosOpen || demoCategory !== "All"}
+            aria-controls="demos-grid"
+            onClick={() => {
+              const next = !(demosOpen || demoCategory !== "All");
+              setDemosOpen(next);
+              if (!next) setDemoCategory("All");
+            }}
+          >
+            {(demosOpen || demoCategory !== "All") ? "Hide gallery ▲" : "Show gallery ▼"}
+          </button>
         </div>
         <div className="demo-chips" role="tablist" aria-label="Filter demos by category">
           {(["All", ...DEMO_CATEGORIES] as const).map((cat) => {
@@ -482,48 +496,53 @@ function Unlock() {
                 role="tab"
                 aria-selected={active}
                 className={`demo-chip ${active ? "is-active" : ""}`}
-                onClick={() => setDemoCategory(cat)}
+                onClick={() => {
+                  setDemoCategory(cat);
+                  if (cat !== "All") setDemosOpen(true);
+                }}
               >
                 {cat}
               </button>
             );
           })}
         </div>
-        <div className="demos-grid">
-          {Array.from(
-            new Map(
-              DEMOS
-                .filter((d) => demoCategory === "All" || d.category === demoCategory)
-                .map((d) => {
-                  const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
-                  return [demoUrl, { ...d, demoUrl }] as const;
-                })
-            ).values()
-          ).map(({ slug, title, demoUrl, category }) => (
-            <a
-              key={slug}
-              href={demoUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="demo-card"
-            >
-              <div className="demo-frame" aria-hidden>
-                <iframe
-                  src={demoUrl}
-                  title={title}
-                  loading="lazy"
-                  sandbox=""
-                  tabIndex={-1}
-                />
-                <div className="demo-scrim" />
-              </div>
-              <div className="demo-meta">
-                <span className="demo-name">{title}</span>
-                <span className="demo-open">{category} ↗</span>
-              </div>
-            </a>
-          ))}
-        </div>
+        {(demosOpen || demoCategory !== "All") && (
+          <div id="demos-grid" className="demos-grid">
+            {Array.from(
+              new Map(
+                DEMOS
+                  .filter((d) => demoCategory === "All" || d.category === demoCategory)
+                  .map((d) => {
+                    const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
+                    return [demoUrl, { ...d, demoUrl }] as const;
+                  })
+              ).values()
+            ).map(({ slug, title, demoUrl, category }) => (
+              <a
+                key={slug}
+                href={demoUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="demo-card"
+              >
+                <div className="demo-frame" aria-hidden>
+                  <iframe
+                    src={demoUrl}
+                    title={title}
+                    loading="lazy"
+                    sandbox=""
+                    tabIndex={-1}
+                  />
+                  <div className="demo-scrim" />
+                </div>
+                <div className="demo-meta">
+                  <span className="demo-name">{title}</span>
+                  <span className="demo-open">{category} ↗</span>
+                </div>
+              </a>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* MEET THE ARCHITECT */}
@@ -1000,6 +1019,21 @@ const unlockCss = `
   font-size: 22px; letter-spacing: 0.5px; color: #f2eee7; margin: 0;
 }
 .demos-sub { margin: 6px 0 0; font-size: 12px; color: #B6BCC8; }
+.demos-toggle {
+  margin-top: 12px;
+  padding: 8px 18px;
+  background: rgba(244,161,37,0.08);
+  border: 1px solid rgba(244,161,37,0.35);
+  color: #F4A125;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.4px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.demos-toggle:hover { background: rgba(244,161,37,0.16); border-color: rgba(244,161,37,0.6); }
+.demos-toggle:focus-visible { outline: 2px solid #f4a125; outline-offset: 2px; }
 .demo-chips {
   display: flex; flex-wrap: wrap; gap: 8px;
   justify-content: center; margin: 0 0 18px;
