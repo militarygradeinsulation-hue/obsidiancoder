@@ -2672,6 +2672,16 @@ function Index() {
                   setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
                   fetchCategoryIdeas(ideaCategory, true);
                 };
+                const dismissIdea = (a: Addon) => {
+                  recordBuiltIdea(a.label);
+                  recordBuiltIdea(a.snippet.slice(0, 60));
+                  setAiIdeas((prev) => prev.filter((p) => p.id !== a.id && p.label !== a.label));
+                  // Keep the rail fresh forever — refill as soon as it thins out.
+                  const remaining = addons.filter((p) => p.id !== a.id && p.label !== a.label).length;
+                  if (remaining < 4 && !aiIdeasLoading) {
+                    fetchCategoryIdeas(ideaCategory, false);
+                  }
+                };
                 const pickCategory = (cat: string) => {
                   setIdeaCategory(cat);
                   setAiIdeas([]);
