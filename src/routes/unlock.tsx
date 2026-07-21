@@ -9,7 +9,7 @@ import { buildAuthUrl } from "@/lib/redirect-safe";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
-const DEMOS: { slug: string; title: string }[] = [
+const DEMOS: { slug: string; title: string; url?: string }[] = [
   { slug: "0v6h3d1b0k5e60", title: "Demo · Obsidian Build 01" },
   { slug: "254055672k2h6p", title: "Demo · Obsidian Build 02" },
   { slug: "68055l616v1f1m", title: "Demo · Obsidian Build 03" },
@@ -17,6 +17,8 @@ const DEMOS: { slug: string; title: string }[] = [
   { slug: "3u6i063s2u000m", title: "Demo · Obsidian Build 05" },
   { slug: "712q5y47130j3k", title: "Demo · Obsidian Build 06" },
   { slug: "0o170e051k1558", title: "Demo · Obsidian Build 07" },
+  { slug: "0w653a21633k5v", title: "Demo · Obsidian Build 08", url: "https://obsidianvibe.live/api/public/share/0w653a21633k5v" },
+  { slug: "3s190o0x3o2r14", title: "Demo · Obsidian Build 09", url: "https://obsidianvibe.live/api/public/share/3s190o0x3o2r14" },
 ];
 
 type Intent = "buy" | "code";
