@@ -926,6 +926,11 @@ const unlockCss = `
   color: #f2eee7; margin: 4px 0 14px;
 }
 .unlock-headline.compact { font-size: 18px; margin-bottom: 10px; }
+.unlock-subheadline {
+  font-family: Inter, system-ui, sans-serif;
+  font-size: 13.5px; line-height: 1.45;
+  color: rgba(182,188,200,0.95); margin: -8px 0 16px;
+}
 
 .unlock-price { display: flex; align-items: baseline; gap: 6px; margin-top: 2px; }
 .price-amount { font-family: Fraunces, Georgia, serif; font-size: 40px; color: #f4a125; letter-spacing: 1px; }
