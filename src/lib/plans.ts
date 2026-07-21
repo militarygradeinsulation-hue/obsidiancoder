@@ -112,7 +112,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Launch-readiness and compliance reviews",
     ],
     priceId: "obsidian_elite_monthly",
-    cta: "checkout",
+    cta: "waitlist",
     icon: Crown,
   },
   {
