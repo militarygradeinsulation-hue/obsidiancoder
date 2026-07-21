@@ -4,6 +4,8 @@ import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
+import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
+import { getStripe } from "@/lib/stripe";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
 import { PLAN_TIERS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
@@ -640,71 +642,87 @@ function WaitlistModal({ tier, onClose }: { tier: string; onClose: () => void })
   const [use, setUse] = useState("");
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
-  const [done, setDone] = useState(false);
+  const [phase, setPhase] = useState<"form" | "pay">("form");
+  const [remaining, setRemaining] = useState<number | null>(null);
 
-  async function submit(e: React.FormEvent<HTMLFormElement>) {
+  // Load remaining early-access spots so users see scarcity before paying.
+  useEffect(() => {
+    let alive = true;
+    import("@/utils/payments.functions").then(({ getWhitelistStatus }) =>
+      getWhitelistStatus().then((s) => { if (alive) setRemaining(s.remaining); }).catch(() => {}),
+    );
+    return () => { alive = false; };
+  }, []);
+
+  const full = remaining !== null && remaining <= 0;
+
+  async function goToPayment(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true); setErr(null);
-    try {
-      const res = await fetch("/api/public/waitlist", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim(),
-          company: company.trim(),
-          intended_use: use.trim() || "General interest",
-          interest_level: "exploring",
-          tier,
-          source: "unlock_whitelist",
-        }),
-      });
-      if (!res.ok) {
-        const t = await res.text().catch(() => "");
-        // Friendly duplicate handling — the DB has a unique-per-email constraint.
-        if (/duplicate|unique|already/i.test(t)) {
-          setDone(true);
-        } else {
-          setErr(t || "Something went wrong. Try again.");
-        }
-      } else {
-        setDone(true);
-      }
-    } catch {
-      setErr("Network error. Try again.");
-    } finally {
-      setBusy(false);
-    }
+    // Basic client-side sanity — server re-validates.
+    if (!name.trim() || !email.trim()) { setErr("Name and email are required."); setBusy(false); return; }
+    setPhase("pay");
+    setBusy(false);
+  }
+
+  async function fetchClientSecret(): Promise<string> {
+    const { createWhitelistCheckout } = await import("@/utils/payments.functions");
+    const { getStripeEnvironment } = await import("@/lib/stripe");
+    const result = await createWhitelistCheckout({
+      data: {
+        name: name.trim(),
+        email: email.trim(),
+        company: company.trim(),
+        intended_use: use.trim(),
+        interest_level: "ready",
+        tier,
+        returnUrl: `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}&whitelist=1`,
+        environment: getStripeEnvironment(),
+      },
+    });
+    if ("error" in result) throw new Error(result.error);
+    if (!result.clientSecret) throw new Error("Stripe did not return a client secret");
+    if (typeof result.remaining === "number") setRemaining(result.remaining);
+    return result.clientSecret;
   }
 
   return (
     <div className="wl-overlay" role="dialog" aria-modal="true" aria-labelledby="wl-title" onClick={onClose}>
       <div className="wl-card" onClick={(e) => e.stopPropagation()}>
         <button type="button" className="wl-close" onClick={onClose} aria-label="Close">×</button>
-        {done ? (
+        {phase === "pay" ? (
           <>
-            <h3 id="wl-title" className="wl-title">You're on the list ✦</h3>
-            <p className="wl-body">
-              Thanks — we've saved your request. You'll be among the first contacted for
-              early-access opportunities and any launch discounts we offer. Acceptance and
-              specific discounts aren't guaranteed.
+            <h3 id="wl-title" className="wl-title">Reserve your whitelist spot — $100</h3>
+            <p className="wl-sub">
+              One-time payment to lock in your early-access spot for {selectedLabel}. Non-refundable.
+              {remaining !== null && remaining > 0 && (
+                <> Only <strong style={{ color: "#f4a125" }}>{remaining}</strong> of 1,000 spots left.</>
+              )}
             </p>
-            <button type="button" className="unlock-btn unlock-btn-primary" onClick={onClose}>
-              Close
+            <div className="wl-checkout">
+              <EmbeddedCheckoutProvider stripe={getStripe()} options={{ fetchClientSecret }}>
+                <EmbeddedCheckout />
+              </EmbeddedCheckoutProvider>
+            </div>
+            <button type="button" className="unlock-btn unlock-btn-secondary" onClick={() => setPhase("form")}>
+              ← Edit details
             </button>
           </>
         ) : (
           <>
-            <h3 id="wl-title" className="wl-title">Request Early Access</h3>
+            <h3 id="wl-title" className="wl-title">Reserve Early Access — $100</h3>
             <p className="wl-sub">
-              Join the Obsidian whitelist. Early members are first to unlock new tiers and
-              may qualify for launch discounts (not guaranteed).
+              First 1,000 members lock in a lifetime early-access spot. One-time $100 payment,
+              refunded only if we cannot honor your reservation.
+              {remaining !== null && (
+                <> <strong style={{ color: "#f4a125" }}>{remaining}</strong> / 1,000 spots left.</>
+              )}
             </p>
             <div className="wl-selected" aria-live="polite">
               <span className="wl-selected-label">Selected plan</span>
               <strong className="wl-selected-value">{selectedLabel}</strong>
             </div>
-            <form onSubmit={submit} className="wl-form">
+            <form onSubmit={goToPayment} className="wl-form">
               <label className="wl-label">Name
                 <input required maxLength={200} className="wl-input" value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
               </label>
@@ -718,8 +736,8 @@ function WaitlistModal({ tier, onClose }: { tier: string; onClose: () => void })
                 <textarea maxLength={2000} rows={3} className="wl-input wl-textarea" value={use} onChange={(e) => setUse(e.target.value)} />
               </label>
               {err && <div role="alert" className="unlock-error">⚠ {err}</div>}
-              <button type="submit" disabled={busy} className="unlock-btn unlock-btn-primary">
-                {busy ? "Submitting…" : "Join the Whitelist"}
+              <button type="submit" disabled={busy || full} className="unlock-btn unlock-btn-primary">
+                {full ? "Whitelist is full" : busy ? "Loading…" : "Continue to $100 payment →"}
               </button>
             </form>
           </>
@@ -728,6 +746,7 @@ function WaitlistModal({ tier, onClose }: { tier: string; onClose: () => void })
     </div>
   );
 }
+
 
 
 const unlockCss = `
@@ -1276,7 +1295,7 @@ const unlockCss = `
   display: grid; place-items: center; padding: 20px;
 }
 .wl-card {
-  position: relative; width: 100%; max-width: 460px;
+  position: relative; width: 100%; max-width: 520px; max-height: 92vh; overflow-y: auto;
   background: rgba(10,10,12,0.96); border: 1px solid rgba(244,161,37,0.35);
   border-radius: 14px; padding: 22px 22px 20px;
   box-shadow: 0 30px 80px rgba(0,0,0,0.85);
@@ -1304,5 +1323,8 @@ const unlockCss = `
 }
 .wl-selected-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244,161,37,0.75); }
 .wl-selected-value { font-size: 13px; color: #f4a125; font-family: Fraunces, Georgia, serif; }
+.wl-checkout { margin: 6px 0 12px; border-radius: 10px; overflow: hidden; }
+.unlock-btn-secondary { background: transparent; border: 1px solid rgba(244,161,37,0.35); color: #f4a125; margin-top: 8px; }
+.unlock-btn-secondary:hover { background: rgba(244,161,37,0.08); }
 `;
 

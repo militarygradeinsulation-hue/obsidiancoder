@@ -1,4 +1,5 @@
 import { createServerFn } from "@tanstack/react-start";
+import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
 import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
@@ -6,6 +7,10 @@ import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
 type CancelResult = { ok: true } | { error: string };
+
+export const WHITELIST_PRICE_ID = "whitelist_early_access_onetime";
+export const WHITELIST_CAP = 1000;
+
 
 async function resolveOrCreateCustomer(
   stripe: ReturnType<typeof createStripeClient>,
@@ -149,3 +154,101 @@ export const cancelSubscriptionNow = createServerFn({ method: "POST" })
       return { error: getStripeErrorMessage(error) };
     }
   });
+
+// ─── Whitelist / early-access checkout ────────────────────────────────────────
+// Public (unauthenticated) $100 one-time purchase. Creates a pending waitlist
+// row first, then opens Stripe embedded checkout with the row id in metadata.
+// The payments webhook flips the row to paid=true on
+// `checkout.session.completed`. Capped at 1,000 paid entries.
+
+const whitelistInput = z.object({
+  name: z.string().trim().min(1).max(200),
+  email: z.string().trim().email().max(320),
+  company: z.string().trim().max(200).optional().or(z.literal("")),
+  intended_use: z.string().trim().max(2000).optional().or(z.literal("")),
+  interest_level: z.enum(["exploring", "planning", "ready", "urgent"]).default("ready"),
+  tier: z.string().trim().max(64).optional().or(z.literal("")),
+  returnUrl: z.string().url().max(500),
+  environment: z.enum(["sandbox", "live"]),
+});
+
+type WhitelistCheckoutResult =
+  | { clientSecret: string; entryId: string; remaining: number }
+  | { error: string; full?: boolean; remaining?: number };
+
+export const createWhitelistCheckout = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => whitelistInput.parse(d))
+  .handler(async ({ data }): Promise<WhitelistCheckoutResult> => {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+      // Cap check — reject once 1,000 paid spots are taken.
+      const { data: countData, error: countErr } = await supabaseAdmin
+        .rpc("waitlist_paid_count" as never);
+      if (countErr) return { error: countErr.message };
+      const paidCount = (countData as unknown as number) ?? 0;
+      const remaining = Math.max(0, WHITELIST_CAP - paidCount);
+      if (remaining <= 0) {
+        return { error: "The first 1,000 early-access spots are all claimed.", full: true, remaining: 0 };
+      }
+
+      // Insert pending row (paid=false). Uses service role → bypasses RLS.
+      const { data: inserted, error: insertErr } = await supabaseAdmin
+        .from("waitlist_entries")
+        .insert({
+          name: data.name,
+          email: data.email.toLowerCase(),
+          company: data.company || null,
+          intended_use: data.intended_use || "Early-access whitelist",
+          interest_level: data.interest_level,
+          tier: data.tier || null,
+          source: "unlock_whitelist_paid",
+          paid: false,
+        } as never)
+        .select("id")
+        .single();
+      if (insertErr || !inserted) return { error: insertErr?.message ?? "Could not save entry" };
+      const entryId = (inserted as { id: string }).id;
+
+      const stripe = createStripeClient(data.environment);
+      const prices = await stripe.prices.list({ lookup_keys: [WHITELIST_PRICE_ID] });
+      if (!prices.data.length) return { error: "Whitelist price not configured" };
+      const stripePrice = prices.data[0];
+      const productId = typeof stripePrice.product === "string"
+        ? stripePrice.product
+        : stripePrice.product.id;
+      const product = await stripe.products.retrieve(productId);
+
+      const session = await stripe.checkout.sessions.create({
+        line_items: [{ price: stripePrice.id, quantity: 1 }],
+        mode: "payment",
+        ui_mode: "embedded_page",
+        return_url: data.returnUrl,
+        customer_email: data.email.toLowerCase(),
+        client_reference_id: entryId,
+        payment_intent_data: { description: product.name },
+        metadata: {
+          waitlist_entry_id: entryId,
+          waitlist_email: data.email.toLowerCase(),
+          waitlist_tier: data.tier || "",
+        },
+      } as never);
+
+      return {
+        clientSecret: session.client_secret ?? "",
+        entryId,
+        remaining: remaining - 1,
+      };
+    } catch (error) {
+      return { error: getStripeErrorMessage(error) };
+    }
+  });
+
+export const getWhitelistStatus = createServerFn({ method: "GET" }).handler(async () => {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin.rpc("waitlist_paid_count" as never);
+  if (error) return { cap: WHITELIST_CAP, paid: 0, remaining: WHITELIST_CAP };
+  const paid = (data as unknown as number) ?? 0;
+  return { cap: WHITELIST_CAP, paid, remaining: Math.max(0, WHITELIST_CAP - paid) };
+});
+

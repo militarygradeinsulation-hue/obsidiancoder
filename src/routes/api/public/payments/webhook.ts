@@ -54,12 +54,30 @@ async function handleSubscriptionDeleted(sub: any, env: StripeEnv) {
 }
 
 async function handleCheckoutCompleted(session: any, env: StripeEnv) {
-  // One-time purchase ($20 Save & Host)
+  // One-time purchase — either the $20 Save & Host flow, or a $100
+  // whitelist / early-access spot. Route by metadata.
   if (session.mode !== "payment") return;
+
+  // ── Whitelist / early-access ────────────────────────────────────────────
+  const waitlistEntryId = session.metadata?.waitlist_entry_id;
+  if (waitlistEntryId) {
+    await getSupabase()
+      .from("waitlist_entries")
+      .update({
+        paid: true,
+        stripe_session_id: session.id,
+        amount_paid: session.amount_total ?? 0,
+        currency: session.currency ?? "usd",
+        paid_at: new Date().toISOString(),
+      })
+      .eq("id", waitlistEntryId);
+    return;
+  }
+
+  // ── User-scoped one-time purchases (Save & Host) ────────────────────────
   const userId = session.metadata?.userId;
   if (!userId) return;
   const line = session.line_items?.data?.[0] || null;
-  // line_items may not be expanded; look them up
   let priceId = line?.price?.lookup_key || line?.price?.id || "";
   if (!priceId && session.id) {
     try {
