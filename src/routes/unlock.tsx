@@ -11,30 +11,34 @@ import signatureCard from "@/assets/joseph-signature-card.jpeg.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
-const DEMOS: { slug: string; title: string; url?: string }[] = [
-  { slug: "0v6h3d1b0k5e60", title: "Demo · Obsidian Build 01" },
-  { slug: "254055672k2h6p", title: "Demo · Obsidian Build 02" },
-  { slug: "68055l616v1f1m", title: "Demo · Obsidian Build 03" },
-  { slug: "6u0k1t5t544959", title: "Demo · Obsidian Build 04" },
-  { slug: "3u6i063s2u000m", title: "Demo · Obsidian Build 05" },
-  { slug: "712q5y47130j3k", title: "Demo · Obsidian Build 06" },
-  { slug: "0o170e051k1558", title: "Demo · Obsidian Build 07" },
-  { slug: "0w653a21633k5v", title: "Demo · Obsidian Build 08", url: "https://obsidianvibe.live/api/public/share/0w653a21633k5v" },
-  { slug: "3s190o0x3o2r14", title: "Demo · Obsidian Build 09", url: "https://obsidianvibe.live/api/public/share/3s190o0x3o2r14" },
-  { slug: "1l370y43144a2o", title: "Demo · Obsidian Build 10", url: "https://obsidianvibe.live/api/public/share/1l370y43144a2o" },
-  { slug: "0t485n6s6i1203", title: "Demo · Obsidian Build 11", url: "https://obsidianvibe.live/api/public/share/0t485n6s6i1203" },
-  { slug: "5i3e202p646j66", title: "Demo · Obsidian Build 12", url: "https://obsidianvibe.live/api/public/share/5i3e202p646j66" },
-  { slug: "1z63663n0j6c3n", title: "Demo · Obsidian Build 13", url: "https://obsidianvibe.live/api/public/share/1z63663n0j6c3n#home" },
-  { slug: "6t4k4d2h31512r", title: "Demo · Obsidian Build 14", url: "https://obsidianvibe.live/api/public/share/6t4k4d2h31512r" },
-  { slug: "0x1b67096z3d2l", title: "Demo · Obsidian Build 15", url: "https://obsidianvibe.live/api/public/share/0x1b67096z3d2l" },
-  { slug: "4a452v014l4a3d", title: "Demo · Obsidian Build 16", url: "https://obsidianvibe.live/api/public/share/4a452v014l4a3d" },
-  { slug: "4t4k4q2u0e2i0y", title: "Demo · Obsidian Build 17", url: "https://obsidianvibe.live/api/public/share/4t4k4q2u0e2i0y" },
-  { slug: "3u6x2m401k4y6q", title: "Demo · Obsidian Build 18", url: "https://obsidianvibe.live/api/public/share/3u6x2m401k4y6q" },
-  { slug: "6u1l6b255s6n2t", title: "Demo · Obsidian Build 19", url: "https://obsidianvibe.live/api/public/share/6u1l6b255s6n2t#mockup-anchor" },
-  { slug: "214o3v5d1g421g", title: "Demo · Obsidian Build 20", url: "https://obsidianvibe.live/api/public/share/214o3v5d1g421g#live-map" },
-  { slug: "4b3k4t624s4n1l", title: "Demo · Obsidian Build 21", url: "https://obsidianvibe.live/api/public/share/4b3k4t624s4n1l#preview" },
-  { slug: "3s2q0g011p2z3b", title: "Demo · Obsidian Build 22", url: "https://obsidianvibe.live/api/public/share/3s2q0g011p2z3b#home" },
-  { slug: "2e5n3j0y47664q", title: "Demo · Obsidian Build 23", url: "https://obsidianvibe.live/api/public/share/2e5n3j0y47664q#episodes" },
+type DemoCategory = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
+const DEMO_CATEGORIES: readonly DemoCategory[] = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
+
+const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory }[] = [
+  { slug: "0v6h3d1b0k5e60", title: "Demo · Obsidian Build 01", category: "App" },
+  { slug: "254055672k2h6p", title: "Demo · Obsidian Build 02", category: "Landing" },
+  { slug: "68055l616v1f1m", title: "Demo · Obsidian Build 03", category: "Dashboard" },
+  { slug: "6u0k1t5t544959", title: "Demo · Obsidian Build 04", category: "Tool" },
+  { slug: "3u6i063s2u000m", title: "Demo · Obsidian Build 05", category: "Game" },
+  { slug: "712q5y47130j3k", title: "Demo · Obsidian Build 06", category: "Portfolio" },
+  { slug: "0o170e051k1558", title: "Demo · Obsidian Build 07", category: "App" },
+  { slug: "0w653a21633k5v", title: "Demo · Obsidian Build 08", category: "Landing", url: "https://obsidianvibe.live/api/public/share/0w653a21633k5v" },
+  { slug: "3s190o0x3o2r14", title: "Demo · Obsidian Build 09", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/3s190o0x3o2r14" },
+  { slug: "1l370y43144a2o", title: "Demo · Obsidian Build 10", category: "Tool", url: "https://obsidianvibe.live/api/public/share/1l370y43144a2o" },
+  { slug: "0t485n6s6i1203", title: "Demo · Obsidian Build 11", category: "Game", url: "https://obsidianvibe.live/api/public/share/0t485n6s6i1203" },
+  { slug: "5i3e202p646j66", title: "Demo · Obsidian Build 12", category: "Portfolio", url: "https://obsidianvibe.live/api/public/share/5i3e202p646j66" },
+  { slug: "1z63663n0j6c3n", title: "Demo · Obsidian Build 13", category: "App", url: "https://obsidianvibe.live/api/public/share/1z63663n0j6c3n#home" },
+  { slug: "6t4k4d2h31512r", title: "Demo · Obsidian Build 14", category: "Landing", url: "https://obsidianvibe.live/api/public/share/6t4k4d2h31512r" },
+  { slug: "0x1b67096z3d2l", title: "Demo · Obsidian Build 15", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/0x1b67096z3d2l" },
+  { slug: "4a452v014l4a3d", title: "Demo · Obsidian Build 16", category: "Tool", url: "https://obsidianvibe.live/api/public/share/4a452v014l4a3d" },
+  { slug: "4t4k4q2u0e2i0y", title: "Demo · Obsidian Build 17", category: "Game", url: "https://obsidianvibe.live/api/public/share/4t4k4q2u0e2i0y" },
+  { slug: "3u6x2m401k4y6q", title: "Demo · Obsidian Build 18", category: "Portfolio", url: "https://obsidianvibe.live/api/public/share/3u6x2m401k4y6q" },
+  { slug: "6u1l6b255s6n2t", title: "Demo · Obsidian Build 19", category: "App", url: "https://obsidianvibe.live/api/public/share/6u1l6b255s6n2t#mockup-anchor" },
+  { slug: "214o3v5d1g421g", title: "Demo · Obsidian Build 20", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/214o3v5d1g421g#live-map" },
+  { slug: "4b3k4t624s4n1l", title: "Demo · Obsidian Build 21", category: "Landing", url: "https://obsidianvibe.live/api/public/share/4b3k4t624s4n1l#preview" },
+  { slug: "3s2q0g011p2z3b", title: "Demo · Obsidian Build 22", category: "App", url: "https://obsidianvibe.live/api/public/share/3s2q0g011p2z3b#home" },
+  { slug: "2e5n3j0y47664q", title: "Demo · Obsidian Build 23", category: "Game", url: "https://obsidianvibe.live/api/public/share/2e5n3j0y47664q#episodes" },
+  { slug: "4g71725v6y2o5b", title: "Demo · Obsidian Build 24", category: "App", url: "https://obsidianvibe.live/api/public/share/4g71725v6y2o5b" },
 ];
 
 type Intent = "buy" | "code";
@@ -79,6 +83,7 @@ function Unlock() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
   const [expandDetails, setExpandDetails] = useState(false);
+  const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
 
   // Track auth session
   useEffect(() => {
@@ -400,13 +405,34 @@ function Unlock() {
           <h2 id="demos-heading" className="demos-title">Live Demos</h2>
           <p className="demos-sub">Explore builds crafted with Obsidian. View-only — the vibe coder requires access.</p>
         </div>
+        <div className="demo-chips" role="tablist" aria-label="Filter demos by category">
+          {(["All", ...DEMO_CATEGORIES] as const).map((cat) => {
+            const active = demoCategory === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                className={`demo-chip ${active ? "is-active" : ""}`}
+                onClick={() => setDemoCategory(cat)}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
         <div className="demos-grid">
           {Array.from(
-            new Map(DEMOS.map((d) => {
-              const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
-              return [demoUrl, { ...d, demoUrl }] as const;
-            })).values()
-          ).map(({ slug, title, demoUrl }) => (
+            new Map(
+              DEMOS
+                .filter((d) => demoCategory === "All" || d.category === demoCategory)
+                .map((d) => {
+                  const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
+                  return [demoUrl, { ...d, demoUrl }] as const;
+                })
+            ).values()
+          ).map(({ slug, title, demoUrl, category }) => (
             <a
               key={slug}
               href={demoUrl}
@@ -426,7 +452,7 @@ function Unlock() {
               </div>
               <div className="demo-meta">
                 <span className="demo-name">{title}</span>
-                <span className="demo-open">Open ↗</span>
+                <span className="demo-open">{category} ↗</span>
               </div>
             </a>
           ))}
@@ -772,6 +798,26 @@ const unlockCss = `
   font-size: 22px; letter-spacing: 0.5px; color: #f2eee7; margin: 0;
 }
 .demos-sub { margin: 6px 0 0; font-size: 12px; color: #B6BCC8; }
+.demo-chips {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  justify-content: center; margin: 0 0 18px;
+}
+.demo-chip {
+  appearance: none; cursor: pointer;
+  padding: 6px 12px; border-radius: 999px;
+  font: 500 12px/1 Inter, system-ui, sans-serif;
+  letter-spacing: 0.3px; color: #B6BCC8;
+  background: rgba(17,19,23,0.7);
+  border: 1px solid rgba(244,161,37,0.22);
+  transition: color .15s ease, border-color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.demo-chip:hover { color: #f2eee7; border-color: rgba(244,161,37,0.45); }
+.demo-chip.is-active {
+  color: #111317; background: #f4a125;
+  border-color: #f4a125;
+  box-shadow: 0 0 0 1px rgba(244,161,37,0.35), 0 6px 18px rgba(244,161,37,0.25);
+}
+.demo-chip:focus-visible { outline: 2px solid #f4a125; outline-offset: 2px; }
 .demos-grid {
   display: grid; gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
