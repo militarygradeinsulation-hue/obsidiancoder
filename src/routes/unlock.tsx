@@ -157,6 +157,19 @@ function Unlock() {
     <div className="unlock-root">
       <style>{unlockCss}</style>
 
+      <video
+        className="unlock-video"
+        src={unlockBg.url}
+        autoPlay
+        loop
+        muted
+        playsInline
+        preload="auto"
+        aria-hidden
+        tabIndex={-1}
+      />
+      <div aria-hidden className="unlock-video-veil" />
+
       <div aria-hidden className="unlock-face">
         <svg viewBox="0 0 400 500" preserveAspectRatio="xMidYMid meet">
           <defs>
