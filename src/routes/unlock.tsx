@@ -743,7 +743,7 @@ const unlockCss = `
 }
 .unlock-card {
   position: relative;
-  width: 100%; max-width: 620px;
+  width: 100%; max-width: min(1400px, 96vw);
   background: rgba(8,8,10,0.78);
   border: 1px solid rgba(244,161,37,0.28);
   border-radius: 16px;
