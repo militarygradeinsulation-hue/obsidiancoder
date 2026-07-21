@@ -23,6 +23,7 @@ import {
   type CreditsRequiredEnvelope,
   type Operation,
 } from "./credit-gate";
+import { capForTier, tierForPriceId } from "./plans";
 import { makeUsage, type UsageRecord } from "./usage-record";
 
 export type Environment = "sandbox" | "live";
