@@ -58,7 +58,10 @@ export const Route = createFileRoute("/api/public/saved-ideas/$code")({
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const { error } = await supabaseAdmin
           .from("saved_ideas" as never)
-          .upsert({ library_code: code, ideas, updated_at: new Date().toISOString() }, { onConflict: "library_code" });
+          .upsert(
+            { library_code: code, ideas, updated_at: new Date().toISOString() } as never,
+            { onConflict: "library_code" },
+          );
         if (error) return new Response(error.message, { status: 500 });
         return Response.json({ ok: true, count: ideas.length });
       },

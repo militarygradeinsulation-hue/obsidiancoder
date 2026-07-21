@@ -29,6 +29,7 @@ import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-
 import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/share.$slug'
+import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public/saved-ideas.$code'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/library.$code'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
@@ -134,6 +135,11 @@ const ApiPublicShareSlugRoute = ApiPublicShareSlugRouteImport.update({
   path: '/api/public/share/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicSavedIdeasCodeRoute = ApiPublicSavedIdeasCodeRouteImport.update({
+  id: '/api/public/saved-ideas/$code',
+  path: '/api/public/saved-ideas/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicPaymentsWebhookRoute =
   ApiPublicPaymentsWebhookRouteImport.update({
     id: '/api/public/payments/webhook',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
@@ -205,6 +212,7 @@ export interface FileRoutesByTo {
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
+  '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
@@ -260,6 +269,7 @@ export interface FileRouteTypes {
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
+    | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
     | '/api/public/library/$code/$id'
   fileRoutesByTo: FileRoutesByTo
@@ -286,6 +296,7 @@ export interface FileRouteTypes {
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
+    | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
     | '/api/public/library/$code/$id'
   id:
@@ -312,6 +323,7 @@ export interface FileRouteTypes {
     | '/api/public/builds/$id'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
+    | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
     | '/api/public/library/$code/$id'
   fileRoutesById: FileRoutesById
@@ -338,6 +350,7 @@ export interface RootRouteChildren {
   ApiPublicWaitlistRoute: typeof ApiPublicWaitlistRoute
   ApiPublicLibraryCodeRoute: typeof ApiPublicLibraryCodeRouteWithChildren
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
+  ApiPublicSavedIdeasCodeRoute: typeof ApiPublicSavedIdeasCodeRoute
   ApiPublicShareSlugRoute: typeof ApiPublicShareSlugRoute
 }
 
@@ -483,6 +496,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicShareSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/saved-ideas/$code': {
+      id: '/api/public/saved-ideas/$code'
+      path: '/api/public/saved-ideas/$code'
+      fullPath: '/api/public/saved-ideas/$code'
+      preLoaderRoute: typeof ApiPublicSavedIdeasCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/payments/webhook': {
       id: '/api/public/payments/webhook'
       path: '/api/public/payments/webhook'
@@ -559,6 +579,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicWaitlistRoute: ApiPublicWaitlistRoute,
   ApiPublicLibraryCodeRoute: ApiPublicLibraryCodeRouteWithChildren,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
+  ApiPublicSavedIdeasCodeRoute: ApiPublicSavedIdeasCodeRoute,
   ApiPublicShareSlugRoute: ApiPublicShareSlugRoute,
 }
 export const routeTree = rootRouteImport
