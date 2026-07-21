@@ -51,6 +51,7 @@ import { RulesPanel, reconcileRules } from "@/components/panels/RulesPanel";
 import IntroSplash from "@/components/IntroSplash";
 import { RuntimePanel, countRuntimeBlockers } from "@/components/panels/RuntimePanel";
 import { CostPanel } from "@/components/panels/CostPanel";
+import { CreditBar } from "@/components/panels/CreditBar";
 import { ExecutionGraphPanel } from "@/components/panels/ExecutionGraphPanel";
 import { FileExplorerPanel } from "@/components/panels/FileExplorerPanel";
 import { InspectorPanel, type InspectorSelection } from "@/components/panels/InspectorPanel";
