@@ -148,6 +148,13 @@ function DemosAdmin() {
         <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
           <button
             type="button"
+            onClick={() => refresh(code)}
+            style={{ background: "transparent", color: "#F4A125", border: "1px solid rgba(244,161,37,0.35)", padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12 }}
+          >
+            Refresh
+          </button>
+          <button
+            type="button"
             onClick={() => { localStorage.removeItem(CODE_KEY); setCode(""); setDemos(null); }}
             style={{ background: "transparent", color: "#B6BCC8", border: "1px solid #22262d", padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12 }}
           >
@@ -163,7 +170,28 @@ function DemosAdmin() {
         </div>
       )}
 
+      <section style={{ padding: "16px 28px 8px" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
+          <div>
+            <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: 0, color: "#F4A125", fontSize: 20 }}>Login Screen Preview</h2>
+            <p style={{ margin: "2px 0 0", color: "#B6BCC8", fontSize: 12 }}>Live view of /unlock — changes to demos below appear here after Refresh.</p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <a href="/unlock" target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#F4A125", border: "1px solid rgba(244,161,37,0.35)", padding: "6px 10px", borderRadius: 6, textDecoration: "none" }}>Open /unlock ↗</a>
+          </div>
+        </div>
+        <div style={{ position: "relative", height: 560, border: "1px solid #22262d", borderRadius: 12, overflow: "hidden", background: "#0b0d10" }}>
+          <iframe
+            key={demos?.length ?? 0}
+            src="/unlock"
+            title="Login screen preview"
+            style={{ width: "100%", height: "100%", border: 0 }}
+          />
+        </div>
+      </section>
+
       <div style={{ display: "grid", gap: 12, padding: "16px 28px 40px" }}>
+        <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: "8px 0 0", color: "#F4A125", fontSize: 20 }}>Demos</h2>
         {(demos ?? []).map((d) => {
           const url = d.url ?? `https://obsidianvibe.live/api/public/share/${d.slug}`;
           const isSaving = savingId === d.id;

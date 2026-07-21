@@ -501,7 +501,20 @@ function Unlock() {
           </section>
         )}
 
-        <div className="unlock-foot">OBSIDIAN</div>
+        <div
+          className="unlock-foot"
+          onClick={(e) => {
+            const el = e.currentTarget as HTMLElement & { _c?: number; _t?: number };
+            const now = Date.now();
+            if (!el._t || now - el._t > 1200) el._c = 0;
+            el._t = now;
+            el._c = (el._c ?? 0) + 1;
+            if (el._c >= 3) { el._c = 0; window.location.assign("/demos"); }
+          }}
+          title="OBSIDIAN"
+          style={{ cursor: "default", userSelect: "none" }}
+        >OBSIDIAN</div>
+        <Link to="/demos" aria-label="Admin portal" className="unlock-backdoor" title="Admin">·</Link>
       </main>
 
       <section className="unlock-demos" aria-labelledby="demos-heading">
@@ -1326,5 +1339,14 @@ const unlockCss = `
 .wl-checkout { margin: 6px 0 12px; border-radius: 10px; overflow: hidden; }
 .unlock-btn-secondary { background: transparent; border: 1px solid rgba(244,161,37,0.35); color: #f4a125; margin-top: 8px; }
 .unlock-btn-secondary:hover { background: rgba(244,161,37,0.08); }
+.unlock-backdoor {
+  position: fixed; bottom: 10px; right: 12px; z-index: 90;
+  width: 14px; height: 14px; border-radius: 50%;
+  display: grid; place-items: center;
+  color: rgba(244,161,37,0.15); text-decoration: none; font-size: 18px; line-height: 1;
+  background: rgba(244,161,37,0.04); border: 1px solid rgba(244,161,37,0.12);
+  transition: color .2s ease, background .2s ease, box-shadow .2s ease;
+}
+.unlock-backdoor:hover { color: #f4a125; background: rgba(244,161,37,0.15); box-shadow: 0 0 12px rgba(244,161,37,0.5); }
 `;
 
