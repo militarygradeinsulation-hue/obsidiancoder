@@ -77,20 +77,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Aetheris Obsidian — Tell it what to build" },
-      {
-        name: "description",
-        content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live.",
-      },
-      { property: "og:site_name", content: "Aetheris Coder" },
+      { property: "og:site_name", content: "Obsidian" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:title", content: "Aetheris Obsidian — Tell it what to build" },
-      { name: "twitter:title", content: "Aetheris Obsidian — Tell it what to build" },
-      { property: "og:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
-      { name: "twitter:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
-      { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784658489274-13800.webp" },
-      { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784658489274-13800.webp" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
@@ -100,6 +89,29 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       {
         rel: "stylesheet",
         href: "https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap",
+      },
+    ],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@graph": [
+            {
+              "@type": "Organization",
+              "@id": "https://obsidianvibe.live/#organization",
+              name: "Obsidian",
+              url: "https://obsidianvibe.live",
+            },
+            {
+              "@type": "WebSite",
+              "@id": "https://obsidianvibe.live/#website",
+              name: "Obsidian",
+              url: "https://obsidianvibe.live",
+              publisher: { "@id": "https://obsidianvibe.live/#organization" },
+            },
+          ],
+        }),
       },
     ],
   }),

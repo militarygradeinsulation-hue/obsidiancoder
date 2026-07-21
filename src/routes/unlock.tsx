@@ -67,13 +67,35 @@ export const Route = createFileRoute("/unlock")({
   },
   head: () => ({
     meta: [
-      { title: "Get Obsidian Creator — Obsidian" },
+      { title: "Unlock Obsidian Access — Obsidian" },
       { name: "description", content: "Start Obsidian Creator for $79/month or enter your access code. Build production-ready software with an AI engineering team." },
-      { property: "og:title", content: "Get Obsidian Creator — Obsidian" },
+      { property: "og:title", content: "Unlock Obsidian Access — Obsidian" },
       { property: "og:description", content: "Build production-ready software with an AI engineering team. $79/month, 1,000 AI credits per billing period." },
+      { property: "og:url", content: "https://obsidianvibe.live/unlock" },
       { property: "og:type", content: "website" },
+      { name: "twitter:title", content: "Unlock Obsidian Access — Obsidian" },
+      { name: "twitter:description", content: "Start Obsidian Creator for $79/month or enter your access code." },
     ],
-    links: [{ rel: "canonical", href: "/unlock" }],
+    links: [{ rel: "canonical", href: "https://obsidianvibe.live/unlock" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Product",
+          name: "Obsidian Creator",
+          brand: { "@type": "Brand", name: "Obsidian" },
+          description: "Obsidian Creator plan — build production-ready software with an AI engineering team. Includes 1,000 AI credits per billing period.",
+          offers: {
+            "@type": "Offer",
+            price: "79",
+            priceCurrency: "USD",
+            availability: "https://schema.org/InStock",
+            url: "https://obsidianvibe.live/unlock",
+          },
+        }),
+      },
+    ],
   }),
   component: Unlock,
 });
@@ -265,7 +287,7 @@ function Unlock() {
         <div className="unlock-card-glow" aria-hidden />
 
         <header className="unlock-brand">
-          <div id="unlock-heading" className="unlock-title" data-text="OBSIDIAN">OBSIDIAN</div>
+          <h1 id="unlock-heading" className="unlock-title" data-text="OBSIDIAN">OBSIDIAN</h1>
           <div className="unlock-sub">Obsidian // Access Terminal</div>
         </header>
 

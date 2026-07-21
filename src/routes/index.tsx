@@ -106,13 +106,16 @@ export const Route = createFileRoute("/")({
   },
   head: () => ({
     meta: [
-      { title: "Think it, Type it, See it.  For people that can't code." },
-      { name: "description", content: "Obsidian is your  system builder that's simple & saves you credits. \nThink it \nType it\nSee it\nA tool builder for people that can't code." },
-      { property: "og:title", content: "Think it, Type it, See it.  For people that can't code." },
-      { property: "og:description", content: "Obsidian is your  system builder that's simple & saves you credits. \nThink it \nType it\nSee it\nA tool builder for people that can't code." },
+      { title: "Obsidian — System builder for people that can't code" },
+      { name: "description", content: "Obsidian is an AI system builder — think it, type it, see it. Ship production-ready software without writing code." },
+      { property: "og:title", content: "Obsidian — Think it, Type it, See it" },
+      { property: "og:description", content: "AI system builder for people that can't code. Ship production-ready software with an AI engineering team." },
+      { property: "og:url", content: "https://obsidianvibe.live/" },
       { property: "og:type", content: "website" },
+      { name: "twitter:title", content: "Obsidian — Think it, Type it, See it" },
+      { name: "twitter:description", content: "AI system builder for people that can't code." },
     ],
-    links: [{ rel: "canonical", href: "/" }],
+    links: [{ rel: "canonical", href: "https://obsidianvibe.live/" }],
   }),
   component: Index,
 });
