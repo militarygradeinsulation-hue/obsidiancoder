@@ -298,6 +298,60 @@ function Unlock() {
                   Already purchased? Sign in
                 </button>
 
+                <div className="plans-block" aria-labelledby="plans-heading">
+                  <div className="plans-head">
+                    <h3 id="plans-heading" className="plans-title">All plans</h3>
+                    <button
+                      type="button"
+                      className="unlock-btn-whitelist"
+                      onClick={() => setWaitlistTier("any")}
+                    >
+                      ✦ Join the Whitelist
+                    </button>
+                  </div>
+                  <p className="plans-sub">
+                    Only <strong>Creator</strong> is available for immediate purchase today. All other tiers are on early-access — join the whitelist to be notified when they launch.
+                  </p>
+                  <div className="tier-grid">
+                    {PLAN_TIERS.map((t) => {
+                      const wired = t.priceId === CREATOR_PRICE_ID;
+                      return (
+                        <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""} ${wired ? "" : "is-locked"}`}>
+                          <div className="tier-head">
+                            <span className="tier-name">{t.name}{!wired && <span className="tier-lock" aria-hidden> · locked</span>}</span>
+                            <span className="tier-price">{t.price}<span className="tier-cadence">{t.cadence}</span></span>
+                          </div>
+                          <div className="tier-headline">{t.headline}</div>
+                          <div className="tier-bestfor">Best for: {t.bestFor}</div>
+                          <ul className="tier-outcomes">
+                            {t.outcomes.map((o) => <li key={o}>{o}</li>)}
+                          </ul>
+                          {wired ? (
+                            <button
+                              type="button"
+                              className="tier-cta tier-cta-primary"
+                              onClick={startPurchase}
+                            >
+                              Start {t.name} — {t.price}{t.cadence}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="tier-cta tier-cta-locked"
+                              onClick={() => setWaitlistTier(t.id)}
+                              aria-label={`Join early access for ${t.name}`}
+                            >
+                              {t.cta === "contact" ? "Request Early Access" : "Join Early Access"}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+
+
                 <button
                   type="button"
                   className="unlock-disclosure"
