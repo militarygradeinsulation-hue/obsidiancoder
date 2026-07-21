@@ -257,6 +257,7 @@ function Index() {
   // Per-session build indicator: tab strip shows a spinner when its build is
   // still in flight even if the user has switched to another tab.
   const [buildingIds, setBuildingIds] = useState<Set<string>>(() => new Set());
+  const [pushedDemoIds, setPushedDemoIds] = useState<Set<string>>(() => new Set());
   const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
   const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
   // Multi-prompt queue: submitting while another build runs enqueues.
