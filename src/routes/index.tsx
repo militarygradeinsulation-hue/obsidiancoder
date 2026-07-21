@@ -254,6 +254,33 @@ function Index() {
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
+  // Per-session build indicator: tab strip shows a spinner when its build is
+  // still in flight even if the user has switched to another tab.
+  const [buildingIds, setBuildingIds] = useState<Set<string>>(() => new Set());
+  const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
+  const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
+  // Multi-prompt queue: submitting while another build runs enqueues.
+  type QueuedPrompt = { sid: string; prompt: string };
+  const [promptQueue, setPromptQueue] = useState<QueuedPrompt[]>([]);
+  // Idea memory (per browser): labels/snippets of ideas the user has already
+  // built so we stop re-suggesting them.
+  const [builtIdeas, setBuiltIdeas] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem("obs.builtIdeas");
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const recordBuiltIdea = (labelOrSnippet: string) => {
+    const key = labelOrSnippet.trim().toLowerCase().slice(0, 120);
+    if (!key) return;
+    setBuiltIdeas((prev) => {
+      if (prev.has(key)) return prev;
+      const n = new Set(prev); n.add(key);
+      try { window.localStorage.setItem("obs.builtIdeas", JSON.stringify(Array.from(n).slice(-400))); } catch {}
+      return n;
+    });
+  };
   const [error, setError] = useState<string | null>(null);
   const [lastAiError, setLastAiError] = useState<AiErrorEnvelope | null>(null);
   const lastSubmitRef = useRef<{ prompt: string; attachments: Attachment[] } | null>(null);
