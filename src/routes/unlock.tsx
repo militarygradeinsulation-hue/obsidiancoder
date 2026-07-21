@@ -320,7 +320,7 @@ function Unlock() {
                 <button
                   type="button"
                   className="unlock-btn unlock-btn-primary"
-                  onClick={startPurchase}
+                  onClick={() => startPurchase(CREATOR_PRICE_ID)}
                   disabled={sessionLoading}
                 >
                   {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $79/month"}
@@ -342,15 +342,16 @@ function Unlock() {
                     </button>
                   </div>
                   <p className="plans-sub">
-                    Only <strong>Creator</strong> is available for immediate purchase today. All other tiers are on early-access — join the whitelist to be notified when they launch.
+                    All Obsidian tiers below are live and purchasable through Stripe. Enterprise is contact sales — join the whitelist for early-access pricing on any tier.
                   </p>
                   <div className="tier-grid">
                     {PLAN_TIERS.map((t) => {
-                      const wired = t.priceId === CREATOR_PRICE_ID;
+                      const purchasable = t.cta === "checkout" && !!t.priceId;
+                      const contact = t.cta === "contact";
                       return (
-                        <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""} ${wired ? "" : "is-locked"}`}>
+                        <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""} ${purchasable ? "" : "is-locked"}`}>
                           <div className="tier-head">
-                            <span className="tier-name">{t.name}{!wired && <span className="tier-lock" aria-hidden> · locked</span>}</span>
+                            <span className="tier-name">{t.name}</span>
                             <span className="tier-price">{t.price}<span className="tier-cadence">{t.cadence}</span></span>
                           </div>
                           <div className="tier-headline">{t.headline}</div>
@@ -358,11 +359,12 @@ function Unlock() {
                           <ul className="tier-outcomes">
                             {t.outcomes.map((o) => <li key={o}>{o}</li>)}
                           </ul>
-                          {wired ? (
+                          {purchasable ? (
                             <button
                               type="button"
                               className="tier-cta tier-cta-primary"
-                              onClick={startPurchase}
+                              onClick={() => startPurchase(t.priceId!)}
+                              aria-label={`Buy ${t.name} on Stripe`}
                             >
                               Get {t.name}
                             </button>
@@ -371,9 +373,9 @@ function Unlock() {
                               type="button"
                               className="tier-cta tier-cta-locked"
                               onClick={() => setWaitlistTier(t.id)}
-                              aria-label={`Join early access for ${t.name}`}
+                              aria-label={contact ? `Contact sales for ${t.name}` : `Join early access for ${t.name}`}
                             >
-                              {t.cta === "contact" ? "Request Early Access" : "Join Early Access"}
+                              {contact ? "Contact Sales" : "Join Early Access"}
                             </button>
                           )}
                         </div>
