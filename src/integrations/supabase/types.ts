@@ -358,36 +358,51 @@ export type Database = {
       }
       waitlist_entries: {
         Row: {
+          amount_paid: number | null
           company: string | null
           created_at: string
+          currency: string | null
           email: string
           id: string
           intended_use: string
           interest_level: string
           name: string
+          paid: boolean
+          paid_at: string | null
           source: string | null
+          stripe_session_id: string | null
           tier: string | null
         }
         Insert: {
+          amount_paid?: number | null
           company?: string | null
           created_at?: string
+          currency?: string | null
           email: string
           id?: string
           intended_use: string
           interest_level: string
           name: string
+          paid?: boolean
+          paid_at?: string | null
           source?: string | null
+          stripe_session_id?: string | null
           tier?: string | null
         }
         Update: {
+          amount_paid?: number | null
           company?: string | null
           created_at?: string
+          currency?: string | null
           email?: string
           id?: string
           intended_use?: string
           interest_level?: string
           name?: string
+          paid?: boolean
+          paid_at?: string | null
           source?: string | null
+          stripe_session_id?: string | null
           tier?: string | null
         }
         Relationships: []
@@ -521,6 +536,7 @@ export type Database = {
           used_before: number
         }[]
       }
+      waitlist_paid_count: { Args: never; Returns: number }
     }
     Enums: {
       [_ in never]: never
