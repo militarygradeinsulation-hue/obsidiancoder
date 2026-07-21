@@ -113,9 +113,10 @@ Rules:
 - ${data.count} ideas. Each unique. Not generic ("website", "app"); be specific and interesting.
 - label: 2-4 words, Title Case, no emoji.
 - snippet: one imperative sentence starting with "Build a" or "Build an", 12-28 words, mentions 2-3 concrete sections/features.
-- Vary categories (creative tools, dashboards, storytelling, utilities, communities, playful microsites).
-- Avoid anything in the exclude list.`;
-    const user = `variety-seed:${seed}\nexclude:${JSON.stringify(data.exclude)}`;
+- Category focus: ${CATEGORY_GUIDANCE[data.category]}
+- Avoid anything in the exclude list (case-insensitive) and do not repeat concepts already listed.
+- Be inventive — surprising, specific niches beat safe generic picks.`;
+    const user = `category:${data.category}\nvariety-seed:${seed}\nexclude:${JSON.stringify(data.exclude)}`;
     try {
       const raw = await callGateway(system, user);
       const parsed = parseIdeas(raw);
