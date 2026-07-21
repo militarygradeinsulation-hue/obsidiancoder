@@ -443,7 +443,9 @@ function Unlock() {
               <div className="unlock-checkout">
                 <div className="checkout-header">
                   <div>
-                    <div className="checkout-title">Obsidian Creator</div>
+                    <div className="checkout-title">
+                      {PLAN_TIERS.find((t) => t.priceId === selectedPriceId)?.name ?? "Obsidian"}
+                    </div>
                     <div className="checkout-sub">
                       Signed in as {session.email ?? "your account"}
                       <button type="button" onClick={signOutAndReset} className="checkout-signout">
@@ -454,7 +456,7 @@ function Unlock() {
                   <button type="button" onClick={() => setShowCheckout(false)} className="checkout-back">← Back</button>
                 </div>
                 <CheckoutSurface
-                  priceId={CREATOR_PRICE_ID}
+                  priceId={selectedPriceId}
                   onCancel={() => setShowCheckout(false)}
                 />
 
