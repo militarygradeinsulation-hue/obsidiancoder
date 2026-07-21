@@ -12,11 +12,9 @@ type Category = (typeof CATEGORIES)[number];
 const CODE_KEY = "obs.demos.admin_code";
 
 export const Route = createFileRoute("/demos")({
-  beforeLoad: async () => {
-    const { ensureUnlocked } = await import("@/lib/gate.functions");
-    const { unlocked } = await ensureUnlocked();
-    if (!unlocked) throw redirect({ to: "/unlock" });
-  },
+  // Admin-only portal — gated by its own admin code (SITE_PASSWORD) so it
+  // works as a backdoor from the locked /unlock page without requiring the
+  // site session cookie first.
   head: () => ({
     meta: [
       { title: "Live Demos — Admin" },
