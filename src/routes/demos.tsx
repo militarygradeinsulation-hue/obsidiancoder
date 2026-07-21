@@ -216,10 +216,26 @@ function DemosAdmin() {
       </section>
 
       <div style={{ display: "grid", gap: 12, padding: "16px 28px 40px" }}>
-        <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: "8px 0 0", color: "#F4A125", fontSize: 20 }}>Demos</h2>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: "8px 0 0", color: "#F4A125", fontSize: 20 }}>Demos</h2>
+          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "#B6BCC8" }}>{selected.size} selected</span>
+            <button type="button" onClick={selectAll} style={toolBtn}>Select all</button>
+            <button type="button" onClick={clearSelection} disabled={selected.size === 0} style={{ ...toolBtn, opacity: selected.size === 0 ? 0.5 : 1 }}>Clear</button>
+            <button
+              type="button"
+              onClick={onBulkDelete}
+              disabled={selected.size === 0}
+              style={{ background: selected.size === 0 ? "transparent" : "#3a2226", color: "#ff8a8a", border: "1px solid #3a2226", padding: "6px 10px", borderRadius: 6, cursor: selected.size === 0 ? "not-allowed" : "pointer", fontSize: 12, opacity: selected.size === 0 ? 0.5 : 1 }}
+            >
+              Delete selected
+            </button>
+          </div>
+        </div>
         {(demos ?? []).map((d) => {
           const url = d.url ?? `https://obsidianvibe.live/api/public/share/${d.slug}`;
           const isSaving = savingId === d.id;
+          const isSelected = selected.has(d.id);
           return (
             <div
               key={d.id}
