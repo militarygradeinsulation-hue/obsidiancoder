@@ -98,7 +98,9 @@ export const updateFeaturedDemo = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<{ ok: true } | { ok: false; error: string }> => {
     const gate = checkAdmin(data.adminCode);
     if (!gate.ok) return gate;
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      title?: string; category?: string; url?: string; slug?: string; sort_order?: number;
+    } = {};
     if (data.title !== undefined) patch.title = data.title;
     if (data.category !== undefined) patch.category = data.category;
     if (data.url !== undefined) patch.url = data.url;
