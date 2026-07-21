@@ -294,7 +294,7 @@ async function usageFinalize(
     _estimated_cost_usd: usage?.estimatedCostUsd ?? null,
     _cost_basis: usage?.costBasis ?? null,
     _meta: usage?.meta ?? null,
-    _cap: CAP_PRO_MONTHLY,
+    _cap: cap,
   } as never);
   if (error) throw new Error(`usage_finalize failed: ${error.message}`);
   if (data === false) throw new Error("usage_finalize returned false (reservation missing)");
@@ -404,7 +404,8 @@ export async function requirePaidOperation(
     };
   }
 
-  const reservation = await usageReserve(user, operation, env, requestId);
+  const cap = await capForUser(user.userId, env);
+  const reservation = await usageReserve(user, operation, env, requestId, cap);
   if (reservation === "no_period") {
     return {
       kind: "denied", env, requestId, user,
