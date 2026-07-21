@@ -43,7 +43,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Baseline security and performance checks",
     ],
     priceId: "obsidian_starter_monthly",
-    cta: "checkout",
+    cta: "waitlist",
     icon: Rocket,
   },
   {
