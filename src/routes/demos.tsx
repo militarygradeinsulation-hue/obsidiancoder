@@ -3,7 +3,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import {
   listFeaturedDemos, updateFeaturedDemo, deleteFeaturedDemo, reorderFeaturedDemos,
-  type FeaturedDemoRow,
+  getWaitlistStats,
+  type FeaturedDemoRow, type WaitlistStats,
 } from "@/lib/featured-demos.functions";
 
 const CATEGORIES = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
