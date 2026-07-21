@@ -2156,7 +2156,7 @@ function Index() {
                           adminCode: "9822",
                           slug: share_slug,
                           title: current.title || `Demo · ${share_slug}`,
-                          category: "App",
+                          category: classifyDemoCategory(current.title, current.messages.find((m) => m.role === "user")?.content),
                           url: liveUrl,
                         },
                       });
