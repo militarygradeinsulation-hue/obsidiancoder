@@ -1029,8 +1029,11 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(enterprise?.cta === "contact" && !enterprise?.priceId,
       "plans: enterprise remains contact-only with no price"));
     const paidTiers = plans.PLAN_TIERS.filter((t) => t.cta === "checkout");
-    results.push(assert(paidTiers.length === 5 && paidTiers.every((t) => !!t.priceId),
-      "plans: every checkout tier has a Stripe lookup key"));
+    results.push(assert(paidTiers.length === 1 && paidTiers[0]?.id === "creator" && !!paidTiers[0]?.priceId,
+      "plans: only Creator is checkout-enabled during launch (others on waitlist)"));
+    const waitlistTiers = plans.PLAN_TIERS.filter((t) => t.cta === "waitlist");
+    results.push(assert(waitlistTiers.length === 4 && waitlistTiers.every((t) => ["starter","professional","business","elite"].includes(t.id)),
+      "plans: starter/professional/business/elite are waitlist-only"));
     results.push(assert(!paidTiers.some((t) => t.priceId === "obsidian_pro_monthly"),
       "plans: no checkout tier uses the legacy pro_monthly price for new sales"));
 
