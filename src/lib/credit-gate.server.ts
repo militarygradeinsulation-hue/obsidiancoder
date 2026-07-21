@@ -267,6 +267,7 @@ async function usageFinalize(
   actualCredits: number,
   requestId: string,
   status: "committed" | "failed",
+  cap: number,
   usage?: UsageRecord,
   errorCode?: string,
 ): Promise<void> {
