@@ -372,33 +372,35 @@ function Unlock() {
           <p className="demos-sub">Explore builds crafted with Obsidian. View-only — the vibe coder requires access.</p>
         </div>
         <div className="demos-grid">
-          {DEMOS.map((d) => {
-            const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
-            return (
-              <a
-                key={d.slug}
-                href={demoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="demo-card"
-              >
-                <div className="demo-frame" aria-hidden>
-                  <iframe
-                    src={demoUrl}
-                    title={d.title}
-                    loading="lazy"
-                    sandbox=""
-                    tabIndex={-1}
-                  />
-                  <div className="demo-scrim" />
-                </div>
-                <div className="demo-meta">
-                  <span className="demo-name">{d.title}</span>
-                  <span className="demo-open">Open ↗</span>
-                </div>
-              </a>
-            );
-          })}
+          {Array.from(
+            new Map(DEMOS.map((d) => {
+              const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
+              return [demoUrl, { ...d, demoUrl }] as const;
+            })).values()
+          ).map(({ slug, title, demoUrl }) => (
+            <a
+              key={slug}
+              href={demoUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="demo-card"
+            >
+              <div className="demo-frame" aria-hidden>
+                <iframe
+                  src={demoUrl}
+                  title={title}
+                  loading="lazy"
+                  sandbox=""
+                  tabIndex={-1}
+                />
+                <div className="demo-scrim" />
+              </div>
+              <div className="demo-meta">
+                <span className="demo-name">{title}</span>
+                <span className="demo-open">Open ↗</span>
+              </div>
+            </a>
+          ))}
         </div>
       </section>
     </div>
