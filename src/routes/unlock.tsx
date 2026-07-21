@@ -534,7 +534,7 @@ function Unlock() {
           <div id="demos-grid" className="demos-grid">
             {Array.from(
               new Map(
-                DEMOS
+                [...featuredDemos, ...DEMOS]
                   .filter((d) => demoCategory === "All" || d.category === demoCategory)
                   .map((d) => {
                     const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
