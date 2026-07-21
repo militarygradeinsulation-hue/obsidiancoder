@@ -501,7 +501,20 @@ function Unlock() {
           </section>
         )}
 
-        <div className="unlock-foot">OBSIDIAN</div>
+        <div
+          className="unlock-foot"
+          onClick={(e) => {
+            const el = e.currentTarget as HTMLElement & { _c?: number; _t?: number };
+            const now = Date.now();
+            if (!el._t || now - el._t > 1200) el._c = 0;
+            el._t = now;
+            el._c = (el._c ?? 0) + 1;
+            if (el._c >= 3) { el._c = 0; window.location.assign("/demos"); }
+          }}
+          title="OBSIDIAN"
+          style={{ cursor: "default", userSelect: "none" }}
+        >OBSIDIAN</div>
+        <Link to="/demos" aria-label="Admin portal" className="unlock-backdoor" title="Admin">·</Link>
       </main>
 
       <section className="unlock-demos" aria-labelledby="demos-heading">
