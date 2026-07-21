@@ -305,17 +305,37 @@ function Unlock() {
                 {expandDetails && (
                   <div className="unlock-details">
                     <div className="detail-block">
-                      <h3>What you get</h3>
+                      <h3>Why Obsidian is different</h3>
                       <ul>
-                        <li>AI generation and AI chat</li>
-                        <li>AI code patches and prompt enhancement</li>
-                        <li>AI image generation</li>
-                        <li>Chief Engineer multi-agent review and orchestration</li>
-                        <li>Cloud saves and secure sharing</li>
-                        <li>GitHub and deployment integrations</li>
-                        <li>Project intelligence, validation, rollback, and engineering reports</li>
+                        <li><strong>An AI engineering team, not a single chat model.</strong> A Chief Engineer routes each request across specialized agents for planning, code, review, security, and rollback — most vibe coders send one prompt to one model and hope.</li>
+                        <li><strong>Production-grade output by default.</strong> Every build is validated, screenshot-tested, and scored on a readiness report covering performance, accessibility, and security before you ship.</li>
+                        <li><strong>Never simulates data.</strong> Obsidian generates real HTML/CSS/JS wired to real APIs and real images — no fake JSON, no placeholder text, no “this is a mock” escape hatches.</li>
+                        <li><strong>Deterministic patches, not full rewrites.</strong> Small changes stay small. A transactional patch engine surgically edits the exact section you asked about and preserves everything else that worked.</li>
+                        <li><strong>Multi-provider AI with automatic failover.</strong> Gemini 3, GPT-5, and Claude — plus Leonardo, Higgsfield, and Gemini for images. If one provider fails or rate-limits, Obsidian switches mid-request and refunds credits when nothing was delivered.</li>
+                        <li><strong>Your library, cross-device.</strong> Builds, saved ideas, and version history follow you across browsers via your private library code — no lock-in, exportable at any time.</li>
+                        <li><strong>Real deploys.</strong> One-click Go Live, GitHub repo + Pages integration, and shareable public URLs baked in.</li>
                       </ul>
                     </div>
+
+                    <div className="detail-block">
+                      <h3>Pricing tiers</h3>
+                      <div className="tier-grid">
+                        {PLAN_TIERS.map((t) => (
+                          <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
+                            <div className="tier-head">
+                              <span className="tier-name">{t.name}</span>
+                              <span className="tier-price">{t.price}<span className="tier-cadence">{t.cadence}</span></span>
+                            </div>
+                            <div className="tier-headline">{t.headline}</div>
+                            <div className="tier-bestfor">Best for: {t.bestFor}</div>
+                            <ul className="tier-outcomes">
+                              {t.outcomes.map((o) => <li key={o}>{o}</li>)}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
                     <div className="detail-block">
                       <h3>How it works</h3>
                       <ol>
@@ -324,10 +344,12 @@ function Unlock() {
                         <li>Return automatically with Pro access enabled</li>
                       </ol>
                     </div>
+
                     <div className="detail-block">
                       <h3>What stays free &amp; local</h3>
                       <p>Local editing, previews, local project storage, deterministic tools, exports, screenshots, and local history remain free and never leave your browser. Credits are consumed only for cloud AI and provider work.</p>
                     </div>
+
                     <p className="detail-trust">Secure billing through Stripe. Cancel anytime.</p>
                   </div>
                 )}
