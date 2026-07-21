@@ -1200,6 +1200,7 @@ function Index() {
       title: isFirstUserMsg ? (basePrompt || pendingAttachments[0]?.name || "Untitled").slice(0, 28) : current.title,
     });
     setLoading(true);
+    markBuildStart(activeId);
     setStage("classify");
     setStageDetail(classification.taskType);
     setTerminal((t) => [
