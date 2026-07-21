@@ -29,6 +29,9 @@ import { Route as ApiPublicWaitlistRouteImport } from './routes/api/public/waitl
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
+import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
+import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
+import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/share.$slug'
 import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public/saved-ideas.$code'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
@@ -136,6 +139,22 @@ const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
   path: '/api/public/builds',
   getParentRoute: () => rootRouteImport,
 } as any)
+const LovableEmailTransactionalPreviewRoute =
+  LovableEmailTransactionalPreviewRouteImport.update({
+    id: '/lovable/email/transactional/preview',
+    path: '/lovable/email/transactional/preview',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
+  id: '/lovable/email/auth/webhook',
+  path: '/lovable/email/auth/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
+  id: '/lovable/email/auth/preview',
+  path: '/lovable/email/auth/preview',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicShareSlugRoute = ApiPublicShareSlugRouteImport.update({
   id: '/api/public/share/$slug',
   path: '/api/public/share/$slug',
@@ -194,6 +213,9 @@ export interface FileRoutesByFullPath {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRoutesByTo {
@@ -222,6 +244,9 @@ export interface FileRoutesByTo {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRoutesById {
@@ -251,6 +276,9 @@ export interface FileRoutesById {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
+  '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
+  '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRouteTypes {
@@ -281,6 +309,9 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
+    | '/lovable/email/transactional/preview'
     | '/api/public/library/$code/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -309,6 +340,9 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
+    | '/lovable/email/transactional/preview'
     | '/api/public/library/$code/$id'
   id:
     | '__root__'
@@ -337,6 +371,9 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
+    | '/lovable/email/auth/preview'
+    | '/lovable/email/auth/webhook'
+    | '/lovable/email/transactional/preview'
     | '/api/public/library/$code/$id'
   fileRoutesById: FileRoutesById
 }
@@ -365,6 +402,9 @@ export interface RootRouteChildren {
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicSavedIdeasCodeRoute: typeof ApiPublicSavedIdeasCodeRoute
   ApiPublicShareSlugRoute: typeof ApiPublicShareSlugRoute
+  LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
+  LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
+  LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -509,6 +549,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBuildsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/lovable/email/transactional/preview': {
+      id: '/lovable/email/transactional/preview'
+      path: '/lovable/email/transactional/preview'
+      fullPath: '/lovable/email/transactional/preview'
+      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/auth/webhook': {
+      id: '/lovable/email/auth/webhook'
+      path: '/lovable/email/auth/webhook'
+      fullPath: '/lovable/email/auth/webhook'
+      preLoaderRoute: typeof LovableEmailAuthWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/auth/preview': {
+      id: '/lovable/email/auth/preview'
+      path: '/lovable/email/auth/preview'
+      fullPath: '/lovable/email/auth/preview'
+      preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/share/$slug': {
       id: '/api/public/share/$slug'
       path: '/api/public/share/$slug'
@@ -602,6 +663,9 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicSavedIdeasCodeRoute: ApiPublicSavedIdeasCodeRoute,
   ApiPublicShareSlugRoute: ApiPublicShareSlugRoute,
+  LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
+  LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
+  LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
