@@ -13,6 +13,7 @@ import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
+import { generateStarterIdeas, anticipateNextIdeas } from "@/lib/ideas.functions";
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
@@ -228,6 +229,12 @@ function Index() {
   const [input, setInput] = useState("");
   const [ideaOffset, setIdeaOffset] = useState(0);
   const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
+  const [aiIdeas, setAiIdeas] = useState<Addon[]>([]);
+  const [aiIdeasLoading, setAiIdeasLoading] = useState(false);
+  const [nextSteps, setNextSteps] = useState<Addon[]>([]);
+  const [nextStepsLoading, setNextStepsLoading] = useState(false);
+  const generateStarterIdeasFn = useServerFn(generateStarterIdeas);
+  const anticipateNextIdeasFn = useServerFn(anticipateNextIdeas);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
   const [loading, setLoading] = useState(false);
@@ -703,6 +710,32 @@ function Index() {
     setSessions((all) => all.map((s) => s.id === activeId ? { ...s, runtimeEvents: [] } : s));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current.html]);
+
+  // Anticipate next-step ideas from the in-progress prompt. Debounced, free,
+  // and quietly ignored on failure so it never blocks typing.
+  useEffect(() => {
+    const draft = input.trim();
+    if (draft.length < 12) {
+      setNextSteps([]);
+      setNextStepsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setNextStepsLoading(true);
+    const t = window.setTimeout(async () => {
+      try {
+        const res = await anticipateNextIdeasFn({ data: { draft, hasHtml: !!current.html, count: 3 } });
+        if (cancelled) return;
+        setNextSteps((res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon)));
+      } catch {
+        if (!cancelled) setNextSteps([]);
+      } finally {
+        if (!cancelled) setNextStepsLoading(false);
+      }
+    }, 650);
+    return () => { cancelled = true; window.clearTimeout(t); setNextStepsLoading(false); };
+  }, [input, current.html, anticipateNextIdeasFn]);
+
 
   // Fold new lastMetrics into per-session cost snapshot exactly once.
   const foldedMetricsRef = useRef<GenerationMetrics | null>(null);
@@ -2331,9 +2364,38 @@ function Index() {
               </div>
               {(() => {
                 const isStarters = !input.trim();
-                const addons = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
+                const baseAddons = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
+                // When idle, blend AI-generated ideas in with the deterministic pool.
+                const addons: Addon[] = isStarters && aiIdeas.length
+                  ? [...aiIdeas.slice(0, 2), ...baseAddons].slice(0, Math.max(4, baseAddons.length))
+                  : baseAddons;
                 const label = isStarters ? "Try one of these" : "Add to your prompt";
-                const cycleIdeas = () => setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
+                const cycleIdeas = async () => {
+                  setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
+                  if (aiIdeasLoading) return;
+                  setAiIdeasLoading(true);
+                  try {
+                    const exclude = [
+                      ...baseAddons.map((a) => a.label),
+                      ...aiIdeas.map((a) => a.label),
+                    ];
+                    const res = await generateStarterIdeasFn({ data: { exclude, count: 5 } });
+                    setAiIdeas((prev) => {
+                      const merged = [...(res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon)), ...prev];
+                      const seen = new Set<string>();
+                      return merged.filter((a) => {
+                        const k = a.label.toLowerCase();
+                        if (seen.has(k)) return false;
+                        seen.add(k);
+                        return true;
+                      }).slice(0, 12);
+                    });
+                  } catch {
+                    // silent — deterministic pool still cycled above
+                  } finally {
+                    setAiIdeasLoading(false);
+                  }
+                };
                 return (
                   <>
                     <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
@@ -2344,12 +2406,13 @@ function Index() {
                             type="button"
                             onClick={cycleIdeas}
                             className="obs-icon-btn"
-                            title="Show new ideas"
-                            aria-label="Show new ideas"
-                            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, opacity: 0.85 }}
+                            title="Generate fresh ideas with AI"
+                            aria-label="Generate fresh ideas with AI"
+                            disabled={aiIdeasLoading}
+                            style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 10, opacity: aiIdeasLoading ? 0.5 : 0.85 }}
                           >
-                            <RefreshCw className="h-3 w-3" />
-                            <span>New ideas</span>
+                            {aiIdeasLoading ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+                            <span>{aiIdeasLoading ? "Thinking…" : "New ideas"}</span>
                           </button>
                         )}
                         <span style={{ opacity: 0.55, fontSize: 10 }}>click to {isStarters ? "build" : "append"} · free</span>
@@ -2369,6 +2432,34 @@ function Index() {
                         </button>
                       ))}
                     </div>
+                    {!isStarters && (nextStepsLoading || nextSteps.length > 0) && (
+                      <>
+                        <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, marginTop: 8 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <Sparkles className="h-3 w-3" style={{ color: "var(--obs-gold, #F4A125)" }} />
+                            Suggested next
+                          </span>
+                          <span style={{ opacity: 0.55, fontSize: 10 }}>
+                            {nextStepsLoading ? "reading your prompt…" : "click to append"}
+                          </span>
+                        </div>
+                        <div className="obs-suggestions">
+                          {nextSteps.map((a) => (
+                            <button
+                              key={"next:" + a.id}
+                              type="button"
+                              className="obs-suggestion obs-idea-in"
+                              onClick={() => appendAddon(a)}
+                              disabled={loading}
+                              title={a.snippet}
+                              style={{ borderColor: "rgba(244,161,37,0.35)" }}
+                            >
+                              <span>{a.label}</span>
+                            </button>
+                          ))}
+                        </div>
+                      </>
+                    )}
                   </>
                 );
               })()}
