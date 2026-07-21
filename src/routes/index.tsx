@@ -711,6 +711,32 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current.html]);
 
+  // Anticipate next-step ideas from the in-progress prompt. Debounced, free,
+  // and quietly ignored on failure so it never blocks typing.
+  useEffect(() => {
+    const draft = input.trim();
+    if (draft.length < 12) {
+      setNextSteps([]);
+      setNextStepsLoading(false);
+      return;
+    }
+    let cancelled = false;
+    setNextStepsLoading(true);
+    const t = window.setTimeout(async () => {
+      try {
+        const res = await anticipateNextIdeasFn({ data: { draft, hasHtml: !!current.html, count: 3 } });
+        if (cancelled) return;
+        setNextSteps((res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon)));
+      } catch {
+        if (!cancelled) setNextSteps([]);
+      } finally {
+        if (!cancelled) setNextStepsLoading(false);
+      }
+    }, 650);
+    return () => { cancelled = true; window.clearTimeout(t); setNextStepsLoading(false); };
+  }, [input, current.html, anticipateNextIdeasFn]);
+
+
   // Fold new lastMetrics into per-session cost snapshot exactly once.
   const foldedMetricsRef = useRef<GenerationMetrics | null>(null);
   useEffect(() => {
