@@ -1067,6 +1067,7 @@ const unlockCss = `
   .unlock-title { font-size: 26px; letter-spacing: 5px; }
   .price-amount { font-size: 34px; }
   .unlock-headline { font-size: 18px; }
+  .unlock-subheadline { font-size: 12.5px; margin: -6px 0 14px; }
 }
 
 .unlock-demos {
