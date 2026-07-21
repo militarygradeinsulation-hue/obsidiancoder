@@ -88,6 +88,9 @@ function Unlock() {
   const [session, setSession] = useState<{ userId: string; email: string | null } | null>(null);
   const [sessionLoading, setSessionLoading] = useState(true);
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
+  const [selectedPriceId, setSelectedPriceId] = useState<string>(
+    search.priceId && typeof search.priceId === "string" ? search.priceId : CREATOR_PRICE_ID,
+  );
   const [expandDetails, setExpandDetails] = useState(false);
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
