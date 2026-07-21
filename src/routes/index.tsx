@@ -1133,7 +1133,15 @@ function Index() {
 
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
-    if ((!basePrompt && pendingAttachments.length === 0) || loading) return;
+    if (!basePrompt && pendingAttachments.length === 0) return;
+    // Multi-prompt queue: allow submitting another prompt while one is
+    // building — it will run as soon as the current build finishes.
+    if (loading) {
+      if (!basePrompt) return;
+      setPromptQueue((q) => [...q, { sid: activeId, prompt: basePrompt }].slice(-8));
+      setInput("");
+      return;
+    }
     // Central guard — free/unresolved users never reach the network.
     const gate = await requirePaidAction("generate_html");
     if (!gate.allowed) return;
