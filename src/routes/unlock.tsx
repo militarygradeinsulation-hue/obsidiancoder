@@ -7,6 +7,7 @@ import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
+import signatureCard from "@/assets/joseph-signature-card.jpeg.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
@@ -431,6 +432,48 @@ function Unlock() {
           ))}
         </div>
       </section>
+
+      {/* MEET THE ARCHITECT */}
+      <section className="unlock-architect" aria-labelledby="architect-heading">
+        <div className="architect-card">
+          <div className="architect-portrait">
+            <img
+              src={signatureCard.url}
+              alt="Joseph Toney — AI Architect signature card"
+              loading="lazy"
+              decoding="async"
+            />
+          </div>
+          <div className="architect-body">
+            <h2 id="architect-heading" className="architect-title">Meet the Architect</h2>
+            <p className="architect-name">Joseph Toney</p>
+            <p className="architect-tagline">
+              AI Architect · MS, BA · IBM AI Certified
+            </p>
+            <p className="architect-quote">
+              “I find the cause of chaos and remove it at the source.”
+            </p>
+            <div className="architect-links">
+              <a
+                href="https://Aetheris.Technology"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="architect-link"
+              >
+                Aetheris.Technology
+              </a>
+              <a
+                href="https://www.linkedin.com/in/thejosephtoney"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="architect-link"
+              >
+                LinkedIn
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   );
 }
@@ -769,4 +812,98 @@ const unlockCss = `
 }
 .demo-name { font-size: 12px; color: #f2eee7; letter-spacing: 0.3px; }
 .demo-open { font-size: 11px; color: #F4A125; font-weight: 600; }
+
+.unlock-architect {
+  position: relative;
+  width: 100%; max-width: 1100px;
+  margin: 28px auto 60px;
+  padding: 0 16px;
+}
+.architect-card {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 28px;
+  align-items: center;
+  background: rgba(8,8,10,0.72);
+  border: 1px solid rgba(244,161,37,0.22);
+  border-radius: 16px;
+  padding: 24px;
+  backdrop-filter: blur(14px);
+  box-shadow: 0 20px 60px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.05);
+  transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+}
+.architect-card:hover {
+  border-color: rgba(244,161,37,0.45);
+  box-shadow: 0 24px 70px rgba(0,0,0,0.75), 0 0 0 1px rgba(244,161,37,0.12);
+}
+.architect-portrait {
+  position: relative;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid rgba(244,161,37,0.2);
+  background: #050607;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+.architect-portrait img {
+  display: block; width: 100%; height: auto;
+  transition: transform .4s ease;
+}
+.architect-card:hover .architect-portrait img { transform: scale(1.03); }
+.architect-body { text-align: left; }
+.architect-title {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 14px; letter-spacing: 2px; text-transform: uppercase;
+  color: rgba(244,161,37,0.85); margin: 0 0 8px;
+}
+.architect-name {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 28px; color: #f2eee7; margin: 0 0 6px;
+  text-shadow: 0 0 18px rgba(244,161,37,0.25);
+}
+.architect-tagline {
+  font-size: 13px; letter-spacing: 0.3px;
+  color: rgba(182,188,200,0.85); margin: 0 0 14px;
+}
+.architect-quote {
+  font-family: Georgia, serif;
+  font-size: 15px; line-height: 1.55;
+  color: rgba(242,238,231,0.92); font-style: italic;
+  border-left: 2px solid rgba(244,161,37,0.45);
+  padding-left: 14px; margin: 0 0 18px;
+}
+.architect-links {
+  display: flex; flex-wrap: wrap; gap: 12px;
+}
+.architect-link {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 8px;
+  border: 1px solid rgba(244,161,37,0.25);
+  background: rgba(244,161,37,0.08);
+  color: #f2eee7; font-size: 12px; letter-spacing: 0.5px;
+  text-decoration: none; font-weight: 600;
+  transition: background .15s, border-color .15s, color .15s;
+}
+.architect-link:hover {
+  background: rgba(244,161,37,0.18);
+  border-color: rgba(244,161,37,0.5);
+  color: #fff;
+}
+.architect-link:focus-visible {
+  outline: 2px solid #f4a125; outline-offset: 2px;
+}
+
+@media (max-width: 640px) {
+  .architect-card {
+    grid-template-columns: 1fr;
+    text-align: center;
+    gap: 20px;
+  }
+  .architect-portrait { max-width: 200px; margin: 0 auto; }
+  .architect-body { text-align: center; }
+  .architect-quote {
+    border-left: 0; border-top: 2px solid rgba(244,161,37,0.45);
+    padding-left: 0; padding-top: 12px;
+  }
+  .architect-links { justify-content: center; }
+}
 `;
