@@ -143,3 +143,65 @@ export const reorderFeaturedDemos = createServerFn({ method: "POST" })
     }
     return { ok: true };
   });
+
+export type WaitlistEntryRow = {
+  id: string;
+  created_at: string;
+  name: string;
+  email: string;
+  company: string | null;
+  interest_level: string;
+  tier: string | null;
+  source: string | null;
+  paid: boolean | null;
+};
+
+export type WaitlistStats = {
+  total: number;
+  paid: number;
+  unpaid: number;
+  last_24h: number;
+  last_7d: number;
+  by_tier: Array<{ tier: string; count: number }>;
+  recent: WaitlistEntryRow[];
+};
+
+export const getWaitlistStats = createServerFn({ method: "POST" })
+  .inputValidator((d: unknown) => adminOnly.parse(d))
+  .handler(async ({ data }): Promise<{ ok: true; stats: WaitlistStats } | { ok: false; error: string }> => {
+    const gate = checkAdmin(data.adminCode);
+    if (!gate.ok) return gate;
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data: rows, error } = await supabaseAdmin
+      .from("waitlist_entries")
+      .select("id, created_at, name, email, company, interest_level, tier, source, paid")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    if (error) return { ok: false, error: error.message };
+    const list = (rows ?? []) as WaitlistEntryRow[];
+    const now = Date.now();
+    const dayMs = 86_400_000;
+    const paid = list.filter((r) => r.paid === true).length;
+    const last_24h = list.filter((r) => now - new Date(r.created_at).getTime() < dayMs).length;
+    const last_7d = list.filter((r) => now - new Date(r.created_at).getTime() < 7 * dayMs).length;
+    const tierMap = new Map<string, number>();
+    for (const r of list) {
+      const t = r.tier?.trim() || "unspecified";
+      tierMap.set(t, (tierMap.get(t) ?? 0) + 1);
+    }
+    const by_tier = Array.from(tierMap.entries())
+      .map(([tier, count]) => ({ tier, count }))
+      .sort((a, b) => b.count - a.count);
+    return {
+      ok: true,
+      stats: {
+        total: list.length,
+        paid,
+        unpaid: list.length - paid,
+        last_24h,
+        last_7d,
+        by_tier,
+        recent: list.slice(0, 20),
+      },
+    };
+  });
