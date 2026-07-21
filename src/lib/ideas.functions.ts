@@ -12,10 +12,37 @@ const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 export type IdeaSuggestion = { id: string; label: string; snippet: string };
 
+const CATEGORIES = [
+  "all",
+  "ai",
+  "app",
+  "game",
+  "productivity",
+  "education",
+  "presentation",
+  "landing",
+  "dashboard",
+  "portfolio",
+] as const;
+
 const starterInput = z.object({
-  exclude: z.array(z.string()).max(80).optional().default([]),
-  count: z.number().int().min(3).max(8).optional().default(5),
+  exclude: z.array(z.string()).max(120).optional().default([]),
+  count: z.number().int().min(3).max(8).optional().default(6),
+  category: z.enum(CATEGORIES).optional().default("all"),
 });
+
+const CATEGORY_GUIDANCE: Record<(typeof CATEGORIES)[number], string> = {
+  all: "Vary widely across creative tools, dashboards, storytelling, utilities, communities, playful microsites.",
+  ai: "AI-powered single-page tools: chat UIs, agents, generators, summarizers, classifiers, playgrounds.",
+  app: "Interactive single-page web apps: utilities, trackers, planners, mini social tools.",
+  game: "Playable browser mini-games: puzzles, arcade, idle/clicker, word, memory, physics, trivia.",
+  productivity: "Productivity tools: task managers, timers, note-takers, planners, focus/habit trackers.",
+  education: "Educational pages: interactive lessons, flashcards, quizzes, explainers, visualizers.",
+  presentation: "Presentation-style pages: pitch decks, slide flows, story scrollers, keynote-style microsites.",
+  landing: "Marketing landing pages for products, apps, events, launches, waitlists.",
+  dashboard: "Analytics/admin dashboards with KPI cards, charts, tables, filters.",
+  portfolio: "Portfolio and personal sites: designers, developers, photographers, agencies, resumes.",
+};
 
 const anticipateInput = z.object({
   draft: z.string().min(1).max(2000),
