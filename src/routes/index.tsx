@@ -2017,7 +2017,12 @@ function Index() {
                   >
                     <FileCode className="h-3.5 w-3.5" strokeWidth={1.6} />
                     <span className="obs-tab-title">{s.title}</span>
-                    {isActive && s.html && <span className="obs-tab-live">LIVE</span>}
+                    {buildingIds.has(s.id) && <span className="obs-tab-building" aria-label="Building" />}
+                    {(() => {
+                      const q = promptQueue.filter((p) => p.sid === s.id).length;
+                      return q > 0 ? <span className="obs-tab-queued" title={`${q} queued`}>+{q}</span> : null;
+                    })()}
+                    {isActive && s.html && !buildingIds.has(s.id) && <span className="obs-tab-live">LIVE</span>}
                     {sessions.length > 1 && (
                       <span
                         role="button"
