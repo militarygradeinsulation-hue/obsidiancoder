@@ -306,7 +306,8 @@ function Unlock() {
           <section id="panel-buy" role="tabpanel" aria-labelledby="tab-buy">
             {!showCheckout && (
               <>
-                <h2 className="unlock-headline">Build, Launch, and Grow Software with AI.</h2>
+                <h2 className="unlock-headline">Think it, Type it, See it.</h2>
+                <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
 
                 <div className="unlock-price">
                   <span className="price-amount">$79</span>
