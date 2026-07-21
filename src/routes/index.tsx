@@ -2376,26 +2376,47 @@ function Index() {
               </div>
               {(() => {
                 const isStarters = !input.trim();
+                const IDEA_CATEGORIES: Array<{ id: string; label: string }> = [
+                  { id: "all", label: "All" },
+                  { id: "ai", label: "AI" },
+                  { id: "app", label: "App" },
+                  { id: "game", label: "Game" },
+                  { id: "productivity", label: "Productivity" },
+                  { id: "education", label: "Education" },
+                  { id: "presentation", label: "Presentation" },
+                  { id: "landing", label: "Landing page" },
+                  { id: "dashboard", label: "Dashboard" },
+                  { id: "portfolio", label: "Portfolio" },
+                ];
                 const baseAddons = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
-                // When idle, blend AI-generated ideas in with the deterministic pool.
-                const addons: Addon[] = isStarters && aiIdeas.length
-                  ? [...aiIdeas.slice(0, 2), ...baseAddons].slice(0, Math.max(4, baseAddons.length))
+                // Idle + a category selected → show AI ideas only (unlimited fresh pool).
+                // Idle + "all" and no AI yet → deterministic starter pool.
+                const addons: Addon[] = isStarters
+                  ? (aiIdeas.length ? aiIdeas.slice(0, 6) : baseAddons)
                   : baseAddons;
                 const label = isStarters ? "Try one of these" : "Add to your prompt";
-                const cycleIdeas = async () => {
-                  setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
+                const savedKey = (a: Addon) => a.snippet.trim().toLowerCase();
+                const savedSet = new Set(savedIdeas.map(savedKey));
+                const toggleSave = (a: Addon) => {
+                  const key = savedKey(a);
+                  setSavedIdeas((prev) =>
+                    prev.some((p) => savedKey(p) === key)
+                      ? prev.filter((p) => savedKey(p) !== key)
+                      : [{ ...a, id: "saved-" + Date.now().toString(36) }, ...prev].slice(0, 40)
+                  );
+                };
+                const fetchCategoryIdeas = async (category: string, replace: boolean) => {
                   if (aiIdeasLoading) return;
                   setAiIdeasLoading(true);
                   try {
-                    const exclude = [
-                      ...baseAddons.map((a) => a.label),
-                      ...aiIdeas.map((a) => a.label),
-                    ];
-                    const res = await generateStarterIdeasFn({ data: { exclude, count: 5 } });
+                    const exclude = Array.from(seenIdeaLabelsRef.current).slice(-100);
+                    const res = await generateStarterIdeasFn({ data: { exclude, count: 8, category: category as never } });
+                    const fresh = (res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon));
+                    fresh.forEach((f) => seenIdeaLabelsRef.current.add(f.label.toLowerCase()));
                     setAiIdeas((prev) => {
-                      const merged = [...(res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon)), ...prev];
+                      const next = replace ? fresh : [...fresh, ...prev];
                       const seen = new Set<string>();
-                      return merged.filter((a) => {
+                      return next.filter((a) => {
                         const k = a.label.toLowerCase();
                         if (seen.has(k)) return false;
                         seen.add(k);
@@ -2403,13 +2424,97 @@ function Index() {
                       }).slice(0, 12);
                     });
                   } catch {
-                    // silent — deterministic pool still cycled above
+                    // silent
                   } finally {
                     setAiIdeasLoading(false);
                   }
                 };
+                const cycleIdeas = () => {
+                  setIdeaOffset((o) => (o + 4) % Math.max(1, STARTER_IDEA_COUNT));
+                  fetchCategoryIdeas(ideaCategory, true);
+                };
+                const pickCategory = (cat: string) => {
+                  setIdeaCategory(cat);
+                  setAiIdeas([]);
+                  fetchCategoryIdeas(cat, true);
+                };
                 return (
                   <>
+                    {isStarters && (
+                      <div
+                        className="obs-idea-cats"
+                        style={{ display: "flex", flexWrap: "wrap", gap: 4, marginBottom: 6 }}
+                        role="tablist"
+                        aria-label="Idea categories"
+                      >
+                        {IDEA_CATEGORIES.map((c) => {
+                          const active = ideaCategory === c.id;
+                          return (
+                            <button
+                              key={c.id}
+                              type="button"
+                              role="tab"
+                              aria-selected={active}
+                              onClick={() => pickCategory(c.id)}
+                              disabled={aiIdeasLoading && active}
+                              className="obs-idea-cat"
+                              style={{
+                                fontSize: 10,
+                                padding: "3px 8px",
+                                borderRadius: 999,
+                                border: active
+                                  ? "1px solid rgba(244,161,37,0.65)"
+                                  : "1px solid rgba(255,255,255,0.08)",
+                                background: active
+                                  ? "rgba(244,161,37,0.14)"
+                                  : "rgba(255,255,255,0.03)",
+                                color: active ? "var(--obs-gold, #F4A125)" : "inherit",
+                                cursor: "pointer",
+                                lineHeight: 1.4,
+                              }}
+                            >
+                              {c.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )}
+                    {isStarters && savedIdeas.length > 0 && (
+                      <>
+                        <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                            <BookmarkCheck className="h-3 w-3" style={{ color: "var(--obs-gold, #F4A125)" }} />
+                            Saved ideas
+                          </span>
+                          <span style={{ opacity: 0.55, fontSize: 10 }}>click to build</span>
+                        </div>
+                        <div className="obs-suggestions" style={{ marginBottom: 8 }}>
+                          {savedIdeas.map((a) => (
+                            <span key={a.id} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+                              <button
+                                type="button"
+                                className="obs-suggestion obs-idea-in"
+                                onClick={() => submit(a.snippet)}
+                                disabled={loading}
+                                title={a.snippet}
+                                style={{ borderColor: "rgba(244,161,37,0.35)" }}
+                              >
+                                <span>{a.label}</span>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => toggleSave(a)}
+                                title="Remove from saved"
+                                aria-label={`Remove ${a.label} from saved`}
+                                style={{ background: "transparent", border: 0, cursor: "pointer", padding: 2, opacity: 0.6 }}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      </>
+                    )}
                     <div className="obs-suggestions-label" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
                       <span>{label}</span>
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -2431,18 +2536,40 @@ function Index() {
                       </div>
                     </div>
                     <div className="obs-suggestions">
-                      {addons.map((a) => (
-                        <button
-                          key={a.id + ":" + ideaOffset}
-                          type="button"
-                          className="obs-suggestion obs-idea-in"
-                          onClick={() => (input.trim() ? appendAddon(a) : submit(a.snippet))}
-                          disabled={loading}
-                          title={a.snippet}
-                        >
-                          <span>{a.label}</span>
-                        </button>
-                      ))}
+                      {addons.map((a) => {
+                        const isSaved = savedSet.has(savedKey(a));
+                        return (
+                          <span key={a.id + ":" + ideaOffset} style={{ display: "inline-flex", alignItems: "center", gap: 2 }}>
+                            <button
+                              type="button"
+                              className="obs-suggestion obs-idea-in"
+                              onClick={() => (input.trim() ? appendAddon(a) : submit(a.snippet))}
+                              disabled={loading}
+                              title={a.snippet}
+                            >
+                              <span>{a.label}</span>
+                            </button>
+                            {isStarters && (
+                              <button
+                                type="button"
+                                onClick={() => toggleSave(a)}
+                                title={isSaved ? "Remove from saved" : "Save this idea"}
+                                aria-label={isSaved ? `Unsave ${a.label}` : `Save ${a.label}`}
+                                style={{
+                                  background: "transparent",
+                                  border: 0,
+                                  cursor: "pointer",
+                                  padding: 2,
+                                  opacity: isSaved ? 1 : 0.55,
+                                  color: isSaved ? "var(--obs-gold, #F4A125)" : "inherit",
+                                }}
+                              >
+                                {isSaved ? <BookmarkCheck className="h-3 w-3" /> : <Bookmark className="h-3 w-3" />}
+                              </button>
+                            )}
+                          </span>
+                        );
+                      })}
                     </div>
                     {!isStarters && (nextStepsLoading || nextSteps.length > 0) && (
                       <>
