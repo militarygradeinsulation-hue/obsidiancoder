@@ -2071,6 +2071,25 @@ function Index() {
                   window.open(liveUrl, "_blank", "noopener,noreferrer");
                   setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
                   if (libraryCode.trim()) refreshLibrary();
+                  // Admin auto-promote: library code "9822" pushes the fresh
+                  // share into the /unlock public gallery without a code edit.
+                  const adminCode = libraryCode.trim();
+                  if (adminCode === "9822") {
+                    try {
+                      const promoted = await pushFeaturedDemo({
+                        data: {
+                          adminCode,
+                          slug: share_slug,
+                          title: current.title || `Demo · ${share_slug}`,
+                          category: "App",
+                          url: liveUrl,
+                        },
+                      });
+                      if ("ok" in promoted && promoted.ok) {
+                        setTerminal((t) => [...t, "  ★ Added to the public Demos gallery."]);
+                      }
+                    } catch { /* non-fatal */ }
+                  }
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : "publish failed";
                   setTerminal((t) => [...t, `✗ Go Live failed: ${msg}`]);
