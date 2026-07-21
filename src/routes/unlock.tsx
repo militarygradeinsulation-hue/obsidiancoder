@@ -1323,5 +1323,8 @@ const unlockCss = `
 }
 .wl-selected-label { font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: rgba(244,161,37,0.75); }
 .wl-selected-value { font-size: 13px; color: #f4a125; font-family: Fraunces, Georgia, serif; }
+.wl-checkout { margin: 6px 0 12px; border-radius: 10px; overflow: hidden; }
+.unlock-btn-secondary { background: transparent; border: 1px solid rgba(244,161,37,0.35); color: #f4a125; margin-top: 8px; }
+.unlock-btn-secondary:hover { background: rgba(244,161,37,0.08); }
 `;
 
