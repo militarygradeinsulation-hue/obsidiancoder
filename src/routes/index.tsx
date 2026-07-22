@@ -638,6 +638,34 @@ function Index() {
   }
 
   const [expandingIdeaId, setExpandingIdeaId] = useState<string | null>(null);
+  const [expandingDraft, setExpandingDraft] = useState(false);
+  // "Expand draft" — composer button: each press asks the AI for the next
+  // best addon based on whatever is currently in the prompt box, and appends
+  // it. Press again to grow the prompt one step further.
+  async function expandDraft() {
+    if (expandingDraft || loading) return;
+    const draft = (composerRef.current?.value ?? input).trim();
+    if (!draft) return;
+    setExpandingDraft(true);
+    try {
+      const res = await anticipateNextIdeasFn({
+        data: { draft, hasHtml: !!current.html, count: 3 },
+      });
+      const next = res?.ideas?.find((i) => i?.snippet)?.snippet;
+      if (!next) return;
+      setInput((prev) => {
+        const base = prev.trim();
+        if (!base) return next;
+        if (base.toLowerCase().includes(next.slice(0, 24).toLowerCase())) return base;
+        return base.endsWith(".") ? `${base} ${next}` : `${base}. ${next}`;
+      });
+    } catch (e) {
+      console.error("expand draft failed", e);
+    } finally {
+      setExpandingDraft(false);
+      requestAnimationFrame(() => composerRef.current?.focus());
+    }
+  }
   // "Expand idea": iteratively asks the AI for the next best addon based on
   // the current draft and appends it. Runs a few rounds so one click grows
   // the prompt into a fuller brief without further clicks.
@@ -3105,6 +3133,16 @@ function Index() {
                   onClick={handleEnhance}
                 >
                   {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label="Expand idea"
+                  title="Expand idea — grow the current prompt with the next best addition (press again for more)"
+                  disabled={loading || expandingDraft || !input.trim()}
+                  onClick={expandDraft}
+                >
+                  {expandingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                 </button>
                 <div
                   className="obs-composer-input-wrap"
