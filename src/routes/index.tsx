@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useRef, useState, useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Send, Eye, Code2, Loader2, Home, FolderOpen, FileText, Files, Code,
   Layers, Bot, CheckSquare, Database, Sparkles, TerminalSquare,
@@ -268,6 +269,28 @@ function Index() {
   const anticipateNextIdeasFn = useServerFn(anticipateNextIdeas);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const isMobile = useIsMobile();
+  type MobTab = "chat" | "preview" | "files" | "build" | "more";
+  const [mobileTab, setMobileTabState] = useState<MobTab>("preview");
+  // Persist mobile tab per session/project so switching within a project keeps it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem(`obs.mobileTab.${activeId}`);
+      if (raw === "chat" || raw === "preview" || raw === "files" || raw === "build" || raw === "more") {
+        setMobileTabState(raw);
+      } else {
+        setMobileTabState("preview");
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+  const setMobileTab = (t: MobTab) => {
+    setMobileTabState(t);
+    try { window.sessionStorage.setItem(`obs.mobileTab.${activeId}`, t); } catch { /* ignore */ }
+    if (t === "files") setTab("code");
+    if (t === "preview") setTab("preview");
+  };
   const [loading, setLoading] = useState(false);
   // Per-session build indicator: tab strip shows a spinner when its build is
   // still in flight even if the user has switched to another tab.
@@ -1944,7 +1967,18 @@ function Index() {
   const specTax = versionCount > 0 ? Math.max(0, Math.round(((userTurns - versionCount) / Math.max(1, userTurns)) * 100)) : 0;
 
   return (
-    <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "")}>
+    <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "") + (isMobile ? ` is-mobile mob-tab-${mobileTab}` : "")}>
+      {isMobile && mobileTab === "preview" && current.html && (
+        <button
+          type="button"
+          className="mob-fab"
+          aria-label="Ask Obsidian"
+          onClick={() => setMobileTab("chat")}
+        >
+          <Bot className="h-5 w-5" />
+          <span>Ask Obsidian</span>
+        </button>
+      )}
       {/* IntroSplash now mounted in src/routes/__root.tsx so it runs for every route */}
 
 
@@ -3694,6 +3728,34 @@ function Index() {
             )}
           </div>
         </div>
+      )}
+      {isMobile && (
+        <nav className="mob-bottom-nav" role="tablist" aria-label="Mobile workspace">
+          {([
+            { id: "chat", label: "Chat", Icon: Bot },
+            { id: "preview", label: "Preview", Icon: Eye },
+            { id: "files", label: "Files", Icon: Files },
+            { id: "build", label: "Build", Icon: Rocket },
+            { id: "more", label: "More", Icon: MoreHorizontal },
+          ] as const).map((t) => {
+            const Icon = t.Icon;
+            const isOn = mobileTab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={isOn}
+                aria-current={isOn ? "page" : undefined}
+                className={"mob-tab" + (isOn ? " is-on" : "")}
+                onClick={() => setMobileTab(t.id)}
+              >
+                <Icon className="h-5 w-5" strokeWidth={1.6} />
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
+        </nav>
       )}
     </main>
 
