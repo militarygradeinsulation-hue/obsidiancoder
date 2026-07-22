@@ -346,11 +346,13 @@ function Unlock() {
                 <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
 
                 <div className="unlock-price">
-                  <span className="price-amount">$79</span>
+                  <span className="price-amount">$49</span>
                   <span className="price-cadence">/month</span>
+                  <span className="price-strike">$79</span>
                 </div>
                 <p className="unlock-allowance">
-                  Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period, reset on your Stripe billing date.
+                  <strong style={{ color: "#F4A125" }}>Founding Member Pricing</strong> — first 100 Creator members lock in $49/month for life.
+                  Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period.
                 </p>
 
                 {status && <div className="unlock-status" role="status">{status}</div>}
@@ -362,47 +364,49 @@ function Unlock() {
                   onClick={() => startPurchase(CREATOR_PRICE_ID)}
                   disabled={sessionLoading}
                 >
-                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $79/month"}
+                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $49/month"}
                 </button>
 
-
-
-
                 <div className="plans-block" aria-labelledby="plans-heading">
-                  <div className="whitelist-hero">
-                    <div className="whitelist-hero-eyebrow">Early Access · Limited to 1,000</div>
-                    <button
-                      type="button"
-                      className="unlock-btn-whitelist whitelist-hero-cta"
-                      onClick={() => setWaitlistTier("any")}
-                    >
-                      <span className="whitelist-hero-spark">✦</span>
-                      <span>Join the Whitelist</span>
-                      <span className="whitelist-hero-price">$100</span>
-                    </button>
-                    <p className="whitelist-hero-sub">
-                      Lock in founding-member pricing on any tier below. Public plans open after early access closes.
-                    </p>
-                  </div>
                   <div className="plans-head">
-                    <h3 id="plans-heading" className="plans-title">All plans <span className="plans-title-lock">— opening soon</span></h3>
+                    <h3 id="plans-heading" className="plans-title">Choose your plan</h3>
                   </div>
-                  <div className="tier-grid is-disabled" aria-hidden="true">
+                  <div className="tier-grid">
                     {PLAN_TIERS.map((t) => (
-                      <div key={t.id} className={`tier-row is-locked ${t.featured ? "is-featured" : ""}`}>
+                      <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
+                        {t.featured && <div className="tier-badge">Most Popular</div>}
                         <div className="tier-head">
                           <span className="tier-name">{t.name}</span>
-                          <span className="tier-price">{t.price}<span className="tier-cadence">{t.cadence}</span></span>
+                          <span className="tier-price">
+                            {t.price}
+                            {t.originalPrice && <span className="tier-price-strike">{t.originalPrice}</span>}
+                            <span className="tier-cadence">{t.cadence}</span>
+                          </span>
                         </div>
+                        {t.founding && (
+                          <div className="tier-founding">Founding Member · First 100 · locked in for life</div>
+                        )}
                         <div className="tier-headline">{t.headline}</div>
-                        <button
-                          type="button"
-                          className="tier-cta tier-cta-disabled"
-                          disabled
-                          tabIndex={-1}
-                        >
-                          Locked
-                        </button>
+                        <ul className="tier-outcomes">
+                          {t.outcomes.map((o) => <li key={o}>• {o}</li>)}
+                        </ul>
+                        {t.cta === "checkout" && t.priceId ? (
+                          <button
+                            type="button"
+                            className="tier-cta tier-cta-primary"
+                            onClick={() => startPurchase(t.priceId!)}
+                            disabled={sessionLoading}
+                          >
+                            {session ? `Choose ${t.name}` : `Buy ${t.name}`}
+                          </button>
+                        ) : (
+                          <a
+                            className="tier-cta tier-cta-locked"
+                            href="mailto:hello@aetheris.technology?subject=Obsidian%20Enterprise%20inquiry"
+                          >
+                            Contact sales
+                          </a>
+                        )}
                       </div>
                     ))}
                   </div>
