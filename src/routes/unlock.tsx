@@ -779,17 +779,19 @@ function WaitlistModal({ tier, onClose }: { tier: string; onClose: () => void })
 const unlockCss = `
 .unlock-root {
   position: relative;
-  min-height: 100dvh;
-  display: grid;
-  place-items: center;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
   background: #000;
   color: #f2eee7;
   font-family: Inter, system-ui, sans-serif;
   padding: 24px 16px;
   overflow-x: hidden;
-  overflow-y: auto;
   isolation: isolate;
 }
+
 .unlock-video {
   position: fixed;
   inset: 0;
