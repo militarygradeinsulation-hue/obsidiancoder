@@ -148,8 +148,16 @@ function TierCard({ tier, disabled, onCheckout }: { tier: PlanTier; disabled: bo
       </div>
       <div className="mb-2">
         <span className="text-3xl font-bold text-[#f2eee7]">{tier.price}</span>
+        {tier.originalPrice && (
+          <span className="text-sm text-[#B6BCC8] line-through ml-2">{tier.originalPrice}</span>
+        )}
         {tier.cadence && <span className="text-sm text-[#B6BCC8] ml-1">{tier.cadence}</span>}
       </div>
+      {tier.founding && (
+        <p className="text-[11px] uppercase tracking-widest text-[#F4A125] mb-1">
+          Founding Member Pricing · First 100 · locked in for life
+        </p>
+      )}
       <p className="text-xs text-[#f2eee7] mb-1">{tier.headline}</p>
       <p className="text-[11px] text-[#B6BCC8] mb-4">{tier.bestFor}</p>
       <ul className="text-xs text-[#B6BCC8] space-y-1.5 mb-5 flex-1">
