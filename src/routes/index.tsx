@@ -273,6 +273,20 @@ function Index() {
   // still in flight even if the user has switched to another tab.
   const [buildingIds, setBuildingIds] = useState<Set<string>>(() => new Set());
   const [pushedDemoIds, setPushedDemoIds] = useState<Set<string>>(() => new Set());
+  // Map: session.id -> {demoId, slug} for the live demo entry it owns. Persist
+  // so re-opening the tab still knows this build is on the public gallery and
+  // pressing the button again toggles it off (removes) rather than duplicates.
+  type DemoRef = { demoId: string; slug: string };
+  const [demoBySession, setDemoBySession] = useState<Record<string, DemoRef>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem("obs.demoBySession");
+      return raw ? (JSON.parse(raw) as Record<string, DemoRef>) : {};
+    } catch { return {}; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.demoBySession", JSON.stringify(demoBySession)); } catch {}
+  }, [demoBySession]);
   const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
   const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
   // Multi-prompt queue: submitting while another build runs enqueues.
