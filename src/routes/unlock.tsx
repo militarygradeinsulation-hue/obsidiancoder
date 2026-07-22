@@ -1346,6 +1346,13 @@ const unlockCss = `
 .tier-cta-primary:hover { filter: brightness(1.05); }
 .tier-cta-locked { background: transparent; color: #f4a125; border-color: rgba(244,161,37,0.35); }
 .tier-cta-locked:hover { background: rgba(244,161,37,0.08); }
+.tier-price-strike { color: rgba(182,188,200,0.55); text-decoration: line-through; font-size: 11px; margin-left: 6px; font-weight: 500; }
+.tier-founding { color: #F4A125; font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; margin: 2px 0 4px; }
+.tier-badge { position: absolute; top: -8px; left: 12px; background: #F4A125; color: #111317; font-size: 9px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase; padding: 3px 8px; border-radius: 999px; }
+.tier-row { position: relative; }
+.tier-row.is-featured { border-color: rgba(244,161,37,0.55); box-shadow: 0 0 0 1px rgba(244,161,37,0.12); }
+.tier-outcomes { list-style: none; padding: 0; margin: 6px 0 4px; display: flex; flex-direction: column; gap: 3px; font-size: 11px; color: #B6BCC8; }
+.price-strike { color: rgba(182,188,200,0.55); text-decoration: line-through; font-size: 16px; margin-left: 10px; align-self: center; }
 .tier-cta-disabled {
   background: rgba(255,255,255,0.03); color: rgba(182,188,200,0.4);
   border-color: rgba(182,188,200,0.12); cursor: not-allowed; pointer-events: none;
