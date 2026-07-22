@@ -17,7 +17,7 @@ export type PlanTierId =
 export interface PlanTier {
   id: PlanTierId;
   name: string;
-  price: string;            // display price, e.g. "$29"
+  price: string;            // display price (founding if applicable), e.g. "$19"
   cadence: string;          // "/month" or "Custom"
   headline: string;         // one-line outcome positioning
   bestFor: string;          // who it's for
@@ -26,21 +26,28 @@ export interface PlanTier {
   priceId?: string;         // Stripe lookup key when live
   cta: "checkout" | "waitlist" | "contact";
   icon: LucideIcon;
+  /** Original/future price shown struck through when founding pricing is active. */
+  originalPrice?: string;
+  /** When true, surface the Founding Member Pricing label (first 100, locked for life). */
+  founding?: boolean;
 }
 
 export const PLAN_TIERS: PlanTier[] = [
   {
     id: "starter",
     name: "Starter",
-    price: "$29",
+    price: "$19",
+    originalPrice: "$29",
+    founding: true,
     cadence: "/month",
-    headline: "Ship your first product with an AI engineering team.",
-    bestFor: "Solo founders validating an idea.",
+    headline: "Perfect for learning and small projects.",
+    bestFor: "First-time builders exploring what AI can ship.",
     outcomes: [
-      "Launch a working web app end-to-end",
-      "Publish a live URL with one click",
-      "AI-authored code, copy, and imagery",
-      "Baseline security and performance checks",
+      "1 active workspace",
+      "AI app & website generation",
+      "Landing pages",
+      "Basic editing",
+      "Community support",
     ],
     priceId: "obsidian_starter_monthly",
     cta: "checkout",
@@ -49,15 +56,20 @@ export const PLAN_TIERS: PlanTier[] = [
   {
     id: "creator",
     name: "Creator",
-    price: "$79",
+    price: "$49",
+    originalPrice: "$79",
+    founding: true,
     cadence: "/month",
-    headline: "Turn ideas into shippable products, week after week.",
+    headline: "For solo builders shipping regularly.",
     bestFor: "Independent builders and side-project founders.",
     outcomes: [
-      "Ship multiple production-ready projects",
-      "Automated deployments and rollbacks",
-      "Design system + branded UI generation",
-      "Product readiness reports on every build",
+      "Everything in Starter",
+      "Unlimited workspaces",
+      "Full-stack app generation",
+      "Deploy to the web",
+      "GitHub integration",
+      "Priority AI",
+      "Faster generations",
     ],
     priceId: "obsidian_creator_monthly",
     cta: "checkout",
@@ -69,13 +81,15 @@ export const PLAN_TIERS: PlanTier[] = [
     name: "Professional",
     price: "$149",
     cadence: "/month",
-    headline: "Operate real software with an AI engineering org.",
+    headline: "For businesses shipping products.",
     bestFor: "Freelancers and small studios delivering client work.",
     outcomes: [
       "Everything in Creator",
-      "Chief Engineer multi-agent review",
-      "Priority AI models and faster generations",
-      "Custom domains and GitHub deploys",
+      "Advanced AI engineering",
+      "Team features",
+      "API integrations",
+      "Higher usage limits",
+      "Priority support",
     ],
     priceId: "obsidian_professional_monthly",
     cta: "checkout",
@@ -86,13 +100,15 @@ export const PLAN_TIERS: PlanTier[] = [
     name: "Business",
     price: "$299",
     cadence: "/month",
-    headline: "Run a product line without hiring an engineering team.",
+    headline: "For agencies and growing companies.",
     bestFor: "Small companies shipping customer-facing software.",
     outcomes: [
       "Everything in Professional",
-      "Team collaboration and shared libraries",
-      "Advanced security scans and audit logs",
-      "Revenue and product analytics dashboard",
+      "Multi-user collaboration",
+      "Shared projects",
+      "White-label/client work",
+      "Highest limits",
+      "Dedicated onboarding",
     ],
     priceId: "obsidian_business_monthly",
     cta: "checkout",
@@ -103,13 +119,15 @@ export const PLAN_TIERS: PlanTier[] = [
     name: "Elite",
     price: "$499",
     cadence: "/month",
-    headline: "An AI engineering department on demand.",
+    headline: "Your AI engineering department.",
     bestFor: "Growing companies running multiple products.",
     outcomes: [
-      "Everything in Business",
-      "Highest-tier models with expanded throughput",
-      "Dedicated deployment pipelines",
-      "Launch-readiness and compliance reviews",
+      "Unlimited projects",
+      "Maximum AI capacity",
+      "Fastest generation queue",
+      "Premium support",
+      "Early access to new capabilities",
+      "Direct founder feedback channel",
     ],
     priceId: "obsidian_elite_monthly",
     cta: "checkout",
