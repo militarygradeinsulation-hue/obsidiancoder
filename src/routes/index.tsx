@@ -14,7 +14,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
 import { generateStarterIdeas, anticipateNextIdeas } from "@/lib/ideas.functions";
-import { pushFeaturedDemo } from "@/lib/featured-demos.functions";
+import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 
 type DemoCat = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
 function classifyDemoCategory(...parts: (string | undefined | null)[]): DemoCat {
