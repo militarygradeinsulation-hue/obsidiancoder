@@ -53,20 +53,22 @@ function checkAdmin(code: string): { ok: true } | { ok: false; error: string } {
 
 export const pushFeaturedDemo = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => pushInput.parse(d))
-  .handler(async ({ data }): Promise<{ ok: true } | { ok: false; error: string }> => {
+  .handler(async ({ data }): Promise<{ ok: true; id: string; slug: string } | { ok: false; error: string }> => {
     const gate = checkAdmin(data.adminCode);
     if (!gate.ok) return gate;
 
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const url = data.url ?? `https://obsidianvibe.live/api/public/share/${data.slug}`;
-    const { error } = await supabaseAdmin
+    const { data: row, error } = await supabaseAdmin
       .from("featured_demos")
       .upsert(
         { slug: data.slug, title: data.title, category: data.category, url, sort_order: Math.floor(Date.now() / 1000) },
         { onConflict: "slug" },
-      );
-    if (error) return { ok: false, error: error.message };
-    return { ok: true };
+      )
+      .select("id, slug")
+      .single();
+    if (error || !row) return { ok: false, error: error?.message ?? "upsert failed" };
+    return { ok: true, id: row.id as string, slug: row.slug as string };
   });
 
 export type FeaturedDemoRow = {

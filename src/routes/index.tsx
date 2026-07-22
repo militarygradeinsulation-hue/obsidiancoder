@@ -14,7 +14,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
 import { generateStarterIdeas, anticipateNextIdeas } from "@/lib/ideas.functions";
-import { pushFeaturedDemo } from "@/lib/featured-demos.functions";
+import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 
 type DemoCat = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
 function classifyDemoCategory(...parts: (string | undefined | null)[]): DemoCat {
@@ -273,6 +273,20 @@ function Index() {
   // still in flight even if the user has switched to another tab.
   const [buildingIds, setBuildingIds] = useState<Set<string>>(() => new Set());
   const [pushedDemoIds, setPushedDemoIds] = useState<Set<string>>(() => new Set());
+  // Map: session.id -> {demoId, slug} for the live demo entry it owns. Persist
+  // so re-opening the tab still knows this build is on the public gallery and
+  // pressing the button again toggles it off (removes) rather than duplicates.
+  type DemoRef = { demoId: string; slug: string };
+  const [demoBySession, setDemoBySession] = useState<Record<string, DemoRef>>(() => {
+    if (typeof window === "undefined") return {};
+    try {
+      const raw = window.localStorage.getItem("obs.demoBySession");
+      return raw ? (JSON.parse(raw) as Record<string, DemoRef>) : {};
+    } catch { return {}; }
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.demoBySession", JSON.stringify(demoBySession)); } catch {}
+  }, [demoBySession]);
   const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
   const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
   // Multi-prompt queue: submitting while another build runs enqueues.
@@ -590,6 +604,43 @@ function Index() {
     });
     requestAnimationFrame(() => composerRef.current?.focus());
   }
+  const [expandingIdeaId, setExpandingIdeaId] = useState<string | null>(null);
+  // "Expand idea": iteratively asks the AI for the next best addon based on
+  // the current draft and appends it. Runs a few rounds so one click grows
+  // the prompt into a fuller brief without further clicks.
+  async function expandIdea(seed: Addon) {
+    if (expandingIdeaId) return;
+    setExpandingIdeaId(seed.id);
+    try {
+      // Seed the composer with the idea if empty; otherwise keep user's text.
+      setInput((prev) => {
+        const base = prev.trim();
+        if (!base) return seed.snippet;
+        return base.endsWith(".") ? `${base} ${seed.snippet}` : `${base}. ${seed.snippet}`;
+      });
+      await new Promise((r) => setTimeout(r, 30));
+      for (let round = 0; round < 4; round++) {
+        const draft = (composerRef.current?.value ?? "").trim() || seed.snippet;
+        let res;
+        try {
+          res = await anticipateNextIdeasFn({ data: { draft, hasHtml: !!current.html, count: 2 } });
+        } catch { break; }
+        const next = res?.ideas?.[0];
+        if (!next?.snippet) break;
+        setInput((prev) => {
+          const base = prev.trim();
+          if (!base) return next.snippet;
+          if (base.toLowerCase().includes(next.snippet.slice(0, 24).toLowerCase())) return base;
+          return base.endsWith(".") ? `${base} ${next.snippet}` : `${base}. ${next.snippet}`;
+        });
+        await new Promise((r) => setTimeout(r, 40));
+      }
+    } finally {
+      setExpandingIdeaId(null);
+      requestAnimationFrame(() => composerRef.current?.focus());
+    }
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     try { window.sessionStorage.setItem("obs.library_code", libraryCode); } catch {}
@@ -2147,27 +2198,10 @@ function Index() {
                   window.open(liveUrl, "_blank", "noopener,noreferrer");
                   setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
                   if (libraryCode.trim()) refreshLibrary();
-                  // Admin auto-promote: library code "9822" OR signed in as
-                  // the admin email pushes the fresh share into the /unlock
-                  // public gallery without a code edit.
-                  const isAdmin = libraryCode.trim() === "9822"
-                    || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com";
-                  if (isAdmin) {
-                    try {
-                      const promoted = await pushFeaturedDemo({
-                        data: {
-                          adminCode: "9822",
-                          slug: share_slug,
-                          title: current.title || `Demo · ${share_slug}`,
-                          category: classifyDemoCategory(current.title, current.messages.find((m) => m.role === "user")?.content),
-                          url: liveUrl,
-                        },
-                      });
-                      if ("ok" in promoted && promoted.ok) {
-                        setTerminal((t) => [...t, "  ★ Added to the public Demos gallery."]);
-                      }
-                    } catch { /* non-fatal */ }
-                  }
+                  // Note: Go Live only publishes the shareable link. To feature
+                  // this build on the public login-page gallery, use the
+                  // separate "Push to Demos" button (admin only).
+
 
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : "publish failed";
@@ -2178,78 +2212,120 @@ function Index() {
             >
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
-            {(libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (
-              <button
-                type="button"
-                className={"obs-chip " + (pushedDemoIds.has(current.id) ? "is-live-demo" : "obs-chip-gold")}
-                disabled={!current.html}
-                onClick={async () => {
-                  if (!current.html) return;
-                  setTerminal((t) => [...t, "→ Pushing to public Demos gallery…"]);
+            {(libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (() => {
+              const existing = demoBySession[current.id];
+              const isLive = pushedDemoIds.has(current.id) || !!existing;
+              const doPublishAndPromote = async (label: string) => {
+                let clientId = localStorage.getItem("obs.client_id");
+                if (!clientId) {
+                  clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+                  localStorage.setItem("obs.client_id", clientId);
+                }
+                const res = await authFetch("/api/public/builds", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    title: current.title,
+                    prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
+                    html: current.html,
+                    model: current.model,
+                    session_id: current.id,
+                    client_id: clientId,
+                    library_code: "9822",
+                  }),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                const { share_slug } = (await res.json()) as { share_slug: string };
+                const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
+                const promoted = await pushFeaturedDemo({
+                  data: {
+                    adminCode: "9822",
+                    slug: share_slug,
+                    title: current.title || `Demo · ${share_slug}`,
+                    category: classifyDemoCategory(current.title, current.messages.find((m) => m.role === "user")?.content),
+                    url: liveUrl,
+                  },
+                });
+                if (!("ok" in promoted) || !promoted.ok) {
+                  throw new Error("error" in promoted ? promoted.error : "promote failed");
+                }
+                // If a previous demo exists for this session, remove it so the
+                // gallery shows the fresh build instead of duplicating.
+                if (existing && existing.demoId !== promoted.id) {
                   try {
-                    let clientId = localStorage.getItem("obs.client_id");
-                    if (!clientId) {
-                      clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
-                      localStorage.setItem("obs.client_id", clientId);
-                    }
-                    const res = await authFetch("/api/public/builds", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        title: current.title,
-                        prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
-                        html: current.html,
-                        model: current.model,
-                        session_id: current.id,
-                        client_id: clientId,
-                        library_code: "9822",
-                      }),
-                    });
-                    if (!res.ok) throw new Error(await res.text());
-                    const { share_slug } = (await res.json()) as { share_slug: string };
-                    const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
-                    const promoted = await pushFeaturedDemo({
-                      data: {
-                        adminCode: "9822",
-                        slug: share_slug,
-                        title: current.title || `Demo · ${share_slug}`,
-                        category: classifyDemoCategory(current.title, current.messages.find((m) => m.role === "user")?.content),
-                        url: liveUrl,
-                      },
-                    });
-                    if ("ok" in promoted && promoted.ok) {
-                      try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
-                      setTerminal((t) => [
-                        ...t,
-                        `★ Live on Demos: ${liveUrl}`,
-                        "  (Now visible on the login page gallery — URL copied)",
-                      ]);
-                      setPushedDemoIds((prev) => {
-                        const next = new Set(prev);
-                        next.add(current.id);
-                        return next;
-                      });
-                      refreshLibrary();
+                    await deleteFeaturedDemo({ data: { adminCode: "9822", id: existing.demoId } });
+                  } catch { /* non-fatal */ }
+                }
+                setDemoBySession((prev) => ({ ...prev, [current.id]: { demoId: promoted.id, slug: promoted.slug } }));
+                setPushedDemoIds((prev) => { const n = new Set(prev); n.add(current.id); return n; });
+                try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
+                setTerminal((t) => [...t, `${label}: ${liveUrl}`]);
+                refreshLibrary();
+              };
+              const handlePush = async () => {
+                if (!current.html) return;
+                if (isLive && existing) {
+                  // Second click when already live → REMOVE from public gallery.
+                  setTerminal((t) => [...t, "→ Removing from public Demos gallery…"]);
+                  try {
+                    const del = await deleteFeaturedDemo({ data: { adminCode: "9822", id: existing.demoId } });
+                    if ("ok" in del && del.ok) {
+                      setDemoBySession((prev) => { const n = { ...prev }; delete n[current.id]; return n; });
+                      setPushedDemoIds((prev) => { const n = new Set(prev); n.delete(current.id); return n; });
+                      setTerminal((t) => [...t, "✓ Removed from Demos."]);
                     } else {
-                      const err = "error" in promoted ? promoted.error : "unknown";
-                      setTerminal((t) => [...t, `✗ Promote failed: ${err}`]);
+                      setTerminal((t) => [...t, `✗ Remove failed: ${"error" in del ? del.error : "unknown"}`]);
                     }
                   } catch (e) {
-                    const msg = e instanceof Error ? e.message : "push failed";
-                    setTerminal((t) => [...t, `✗ Push to Demos failed: ${msg}`]);
+                    setTerminal((t) => [...t, `✗ Remove failed: ${e instanceof Error ? e.message : "err"}`]);
                   }
-                }}
-                title={pushedDemoIds.has(current.id)
-                  ? "Live on the login page Demos gallery — click to push again"
-                  : "Publish this build and post it on the login page Demos gallery"}
-              >
-                {pushedDemoIds.has(current.id) ? (
-                  <><Check className="h-3.5 w-3.5" /> Live on Demos</>
-                ) : (
-                  <><Rocket className="h-3.5 w-3.5" /> Push to Demos</>
-                )}
-              </button>
-            )}
+                  return;
+                }
+                setTerminal((t) => [...t, "→ Pushing to public Demos gallery…"]);
+                try { await doPublishAndPromote("★ Live on Demos"); }
+                catch (e) { setTerminal((t) => [...t, `✗ Push failed: ${e instanceof Error ? e.message : "err"}`]); }
+              };
+              const handleUpdate = async () => {
+                if (!current.html || !existing) return;
+                setTerminal((t) => [...t, "→ Updating Demo with the latest build…"]);
+                try { await doPublishAndPromote("↻ Demo updated"); }
+                catch (e) { setTerminal((t) => [...t, `✗ Update failed: ${e instanceof Error ? e.message : "err"}`]); }
+              };
+              const liveGreen = { background: "rgba(34,197,94,0.16)", borderColor: "rgba(34,197,94,0.55)", color: "#7ee2a4" } as const;
+              const offRed = { background: "rgba(239,68,68,0.14)", borderColor: "rgba(239,68,68,0.5)", color: "#ff9b9b" } as const;
+              return (
+                <>
+                  <button
+                    type="button"
+                    className="obs-chip"
+                    disabled={!current.html}
+                    onClick={handlePush}
+                    style={isLive ? liveGreen : offRed}
+                    title={isLive
+                      ? "On the login page Demos gallery — click to REMOVE"
+                      : "Publish and add this build to the login page Demos gallery"}
+                  >
+                    {isLive ? (
+                      <><Check className="h-3.5 w-3.5" /> Live on Demos</>
+                    ) : (
+                      <><Rocket className="h-3.5 w-3.5" /> Push to Demos</>
+                    )}
+                  </button>
+                  {isLive && (
+                    <button
+                      type="button"
+                      className="obs-chip"
+                      disabled={!current.html}
+                      onClick={handleUpdate}
+                      title="Replace the currently-featured demo with the latest version of this build"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Update Demo
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+
 
             <button
               type="button"
@@ -2795,7 +2871,7 @@ function Index() {
                             <button
                               type="button"
                               className="obs-suggestion obs-idea-in"
-                              onClick={() => (input.trim() ? appendAddon(a) : submit(a.snippet))}
+                              onClick={() => appendAddon(a)}
                               disabled={loading}
                               title={a.snippet}
                             >
@@ -2803,6 +2879,25 @@ function Index() {
                             </button>
                             {isStarters && (
                               <>
+                                <button
+                                  type="button"
+                                  onClick={() => expandIdea(a)}
+                                  disabled={expandingIdeaId !== null}
+                                  title="Expand: keep growing this idea into a fuller prompt"
+                                  aria-label={`Expand ${a.label}`}
+                                  style={{
+                                    background: "transparent",
+                                    border: 0,
+                                    cursor: expandingIdeaId ? "wait" : "pointer",
+                                    padding: 2,
+                                    opacity: expandingIdeaId === a.id ? 1 : 0.6,
+                                    color: "var(--obs-gold, #F4A125)",
+                                  }}
+                                >
+                                  {expandingIdeaId === a.id
+                                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                                    : <Sparkles className="h-3 w-3" />}
+                                </button>
                                 <button
                                   type="button"
                                   onClick={() => toggleSave(a)}
