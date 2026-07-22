@@ -2866,7 +2866,7 @@ function Index() {
                               <button
                                 type="button"
                                 className="obs-suggestion obs-idea-in"
-                                onClick={() => submit(a.snippet)}
+                                onClick={() => appendAddon(a)}
                                 disabled={loading}
                                 title={a.snippet}
                                 style={{ borderColor: "rgba(244,161,37,0.35)" }}
