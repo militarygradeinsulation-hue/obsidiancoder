@@ -587,37 +587,39 @@ function Unlock() {
           <div id="demos-grid" className="demos-grid">
             {Array.from(
               new Map(
-                [...featuredDemos, ...DEMOS]
-                  .filter((d) => demoCategory === "All" || d.category === demoCategory)
-                  .map((d) => {
-                    const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
-                    return [demoUrl, { ...d, demoUrl }] as const;
-                  })
+                [...featuredDemos, ...DEMOS].map((d) => {
+                  const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
+                  return [demoUrl, { ...d, demoUrl }] as const;
+                })
               ).values()
-            ).map(({ slug, title, demoUrl, category }) => (
-              <a
-                key={slug}
-                href={demoUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="demo-card"
-              >
-                <div className="demo-frame" aria-hidden>
-                  <iframe
-                    src={demoUrl}
-                    title={title}
-                    loading="lazy"
-                    sandbox=""
-                    tabIndex={-1}
-                  />
-                  <div className="demo-scrim" />
-                </div>
-                <div className="demo-meta">
-                  <span className="demo-name">{title}</span>
-                  <span className="demo-open">{category} ↗</span>
-                </div>
-              </a>
-            ))}
+            ).map(({ slug, title, demoUrl, category }) => {
+              const hidden = demoCategory !== "All" && category !== demoCategory;
+              return (
+                <a
+                  key={slug}
+                  href={demoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="demo-card"
+                  data-hidden={hidden ? "true" : undefined}
+                >
+                  <div className="demo-frame" aria-hidden>
+                    <iframe
+                      src={demoUrl}
+                      title={title}
+                      loading="lazy"
+                      sandbox=""
+                      tabIndex={-1}
+                    />
+                    <div className="demo-scrim" />
+                  </div>
+                  <div className="demo-meta">
+                    <span className="demo-name">{title}</span>
+                    <span className="demo-open">{category} ↗</span>
+                  </div>
+                </a>
+              );
+            })}
           </div>
         )}
       </section>
@@ -1159,7 +1161,10 @@ const unlockCss = `
 .demos-grid {
   display: grid; gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  overflow-anchor: auto;
 }
+.demo-card[data-hidden="true"] { display: none; }
+
 .demo-card {
   position: relative; display: block; text-decoration: none;
   background: rgba(8,8,10,0.7);
