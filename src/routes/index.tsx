@@ -1967,7 +1967,18 @@ function Index() {
   const specTax = versionCount > 0 ? Math.max(0, Math.round(((userTurns - versionCount) / Math.max(1, userTurns)) * 100)) : 0;
 
   return (
-    <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "")}>
+    <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "") + (isMobile ? ` is-mobile mob-tab-${mobileTab}` : "")}>
+      {isMobile && mobileTab === "preview" && current.html && (
+        <button
+          type="button"
+          className="mob-fab"
+          aria-label="Ask Obsidian"
+          onClick={() => setMobileTab("chat")}
+        >
+          <Bot className="h-5 w-5" />
+          <span>Ask Obsidian</span>
+        </button>
+      )}
       {/* IntroSplash now mounted in src/routes/__root.tsx so it runs for every route */}
 
 
