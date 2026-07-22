@@ -50,6 +50,13 @@ function DemosAdmin() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState<WaitlistStats | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "rows" | "grid" | "table">(() => {
+    if (typeof window === "undefined") return "cards";
+    const v = localStorage.getItem("obs.demos.viewMode");
+    return (v === "rows" || v === "grid" || v === "table" || v === "cards") ? v : "cards";
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  useEffect(() => { if (typeof window !== "undefined") localStorage.setItem("obs.demos.viewMode", viewMode); }, [viewMode]);
 
   function toggleSelect(id: string) {
     setSelected((cur) => {
@@ -289,7 +296,24 @@ function DemosAdmin() {
       <div style={{ display: "grid", gap: 12, padding: "16px 28px 40px" }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
           <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: "8px 0 0", color: "#F4A125", fontSize: 20 }}>Demos</h2>
-          <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <div style={{ display: "inline-flex", border: "1px solid #22262d", borderRadius: 6, overflow: "hidden" }}>
+              {(["rows", "table", "grid", "cards"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setViewMode(m)}
+                  style={{
+                    background: viewMode === m ? "#F4A125" : "transparent",
+                    color: viewMode === m ? "#111317" : "#B6BCC8",
+                    border: 0, padding: "6px 10px", fontSize: 12, cursor: "pointer",
+                    textTransform: "capitalize", fontWeight: viewMode === m ? 600 : 400,
+                  }}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
             <span style={{ fontSize: 12, color: "#B6BCC8" }}>{selected.size} selected</span>
             <button type="button" onClick={selectAll} style={toolBtn}>Select all</button>
             <button type="button" onClick={clearSelection} disabled={selected.size === 0} style={{ ...toolBtn, opacity: selected.size === 0 ? 0.5 : 1 }}>Clear</button>
@@ -303,7 +327,105 @@ function DemosAdmin() {
             </button>
           </div>
         </div>
-        {(demos ?? []).map((d) => {
+
+        {viewMode === "rows" && (demos ?? []).map((d) => {
+          const url = d.url ?? `https://obsidianvibe.live/api/public/share/${d.slug}`;
+          const isSelected = selected.has(d.id);
+          const isEditing = editingId === d.id;
+          return (
+            <div key={d.id} style={{ background: isSelected ? "#1d2028" : "#171a20", border: `1px solid ${isSelected ? "#F4A125" : "#22262d"}`, borderRadius: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "28px 1fr auto", gap: 12, alignItems: "center", padding: "10px 14px" }}>
+                <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(d.id)} aria-label={`Select ${d.title}`} style={{ width: 18, height: 18, accentColor: "#F4A125", cursor: "pointer" }} />
+                <div style={{ display: "grid", gridTemplateColumns: "1.5fr 100px 1fr auto", gap: 12, alignItems: "center", minWidth: 0 }}>
+                  <div style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontWeight: 500 }}>{d.title}</div>
+                  <span style={{ fontSize: 11, color: "#F4A125", background: "rgba(244,161,37,0.1)", border: "1px solid rgba(244,161,37,0.3)", borderRadius: 4, padding: "2px 8px", textAlign: "center", justifySelf: "start" }}>{d.category}</span>
+                  <div style={{ fontSize: 11, color: "#B6BCC8", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.slug}</div>
+                  <span style={{ fontSize: 11, color: "#8a919b" }}>#{d.sort_order}</span>
+                </div>
+                <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+                  <a href={url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#F4A125", padding: "4px 8px" }}>Open ↗</a>
+                  <button type="button" onClick={() => setEditingId(isEditing ? null : d.id)} style={{ background: "transparent", color: "#F4A125", border: "1px solid rgba(244,161,37,0.35)", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>{isEditing ? "Close" : "Edit"}</button>
+                  <button type="button" onClick={() => onDelete(d)} aria-label={`Delete ${d.title}`} title="Delete" style={{ background: "transparent", color: "#ff8a8a", border: "1px solid #3a2226", width: 28, height: 28, borderRadius: 6, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+                </div>
+              </div>
+              {isEditing && (
+                <div style={{ borderTop: "1px solid #22262d", padding: 12, display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 10 }}>
+                  <div><label style={labelStyle}>Title</label><input defaultValue={d.title} onBlur={(e) => { const v = e.currentTarget.value.trim(); if (v && v !== d.title) saveField(d, { title: v }); }} style={inputStyle} /></div>
+                  <div><label style={labelStyle}>Category</label><select defaultValue={d.category} onChange={(e) => saveField(d, { category: e.currentTarget.value as Category })} style={inputStyle}>{CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}</select></div>
+                  <div><label style={labelStyle}>Slug</label><input defaultValue={d.slug} onBlur={(e) => { const v = e.currentTarget.value.trim(); if (v && v !== d.slug) saveField(d, { slug: v }); }} style={inputStyle} /></div>
+                  <div style={{ gridColumn: "1 / -1" }}><label style={labelStyle}>URL</label><input defaultValue={d.url ?? ""} onBlur={(e) => { const v = e.currentTarget.value.trim(); if (v !== (d.url ?? "")) saveField(d, { url: v }); }} style={inputStyle} /></div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+
+        {viewMode === "table" && (
+          <div style={{ overflowX: "auto", border: "1px solid #22262d", borderRadius: 10 }}>
+            <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+              <thead style={{ background: "#0b0d10", color: "#B6BCC8" }}>
+                <tr>
+                  <th style={thStyle}><input type="checkbox" checked={demos != null && demos.length > 0 && selected.size === demos.length} onChange={() => selected.size === (demos?.length ?? 0) ? clearSelection() : selectAll()} style={{ accentColor: "#F4A125" }} /></th>
+                  <th style={thStyle}>Title</th>
+                  <th style={thStyle}>Category</th>
+                  <th style={thStyle}>Slug</th>
+                  <th style={thStyle}>Order</th>
+                  <th style={thStyle}>Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(demos ?? []).map((d) => {
+                  const url = d.url ?? `https://obsidianvibe.live/api/public/share/${d.slug}`;
+                  const isSelected = selected.has(d.id);
+                  return (
+                    <tr key={d.id} style={{ borderTop: "1px solid #22262d", background: isSelected ? "#1d2028" : "transparent" }}>
+                      <td style={tdStyle}><input type="checkbox" checked={isSelected} onChange={() => toggleSelect(d.id)} style={{ accentColor: "#F4A125" }} /></td>
+                      <td style={tdStyle}>{d.title}</td>
+                      <td style={tdStyle}><span style={{ fontSize: 11, color: "#F4A125" }}>{d.category}</span></td>
+                      <td style={{ ...tdStyle, color: "#B6BCC8", fontSize: 12 }}>{d.slug}</td>
+                      <td style={{ ...tdStyle, color: "#8a919b" }}>#{d.sort_order}</td>
+                      <td style={tdStyle}>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <a href={url} target="_blank" rel="noreferrer" style={{ fontSize: 12, color: "#F4A125" }}>Open ↗</a>
+                          <button type="button" onClick={() => setEditingId(d.id === editingId ? null : d.id)} style={{ background: "transparent", color: "#F4A125", border: "1px solid rgba(244,161,37,0.35)", padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>Edit</button>
+                          <button type="button" onClick={() => onDelete(d)} aria-label="Delete" style={{ background: "transparent", color: "#ff8a8a", border: "1px solid #3a2226", width: 24, height: 24, borderRadius: 4, cursor: "pointer", fontSize: 13, lineHeight: 1 }}>×</button>
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        {viewMode === "grid" && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: 12 }}>
+            {(demos ?? []).map((d) => {
+              const url = d.url ?? `https://obsidianvibe.live/api/public/share/${d.slug}`;
+              const isSelected = selected.has(d.id);
+              return (
+                <div key={d.id} style={{ background: isSelected ? "#1d2028" : "#171a20", border: `1px solid ${isSelected ? "#F4A125" : "#22262d"}`, borderRadius: 10, overflow: "hidden", position: "relative" }}>
+                  <input type="checkbox" checked={isSelected} onChange={() => toggleSelect(d.id)} style={{ position: "absolute", top: 8, left: 8, zIndex: 2, width: 18, height: 18, accentColor: "#F4A125", cursor: "pointer" }} />
+                  <button type="button" onClick={() => onDelete(d)} aria-label="Delete" title="Delete" style={{ position: "absolute", top: 8, right: 8, zIndex: 2, background: "rgba(17,19,23,0.85)", color: "#ff8a8a", border: "1px solid #3a2226", width: 26, height: 26, borderRadius: 6, cursor: "pointer", fontSize: 14, lineHeight: 1 }}>×</button>
+                  <iframe src={url} title={d.title} sandbox="allow-scripts" style={{ width: "100%", height: 140, border: 0, background: "#0b0d10", pointerEvents: "none" }} loading="lazy" />
+                  <div style={{ padding: 10 }}>
+                    <div style={{ fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{d.title}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+                      <span style={{ fontSize: 10, color: "#F4A125", background: "rgba(244,161,37,0.1)", border: "1px solid rgba(244,161,37,0.3)", borderRadius: 4, padding: "1px 6px" }}>{d.category}</span>
+                      <div style={{ display: "flex", gap: 6 }}>
+                        <a href={url} target="_blank" rel="noreferrer" style={{ fontSize: 11, color: "#F4A125" }}>Open ↗</a>
+                        <button type="button" onClick={() => setEditingId(d.id === editingId ? null : d.id)} style={{ background: "transparent", color: "#F4A125", border: "1px solid rgba(244,161,37,0.35)", padding: "2px 8px", borderRadius: 4, cursor: "pointer", fontSize: 11 }}>Edit</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        {viewMode === "cards" && (demos ?? []).map((d) => {
           const url = d.url ?? `https://obsidianvibe.live/api/public/share/${d.slug}`;
           const isSaving = savingId === d.id;
           const isSelected = selected.has(d.id);
@@ -343,38 +465,22 @@ function DemosAdmin() {
                 loading="lazy"
               />
               <div style={{ display: "grid", gap: 8, alignContent: "start" }}>
-                <label style={{ fontSize: 11, color: "#B6BCC8" }}>Title</label>
-                <input
-                  defaultValue={d.title}
-                  onBlur={(e) => { const v = e.currentTarget.value.trim(); if (v && v !== d.title) saveField(d, { title: v }); }}
-                  style={inputStyle}
-                />
+                <label style={labelStyle}>Title</label>
+                <input defaultValue={d.title} onBlur={(e) => { const v = e.currentTarget.value.trim(); if (v && v !== d.title) saveField(d, { title: v }); }} style={inputStyle} />
                 <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
                   <div>
-                    <label style={{ fontSize: 11, color: "#B6BCC8" }}>Category</label>
-                    <select
-                      defaultValue={d.category}
-                      onChange={(e) => saveField(d, { category: e.currentTarget.value as Category })}
-                      style={inputStyle}
-                    >
+                    <label style={labelStyle}>Category</label>
+                    <select defaultValue={d.category} onChange={(e) => saveField(d, { category: e.currentTarget.value as Category })} style={inputStyle}>
                       {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label style={{ fontSize: 11, color: "#B6BCC8" }}>Slug</label>
-                    <input
-                      defaultValue={d.slug}
-                      onBlur={(e) => { const v = e.currentTarget.value.trim(); if (v && v !== d.slug) saveField(d, { slug: v }); }}
-                      style={inputStyle}
-                    />
+                    <label style={labelStyle}>Slug</label>
+                    <input defaultValue={d.slug} onBlur={(e) => { const v = e.currentTarget.value.trim(); if (v && v !== d.slug) saveField(d, { slug: v }); }} style={inputStyle} />
                   </div>
                 </div>
-                <label style={{ fontSize: 11, color: "#B6BCC8" }}>URL</label>
-                <input
-                  defaultValue={d.url ?? ""}
-                  onBlur={(e) => { const v = e.currentTarget.value.trim(); if (v !== (d.url ?? "")) saveField(d, { url: v }); }}
-                  style={inputStyle}
-                />
+                <label style={labelStyle}>URL</label>
+                <input defaultValue={d.url ?? ""} onBlur={(e) => { const v = e.currentTarget.value.trim(); if (v !== (d.url ?? "")) saveField(d, { url: v }); }} style={inputStyle} />
               </div>
               <div style={{ display: "flex", flexDirection: "column", gap: 8, justifyContent: "space-between", alignItems: "flex-end" }}>
                 <span style={{ fontSize: 11, color: "#8a919b" }}>#{d.sort_order}</span>
@@ -395,6 +501,10 @@ function DemosAdmin() {
     </div>
   );
 }
+
+const labelStyle: React.CSSProperties = { fontSize: 11, color: "#B6BCC8" };
+const thStyle: React.CSSProperties = { textAlign: "left", padding: "10px 12px", fontSize: 11, textTransform: "uppercase", letterSpacing: 0.5, fontWeight: 500 };
+const tdStyle: React.CSSProperties = { padding: "10px 12px" };
 
 const inputStyle: React.CSSProperties = {
   width: "100%",
