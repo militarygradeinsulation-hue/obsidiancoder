@@ -150,11 +150,24 @@ function Unlock() {
     let mounted = true;
     supabase.auth.getSession().then(({ data }) => {
       if (!mounted) return;
-      setSession(data.session ? { userId: data.session.user.id, email: data.session.user.email ?? null } : null);
+      setSession((prev) => {
+        const next = data.session
+          ? { userId: data.session.user.id, email: data.session.user.email ?? null }
+          : null;
+        if (prev?.userId === next?.userId && prev?.email === next?.email) return prev;
+        return next;
+      });
       setSessionLoading(false);
     });
     const { data: sub } = supabase.auth.onAuthStateChange((_evt, s) => {
-      setSession(s ? { userId: s.user.id, email: s.user.email ?? null } : null);
+      setSession((prev) => {
+        const next = s ? { userId: s.user.id, email: s.user.email ?? null } : null;
+        // Avoid triggering downstream effects on TOKEN_REFRESHED / repeated INITIAL_SESSION
+        // events that carry the same user — those otherwise re-run the Pro-unlock effect
+        // and can navigate the page mid-scroll, causing a visible scroll reset.
+        if (prev?.userId === next?.userId && prev?.email === next?.email) return prev;
+        return next;
+      });
     });
     return () => { mounted = false; sub.subscription.unsubscribe(); };
   }, []);
@@ -175,7 +188,8 @@ function Unlock() {
       } catch { /* not pro or transport error — stay on page */ }
     })();
     return () => { cancelled = true; };
-  }, [session, proUnlock, router]);
+  }, [session?.userId, proUnlock, router]);
+
 
   async function onCodeSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
