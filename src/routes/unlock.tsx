@@ -1161,7 +1161,10 @@ const unlockCss = `
 .demos-grid {
   display: grid; gap: 16px;
   grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  overflow-anchor: auto;
 }
+.demo-card[data-hidden="true"] { display: none; }
+
 .demo-card {
   position: relative; display: block; text-decoration: none;
   background: rgba(8,8,10,0.7);
