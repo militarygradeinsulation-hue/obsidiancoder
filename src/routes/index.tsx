@@ -625,8 +625,18 @@ function Index() {
       if (!base) return a.snippet;
       return base.endsWith(".") ? `${base} ${a.snippet}` : `${base}. ${a.snippet}`;
     });
-    requestAnimationFrame(() => composerRef.current?.focus());
+    // On mobile the composer lives in the Chat tab — bring the user there so
+    // they immediately see the idea land in the prompt box.
+    if (isMobile && mobileTab !== "chat") setMobileTab("chat");
+    requestAnimationFrame(() => {
+      const el = composerRef.current;
+      if (el) {
+        el.focus();
+        try { el.scrollIntoView({ block: "center", behavior: "smooth" }); } catch { /* ignore */ }
+      }
+    });
   }
+
   const [expandingIdeaId, setExpandingIdeaId] = useState<string | null>(null);
   // "Expand idea": iteratively asks the AI for the next best addon based on
   // the current draft and appends it. Runs a few rounds so one click grows
