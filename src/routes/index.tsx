@@ -269,6 +269,28 @@ function Index() {
   const anticipateNextIdeasFn = useServerFn(anticipateNextIdeas);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
+  const isMobile = useIsMobile();
+  type MobTab = "chat" | "preview" | "files" | "build" | "more";
+  const [mobileTab, setMobileTabState] = useState<MobTab>("preview");
+  // Persist mobile tab per session/project so switching within a project keeps it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const raw = window.sessionStorage.getItem(`obs.mobileTab.${activeId}`);
+      if (raw === "chat" || raw === "preview" || raw === "files" || raw === "build" || raw === "more") {
+        setMobileTabState(raw);
+      } else {
+        setMobileTabState("preview");
+      }
+    } catch { /* ignore */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
+  const setMobileTab = (t: MobTab) => {
+    setMobileTabState(t);
+    try { window.sessionStorage.setItem(`obs.mobileTab.${activeId}`, t); } catch { /* ignore */ }
+    if (t === "files") setTab("code");
+    if (t === "preview") setTab("preview");
+  };
   const [loading, setLoading] = useState(false);
   // Per-session build indicator: tab strip shows a spinner when its build is
   // still in flight even if the user has switched to another tab.
