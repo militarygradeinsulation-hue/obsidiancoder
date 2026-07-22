@@ -17,7 +17,7 @@ export type PlanTierId =
 export interface PlanTier {
   id: PlanTierId;
   name: string;
-  price: string;            // display price, e.g. "$29"
+  price: string;            // display price (founding if applicable), e.g. "$19"
   cadence: string;          // "/month" or "Custom"
   headline: string;         // one-line outcome positioning
   bestFor: string;          // who it's for
@@ -26,6 +26,10 @@ export interface PlanTier {
   priceId?: string;         // Stripe lookup key when live
   cta: "checkout" | "waitlist" | "contact";
   icon: LucideIcon;
+  /** Original/future price shown struck through when founding pricing is active. */
+  originalPrice?: string;
+  /** When true, surface the Founding Member Pricing label (first 100, locked for life). */
+  founding?: boolean;
 }
 
 export const PLAN_TIERS: PlanTier[] = [
