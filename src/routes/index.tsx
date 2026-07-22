@@ -1,5 +1,6 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useMemo, useRef, useState, useEffect } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Send, Eye, Code2, Loader2, Home, FolderOpen, FileText, Files, Code,
   Layers, Bot, CheckSquare, Database, Sparkles, TerminalSquare,
