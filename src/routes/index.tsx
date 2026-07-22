@@ -2175,78 +2175,120 @@ function Index() {
             >
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
-            {(libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (
-              <button
-                type="button"
-                className={"obs-chip " + (pushedDemoIds.has(current.id) ? "is-live-demo" : "obs-chip-gold")}
-                disabled={!current.html}
-                onClick={async () => {
-                  if (!current.html) return;
-                  setTerminal((t) => [...t, "→ Pushing to public Demos gallery…"]);
+            {(libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (() => {
+              const existing = demoBySession[current.id];
+              const isLive = pushedDemoIds.has(current.id) || !!existing;
+              const doPublishAndPromote = async (label: string) => {
+                let clientId = localStorage.getItem("obs.client_id");
+                if (!clientId) {
+                  clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+                  localStorage.setItem("obs.client_id", clientId);
+                }
+                const res = await authFetch("/api/public/builds", {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    title: current.title,
+                    prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
+                    html: current.html,
+                    model: current.model,
+                    session_id: current.id,
+                    client_id: clientId,
+                    library_code: "9822",
+                  }),
+                });
+                if (!res.ok) throw new Error(await res.text());
+                const { share_slug } = (await res.json()) as { share_slug: string };
+                const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
+                const promoted = await pushFeaturedDemo({
+                  data: {
+                    adminCode: "9822",
+                    slug: share_slug,
+                    title: current.title || `Demo · ${share_slug}`,
+                    category: classifyDemoCategory(current.title, current.messages.find((m) => m.role === "user")?.content),
+                    url: liveUrl,
+                  },
+                });
+                if (!("ok" in promoted) || !promoted.ok) {
+                  throw new Error("error" in promoted ? promoted.error : "promote failed");
+                }
+                // If a previous demo exists for this session, remove it so the
+                // gallery shows the fresh build instead of duplicating.
+                if (existing && existing.demoId !== promoted.id) {
                   try {
-                    let clientId = localStorage.getItem("obs.client_id");
-                    if (!clientId) {
-                      clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
-                      localStorage.setItem("obs.client_id", clientId);
-                    }
-                    const res = await authFetch("/api/public/builds", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        title: current.title,
-                        prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
-                        html: current.html,
-                        model: current.model,
-                        session_id: current.id,
-                        client_id: clientId,
-                        library_code: "9822",
-                      }),
-                    });
-                    if (!res.ok) throw new Error(await res.text());
-                    const { share_slug } = (await res.json()) as { share_slug: string };
-                    const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
-                    const promoted = await pushFeaturedDemo({
-                      data: {
-                        adminCode: "9822",
-                        slug: share_slug,
-                        title: current.title || `Demo · ${share_slug}`,
-                        category: classifyDemoCategory(current.title, current.messages.find((m) => m.role === "user")?.content),
-                        url: liveUrl,
-                      },
-                    });
-                    if ("ok" in promoted && promoted.ok) {
-                      try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
-                      setTerminal((t) => [
-                        ...t,
-                        `★ Live on Demos: ${liveUrl}`,
-                        "  (Now visible on the login page gallery — URL copied)",
-                      ]);
-                      setPushedDemoIds((prev) => {
-                        const next = new Set(prev);
-                        next.add(current.id);
-                        return next;
-                      });
-                      refreshLibrary();
+                    await deleteFeaturedDemo({ data: { adminCode: "9822", id: existing.demoId } });
+                  } catch { /* non-fatal */ }
+                }
+                setDemoBySession((prev) => ({ ...prev, [current.id]: { demoId: promoted.id, slug: promoted.slug } }));
+                setPushedDemoIds((prev) => { const n = new Set(prev); n.add(current.id); return n; });
+                try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
+                setTerminal((t) => [...t, `${label}: ${liveUrl}`]);
+                refreshLibrary();
+              };
+              const handlePush = async () => {
+                if (!current.html) return;
+                if (isLive && existing) {
+                  // Second click when already live → REMOVE from public gallery.
+                  setTerminal((t) => [...t, "→ Removing from public Demos gallery…"]);
+                  try {
+                    const del = await deleteFeaturedDemo({ data: { adminCode: "9822", id: existing.demoId } });
+                    if ("ok" in del && del.ok) {
+                      setDemoBySession((prev) => { const n = { ...prev }; delete n[current.id]; return n; });
+                      setPushedDemoIds((prev) => { const n = new Set(prev); n.delete(current.id); return n; });
+                      setTerminal((t) => [...t, "✓ Removed from Demos."]);
                     } else {
-                      const err = "error" in promoted ? promoted.error : "unknown";
-                      setTerminal((t) => [...t, `✗ Promote failed: ${err}`]);
+                      setTerminal((t) => [...t, `✗ Remove failed: ${"error" in del ? del.error : "unknown"}`]);
                     }
                   } catch (e) {
-                    const msg = e instanceof Error ? e.message : "push failed";
-                    setTerminal((t) => [...t, `✗ Push to Demos failed: ${msg}`]);
+                    setTerminal((t) => [...t, `✗ Remove failed: ${e instanceof Error ? e.message : "err"}`]);
                   }
-                }}
-                title={pushedDemoIds.has(current.id)
-                  ? "Live on the login page Demos gallery — click to push again"
-                  : "Publish this build and post it on the login page Demos gallery"}
-              >
-                {pushedDemoIds.has(current.id) ? (
-                  <><Check className="h-3.5 w-3.5" /> Live on Demos</>
-                ) : (
-                  <><Rocket className="h-3.5 w-3.5" /> Push to Demos</>
-                )}
-              </button>
-            )}
+                  return;
+                }
+                setTerminal((t) => [...t, "→ Pushing to public Demos gallery…"]);
+                try { await doPublishAndPromote("★ Live on Demos"); }
+                catch (e) { setTerminal((t) => [...t, `✗ Push failed: ${e instanceof Error ? e.message : "err"}`]); }
+              };
+              const handleUpdate = async () => {
+                if (!current.html || !existing) return;
+                setTerminal((t) => [...t, "→ Updating Demo with the latest build…"]);
+                try { await doPublishAndPromote("↻ Demo updated"); }
+                catch (e) { setTerminal((t) => [...t, `✗ Update failed: ${e instanceof Error ? e.message : "err"}`]); }
+              };
+              const liveGreen = { background: "rgba(34,197,94,0.16)", borderColor: "rgba(34,197,94,0.55)", color: "#7ee2a4" } as const;
+              const offRed = { background: "rgba(239,68,68,0.14)", borderColor: "rgba(239,68,68,0.5)", color: "#ff9b9b" } as const;
+              return (
+                <>
+                  <button
+                    type="button"
+                    className="obs-chip"
+                    disabled={!current.html}
+                    onClick={handlePush}
+                    style={isLive ? liveGreen : offRed}
+                    title={isLive
+                      ? "On the login page Demos gallery — click to REMOVE"
+                      : "Publish and add this build to the login page Demos gallery"}
+                  >
+                    {isLive ? (
+                      <><Check className="h-3.5 w-3.5" /> Live on Demos</>
+                    ) : (
+                      <><Rocket className="h-3.5 w-3.5" /> Push to Demos</>
+                    )}
+                  </button>
+                  {isLive && (
+                    <button
+                      type="button"
+                      className="obs-chip"
+                      disabled={!current.html}
+                      onClick={handleUpdate}
+                      title="Replace the currently-featured demo with the latest version of this build"
+                    >
+                      <RefreshCw className="h-3.5 w-3.5" /> Update Demo
+                    </button>
+                  )}
+                </>
+              );
+            })()}
+
 
             <button
               type="button"
