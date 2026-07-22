@@ -2161,27 +2161,10 @@ function Index() {
                   window.open(liveUrl, "_blank", "noopener,noreferrer");
                   setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
                   if (libraryCode.trim()) refreshLibrary();
-                  // Admin auto-promote: library code "9822" OR signed in as
-                  // the admin email pushes the fresh share into the /unlock
-                  // public gallery without a code edit.
-                  const isAdmin = libraryCode.trim() === "9822"
-                    || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com";
-                  if (isAdmin) {
-                    try {
-                      const promoted = await pushFeaturedDemo({
-                        data: {
-                          adminCode: "9822",
-                          slug: share_slug,
-                          title: current.title || `Demo · ${share_slug}`,
-                          category: classifyDemoCategory(current.title, current.messages.find((m) => m.role === "user")?.content),
-                          url: liveUrl,
-                        },
-                      });
-                      if ("ok" in promoted && promoted.ok) {
-                        setTerminal((t) => [...t, "  ★ Added to the public Demos gallery."]);
-                      }
-                    } catch { /* non-fatal */ }
-                  }
+                  // Note: Go Live only publishes the shareable link. To feature
+                  // this build on the public login-page gallery, use the
+                  // separate "Push to Demos" button (admin only).
+
 
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : "publish failed";
