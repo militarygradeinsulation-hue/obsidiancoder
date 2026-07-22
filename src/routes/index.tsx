@@ -2881,6 +2881,25 @@ function Index() {
                               <>
                                 <button
                                   type="button"
+                                  onClick={() => expandIdea(a)}
+                                  disabled={expandingIdeaId !== null}
+                                  title="Expand: keep growing this idea into a fuller prompt"
+                                  aria-label={`Expand ${a.label}`}
+                                  style={{
+                                    background: "transparent",
+                                    border: 0,
+                                    cursor: expandingIdeaId ? "wait" : "pointer",
+                                    padding: 2,
+                                    opacity: expandingIdeaId === a.id ? 1 : 0.6,
+                                    color: "var(--obs-gold, #F4A125)",
+                                  }}
+                                >
+                                  {expandingIdeaId === a.id
+                                    ? <Loader2 className="h-3 w-3 animate-spin" />
+                                    : <Sparkles className="h-3 w-3" />}
+                                </button>
+                                <button
+                                  type="button"
                                   onClick={() => toggleSave(a)}
                                   title={isSaved ? "Remove from saved" : "Save this idea"}
                                   aria-label={isSaved ? `Unsave ${a.label}` : `Save ${a.label}`}
