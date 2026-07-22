@@ -604,6 +604,43 @@ function Index() {
     });
     requestAnimationFrame(() => composerRef.current?.focus());
   }
+  const [expandingIdeaId, setExpandingIdeaId] = useState<string | null>(null);
+  // "Expand idea": iteratively asks the AI for the next best addon based on
+  // the current draft and appends it. Runs a few rounds so one click grows
+  // the prompt into a fuller brief without further clicks.
+  async function expandIdea(seed: Addon) {
+    if (expandingIdeaId) return;
+    setExpandingIdeaId(seed.id);
+    try {
+      // Seed the composer with the idea if empty; otherwise keep user's text.
+      setInput((prev) => {
+        const base = prev.trim();
+        if (!base) return seed.snippet;
+        return base.endsWith(".") ? `${base} ${seed.snippet}` : `${base}. ${seed.snippet}`;
+      });
+      await new Promise((r) => setTimeout(r, 30));
+      for (let round = 0; round < 4; round++) {
+        const draft = (composerRef.current?.value ?? "").trim() || seed.snippet;
+        let res;
+        try {
+          res = await anticipateNextIdeasFn({ data: { draft, hasHtml: !!current.html, count: 2 } });
+        } catch { break; }
+        const next = res?.ideas?.[0];
+        if (!next?.snippet) break;
+        setInput((prev) => {
+          const base = prev.trim();
+          if (!base) return next.snippet;
+          if (base.toLowerCase().includes(next.snippet.slice(0, 24).toLowerCase())) return base;
+          return base.endsWith(".") ? `${base} ${next.snippet}` : `${base}. ${next.snippet}`;
+        });
+        await new Promise((r) => setTimeout(r, 40));
+      }
+    } finally {
+      setExpandingIdeaId(null);
+      requestAnimationFrame(() => composerRef.current?.focus());
+    }
+  }
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     try { window.sessionStorage.setItem("obs.library_code", libraryCode); } catch {}
