@@ -3134,6 +3134,16 @@ function Index() {
                 >
                   {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
                 </button>
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label="Expand idea"
+                  title="Expand idea — grow the current prompt with the next best addition (press again for more)"
+                  disabled={loading || expandingDraft || !input.trim()}
+                  onClick={expandDraft}
+                >
+                  {expandingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                </button>
                 <div
                   className="obs-composer-input-wrap"
                   style={{
