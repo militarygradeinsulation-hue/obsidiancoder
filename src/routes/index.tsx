@@ -3729,6 +3729,34 @@ function Index() {
           </div>
         </div>
       )}
+      {isMobile && (
+        <nav className="mob-bottom-nav" role="tablist" aria-label="Mobile workspace">
+          {([
+            { id: "chat", label: "Chat", Icon: Bot },
+            { id: "preview", label: "Preview", Icon: Eye },
+            { id: "files", label: "Files", Icon: Files },
+            { id: "build", label: "Build", Icon: Rocket },
+            { id: "more", label: "More", Icon: MoreHorizontal },
+          ] as const).map((t) => {
+            const Icon = t.Icon;
+            const isOn = mobileTab === t.id;
+            return (
+              <button
+                key={t.id}
+                type="button"
+                role="tab"
+                aria-selected={isOn}
+                aria-current={isOn ? "page" : undefined}
+                className={"mob-tab" + (isOn ? " is-on" : "")}
+                onClick={() => setMobileTab(t.id)}
+              >
+                <Icon className="h-5 w-5" strokeWidth={1.6} />
+                <span>{t.label}</span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
     </main>
 
   );
