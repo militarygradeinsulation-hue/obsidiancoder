@@ -2871,7 +2871,7 @@ function Index() {
                             <button
                               type="button"
                               className="obs-suggestion obs-idea-in"
-                              onClick={() => (input.trim() ? appendAddon(a) : submit(a.snippet))}
+                              onClick={() => appendAddon(a)}
                               disabled={loading}
                               title={a.snippet}
                             >
