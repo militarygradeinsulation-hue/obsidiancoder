@@ -50,6 +50,13 @@ function DemosAdmin() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState<WaitlistStats | null>(null);
+  const [viewMode, setViewMode] = useState<"cards" | "rows" | "grid" | "table">(() => {
+    if (typeof window === "undefined") return "cards";
+    const v = localStorage.getItem("obs.demos.viewMode");
+    return (v === "rows" || v === "grid" || v === "table" || v === "cards") ? v : "cards";
+  });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  useEffect(() => { if (typeof window !== "undefined") localStorage.setItem("obs.demos.viewMode", viewMode); }, [viewMode]);
 
   function toggleSelect(id: string) {
     setSelected((cur) => {
