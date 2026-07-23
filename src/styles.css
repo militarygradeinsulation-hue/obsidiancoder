@@ -2484,6 +2484,12 @@ body.is-resizing-composer * { user-select: none !important; }
   .obs-shell.is-mobile .obs-rail-toggle-btn,
   .obs-shell.is-mobile .obs-topbar-left > .obs-icon-btn:first-child { display: none; }
 
+  /* Keep the Simple/Full-view toggle reachable while in Simple view, even
+     though the rest of .obs-topbar-right is hidden. */
+  .obs-shell.is-mobile .obs-topbar-right { display: flex !important; gap: 6px; align-items: center; }
+  .obs-shell.is-mobile .obs-topbar-right > * { display: none !important; }
+  .obs-shell.is-mobile .obs-topbar-right > .obs-simple-toggle { display: inline-flex !important; }
+
   .obs-shell.is-mobile .obs-topbar {
     position: sticky; top: 0; z-index: 40;
     padding: 8px 12px; min-height: 52px;

@@ -2504,7 +2504,7 @@ function Index() {
             {!isMobileViewport && (
               <button
                 type="button"
-                className={"obs-chip" + (forceSimple ? " is-on" : "")}
+                className={"obs-chip obs-simple-toggle" + (forceSimple ? " is-on" : "")}
                 onClick={() => setForceSimple((v) => !v)}
                 title={forceSimple ? "Switch back to full desktop view" : "Switch to Simple view — a clean, minimal layout with just the essentials"}
                 aria-pressed={forceSimple}
