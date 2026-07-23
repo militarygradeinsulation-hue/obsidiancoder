@@ -42,7 +42,8 @@ export function routeModel(pick: string | undefined, c: Classification): { model
 }
 
 function tierFor(path: ExecutionPath, isFullGen: boolean): Tier {
-  if (path === "deterministic") return "economy";
-  if (path === "advanced-ai" || isFullGen) return "advanced";
-  return "balanced";
+  if (isFullGen) return "flagship";                // major rebuilds
+  if (path === "deterministic") return "economy";  // simple edits
+  if (path === "advanced-ai") return "advanced";   // complex logic / bug-fix / features
+  return "balanced";                                // normal UI/component work
 }
