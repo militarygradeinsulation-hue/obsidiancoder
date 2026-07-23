@@ -80,16 +80,18 @@ export const Route = createFileRoute("/api/public/builds")({
             crypto.getRandomValues(bytes);
             return Array.from(bytes, (b) => b.toString(36).padStart(2, "0")).join("").slice(0, 14);
           };
+          const { sanitizeForExport } = await import("@/lib/clean-export");
+          const cleanHtml = sanitizeForExport(body.html).slice(0, 6_000_000);
           const row = {
             title: (body.title || "Untitled").slice(0, 120),
             prompt: (body.prompt || "").slice(0, 8000),
-            html: body.html.slice(0, 6_000_000),
+            html: cleanHtml,
             model: body.model || null,
             session_id: body.session_id || null,
             client_id: body.client_id || null,
             library_code: libCode || null,
             share_slug: genSlug(),
-            byte_size: body.html.length,
+            byte_size: cleanHtml.length,
           };
           const admin = await sbAdmin();
           const { data, error } = await admin

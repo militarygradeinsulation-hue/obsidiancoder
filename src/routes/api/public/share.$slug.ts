@@ -16,7 +16,8 @@ export const Route = createFileRoute("/api/public/share/$slug")({
           .maybeSingle();
         if (error) return new Response(error.message, { status: 500 });
         if (!data) return new Response("Not found", { status: 404 });
-        return new Response((data as { html: string }).html, {
+        const { sanitizeForExport } = await import("@/lib/clean-export");
+        return new Response(sanitizeForExport((data as { html: string }).html), {
           headers: {
             "content-type": "text/html; charset=utf-8",
             "cache-control": "public, max-age=60",
