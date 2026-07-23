@@ -8,7 +8,7 @@ import {
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
   Trash2, Square, Wand2, GripVertical, Pin, Github, CreditCard, User as UserIcon,
-  Camera, Scissors, RefreshCw, GitMerge, Bookmark, BookmarkCheck,
+  Camera, Scissors, RefreshCw, GitMerge, Bookmark, BookmarkCheck, LogOut,
 } from "lucide-react";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { useServerFn } from "@tanstack/react-start";
