@@ -354,10 +354,15 @@ export const generateHtml = createServerFn({ method: "POST" })
     let mainErrorCode: string | undefined;
     try {
       const apiKey = process.env.LOVABLE_API_KEY;
-      if (!apiKey) {
+      const routellmKey = process.env.ROUTELLM_API_KEY;
+      const usingRouteLLM = isRouteLLMModel(data.model);
+      const activeKey = usingRouteLLM ? routellmKey : apiKey;
+      if (!activeKey) {
         await settleOperation(entitlement, { kind: "no_provider", errorCode: "ai_unauthorized" });
-        throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." });
+        throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: usingRouteLLM ? "RouteLLM (Abacus) key is not configured." : "AI is not configured." });
       }
+      // Image planning still runs through Lovable AI (cheap Flash Lite) when available.
+
 
       const plans = await planImages(apiKey, data.prompt, data.currentHtml, requestId);
       const generatedRaw = plans.length
