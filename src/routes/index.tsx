@@ -79,7 +79,7 @@ import { TemplatePanel, type Template } from "@/components/panels/TemplatePanel"
 import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/lib/runtime-bridge";
 import { EMPTY_COST, foldMetrics, recordRestore, type CostSnapshot } from "@/lib/cost-metrics";
 import { evaluateCommit, type CommitSource } from "@/lib/commit-gate";
-import { stripPreviewOnly } from "@/lib/clean-export";
+import { sanitizeForExport } from "@/lib/clean-export";
 import { FusionModal, type FusionCommit } from "@/components/FusionModal";
 import { migrateFromHtml, type Project } from "@/lib/project-model";
 import { record as recordFeedback, type FeedbackEvent } from "@/lib/failure-learning";
@@ -2256,7 +2256,7 @@ function Index() {
                     body: JSON.stringify({
                       title: current.title,
                       prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
-                      html: current.html,
+                      html: sanitizeForExport(current.html),
                       model: current.model,
                       session_id: current.id,
                       client_id: clientId,
@@ -2299,7 +2299,7 @@ function Index() {
                   body: JSON.stringify({
                     title: current.title,
                     prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
-                    html: current.html,
+                    html: sanitizeForExport(current.html),
                     model: current.model,
                     session_id: current.id,
                     client_id: clientId,
@@ -2480,7 +2480,7 @@ function Index() {
                     onClick={() => {
                       setOverflowOpen(false);
                       if (!current.html) return;
-                      const clean = stripPreviewOnly(current.html);
+                      const clean = sanitizeForExport(current.html);
                       const blob = new Blob([clean], { type: "text/html" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
