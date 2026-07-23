@@ -4,7 +4,7 @@
 import { DEFAULT_MODEL, MODEL_REGISTRY, resolveModel, type ModelId } from "./models";
 import type { Classification, ExecutionPath } from "./task-classifier";
 
-export type Tier = "economy" | "balanced" | "advanced";
+export type Tier = "economy" | "balanced" | "advanced" | "flagship";
 
 // Ordered preferences per tier — first available id wins.
 // Preferences map the Auto routing rules:
