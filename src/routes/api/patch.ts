@@ -242,8 +242,11 @@ export const Route = createFileRoute("/api/patch")({
             throw attempt.error;
           }
 
-          // ONE repair attempt on the cheap model.
-          modelUsed = CHEAP_REPAIR_MODEL;
+          // ONE repair attempt. Prefer the cheap Lovable model; if only
+          // RouteLLM is configured, repair on the same primary model instead.
+          const repairModel = lovableKey ? CHEAP_REPAIR_MODEL : data.model;
+          const repairKey = isRouteLLMModel(repairModel) ? routellmKey! : lovableKey!;
+          modelUsed = repairModel;
           const parseErr = attempt.ok ? "invalid patch schema" : attempt.error.message;
           const repairMessages = [
             { role: "system", content: SYSTEM_PROMPT },
@@ -251,7 +254,7 @@ export const Route = createFileRoute("/api/patch")({
             { role: "assistant", content: attempt.ok ? attempt.text.slice(0, 4000) : "(previous attempt failed to reach the gateway)" },
             { role: "user", content: `Your previous response was invalid: ${parseErr}. Return ONLY a valid JSON patch document matching the schema. No prose, no fences.` },
           ];
-          const repair = await callGateway(apiKey, CHEAP_REPAIR_MODEL, repairMessages, requestId, request.signal);
+          const repair = await callGateway(repairKey, repairModel, repairMessages, requestId, request.signal);
           if (repair.ok) collected.push(repair.usage);
 
           if (!repair.ok) {
