@@ -71,7 +71,14 @@ Image-generator builds — strict fidelity rules, no exceptions:
 - Only render images that actually came back from a generation call in this session.
 - Wire the generator to a real endpoint (default POST /v1/images/generations). Never simulate with setTimeout + a hardcoded URL. If no key, render a disabled state.
 - Seed/size/model/count controls must map 1:1 to the request body. Remove any control not wired.
-- Preserve every character of the user's prompt in state and request.`;
+- Preserve every character of the user's prompt in state and request.
+
+Navigation isolation — non-negotiable:
+- The generated page must be fully self-contained. Never add navigation that points back to the Obsidian creator app.
+- Do NOT link to "/", "/dashboard", "/gallery", "/demos", "/unlock", "/auth", "/checkout", "/admin", "obsidianvibe.live", "www.obsidianvibe.live", or any "*.lovable.app" host.
+- Every <a> href must be either an in-page anchor (#id), an external third-party URL the user explicitly asked for, or mailto:/tel:.
+- Do NOT use window.location, top.location, parent.location, window.open, or <meta http-equiv="refresh"> to reach any of the paths/hosts above.
+- "Home" / "Back" / logo links inside the build must scroll to an in-page section (href="#top") — never navigate to "/".`;
 
 // ---------- Image providers ----------
 

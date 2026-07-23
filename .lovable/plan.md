@@ -1,63 +1,54 @@
 
 ## Goal
-Below 768px, replace the 3-column desktop shell with a single-panel mobile workspace driven by a fixed bottom nav (Chat · Preview · Files · Build · More). Desktop/tablet (≥768px) render exactly as today. All data, handlers, API calls, and components are reused — the mobile layer is a wrapper, not a rewrite.
 
-## Architecture
+When Obsidian generates a build, no button, link, form, or script inside that build should ever navigate the viewer back into the Vibe Coder creator area (the app shell at `/`, `/dashboard`, `/gallery`, `/demos`, `/checkout*`, admin routes, or the obsidianvibe.live root). Admin/owner navigation inside the app stays as-is.
 
-**Single branch point in `src/routes/index.tsx`:**
-```
-const isMobile = useIsMobile();          // existing hook, 768px breakpoint
-return isMobile
-  ? <MobileWorkspace {...sharedProps} />
-  : <existing desktop shell, untouched />;
-```
+## What to change
 
-`sharedProps` are the exact refs, state setters, and handlers already computed in `index.tsx` (build state, sendMessage, iframe srcDoc, files, versions, deployment, credit bar, admin toggles). No duplication — the mobile shell only reads/dispatches through them, so a single conversation, single build session, and single iframe live at a time.
+### 1. `src/lib/clean-export.ts` — add link/button sanitizer
 
-## New files
+Extend the existing `stripPreviewOnly` pipeline with a new `stripCreatorLinks(html)` step that rewrites the generated HTML before it leaves the sandbox:
 
-1. `src/components/mobile/MobileWorkspace.tsx` — the shell.
-   - Local state: `activeTab: "chat" | "preview" | "files" | "build" | "more"`, default `"preview"`.
-   - Persisted per-project in `sessionStorage` (`obs.mobileTab.<projectId>`) so switching within a project preserves the tab.
-   - Renders `<MobileTopBar>`, the active panel (full-screen), and `<MobileBottomNav>`.
-   - Uses CSS `env(safe-area-inset-top/bottom)` and `100dvh` sizing.
-2. `src/components/mobile/MobileTopBar.tsx` — logo, project name, overflow menu.
-3. `src/components/mobile/MobileBottomNav.tsx` — 5 icon+label tabs, 56px tall + safe-area inset, `aria-current` on active.
-4. `src/components/mobile/tabs/ChatTab.tsx` — wraps existing composer + message list; sticky composer sits directly above the bottom nav with 44px targets.
-5. `src/components/mobile/tabs/PreviewTab.tsx` — wraps existing preview iframe full-width/full-height; header row has Refresh + Open-in-new-window; floating "Ask Obsidian" FAB switches `activeTab` to `chat`.
-6. `src/components/mobile/tabs/FilesTab.tsx` — two internal views: `list` (reuses `FileExplorerPanel`) and `editor` (reuses the existing single-file editor); `list → editor` on select, back arrow returns. Never side-by-side.
-7. `src/components/mobile/tabs/BuildTab.tsx` — status cards driven by existing build/deployment state: current stage, completed steps, errors, deploy status. Reuses existing Stop/Retry/Approve/Deploy handlers. "View Logs" is a secondary button opening the existing logs panel in a full-screen sheet.
-8. `src/components/mobile/tabs/MoreTab.tsx` — list rows linking to existing project settings, integrations, deployment history, usage/credit bar, account modal, plus an "Open Desktop Workspace" action (sets a `?desktop=1` flag that overrides `isMobile` for this session).
+- Rewrite `<a href="…">` where the target resolves to:
+  - `/`, `/index`, `/dashboard`, `/gallery`, `/demos`, `/unlock`, `/auth`, `/checkout*`, `/admin*`
+  - absolute URLs on `obsidianvibe.live`, `www.obsidianvibe.live`, `*.lovable.app`, or the current origin pointing at any of the above paths
+  - protocol-relative (`//…`) versions of the same
+  → replace `href` with `href="#"`, add `data-obsidian-blocked="1"`, strip `target`, and neutralize inner `onclick`.
+- Same rule for `<form action="…">` and `<button formaction="…">`.
+- Strip inline handlers whose value contains `location.assign|href|replace`, `window.open`, `top.location`, or `parent.location` when the target string matches the blocklist.
+- Remove `<meta http-equiv="refresh" content="…url=…">` when the url matches the blocklist.
+- Remove `<script>` blocks that contain `window.location`/`top.location`/`parent.location` assignments to a blocklisted target (regex-scoped, conservative — leave unrelated scripts alone).
+- Export `containsCreatorLinks(html)` for tests.
 
-## Styles
+Add a single public entry point `sanitizeForExport(html)` = `stripPreviewOnly` + `stripCreatorLinks`, and update the existing call sites (see step 3) to use it.
 
-Add a scoped section at the end of `src/styles.css`, wrapped in `@media (max-width: 767px)`:
-- `.mob-shell`, `.mob-topbar`, `.mob-view`, `.mob-bottom-nav`, `.mob-tab`, `.mob-fab`, `.mob-sheet`.
-- Inputs: `font-size: 16px` to prevent iOS zoom.
-- Buttons: min 44×44.
-- Body: `overflow-x: hidden`.
-- Modal override: `.obs-modal { inset: 0; border-radius: 0; }` so dialogs become full-screen sheets on mobile only.
-- No changes to any desktop selectors.
+### 2. `src/lib/aetheris.functions.ts` — teach the model not to emit them
 
-## `src/routes/__root.tsx`
-Verify viewport meta contains `viewport-fit=cover`; add if missing. This is the only change outside the mobile tree.
+Append a short rule to `SYSTEM_PROMPT`:
 
-## Behavior rules honored
-- Default tab = Preview on project open.
-- Selected tab persisted per project in the same session.
-- Desktop sidebars/rails/handles are simply not rendered on mobile (component isn't mounted), so no duplicate iframes/editors.
-- No routes, auth, billing, schemas, API contracts, or Stripe wiring change.
+> Never add navigation that points back to the Obsidian creator app. Do not link to `/`, `/dashboard`, `/gallery`, `/demos`, `/unlock`, `/auth`, `/checkout`, `/admin`, `obsidianvibe.live`, or any `*.lovable.app` host. Every `<a>` in the build must be either an in-page anchor (`#id`), an external third-party URL the user asked for, or a `mailto:` / `tel:` link. Do not use `window.location`, `top.location`, or `<meta refresh>` to reach those paths.
+
+This reduces how much the sanitizer has to catch after the fact.
+
+### 3. Apply `sanitizeForExport` at every exit boundary
+
+Sanitize the HTML the moment it leaves the creator surface — not just in the preview iframe:
+
+- `src/routes/index.tsx` — Go Live POST to `/api/public/builds` (line ~2259), the admin "Push to Demos" POST (~2300), Save Project payloads, local download/export, template payloads, and any version-history snapshot that can later be exported. Wrap `current.html` with `sanitizeForExport(...)` in each body.
+- `src/routes/api/public/builds.ts` (POST) and `src/routes/api/public/builds.$id.ts` (PUT) — sanitize server-side as a defense in depth so any client that bypasses the UI still can't inject creator links.
+- `src/routes/api/public/share.$slug.ts` — sanitize the stored HTML on read as well, so already-saved rows are cleaned without a migration.
+- `src/lib/featured-demos.functions.ts` — sanitize `html` on insert/update paths that write to `featured_demos`.
+
+No changes to in-app navigation (Back to Coder, Back to builder, dashboard nav, unlock → `/`). Those are creator-side UI for signed-in users and are out of scope per your answer.
 
 ## Verification
-- Manually resize to 320 / 375 / 390 / 430 px, confirm no horizontal scroll, bottom nav clears home indicator, composer clears keyboard, FAB visible.
-- Confirm ≥768px renders the untouched desktop shell.
-- Typecheck + production build.
 
-## Files touched
-- New: `src/components/mobile/MobileWorkspace.tsx`, `MobileTopBar.tsx`, `MobileBottomNav.tsx`, `tabs/ChatTab.tsx`, `tabs/PreviewTab.tsx`, `tabs/FilesTab.tsx`, `tabs/BuildTab.tsx`, `tabs/MoreTab.tsx`.
-- Edited: `src/routes/index.tsx` (add mobile branch + prop bundle), `src/styles.css` (mobile section appended), `src/routes/__root.tsx` (viewport-fit only if missing).
+- Unit-style check: feed a canned HTML with `<a href="/">`, `<a href="https://obsidianvibe.live/dashboard">`, `<meta http-equiv="refresh" content="0;url=/">`, and an inline `onclick="location.href='/gallery'"` into `sanitizeForExport` and confirm all four are neutralized while a legitimate `<a href="https://stripe.com">` and `<a href="#pricing">` survive.
+- Manual: build a page that includes a "Home" link, hit Go Live, open the share URL, confirm the link is inert (`href="#"`, `data-obsidian-blocked="1"`).
+- Manual: Push to Demos, open the demo from `/unlock`, confirm no button escapes back into `/`.
 
-## Out of scope
-- Redesigning desktop or tablet.
-- Changing chat model, build pipeline, or deployment logic.
-- Any backend/database/Stripe/auth work.
+## Out of scope (by your answer)
+
+- Removing "Back to Coder" / "Back to builder" links inside the creator app.
+- Blocking the `/` route itself.
+- Rewriting historical `featured_demos` rows via migration (read-time sanitizer covers them).

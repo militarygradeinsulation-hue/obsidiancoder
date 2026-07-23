@@ -2,7 +2,7 @@
 // fresh session. Templates strip preview-only scripts before persist.
 import { useState } from "react";
 import { FileText, Trash2 } from "lucide-react";
-import { stripPreviewOnly } from "@/lib/clean-export";
+import { sanitizeForExport } from "@/lib/clean-export";
 
 export type Template = {
   id: string;
@@ -30,7 +30,7 @@ export function TemplatePanel({
     const t: Template = {
       id: globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()),
       name: name.trim().slice(0, 60),
-      html: stripPreviewOnly(html),
+      html: sanitizeForExport(html),
       createdAt: Date.now(),
     };
     onSave(t);
