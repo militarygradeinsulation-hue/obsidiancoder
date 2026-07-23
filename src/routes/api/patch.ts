@@ -5,7 +5,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { resolveModel } from "@/lib/models";
+import { resolveModel, isRouteLLMModel, stripRouteLLMPrefix } from "@/lib/models";
 import { parsePatchResponse, MAX_OPS } from "@/lib/patch-protocol";
 import { buildContext, nextTier, type ContextTier } from "@/lib/staged-context";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
@@ -76,24 +76,31 @@ async function callGateway(
   | { ok: true; text: string; usage: UsageRecord }
   | { ok: false; error: AiError; usage: UsageRecord | null }
 > {
+  const routellm = isRouteLLMModel(model);
+  const endpoint = routellm
+    ? "https://routellm.abacus.ai/v1/chat/completions"
+    : "https://ai.gateway.lovable.dev/v1/chat/completions";
+  const wireModel = routellm ? stripRouteLLMPrefix(model) : model;
+  const providerName = routellm ? "routellm" : "lovable";
   try {
+    const body: Record<string, unknown> = {
+      model: wireModel, messages, stream: false,
+    };
+    if (!routellm) {
+      body.response_format = { type: "json_object" };
+      if (model.startsWith("openai/gpt-5.6")) body.reasoning_effort = "none";
+    }
     const { response } = await aiFetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      endpoint,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model, messages, stream: false,
-          response_format: { type: "json_object" },
-          ...(model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
-        }),
+        body: JSON.stringify(body),
       },
-      { breakerKey: `lovable/patch:${model}`, stage: "patch", requestId, signal },
+      { breakerKey: `${providerName}/patch:${wireModel}`, stage: "patch", requestId, signal },
     );
     const guarded = await readGuarded(response, { expected: "application/json" });
     if (!guarded.ok) {
-      // Provider replied non-JSON — treat as no billable usage. Nothing to
-      // charge (we cannot parse a usage object either).
       const code =
         guarded.reason === "html_body" || guarded.reason === "proxy_error"
           ? "ai_upstream_html"
@@ -113,13 +120,13 @@ async function callGateway(
     }
     const parsedUsage = parseUsageFromChatJson(j);
     const est = estimateUsdForCall({
-      model: parsedUsage?.model ?? model,
+      model: parsedUsage?.model ?? wireModel,
       inputTokens: parsedUsage?.inputTokens ?? 0,
       outputTokens: parsedUsage?.outputTokens ?? 0,
       providerUsed: true,
     });
     const usage = makeUsage({
-      provider: "lovable", model: parsedUsage?.model ?? model, operation: "generate_html_patch",
+      provider: providerName, model: parsedUsage?.model ?? wireModel, operation: "generate_html_patch",
       inputTokens: parsedUsage?.inputTokens ?? 0, outputTokens: parsedUsage?.outputTokens ?? 0,
       totalTokens: parsedUsage?.totalTokens ?? 0,
       estimatedCostUsd: est.usd, costBasis: est.basis, providerUsed: true, status: "committed",
@@ -165,17 +172,25 @@ export const Route = createFileRoute("/api/patch")({
         };
 
         try {
-          const apiKey = process.env.LOVABLE_API_KEY;
-          if (!apiKey) {
-            throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "AI is not configured." });
-          }
-
           let data: z.infer<typeof inputSchema>;
           try { data = inputSchema.parse(await request.json()); }
           catch (err) {
             throw new AiError({
               code: "ai_bad_request", stage: "validate", requestId,
               message: err instanceof Error ? err.message : "Bad input.",
+            });
+          }
+
+          const primaryIsRouteLLM = isRouteLLMModel(data.model);
+          const lovableKey = process.env.LOVABLE_API_KEY;
+          const routellmKey = process.env.ROUTELLM_API_KEY;
+          const primaryKey = primaryIsRouteLLM ? routellmKey : lovableKey;
+          if (!primaryKey) {
+            throw new AiError({
+              code: "ai_unauthorized", stage: "validate", requestId,
+              message: primaryIsRouteLLM
+                ? "RouteLLM is not configured (ROUTELLM_API_KEY missing)."
+                : "AI is not configured (LOVABLE_API_KEY missing).",
             });
           }
 
@@ -208,7 +223,7 @@ export const Route = createFileRoute("/api/patch")({
           ];
 
           let modelUsed = data.model;
-          const attempt = await callGateway(apiKey, data.model, baseMessages, requestId, request.signal);
+          const attempt = await callGateway(primaryKey, data.model, baseMessages, requestId, request.signal);
           if (attempt.ok) collected.push(attempt.usage);
 
           if (attempt.ok) {
@@ -227,8 +242,11 @@ export const Route = createFileRoute("/api/patch")({
             throw attempt.error;
           }
 
-          // ONE repair attempt on the cheap model.
-          modelUsed = CHEAP_REPAIR_MODEL;
+          // ONE repair attempt. Prefer the cheap Lovable model; if only
+          // RouteLLM is configured, repair on the same primary model instead.
+          const repairModel = lovableKey ? CHEAP_REPAIR_MODEL : data.model;
+          const repairKey = isRouteLLMModel(repairModel) ? routellmKey! : lovableKey!;
+          modelUsed = repairModel;
           const parseErr = attempt.ok ? "invalid patch schema" : attempt.error.message;
           const repairMessages = [
             { role: "system", content: SYSTEM_PROMPT },
@@ -236,7 +254,7 @@ export const Route = createFileRoute("/api/patch")({
             { role: "assistant", content: attempt.ok ? attempt.text.slice(0, 4000) : "(previous attempt failed to reach the gateway)" },
             { role: "user", content: `Your previous response was invalid: ${parseErr}. Return ONLY a valid JSON patch document matching the schema. No prose, no fences.` },
           ];
-          const repair = await callGateway(apiKey, CHEAP_REPAIR_MODEL, repairMessages, requestId, request.signal);
+          const repair = await callGateway(repairKey, repairModel, repairMessages, requestId, request.signal);
           if (repair.ok) collected.push(repair.usage);
 
           if (!repair.ok) {
