@@ -134,7 +134,9 @@ Rules:
         .slice(0, data.count)
         .map((p, i) => ({ id: slug(p.label, i), label: p.label, snippet: p.snippet }));
       return { ideas };
-    } catch {
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "ideas_error";
+      if (msg === "ideas_credit_limit" || msg === "ideas_rate_limited") throw err;
       return { ideas: [] };
     }
   });
