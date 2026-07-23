@@ -2656,8 +2656,8 @@ body.is-resizing-composer * { user-select: none !important; }
     box-shadow: 0 12px 32px -8px rgba(244,161,37,0.55), 0 2px 8px rgba(0,0,0,0.4);
     cursor: pointer;
   }
-  .mob-fab:active { transform: translateY(1px); }
-}
+.mob-fab:active { transform: translateY(1px); }
+
 
 /* Native color-picker swatch used in DesignSystemPanel */
 .obs-color-swatch {
