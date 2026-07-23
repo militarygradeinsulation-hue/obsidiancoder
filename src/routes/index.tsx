@@ -650,15 +650,25 @@ function Index() {
   // "Expand draft" — composer button: each press asks the AI for the next
   // best addon based on whatever is currently in the prompt box, and appends
   // it. Press again to grow the prompt one step further.
+  // Race any anticipate call against a hard timeout so a stalled AI Gateway
+  // response can never leave the "Expand" spinner stuck forever.
+  async function anticipateWithTimeout(payload: { draft: string; hasHtml: boolean; count: number }, ms = 15000) {
+    return await Promise.race([
+      anticipateNextIdeasFn({ data: payload }),
+      new Promise<never>((_, reject) => setTimeout(() => reject(new Error("expand-timeout")), ms)),
+    ]);
+  }
+
+  // "Expand draft" — composer button: each press asks the AI for the next
+  // best addon based on whatever is currently in the prompt box, and appends
+  // it. Press again to grow the prompt one step further.
   async function expandDraft() {
     if (expandingDraft || loading) return;
     const draft = (composerRef.current?.value ?? input).trim();
     if (!draft) return;
     setExpandingDraft(true);
     try {
-      const res = await anticipateNextIdeasFn({
-        data: { draft, hasHtml: !!current.html, count: 3 },
-      });
+      const res = await anticipateWithTimeout({ draft, hasHtml: !!current.html, count: 3 });
       const next = res?.ideas?.find((i) => i?.snippet)?.snippet;
       if (!next) return;
       setInput((prev) => {
@@ -692,7 +702,7 @@ function Index() {
         const draft = (composerRef.current?.value ?? "").trim() || seed.snippet;
         let res;
         try {
-          res = await anticipateNextIdeasFn({ data: { draft, hasHtml: !!current.html, count: 2 } });
+          res = await anticipateWithTimeout({ draft, hasHtml: !!current.html, count: 2 }, 12000);
         } catch { break; }
         const next = res?.ideas?.[0];
         if (!next?.snippet) break;
