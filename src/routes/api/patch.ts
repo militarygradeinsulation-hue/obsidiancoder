@@ -76,24 +76,31 @@ async function callGateway(
   | { ok: true; text: string; usage: UsageRecord }
   | { ok: false; error: AiError; usage: UsageRecord | null }
 > {
+  const routellm = isRouteLLMModel(model);
+  const endpoint = routellm
+    ? "https://routellm.abacus.ai/v1/chat/completions"
+    : "https://ai.gateway.lovable.dev/v1/chat/completions";
+  const wireModel = routellm ? stripRouteLLMPrefix(model) : model;
+  const providerName = routellm ? "routellm" : "lovable";
   try {
+    const body: Record<string, unknown> = {
+      model: wireModel, messages, stream: false,
+    };
+    if (!routellm) {
+      body.response_format = { type: "json_object" };
+      if (model.startsWith("openai/gpt-5.6")) body.reasoning_effort = "none";
+    }
     const { response } = await aiFetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      endpoint,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({
-          model, messages, stream: false,
-          response_format: { type: "json_object" },
-          ...(model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
-        }),
+        body: JSON.stringify(body),
       },
-      { breakerKey: `lovable/patch:${model}`, stage: "patch", requestId, signal },
+      { breakerKey: `${providerName}/patch:${wireModel}`, stage: "patch", requestId, signal },
     );
     const guarded = await readGuarded(response, { expected: "application/json" });
     if (!guarded.ok) {
-      // Provider replied non-JSON — treat as no billable usage. Nothing to
-      // charge (we cannot parse a usage object either).
       const code =
         guarded.reason === "html_body" || guarded.reason === "proxy_error"
           ? "ai_upstream_html"
@@ -113,13 +120,13 @@ async function callGateway(
     }
     const parsedUsage = parseUsageFromChatJson(j);
     const est = estimateUsdForCall({
-      model: parsedUsage?.model ?? model,
+      model: parsedUsage?.model ?? wireModel,
       inputTokens: parsedUsage?.inputTokens ?? 0,
       outputTokens: parsedUsage?.outputTokens ?? 0,
       providerUsed: true,
     });
     const usage = makeUsage({
-      provider: "lovable", model: parsedUsage?.model ?? model, operation: "generate_html_patch",
+      provider: providerName, model: parsedUsage?.model ?? wireModel, operation: "generate_html_patch",
       inputTokens: parsedUsage?.inputTokens ?? 0, outputTokens: parsedUsage?.outputTokens ?? 0,
       totalTokens: parsedUsage?.totalTokens ?? 0,
       estimatedCostUsd: est.usd, costBasis: est.basis, providerUsed: true, status: "committed",
