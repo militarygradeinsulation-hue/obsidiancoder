@@ -269,7 +269,15 @@ function Index() {
   const anticipateNextIdeasFn = useServerFn(anticipateNextIdeas);
   const [tab, setTab] = useState<"preview" | "code">("preview");
   const [device, setDevice] = useState<"desktop" | "mobile">("desktop");
-  const isMobile = useIsMobile();
+  const isMobileViewport = useIsMobile();
+  const [forceSimple, setForceSimple] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return localStorage.getItem("obs-simple-view") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("obs-simple-view", forceSimple ? "1" : "0"); } catch { /* ignore */ }
+  }, [forceSimple]);
+  const isMobile = isMobileViewport || forceSimple;
   type MobTab = "chat" | "preview" | "files" | "build" | "more";
   const [mobileTab, setMobileTabState] = useState<MobTab>("preview");
   // Persist mobile tab per session/project so switching within a project keeps it.
