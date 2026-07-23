@@ -1326,7 +1326,7 @@ function Index() {
       hasAttachments: pendingAttachments.length > 0,
     });
     const adaptiveModel = routing.chosenModel;
-    const requestedModel: string = current.model === "auto" ? routing.plan.model : (current.model as string);
+    const requestedModel: string = current.model === "auto" ? routing.plan.model : resolveModel(current.model as string);
     const operationId = newOperationId();
     const resolvedIntent = resolveIntent(basePrompt, {
       hasHtml: !!stableHtml,
