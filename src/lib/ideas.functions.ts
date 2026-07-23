@@ -98,7 +98,15 @@ async function callGateway(system: string, user: string): Promise<string> {
       ],
     }),
   });
-  if (!res.ok) throw new Error(`ideas_${res.status}`);
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    if (res.status === 403 && /credit_limit_reached|credit limit/i.test(body)) {
+      throw new Error("ideas_credit_limit");
+    }
+    if (res.status === 402) throw new Error("ideas_credit_limit");
+    if (res.status === 429) throw new Error("ideas_rate_limited");
+    throw new Error(`ideas_${res.status}`);
+  }
   const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
   return json.choices?.[0]?.message?.content ?? "";
 }
