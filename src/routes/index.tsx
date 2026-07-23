@@ -1305,6 +1305,9 @@ function Index() {
     const activeMode = current.mode;
     // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
     const previewMode = activeMode !== "chat" && activeMode !== "plan";
+    // Starting a real build resets the "Push to Demos" toggle back to red and
+    // removes any previously featured entry for this session.
+    if (previewMode) resetDemoStatus(activeId);
     // Stable snapshot: never let a failed edit corrupt the last good HTML.
     const stableHtml = current.html;
 
