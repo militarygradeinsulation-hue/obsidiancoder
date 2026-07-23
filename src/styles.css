@@ -2465,7 +2465,7 @@ body.is-resizing-composer * { user-select: none !important; }
 /* Simple / Mobile-style layout: applies whenever .obs-shell.is-mobile is set,
    including the desktop Simple-view toggle. Mobile viewports also get .is-mobile
    automatically via the useIsMobile hook. */
-{
+
 
 
   .obs-shell.is-mobile {
