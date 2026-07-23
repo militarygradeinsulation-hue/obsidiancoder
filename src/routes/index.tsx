@@ -2477,6 +2477,18 @@ function Index() {
                 <LogOut className="h-3.5 w-3.5" /> Logout
               </button>
             )}
+            {!isMobileViewport && (
+              <button
+                type="button"
+                className={"obs-chip" + (forceSimple ? " is-on" : "")}
+                onClick={() => setForceSimple((v) => !v)}
+                title={forceSimple ? "Switch back to full desktop view" : "Switch to Simple view — a clean, minimal layout with just the essentials"}
+                aria-pressed={forceSimple}
+                aria-label="Toggle Simple view"
+              >
+                <Smartphone className="h-3.5 w-3.5" /> {forceSimple ? "Full view" : "Simple"}
+              </button>
+            )}
 
 
             <div className="obs-overflow-wrap">
