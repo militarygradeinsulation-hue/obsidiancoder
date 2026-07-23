@@ -1650,7 +1650,7 @@ function Index() {
         body: JSON.stringify({
           prompt,
           currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
-          history: current.messages.slice(-4),
+          history: current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
           model: modelForServer,
           pickerModel: current.model,
           advisory: !previewMode,
