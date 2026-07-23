@@ -173,10 +173,12 @@ function stripCreatorNavScripts(html: string): string {
 export function stripCreatorLinks(html: string): string {
   if (!html) return html;
   let out = html;
+  // Neutralize inline handlers first so their quoted URL literals don't get
+  // rewritten as if they were real href/action attributes.
+  out = neutralizeInlineHandlers(out);
   out = replaceNavAttrs(out, "href");
   out = replaceNavAttrs(out, "action");
   out = replaceNavAttrs(out, "formaction");
-  out = neutralizeInlineHandlers(out);
   out = stripMetaRefresh(out);
   out = stripCreatorNavScripts(out);
   return out;
