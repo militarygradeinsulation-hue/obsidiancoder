@@ -100,7 +100,33 @@ export function FusionModal({
           <section className="obs-fusion-section">
             <h3 className="obs-fusion-h">1 · Select projects (≥2)</h3>
             {eligible.length < 2 ? (
-              <p className="obs-empty">You need at least two projects with content. Build another session first.</p>
+              <p className="obs-empty">
+                Combine needs at least <b>two</b> projects that have been built.
+                Open a new tab (+) and build another project, then come back here
+                to merge them into one.
+              </p>
+            ) : chosen.length < 2 ? (
+              <>
+                <p className="obs-empty" style={{ marginBottom: 8 }}>
+                  Tick <b>two or more</b> projects below to preview a fusion plan.
+                </p>
+                <ul className="obs-fusion-list">
+                  {eligible.map((p) => (
+                    <li key={p.id}>
+                      <label className="obs-fusion-item">
+                        <input
+                          type="checkbox"
+                          checked={!!selected[p.id]}
+                          onChange={() => toggle(p.id)}
+                          aria-label={`Include ${p.title}`}
+                        />
+                        <span className="obs-fusion-item-title">{p.title || "Untitled"}</span>
+                        <span className="obs-fusion-item-size">{(p.html.length / 1024).toFixed(1)} KB</span>
+                      </label>
+                    </li>
+                  ))}
+                </ul>
+              </>
             ) : (
               <ul className="obs-fusion-list">
                 {eligible.map((p) => (

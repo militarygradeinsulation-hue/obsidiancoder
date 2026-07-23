@@ -8,7 +8,7 @@ import {
   Menu, X, Plus, ChevronLeft, ChevronRight, MoreHorizontal, Monitor,
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
   Trash2, Square, Wand2, GripVertical, Pin, Github, CreditCard, User as UserIcon,
-  Camera, Scissors, RefreshCw, GitMerge, Bookmark, BookmarkCheck,
+  Camera, Scissors, RefreshCw, GitMerge, Bookmark, BookmarkCheck, LogOut,
 } from "lucide-react";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { useServerFn } from "@tanstack/react-start";
@@ -2456,6 +2456,19 @@ function Index() {
             >
               <UserIcon className="h-3.5 w-3.5" /> {authUserId ? "Account" : "Sign in"}
             </button>
+            {authUserId && (
+              <button
+                type="button"
+                className="obs-chip"
+                onClick={async () => {
+                  try { await supabase.auth.signOut(); } catch { /* ignore */ }
+                }}
+                title="Sign out of this account"
+                aria-label="Log out"
+              >
+                <LogOut className="h-3.5 w-3.5" /> Logout
+              </button>
+            )}
 
 
             <div className="obs-overflow-wrap">
