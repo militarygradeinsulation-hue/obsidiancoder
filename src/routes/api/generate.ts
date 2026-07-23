@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { resolveModel, isFastTier, DEFAULT_MODEL } from "@/lib/models";
+import { resolveModel, isFastTier, DEFAULT_MODEL, isRouteLLMModel, stripRouteLLMPrefix } from "@/lib/models";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded, firstChunkLooksBad } from "@/lib/upstream-guard";
