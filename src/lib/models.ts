@@ -41,6 +41,7 @@ export const ROUTELLM_MODELS = [
   { id: "routellm/gpt-4o-mini",                label: "RouteLLM · GPT-4o Mini" },
   { id: "routellm/gemini-2.5-pro",             label: "RouteLLM · Gemini 2.5 Pro" },
   { id: "routellm/gemini-2.5-flash",           label: "RouteLLM · Gemini 2.5 Flash" },
+  { id: "routellm/grok-4.3",                   label: "RouteLLM · Grok 4.3" },
 ] as const;
 
 export const ROUTELLM_PREFIX = "routellm/";
