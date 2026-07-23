@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { resolveModel } from "./models";
+import { resolveModel, isRouteLLMModel, stripRouteLLMPrefix } from "./models";
 import { aiFetch } from "./ai-fetch";
 import { AiError, newRequestId } from "./ai-errors";
 import {
