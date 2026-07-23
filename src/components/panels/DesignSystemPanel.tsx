@@ -8,6 +8,16 @@ import { extractDesignTokens, replaceColor, setCssVariable } from "@/lib/design-
 
 type ActionResult = { html: string; label: string; changes: number };
 
+function normalizeHex(v: string): string {
+  const s = (v || "").trim();
+  if (/^#[0-9a-fA-F]{6}$/.test(s)) return s.toLowerCase();
+  if (/^#[0-9a-fA-F]{3}$/.test(s)) {
+    const [r, g, b] = [s[1], s[2], s[3]];
+    return `#${r}${r}${g}${g}${b}${b}`.toLowerCase();
+  }
+  return "";
+}
+
 export function DesignSystemPanel(props: {
   html: string;
   disabled?: boolean;
