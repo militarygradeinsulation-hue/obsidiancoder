@@ -172,17 +172,25 @@ export const Route = createFileRoute("/api/patch")({
         };
 
         try {
-          const apiKey = process.env.LOVABLE_API_KEY;
-          if (!apiKey) {
-            throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "AI is not configured." });
-          }
-
           let data: z.infer<typeof inputSchema>;
           try { data = inputSchema.parse(await request.json()); }
           catch (err) {
             throw new AiError({
               code: "ai_bad_request", stage: "validate", requestId,
               message: err instanceof Error ? err.message : "Bad input.",
+            });
+          }
+
+          const primaryIsRouteLLM = isRouteLLMModel(data.model);
+          const lovableKey = process.env.LOVABLE_API_KEY;
+          const routellmKey = process.env.ROUTELLM_API_KEY;
+          const primaryKey = primaryIsRouteLLM ? routellmKey : lovableKey;
+          if (!primaryKey) {
+            throw new AiError({
+              code: "ai_unauthorized", stage: "validate", requestId,
+              message: primaryIsRouteLLM
+                ? "RouteLLM is not configured (ROUTELLM_API_KEY missing)."
+                : "AI is not configured (LOVABLE_API_KEY missing).",
             });
           }
 
