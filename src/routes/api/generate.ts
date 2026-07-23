@@ -390,9 +390,10 @@ export const Route = createFileRoute("/api/generate")({
           //    asked for imagery or opted in via wantImages. This is what was
           //    silently adding 12-17s to every non-visual build.
           const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
-          const imagePhase = wantImages
+          const imagePhase = wantImages && apiKey
             ? await planAndGenerateImages(apiKey, data.prompt, contextHtml, requestId, clientAbort)
             : { images: [], usages: [], planUsage: null };
+
           const images = imagePhase.images;
           imageUsages.push(...imagePhase.usages);
           if (imagePhase.planUsage) imageUsages.push(imagePhase.planUsage);
