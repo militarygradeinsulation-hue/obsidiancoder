@@ -10,6 +10,7 @@ import {
 } from "./credit-gate.server";
 import { creditsRequiredEnvelope, type CreditsRequiredEnvelope } from "./credit-gate";
 import { makeUsage, estimateUsdForCall, mergeUsage, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "./usage-record";
+import { AETHERIS_VISUAL_STANDARD } from "./aetheris-visual-standard";
 
 /** Structured paywall error the client recognizes. */
 class PaywallError extends Error {
