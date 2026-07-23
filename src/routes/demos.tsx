@@ -51,6 +51,10 @@ function DemosAdmin() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState<WaitlistStats | null>(null);
+  const [credits, setCredits] = useState<CreditLedgerStats | null>(null);
+  const [creditsError, setCreditsError] = useState<string | null>(null);
+  const [creditsLive, setCreditsLive] = useState(true);
+  const [creditsUpdated, setCreditsUpdated] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "rows" | "grid" | "table">(() => {
     if (typeof window === "undefined") return "cards";
     const v = localStorage.getItem("obs.demos.viewMode");
