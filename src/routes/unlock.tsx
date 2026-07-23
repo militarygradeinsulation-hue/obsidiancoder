@@ -438,7 +438,7 @@ function Unlock() {
                         <li><strong>Production-grade output by default.</strong> Every build is validated, screenshot-tested, and scored on a readiness report covering performance, accessibility, and security before you ship.</li>
                         <li><strong>Never simulates data.</strong> Obsidian generates real HTML/CSS/JS wired to real APIs and real images — no fake JSON, no placeholder text, no “this is a mock” escape hatches.</li>
                         <li><strong>Deterministic patches, not full rewrites.</strong> Small changes stay small. A transactional patch engine surgically edits the exact section you asked about and preserves everything else that worked.</li>
-                        <li><strong>Multi-provider AI with automatic failover.</strong> Gemini 3, GPT-5, and Claude — plus Leonardo, Higgsfield, and Gemini for images. If one provider fails or rate-limits, Obsidian switches mid-request and refunds credits when nothing was delivered.</li>
+                        <li><strong>Multi-provider AI with automatic failover.</strong> Google Gemini and OpenAI GPT — plus Leonardo, Higgsfield, and Gemini for images. If one provider fails or rate-limits, Obsidian switches mid-request and refunds credits when nothing was delivered.</li>
                         <li><strong>Your library, cross-device.</strong> Builds, saved ideas, and version history follow you across browsers via your private library code — no lock-in, exportable at any time.</li>
                         <li><strong>Real deploys.</strong> One-click Go Live, GitHub repo + Pages integration, and shareable public URLs baked in.</li>
                       </ul>

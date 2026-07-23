@@ -29,7 +29,7 @@ function classifyDemoCategory(...parts: (string | undefined | null)[]): DemoCat 
   return "App";
 }
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
-import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId } from "@/lib/models";
+import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId, type ModeId as ModelModeId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
 import { AccountModal } from "@/components/AccountModal";
@@ -124,7 +124,8 @@ export const Route = createFileRoute("/")({
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 // Client-side model picker id: registry id, or "auto" (resolves to DEFAULT_MODEL server-side).
-type PickerModelId = ModelId | "auto";
+// Client-side model picker id: a raw registry ModelId or a user-facing mode.
+type PickerModelId = ModelId | ModelModeId;
 
 const MODES = [
   { id: "agent",  label: "Agent",  hint: "Autonomous — plans + builds in one pass." },
@@ -228,7 +229,7 @@ function newSession(): Session {
     title: "Untitled",
     messages: [{ role: "assistant", content: "Aetheris Obsidian is ready. Tell me what to build." }],
     html: "",
-    model: "auto",
+    model: "fast",
     mode: "agent",
     versions: [],
     memory: { ...EMPTY_MEMORY },
@@ -1325,7 +1326,7 @@ function Index() {
       hasAttachments: pendingAttachments.length > 0,
     });
     const adaptiveModel = routing.chosenModel;
-    const requestedModel: string = current.model === "auto" ? routing.plan.model : (current.model as string);
+    const requestedModel: string = current.model === "auto" ? routing.plan.model : resolveModel(current.model as string);
     const operationId = newOperationId();
     const resolvedIntent = resolveIntent(basePrompt, {
       hasHtml: !!stableHtml,
@@ -1649,7 +1650,7 @@ function Index() {
         body: JSON.stringify({
           prompt,
           currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
-          history: current.messages.slice(-4),
+          history: current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
           model: modelForServer,
           pickerModel: current.model,
           advisory: !previewMode,
