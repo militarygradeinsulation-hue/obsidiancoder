@@ -439,25 +439,34 @@ export const Route = createFileRoute("/api/generate")({
           // can decide whether to fall back to the fast tier.
           async function openStream(model: string, budgetMs: number) {
             const t_open = performance.now();
+            const viaRouteLLM = isRouteLLMModel(model);
+            const upstreamKey = viaRouteLLM ? routellmKey : apiKey;
+            if (!upstreamKey) {
+              throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: viaRouteLLM ? "RouteLLM (Abacus) key is not configured." : "AI is not configured." });
+            }
+            const upstreamUrl = viaRouteLLM
+              ? "https://routellm.abacus.ai/v1/chat/completions"
+              : "https://ai.gateway.lovable.dev/v1/chat/completions";
+            const upstreamModel = viaRouteLLM ? stripRouteLLMPrefix(model) : model;
             const res = await aiFetch(
-              "https://ai.gateway.lovable.dev/v1/chat/completions",
+              upstreamUrl,
               {
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
-                  Authorization: `Bearer ${apiKey}`,
+                  Authorization: `Bearer ${upstreamKey}`,
                 },
                 body: JSON.stringify({
-                  model,
+                  model: upstreamModel,
                   messages,
                   stream: true,
                   // Ask the gateway for a final usage frame at the end of the SSE.
                   stream_options: { include_usage: true },
-                  ...(model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
+                  ...(!viaRouteLLM && model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
                 }),
               },
               {
-                breakerKey: `lovable/generate:${model}`,
+                breakerKey: `${viaRouteLLM ? "routellm" : "lovable"}/generate:${model}`,
                 stage: "generate",
                 requestId,
                 signal: clientAbort,
@@ -465,6 +474,7 @@ export const Route = createFileRoute("/api/generate")({
                 totalTimeoutMs: budgetMs,
               },
             );
+
             const body = res.response.body;
             if (!body) {
               recordFailure(`lovable/generate:${model}`);
