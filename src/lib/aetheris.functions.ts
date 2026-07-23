@@ -364,7 +364,7 @@ export const generateHtml = createServerFn({ method: "POST" })
       // Image planning still runs through Lovable AI (cheap Flash Lite) when available.
 
 
-      const plans = await planImages(apiKey, data.prompt, data.currentHtml, requestId);
+      const plans = apiKey ? await planImages(apiKey, data.prompt, data.currentHtml, requestId) : [];
       const generatedRaw = plans.length
         ? await Promise.all(
             plans.map(async (p, i) => {
