@@ -53,9 +53,13 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
         {!userId ? (
           <div className="p-6 text-center">
             <p className="text-sm text-[#B6BCC8] mb-4">You're not signed in.</p>
-            <Link to="/auth" onClick={onClose} className="inline-flex px-4 py-2 rounded-md bg-[#F4A125] hover:bg-[#DD9324] text-black text-sm font-medium">
+            <a
+              href="/auth"
+              onClick={onClose}
+              className="inline-flex px-4 py-2 rounded-md bg-[#F4A125] hover:bg-[#DD9324] text-black text-sm font-medium"
+            >
               Sign in / Create account
-            </Link>
+            </a>
           </div>
         ) : (
           <div className="p-5 space-y-4">
