@@ -1,25 +1,27 @@
-## Inject Aetheris Visual & Functional Quality Standard as a system prompt rider
+## Problem
 
-Add the uploaded standard to the builder's system prompt so every build the coder produces follows it silently. No changes to the Obsidian app's own UI.
+Builds created with a `routellm/*` model (Claude Haiku/Sonnet/Opus, GPT‑4o, Gemini 2.5, Grok 4.3) fail to edit. The streaming builder and one‑shot generator were updated to switch endpoints/keys for RouteLLM, but the **patch/edit route (`src/routes/api/patch.ts`)** was never updated. It still hardcodes the Lovable gateway URL + `LOVABLE_API_KEY`, and sends the full `routellm/…` id (which Abacus rejects). It also short‑circuits with `ai_unauthorized` when `LOVABLE_API_KEY` is missing, even for RouteLLM edits.
 
-### Changes
+## Fix
 
-1. **New file: `src/lib/aetheris-visual-standard.ts`**
-   - Export a `AETHERIS_VISUAL_STANDARD` constant containing the full text of the uploaded doc (verbatim), plus a short lead-in framing it as a standing rider that overrides defaults.
+Update `src/routes/api/patch.ts` so edits use the same engine switching as `/api/generate`.
 
-2. **`src/lib/aetheris.functions.ts`**
-   - Import `AETHERIS_VISUAL_STANDARD`.
-   - Append it as a second system message right after the existing `SYSTEM_PROMPT` in both the `generateHtml` message array and (for consistency) any other place that builds the chat `messages`.
-   - Keep existing rules (navigation isolation, image-generator fidelity, etc.) intact — the rider augments, does not replace.
-   - Reconcile the one direct conflict: the existing prompt mandates a dark amber aesthetic; the standard mandates light-mode-first with a chosen accent. Resolution: the rider wins for user builds (as the doc itself says), so drop the "dark background, warm amber/gold accents" line from `SYSTEM_PROMPT` and let the rider govern palette. All other existing rules stay.
+1. **`callGateway`** — accept the model id and pick endpoint + key:
+   - If `isRouteLLMModel(model)`: POST to `https://routellm.abacus.ai/v1/chat/completions` with `Bearer ROUTELLM_API_KEY`, and send `stripRouteLLMPrefix(model)` as the `model` field. Drop `response_format` (Abacus/Grok don't guarantee support — rely on the strict JSON system prompt + existing repair pass).
+   - Otherwise: keep current Lovable gateway path unchanged.
+   - Update `breakerKey` and usage `provider` (`"routellm"` vs `"lovable"`) accordingly.
 
-3. **Pre-gate check**
-   - Add a brief note in the system message telling the model to run the Part 6 gate silently before returning HTML.
+2. **POST handler** — replace the single `apiKey` guard:
+   - Resolve `needsLovable` and `needsRouteLLM` from `data.model`.
+   - Require the matching secret; return `ai_unauthorized` only when the one actually needed is missing.
+   - Pass the appropriate key into `callGateway`.
 
-### Out of scope
-- No changes to Obsidian's own unlock/builder chrome, palette, or components.
-- No new UI, no new settings, no model changes.
+3. **Repair pass** — keep `CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite"` (Lovable). If `LOVABLE_API_KEY` is not configured (pure RouteLLM setup), fall back to repairing on the same RouteLLM model instead of failing hard.
 
-### Verification
-- Typecheck.
-- Manually confirm the composed `messages` array in `generateHtml` includes the rider as a system message after `SYSTEM_PROMPT`.
+4. Import `isRouteLLMModel`, `stripRouteLLMPrefix` from `@/lib/models`.
+
+No UI, schema, or billing‑shape changes. This is the minimum change to make edits work for RouteLLM‑generated builds while keeping the Lovable path identical.
+
+## Verification
+
+After the edit: select a RouteLLM model, generate a build, then request a small edit ("change the button text to Buy Now"). Confirm the patch route returns `ok:true` and the preview updates.
