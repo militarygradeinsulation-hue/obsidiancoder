@@ -94,6 +94,12 @@ function DemosAdmin() {
     if (saved) setCode(saved);
   }, []);
 
+  const refreshCredits = useCallback(async (adminCode: string) => {
+    const c = await fetchCredits({ data: { adminCode } });
+    if (c.ok) { setCredits(c.stats); setCreditsError(null); setCreditsUpdated(Date.now()); }
+    else setCreditsError(c.error);
+  }, [fetchCredits]);
+
   const refresh = useCallback(async (adminCode: string) => {
     setError(null);
     const r = await list({ data: { adminCode } });
@@ -101,9 +107,21 @@ function DemosAdmin() {
     setDemos(r.demos);
     const s = await fetchStats({ data: { adminCode } });
     if (s.ok) setStats(s.stats);
-  }, [list, fetchStats]);
+    await refreshCredits(adminCode);
+  }, [list, fetchStats, refreshCredits]);
 
   useEffect(() => { if (code) refresh(code); }, [code, refresh]);
+
+  // Live credit ledger polling — 5s while tab is visible and Live is on.
+  useEffect(() => {
+    if (!code || !creditsLive) return;
+    const tick = () => { if (document.visibilityState === "visible") refreshCredits(code); };
+    const id = window.setInterval(tick, 5000);
+    const onVis = () => { if (document.visibilityState === "visible") refreshCredits(code); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [code, creditsLive, refreshCredits]);
+
 
   async function saveField(row: FeaturedDemoRow, patch: Partial<FeaturedDemoRow>) {
     setSavingId(row.id); setStatus(null); setError(null);
