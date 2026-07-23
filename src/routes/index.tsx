@@ -320,6 +320,16 @@ function Index() {
   }, [demoBySession]);
   const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
   const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
+  // Reset the "Push to Demos" toggle back to red and, if this session owns a
+  // featured demo entry, remove it from the public gallery.
+  async function resetDemoStatus(sid: string) {
+    const existing = demoBySession[sid];
+    setDemoBySession((prev) => { const n = { ...prev }; delete n[sid]; return n; });
+    setPushedDemoIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
+    if (existing) {
+      try { await deleteFeaturedDemo({ data: { adminCode: "9822", id: existing.demoId } }); } catch { /* non-fatal */ }
+    }
+  }
   // Multi-prompt queue: submitting while another build runs enqueues.
   type QueuedPrompt = { sid: string; prompt: string };
   const [promptQueue, setPromptQueue] = useState<QueuedPrompt[]>([]);
