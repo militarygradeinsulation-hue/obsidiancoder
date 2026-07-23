@@ -229,7 +229,7 @@ function newSession(): Session {
     title: "Untitled",
     messages: [{ role: "assistant", content: "Aetheris Obsidian is ready. Tell me what to build." }],
     html: "",
-    model: "auto",
+    model: "fast",
     mode: "agent",
     versions: [],
     memory: { ...EMPTY_MEMORY },
