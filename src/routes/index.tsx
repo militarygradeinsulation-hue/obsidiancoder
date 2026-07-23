@@ -2456,6 +2456,19 @@ function Index() {
             >
               <UserIcon className="h-3.5 w-3.5" /> {authUserId ? "Account" : "Sign in"}
             </button>
+            {authUserId && (
+              <button
+                type="button"
+                className="obs-chip"
+                onClick={async () => {
+                  try { await supabase.auth.signOut(); } catch { /* ignore */ }
+                }}
+                title="Sign out of this account"
+                aria-label="Log out"
+              >
+                <LogOut className="h-3.5 w-3.5" /> Logout
+              </button>
+            )}
 
 
             <div className="obs-overflow-wrap">
