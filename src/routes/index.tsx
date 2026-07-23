@@ -29,7 +29,7 @@ function classifyDemoCategory(...parts: (string | undefined | null)[]): DemoCat 
   return "App";
 }
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
-import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId, type ModeId } from "@/lib/models";
+import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId, type ModeId as ModelModeId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
 import { AccountModal } from "@/components/AccountModal";
