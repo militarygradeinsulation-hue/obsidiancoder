@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
-import { resolveModel } from "./models";
+import { resolveModel, isRouteLLMModel, stripRouteLLMPrefix } from "./models";
 import { aiFetch } from "./ai-fetch";
 import { AiError, newRequestId } from "./ai-errors";
 import {
@@ -354,12 +354,17 @@ export const generateHtml = createServerFn({ method: "POST" })
     let mainErrorCode: string | undefined;
     try {
       const apiKey = process.env.LOVABLE_API_KEY;
-      if (!apiKey) {
+      const routellmKey = process.env.ROUTELLM_API_KEY;
+      const usingRouteLLM = isRouteLLMModel(data.model);
+      const activeKey = usingRouteLLM ? routellmKey : apiKey;
+      if (!activeKey) {
         await settleOperation(entitlement, { kind: "no_provider", errorCode: "ai_unauthorized" });
-        throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." });
+        throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: usingRouteLLM ? "RouteLLM (Abacus) key is not configured." : "AI is not configured." });
       }
+      // Image planning still runs through Lovable AI (cheap Flash Lite) when available.
 
-      const plans = await planImages(apiKey, data.prompt, data.currentHtml, requestId);
+
+      const plans = apiKey ? await planImages(apiKey, data.prompt, data.currentHtml, requestId) : [];
       const generatedRaw = plans.length
         ? await Promise.all(
             plans.map(async (p, i) => {
@@ -406,18 +411,23 @@ export const generateHtml = createServerFn({ method: "POST" })
       }
       messages.push({ role: "user", content: data.prompt });
 
+      const upstreamUrl = usingRouteLLM
+        ? "https://routellm.abacus.ai/v1/chat/completions"
+        : "https://ai.gateway.lovable.dev/v1/chat/completions";
+      const upstreamModel = usingRouteLLM ? stripRouteLLMPrefix(data.model) : data.model;
       const r = await aiFetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        upstreamUrl,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${activeKey}` },
           body: JSON.stringify({
-            model: data.model, messages,
-            ...(data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
+            model: upstreamModel, messages,
+            ...(!usingRouteLLM && data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
           }),
         },
         { breakerKey: `chat/${data.model}`, stage: "generate", requestId, maxAttempts: 2, totalTimeoutMs: 90_000 },
       );
+
 
       const json = (await r.response.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown; model?: string };
       providerUsed = true;
