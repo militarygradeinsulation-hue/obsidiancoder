@@ -7,10 +7,16 @@ import type { Classification, ExecutionPath } from "./task-classifier";
 export type Tier = "economy" | "balanced" | "advanced";
 
 // Ordered preferences per tier — first available id wins.
+// Preferences map the Auto routing rules:
+// - economy → simple text/color/spacing edits → Flash Lite
+// - balanced → normal UI/component/page work → Gemini 3.5 Flash
+// - advanced → complex logic, debugging, multi-feature → GPT-5.4 Mini
+// - flagship → major rebuilds / full-generation → Gemini 3.1 Pro Preview
 const TIER_PREFERENCE: Record<Tier, readonly string[]> = {
-  economy:  ["google/gemini-3.1-flash-lite", "openai/gpt-5.4-nano", "openai/gpt-5.6-luna", "google/gemini-2.5-flash-lite"],
-  balanced: ["google/gemini-3.5-flash", "openai/gpt-5.6-terra", "openai/gpt-5.4-mini", "google/gemini-2.5-flash"],
-  advanced: ["openai/gpt-5.6-sol", "google/gemini-3.1-pro-preview", "openai/gpt-5.5", "google/gemini-2.5-pro"],
+  economy:  ["google/gemini-3.1-flash-lite", "google/gemini-2.5-flash-lite", "openai/gpt-5.4-nano"],
+  balanced: ["google/gemini-3.5-flash", "google/gemini-2.5-flash", "openai/gpt-5.6-terra"],
+  advanced: ["openai/gpt-5.4-mini", "openai/gpt-5.6-terra", "google/gemini-3.5-flash"],
+  flagship: ["google/gemini-3.1-pro-preview", "openai/gpt-5.5", "google/gemini-2.5-pro"],
 };
 
 const REGISTRY_IDS = new Set<string>(MODEL_REGISTRY.map((m) => m.id));
