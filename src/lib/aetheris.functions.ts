@@ -391,6 +391,7 @@ export const generateHtml = createServerFn({ method: "POST" })
 
       const messages: Array<{ role: string; content: string }> = [
         { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: AETHERIS_VISUAL_STANDARD },
         ...trimmedHistory,
       ];
       if (truncatedHtml) {
