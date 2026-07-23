@@ -223,7 +223,7 @@ export const Route = createFileRoute("/api/patch")({
           ];
 
           let modelUsed = data.model;
-          const attempt = await callGateway(apiKey, data.model, baseMessages, requestId, request.signal);
+          const attempt = await callGateway(primaryKey, data.model, baseMessages, requestId, request.signal);
           if (attempt.ok) collected.push(attempt.usage);
 
           if (attempt.ok) {
