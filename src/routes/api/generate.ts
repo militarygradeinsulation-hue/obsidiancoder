@@ -318,9 +318,11 @@ export const Route = createFileRoute("/api/generate")({
         };
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
-          if (!apiKey) {
+          const routellmKey = process.env.ROUTELLM_API_KEY;
+          if (!apiKey && !routellmKey) {
             throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "AI is not configured." });
           }
+
 
           let data: z.infer<typeof inputSchema>;
           try {
