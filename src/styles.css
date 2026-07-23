@@ -2460,6 +2460,13 @@ body.is-resizing-composer * { user-select: none !important; }
   html, body { overflow-x: hidden; }
   /* Prevent iOS auto-zoom on focus */
   input, textarea, select { font-size: 16px !important; }
+}
+
+/* Simple / Mobile-style layout: applies whenever .obs-shell.is-mobile is set,
+   including the desktop Simple-view toggle. Mobile viewports also get .is-mobile
+   automatically via the useIsMobile hook. */
+
+
 
   .obs-shell.is-mobile {
     display: block;
@@ -2649,8 +2656,8 @@ body.is-resizing-composer * { user-select: none !important; }
     box-shadow: 0 12px 32px -8px rgba(244,161,37,0.55), 0 2px 8px rgba(0,0,0,0.4);
     cursor: pointer;
   }
-  .mob-fab:active { transform: translateY(1px); }
-}
+.mob-fab:active { transform: translateY(1px); }
+
 
 /* Native color-picker swatch used in DesignSystemPanel */
 .obs-color-swatch {
