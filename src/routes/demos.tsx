@@ -40,6 +40,7 @@ function DemosAdmin() {
   const remove = useServerFn(deleteFeaturedDemo);
   const reorder = useServerFn(reorderFeaturedDemos);
   const fetchStats = useServerFn(getWaitlistStats);
+  const fetchCredits = useServerFn(getCreditLedger);
 
   const [code, setCode] = useState("");
   const [codeInput, setCodeInput] = useState("");
