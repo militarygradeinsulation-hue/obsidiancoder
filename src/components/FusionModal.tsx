@@ -127,8 +127,6 @@ export function FusionModal({
                   ))}
                 </ul>
               </>
-            ) : null}
-            {chosen.length >= 2 && (
             ) : (
               <ul className="obs-fusion-list">
                 {eligible.map((p) => (
