@@ -2651,3 +2651,20 @@ body.is-resizing-composer * { user-select: none !important; }
   }
   .mob-fab:active { transform: translateY(1px); }
 }
+
+/* Native color-picker swatch used in DesignSystemPanel */
+.obs-color-swatch {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 26px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid rgba(255,255,255,0.14);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+  flex: 0 0 auto;
+}
+.obs-color-swatch::-webkit-color-swatch-wrapper { padding: 0; }
+.obs-color-swatch::-webkit-color-swatch { border: none; border-radius: 3px; }
+.obs-color-swatch::-moz-color-swatch { border: none; border-radius: 3px; }
