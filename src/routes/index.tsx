@@ -124,7 +124,8 @@ export const Route = createFileRoute("/")({
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
 // Client-side model picker id: registry id, or "auto" (resolves to DEFAULT_MODEL server-side).
-type PickerModelId = ModelId | "auto";
+// Client-side model picker id: a raw registry ModelId or a user-facing mode.
+type PickerModelId = ModelId | ModelModeId;
 
 const MODES = [
   { id: "agent",  label: "Agent",  hint: "Autonomous — plans + builds in one pass." },
