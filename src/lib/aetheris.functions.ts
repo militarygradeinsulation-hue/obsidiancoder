@@ -10,6 +10,7 @@ import {
 } from "./credit-gate.server";
 import { creditsRequiredEnvelope, type CreditsRequiredEnvelope } from "./credit-gate";
 import { makeUsage, estimateUsdForCall, mergeUsage, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "./usage-record";
+import { AETHERIS_VISUAL_STANDARD } from "./aetheris-visual-standard";
 
 /** Structured paywall error the client recognizes. */
 class PaywallError extends Error {
@@ -59,7 +60,7 @@ Hard rules:
 - If the user uploads or pastes an image (data: URL or https URL) in the prompt, embed it exactly as given — do not replace it with a placeholder.
 - Accessibility: semantic HTML, proper heading order, labels for inputs, aria-* where needed, visible keyboard focus, WCAG AA contrast.
 - Responsive: mobile-first, fluid layouts, no horizontal scroll at 320px.
-- Aesthetic: dark background, warm amber/gold accents, subtle glass/shine, refined typography.
+- Aesthetic: governed by the Aetheris Visual & Functional Quality Standard rider (see the second system message). Do not default to dark-mode or purple gradients.
 - Never remove previously-built features unless explicitly asked.
 - Safe: no third-party scripts, no tracking, no network calls beyond loading the images described above.
 
@@ -390,6 +391,7 @@ export const generateHtml = createServerFn({ method: "POST" })
 
       const messages: Array<{ role: string; content: string }> = [
         { role: "system", content: SYSTEM_PROMPT },
+        { role: "system", content: AETHERIS_VISUAL_STANDARD },
         ...trimmedHistory,
       ];
       if (truncatedHtml) {
