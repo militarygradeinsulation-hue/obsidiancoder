@@ -690,6 +690,10 @@ function Index() {
       });
     } catch (e) {
       console.error("expand draft failed", e);
+      const msg = e instanceof Error ? e.message : "";
+      if (msg.includes("credit_limit")) setError("Daily AI credit limit reached — expansion paused. Reset at midnight UTC or raise your workspace daily cap.");
+      else if (msg.includes("rate_limited")) setError("AI is rate-limited right now — try again in a moment.");
+      else if (msg === "expand-timeout") setError("Expansion timed out — try again.");
     } finally {
       setExpandingDraft(false);
       requestAnimationFrame(() => composerRef.current?.focus());
