@@ -1098,6 +1098,7 @@ function Index() {
     setPendingAttachments([]);
     setError(null);
     setTab("preview");
+    resetDemoStatus(activeId);
     setTerminal((t) => [...t, "✓ Cleared session"]);
   }
 
