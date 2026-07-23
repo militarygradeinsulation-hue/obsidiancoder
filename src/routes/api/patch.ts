@@ -5,7 +5,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { resolveModel } from "@/lib/models";
+import { resolveModel, isRouteLLMModel, stripRouteLLMPrefix } from "@/lib/models";
 import { parsePatchResponse, MAX_OPS } from "@/lib/patch-protocol";
 import { buildContext, nextTier, type ContextTier } from "@/lib/staged-context";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
