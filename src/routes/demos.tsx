@@ -3,8 +3,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useEffect, useState } from "react";
 import {
   listFeaturedDemos, updateFeaturedDemo, deleteFeaturedDemo, reorderFeaturedDemos,
-  getWaitlistStats,
-  type FeaturedDemoRow, type WaitlistStats,
+  getWaitlistStats, getCreditLedger,
+  type FeaturedDemoRow, type WaitlistStats, type CreditLedgerStats,
 } from "@/lib/featured-demos.functions";
 
 const CATEGORIES = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
@@ -40,6 +40,7 @@ function DemosAdmin() {
   const remove = useServerFn(deleteFeaturedDemo);
   const reorder = useServerFn(reorderFeaturedDemos);
   const fetchStats = useServerFn(getWaitlistStats);
+  const fetchCredits = useServerFn(getCreditLedger);
 
   const [code, setCode] = useState("");
   const [codeInput, setCodeInput] = useState("");
@@ -50,6 +51,10 @@ function DemosAdmin() {
   const [dragId, setDragId] = useState<string | null>(null);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [stats, setStats] = useState<WaitlistStats | null>(null);
+  const [credits, setCredits] = useState<CreditLedgerStats | null>(null);
+  const [creditsError, setCreditsError] = useState<string | null>(null);
+  const [creditsLive, setCreditsLive] = useState(true);
+  const [creditsUpdated, setCreditsUpdated] = useState<number | null>(null);
   const [viewMode, setViewMode] = useState<"cards" | "rows" | "grid" | "table">(() => {
     if (typeof window === "undefined") return "cards";
     const v = localStorage.getItem("obs.demos.viewMode");
@@ -89,6 +94,12 @@ function DemosAdmin() {
     if (saved) setCode(saved);
   }, []);
 
+  const refreshCredits = useCallback(async (adminCode: string) => {
+    const c = await fetchCredits({ data: { adminCode } });
+    if (c.ok) { setCredits(c.stats); setCreditsError(null); setCreditsUpdated(Date.now()); }
+    else setCreditsError(c.error);
+  }, [fetchCredits]);
+
   const refresh = useCallback(async (adminCode: string) => {
     setError(null);
     const r = await list({ data: { adminCode } });
@@ -96,9 +107,21 @@ function DemosAdmin() {
     setDemos(r.demos);
     const s = await fetchStats({ data: { adminCode } });
     if (s.ok) setStats(s.stats);
-  }, [list, fetchStats]);
+    await refreshCredits(adminCode);
+  }, [list, fetchStats, refreshCredits]);
 
   useEffect(() => { if (code) refresh(code); }, [code, refresh]);
+
+  // Live credit ledger polling — 5s while tab is visible and Live is on.
+  useEffect(() => {
+    if (!code || !creditsLive) return;
+    const tick = () => { if (document.visibilityState === "visible") refreshCredits(code); };
+    const id = window.setInterval(tick, 5000);
+    const onVis = () => { if (document.visibilityState === "visible") refreshCredits(code); };
+    document.addEventListener("visibilitychange", onVis);
+    return () => { window.clearInterval(id); document.removeEventListener("visibilitychange", onVis); };
+  }, [code, creditsLive, refreshCredits]);
+
 
   async function saveField(row: FeaturedDemoRow, patch: Partial<FeaturedDemoRow>) {
     setSavingId(row.id); setStatus(null); setError(null);
@@ -206,6 +229,130 @@ function DemosAdmin() {
           {error ?? status}
         </div>
       )}
+
+      <section style={{ padding: "16px 28px 0" }}>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, gap: 12, flexWrap: "wrap" }}>
+          <div>
+            <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: 0, color: "#F4A125", fontSize: 20 }}>
+              Live Credit Feed
+              <span style={{ marginLeft: 10, display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, color: creditsLive ? "#7bd88f" : "#B6BCC8", verticalAlign: "middle" }}>
+                <span style={{ width: 8, height: 8, borderRadius: 999, background: creditsLive ? "#7bd88f" : "#666", boxShadow: creditsLive ? "0 0 8px #7bd88f" : "none", animation: creditsLive ? "pulse 1.4s infinite" : undefined }} />
+                {creditsLive ? "LIVE" : "PAUSED"}
+              </span>
+            </h2>
+            <p style={{ margin: "2px 0 0", color: "#B6BCC8", fontSize: 12 }}>
+              In-app credit consumption (ai_usage · credit_usage · owner_usage) — last 7 days.
+              {creditsUpdated && <> Updated {new Date(creditsUpdated).toLocaleTimeString()}.</>}
+              {" "}Note: Lovable workspace credits have no public API — check Settings → Plans & credits in Lovable for those.
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 8 }}>
+            <button
+              onClick={() => setCreditsLive((v) => !v)}
+              style={{ background: "transparent", border: "1px solid #22262d", color: "#f2eee7", borderRadius: 8, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}
+            >{creditsLive ? "Pause" : "Resume"}</button>
+            <button
+              onClick={() => code && refreshCredits(code)}
+              style={{ background: "#F4A125", border: "none", color: "#111", borderRadius: 8, padding: "6px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
+            >Refresh</button>
+          </div>
+        </div>
+        {creditsError && (
+          <div style={{ color: "#ff8a8a", fontSize: 12, marginBottom: 8 }}>Ledger error: {creditsError}</div>
+        )}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))", gap: 10 }}>
+          {[
+            { label: "Credits · last hour", value: credits?.last_1h_credits ?? 0, accent: "#F4A125" },
+            { label: "Credits · last 24h", value: credits?.last_24h_credits ?? 0, accent: "#F4A125" },
+            { label: "Committed (7d)", value: credits?.totals.credits_committed ?? 0, accent: "#7bd88f" },
+            { label: "Pending", value: credits?.totals.credits_pending ?? 0, accent: "#E7B24A" },
+            { label: "Refunded", value: credits?.totals.credits_refunded ?? 0, accent: "#B6BCC8" },
+            { label: "Est. cost USD (7d)", value: credits ? `$${credits.totals.cost_usd.toFixed(4)}` : "$0", accent: "#7bd88f" },
+            { label: "Calls (7d)", value: credits?.totals.calls ?? 0, accent: "#B6BCC8" },
+            { label: "Owner credits (7d)", value: credits?.owner_credits_period ?? 0, accent: "#F4A125" },
+          ].map((s) => (
+            <div key={s.label} style={{ background: "#171a20", border: "1px solid #22262d", borderRadius: 12, padding: "12px 14px" }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, color: "#B6BCC8" }}>{s.label}</div>
+              <div style={{ fontFamily: "Fraunces, Georgia, serif", fontSize: 24, color: s.accent, marginTop: 4 }}>{s.value}</div>
+            </div>
+          ))}
+        </div>
+
+        {credits && (credits.by_operation.length > 0 || credits.by_model.length > 0) && (
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 10, marginTop: 12 }}>
+            {credits.by_operation.length > 0 && (
+              <div style={{ background: "#171a20", border: "1px solid #22262d", borderRadius: 12, padding: "10px 14px" }}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, color: "#B6BCC8", marginBottom: 6 }}>Top operations</div>
+                <table style={{ width: "100%", fontSize: 12 }}>
+                  <tbody>
+                    {credits.by_operation.map((o) => (
+                      <tr key={o.operation} style={{ borderTop: "1px solid #22262d" }}>
+                        <td style={{ padding: "4px 6px", color: "#f2eee7" }}>{o.operation}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#F4A125" }}>{o.credits} cr</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#B6BCC8" }}>${o.cost_usd.toFixed(4)}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#B6BCC8" }}>{o.calls}×</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            {credits.by_model.length > 0 && (
+              <div style={{ background: "#171a20", border: "1px solid #22262d", borderRadius: 12, padding: "10px 14px" }}>
+                <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 0.6, color: "#B6BCC8", marginBottom: 6 }}>Top models</div>
+                <table style={{ width: "100%", fontSize: 12 }}>
+                  <tbody>
+                    {credits.by_model.map((m) => (
+                      <tr key={m.model} style={{ borderTop: "1px solid #22262d" }}>
+                        <td style={{ padding: "4px 6px", color: "#f2eee7" }}>{m.model}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#F4A125" }}>{m.credits} cr</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#B6BCC8" }}>${m.cost_usd.toFixed(4)}</td>
+                        <td style={{ padding: "4px 6px", textAlign: "right", color: "#B6BCC8" }}>{m.calls}×</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {credits && credits.recent.length > 0 && (
+          <details open style={{ marginTop: 12, background: "#171a20", border: "1px solid #22262d", borderRadius: 12, padding: "10px 14px" }}>
+            <summary style={{ cursor: "pointer", color: "#F4A125", fontSize: 13 }}>Recent {credits.recent.length} events</summary>
+            <div style={{ overflowX: "auto", marginTop: 10, maxHeight: 360 }}>
+              <table style={{ width: "100%", fontSize: 12, borderCollapse: "collapse" }}>
+                <thead>
+                  <tr style={{ color: "#B6BCC8", textAlign: "left", position: "sticky", top: 0, background: "#171a20" }}>
+                    <th style={{ padding: "6px 8px" }}>When</th>
+                    <th style={{ padding: "6px 8px" }}>Actor</th>
+                    <th style={{ padding: "6px 8px" }}>Operation</th>
+                    <th style={{ padding: "6px 8px" }}>Model</th>
+                    <th style={{ padding: "6px 8px" }}>Status</th>
+                    <th style={{ padding: "6px 8px", textAlign: "right" }}>Credits</th>
+                    <th style={{ padding: "6px 8px", textAlign: "right" }}>Tokens (in/out)</th>
+                    <th style={{ padding: "6px 8px", textAlign: "right" }}>Cost</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {credits.recent.map((r) => (
+                    <tr key={`${r.source}-${r.id}`} style={{ borderTop: "1px solid #22262d" }}>
+                      <td style={{ padding: "6px 8px", color: "#B6BCC8", whiteSpace: "nowrap" }}>{new Date(r.created_at).toLocaleTimeString()}</td>
+                      <td style={{ padding: "6px 8px", color: r.actor === "owner" ? "#F4A125" : "#f2eee7" }}>{r.actor}</td>
+                      <td style={{ padding: "6px 8px" }}>{r.operation}</td>
+                      <td style={{ padding: "6px 8px", color: "#B6BCC8" }}>{r.model ?? "—"}</td>
+                      <td style={{ padding: "6px 8px", color: r.status === "committed" ? "#7bd88f" : r.status === "pending" ? "#E7B24A" : r.status === "refunded" ? "#B6BCC8" : "#ff8a8a" }}>{r.status}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#F4A125" }}>{r.credits}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#B6BCC8" }}>{r.input_tokens}/{r.output_tokens}</td>
+                      <td style={{ padding: "6px 8px", textAlign: "right", color: "#B6BCC8" }}>{r.cost_usd != null ? `$${r.cost_usd.toFixed(4)}` : "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </details>
+        )}
+      </section>
 
       <section style={{ padding: "16px 28px 0" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, gap: 12, flexWrap: "wrap" }}>
