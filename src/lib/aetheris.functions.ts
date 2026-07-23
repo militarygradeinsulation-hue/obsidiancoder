@@ -411,18 +411,23 @@ export const generateHtml = createServerFn({ method: "POST" })
       }
       messages.push({ role: "user", content: data.prompt });
 
+      const upstreamUrl = usingRouteLLM
+        ? "https://routellm.abacus.ai/v1/chat/completions"
+        : "https://ai.gateway.lovable.dev/v1/chat/completions";
+      const upstreamModel = usingRouteLLM ? stripRouteLLMPrefix(data.model) : data.model;
       const r = await aiFetch(
-        "https://ai.gateway.lovable.dev/v1/chat/completions",
+        upstreamUrl,
         {
           method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${activeKey}` },
           body: JSON.stringify({
-            model: data.model, messages,
-            ...(data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
+            model: upstreamModel, messages,
+            ...(!usingRouteLLM && data.model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
           }),
         },
         { breakerKey: `chat/${data.model}`, stage: "generate", requestId, maxAttempts: 2, totalTimeoutMs: 90_000 },
       );
+
 
       const json = (await r.response.json()) as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown; model?: string };
       providerUsed = true;
