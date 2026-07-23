@@ -31,8 +31,32 @@ export const MODEL_REGISTRY = [
   { id: "openai/gpt-5-nano",             label: "GPT-5 Nano" },
 ] as const;
 
-export const ALLOWED_MODEL_IDS = MODEL_REGISTRY.map((m) => m.id);
-export type ModelId = (typeof MODEL_REGISTRY)[number]["id"];
+// RouteLLM (Abacus) — OpenAI-compatible gateway at https://routellm.abacus.ai/v1
+// The `routellm/` prefix is stripped before the request is sent upstream.
+export const ROUTELLM_MODELS = [
+  { id: "routellm/claude-haiku-4-5-20251001",  label: "RouteLLM · Claude Haiku 4.5" },
+  { id: "routellm/claude-sonnet-4-5-20250929", label: "RouteLLM · Claude Sonnet 4.5" },
+  { id: "routellm/claude-opus-4-1-20250805",   label: "RouteLLM · Claude Opus 4.1" },
+  { id: "routellm/gpt-4o",                     label: "RouteLLM · GPT-4o" },
+  { id: "routellm/gpt-4o-mini",                label: "RouteLLM · GPT-4o Mini" },
+  { id: "routellm/gemini-2.5-pro",             label: "RouteLLM · Gemini 2.5 Pro" },
+  { id: "routellm/gemini-2.5-flash",           label: "RouteLLM · Gemini 2.5 Flash" },
+] as const;
+
+export const ROUTELLM_PREFIX = "routellm/";
+export function isRouteLLMModel(id: string): boolean {
+  return id.startsWith(ROUTELLM_PREFIX);
+}
+export function stripRouteLLMPrefix(id: string): string {
+  return id.startsWith(ROUTELLM_PREFIX) ? id.slice(ROUTELLM_PREFIX.length) : id;
+}
+
+const ROUTELLM_IDS = ROUTELLM_MODELS.map((m) => m.id);
+export const ALLOWED_MODEL_IDS = [
+  ...MODEL_REGISTRY.map((m) => m.id),
+  ...ROUTELLM_IDS,
+];
+export type ModelId = (typeof MODEL_REGISTRY)[number]["id"] | (typeof ROUTELLM_MODELS)[number]["id"];
 
 // User-facing modes: friendly names that map to a concrete supported model.
 // Kept in one place so both the picker UI and resolveModel() agree.
@@ -42,6 +66,7 @@ export const MODE_TO_MODEL = {
   economy:  "google/gemini-3.1-flash-lite",    // simple text/color/spacing edits
   balanced: "openai/gpt-5.4-mini",             // complex logic, debugging, multi-feature
   deep:     "google/gemini-3.1-pro-preview",   // major rebuilds
+  routellm: "routellm/claude-haiku-4-5-20251001", // Abacus RouteLLM default (Haiku 4.5)
 } as const satisfies Record<string, ModelId>;
 
 export type ModeId = keyof typeof MODE_TO_MODEL;
@@ -55,7 +80,9 @@ export const MODEL_PICKER_OPTIONS = [
   { id: "economy",  label: "Economy — Flash Lite" },
   { id: "balanced", label: "Balanced — GPT-5.4 Mini" },
   { id: "deep",     label: "Deep Build — Gemini 3.1 Pro" },
+  { id: "routellm", label: "RouteLLM — Claude Haiku 4.5" },
   ...MODEL_REGISTRY,
+  ...ROUTELLM_MODELS,
 ] as const;
 
 export function isModeId(v: string | undefined): v is ModeId {
@@ -67,6 +94,7 @@ export function resolveModel(id: string | undefined): ModelId {
   if (isModeId(id)) return MODE_TO_MODEL[id];
   return (ALLOWED_MODEL_IDS as readonly string[]).includes(id) ? (id as ModelId) : DEFAULT_MODEL;
 }
+
 
 // Model tiers — used by the server to decide whether to fall back to the
 // fastest reliable model when time-to-first-byte exceeds budget.
