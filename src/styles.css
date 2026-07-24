@@ -2543,36 +2543,43 @@ body.is-resizing-composer * { user-select: none !important; }
   }
   .obs-shell.is-mobile .obs-canvas-head::-webkit-scrollbar { display: none; }
   .obs-shell.is-mobile .obs-preview-wrap {
-    width: 100% !important; height: calc(100% - 44px) !important;
+    width: 100% !important;
+    height: calc(100dvh - 52px - 44px - 64px - env(safe-area-inset-bottom)) !important;
     max-width: 100vw !important;
+    overflow: hidden;
   }
-  .obs-shell.is-mobile .obs-preview { width: 100% !important; height: 100% !important; }
+  .obs-shell.is-mobile .obs-preview { width: 100%; height: 100%; }
   .obs-shell.is-mobile .obs-preview-wrap.is-mobile { width: 100% !important; }
 
-  /* Right rail (chat/agent + build panels) fills the workspace when active */
+  /* Right rail (chat/agent + build panels) fills the workspace when active.
+     Reserve room for the sticky composer AND the bottom nav so nothing overlaps. */
   .obs-shell.is-mobile .obs-rail {
     position: static;
     width: 100% !important; max-width: 100vw !important;
-    height: 100%;
-    padding: 12px 12px 96px 12px;
+    height: calc(100dvh - 52px);
+    padding: 12px 12px calc(160px + env(safe-area-inset-bottom)) 12px;
     overflow-y: auto;
     border-left: none;
+    -webkit-overflow-scrolling: touch;
   }
   .obs-shell.is-mobile .obs-rail .obs-card { padding: 12px; margin-bottom: 10px; }
 
-  /* Composer becomes sticky above the bottom nav */
+  /* Composer floats above the bottom nav (not under it) */
   .obs-shell.is-mobile .obs-composer {
-    position: sticky !important;
-    bottom: 0 !important; left: 0 !important; top: auto !important;
-    width: 100% !important;
-    max-width: 100% !important;
+    position: fixed !important;
+    left: 8px !important; right: 8px !important;
+    bottom: calc(64px + env(safe-area-inset-bottom)) !important;
+    top: auto !important;
+    width: auto !important;
+    max-width: none !important;
     transform: none !important;
     margin: 0 !important;
-    border-radius: 14px 14px 0 0;
-    z-index: 20;
+    border-radius: 16px;
+    z-index: 46;
+    box-shadow: 0 12px 40px -12px rgba(0,0,0,0.7);
   }
-  .obs-shell.is-mobile .obs-composer.is-floating { position: sticky !important; }
-  .obs-shell.is-mobile textarea { min-height: 56px; }
+  .obs-shell.is-mobile .obs-composer.is-floating { position: fixed !important; }
+  .obs-shell.is-mobile textarea { min-height: 48px; max-height: 160px; }
   .obs-shell.is-mobile button, .obs-shell.is-mobile .obs-chip, .obs-shell.is-mobile .obs-icon-btn {
     min-height: 40px; min-width: 40px;
   }
