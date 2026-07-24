@@ -368,6 +368,29 @@ function Index() {
       return n;
     });
   };
+  // Ideas that were built AND then pushed live (Go Live / Push to Demos).
+  const [liveIdeas, setLiveIdeas] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem("obs.liveIdeas");
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const recordLiveIdea = (labelOrSnippet: string | null | undefined) => {
+    if (!labelOrSnippet) return;
+    const key = labelOrSnippet.trim().toLowerCase().slice(0, 120);
+    if (!key) return;
+    setLiveIdeas((prev) => {
+      if (prev.has(key)) return prev;
+      const n = new Set(prev); n.add(key);
+      try { window.localStorage.setItem("obs.liveIdeas", JSON.stringify(Array.from(n).slice(-400))); } catch {}
+      return n;
+    });
+    recordBuiltIdea(labelOrSnippet);
+  };
+  // Tracks the last idea label the user clicked into the composer, so when
+  // they push that build live we can mark the source idea as "already made".
+  const activeIdeaLabelRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastAiError, setLastAiError] = useState<AiErrorEnvelope | null>(null);
   const lastSubmitRef = useRef<{ prompt: string; attachments: Attachment[] } | null>(null);
