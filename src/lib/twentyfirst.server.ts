@@ -8,6 +8,7 @@
 // shape — silently returns [] so a bad 21st.dev day cannot break builds.
 
 import { aiFetch } from "./ai-fetch";
+import { markTwentyfirstAuth } from "./twentyfirst-metrics.server";
 
 export interface ComponentHit {
   name: string;
@@ -15,6 +16,7 @@ export interface ComponentHit {
   code: string;
   previewUrl?: string;
   tags?: string[];
+  identifier?: string;
 }
 
 const MCP_URL = "https://21st.dev/api/mcp";
