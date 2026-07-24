@@ -1,6 +1,8 @@
-import { createFileRoute, redirect, useRouter, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, useRouter, Link, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
+
+const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
