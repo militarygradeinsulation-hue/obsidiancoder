@@ -2898,24 +2898,31 @@ function Index() {
                   { id: "portfolio", label: "Portfolio" },
                 ];
                 const baseAddonsAll = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
-                const isBuilt = (a: Addon) => {
+                const matchesSet = (a: Addon, set: Set<string>) => {
                   const l = a.label.trim().toLowerCase();
                   const s = a.snippet.trim().toLowerCase();
-                  for (const k of builtIdeas) {
+                  for (const k of set) {
                     if (!k) continue;
                     if (l && (l.includes(k) || k.includes(l))) return true;
                     if (s && (s.includes(k) || k.includes(s.slice(0, 60)))) return true;
                   }
                   return false;
                 };
-                const baseAddons = baseAddonsAll.filter((a) => !isBuilt(a));
-                const filteredAi = aiIdeas.filter((a) => !isBuilt(a));
-                // Idle + a category selected → show AI ideas only (unlimited fresh pool).
-                // Idle + "all" and no AI yet → deterministic starter pool.
+                const isLiveIdea = (a: Addon) => matchesSet(a, liveIdeas);
+                const isBuilt = (a: Addon) => matchesSet(a, builtIdeas);
+                // Don't hide built/live ideas — show them with a badge so the
+                // user can see what's already been made instead of guessing.
+                const baseAddons = baseAddonsAll;
+                const filteredAi = aiIdeas;
                 const addons: Addon[] = isStarters
                   ? (filteredAi.length ? filteredAi.slice(0, 6) : baseAddons)
                   : baseAddons;
                 const label = isStarters ? "Try one of these" : "Add to your prompt";
+                const IdeaBadge = ({ a }: { a: Addon }) => {
+                  if (isLiveIdea(a)) return <span title="You already built this and pushed it live" style={{ fontSize: 9, padding: "1px 5px", borderRadius: 999, background: "rgba(34,197,94,0.18)", color: "#7ee2a4", border: "1px solid rgba(34,197,94,0.45)", letterSpacing: 0.3 }}>LIVE</span>;
+                  if (isBuilt(a)) return <span title="You already built this" style={{ fontSize: 9, padding: "1px 5px", borderRadius: 999, background: "rgba(244,161,37,0.15)", color: "#F4A125", border: "1px solid rgba(244,161,37,0.45)", letterSpacing: 0.3 }}>BUILT</span>;
+                  return null;
+                };
                 const savedKey = (a: Addon) => a.snippet.trim().toLowerCase();
                 const savedSet = new Set(savedIdeas.map(savedKey));
                 const toggleSave = (a: Addon) => {
