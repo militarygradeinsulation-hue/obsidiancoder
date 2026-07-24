@@ -309,7 +309,20 @@ function Unlock() {
 
       <div aria-hidden className="unlock-noise" />
 
-      <main className="unlock-card" role="main" aria-labelledby="unlock-heading">
+      <nav className="unlock-topbar" aria-label="Primary">
+        <a href="#top" className="unlock-topbar-brand" aria-label="Obsidian home">
+          <span className="unlock-topbar-mark">◆</span>
+          <span className="unlock-topbar-name">OBSIDIAN</span>
+        </a>
+        <div className="unlock-topbar-links">
+          <button type="button" className="unlock-topbar-link" onClick={() => { setTab("buy"); setPlansOpen(true); requestAnimationFrame(() => document.getElementById("plans-heading")?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>Pricing</button>
+          <button type="button" className="unlock-topbar-link" onClick={() => { setDemosOpen(true); requestAnimationFrame(() => document.getElementById("demos-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Live Demos</button>
+          <button type="button" className="unlock-topbar-link" onClick={() => setTab("code")}>Access Code</button>
+          <button type="button" className="unlock-topbar-cta" onClick={goSignIn}>Sign in</button>
+        </div>
+      </nav>
+
+      <main className="unlock-card" role="main" aria-labelledby="unlock-heading" id="top">
         <div className="unlock-card-glow" aria-hidden />
 
         <header className="unlock-brand">
