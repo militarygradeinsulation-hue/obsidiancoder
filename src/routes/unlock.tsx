@@ -380,48 +380,60 @@ function Unlock() {
                 </button>
 
                 <div className="plans-block" aria-labelledby="plans-heading">
-                  <div className="plans-head">
-                    <h3 id="plans-heading" className="plans-title">Choose your plan</h3>
-                  </div>
-                  <div className="tier-grid">
-                    {PLAN_TIERS.map((t) => (
-                      <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
-                        {t.featured && <div className="tier-badge">Most Popular</div>}
-                        <div className="tier-head">
-                          <span className="tier-name">{t.name}</span>
-                          <span className="tier-price">
-                            {t.price}
-                            {t.originalPrice && <span className="tier-price-strike">{t.originalPrice}</span>}
-                            <span className="tier-cadence">{t.cadence}</span>
-                          </span>
+                  <button
+                    type="button"
+                    className="plans-toggle"
+                    aria-expanded={plansOpen}
+                    aria-controls="plans-grid"
+                    onClick={() => setPlansOpen((v) => !v)}
+                  >
+                    <span className="plans-toggle-label">
+                      <span id="plans-heading" className="plans-title">Compare all plans</span>
+                      <span className="plans-toggle-sub">Starter · Creator · Professional · Business · Elite</span>
+                    </span>
+                    <span className="plans-toggle-caret" aria-hidden>{plansOpen ? "▲" : "▼"}</span>
+                  </button>
+                  {plansOpen && (
+                    <div id="plans-grid" className="tier-grid">
+                      {PLAN_TIERS.map((t) => (
+                        <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
+                          {t.featured && <div className="tier-badge">Most Popular</div>}
+                          <div className="tier-head">
+                            <span className="tier-name">{t.name}</span>
+                            <span className="tier-price">
+                              {t.price}
+                              {t.originalPrice && <span className="tier-price-strike">{t.originalPrice}</span>}
+                              <span className="tier-cadence">{t.cadence}</span>
+                            </span>
+                          </div>
+                          {t.founding && (
+                            <div className="tier-founding">Founding Member · First 100 · locked in for life</div>
+                          )}
+                          <div className="tier-headline">{t.headline}</div>
+                          <ul className="tier-outcomes">
+                            {t.outcomes.map((o) => <li key={o}>• {o}</li>)}
+                          </ul>
+                          {t.cta === "checkout" && t.priceId ? (
+                            <button
+                              type="button"
+                              className="tier-cta tier-cta-primary"
+                              onClick={() => startPurchase(t.priceId!)}
+                              disabled={sessionLoading}
+                            >
+                              {session ? `Choose ${t.name}` : `Buy ${t.name}`}
+                            </button>
+                          ) : (
+                            <a
+                              className="tier-cta tier-cta-locked"
+                              href="mailto:hello@aetheris.technology?subject=Obsidian%20Enterprise%20inquiry"
+                            >
+                              Contact sales
+                            </a>
+                          )}
                         </div>
-                        {t.founding && (
-                          <div className="tier-founding">Founding Member · First 100 · locked in for life</div>
-                        )}
-                        <div className="tier-headline">{t.headline}</div>
-                        <ul className="tier-outcomes">
-                          {t.outcomes.map((o) => <li key={o}>• {o}</li>)}
-                        </ul>
-                        {t.cta === "checkout" && t.priceId ? (
-                          <button
-                            type="button"
-                            className="tier-cta tier-cta-primary"
-                            onClick={() => startPurchase(t.priceId!)}
-                            disabled={sessionLoading}
-                          >
-                            {session ? `Choose ${t.name}` : `Buy ${t.name}`}
-                          </button>
-                        ) : (
-                          <a
-                            className="tier-cta tier-cta-locked"
-                            href="mailto:hello@aetheris.technology?subject=Obsidian%20Enterprise%20inquiry"
-                          >
-                            Contact sales
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <button type="button" className="unlock-btn-secondary" onClick={goSignIn}>
