@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { containsTradesOnlyLanguage } from "@/lib/suggestion-safety";
 
 // Per-library-code storage for a user's saved ideas. The library code is the
 // shared secret; only bookmarks tagged with that exact code are returned.
@@ -9,6 +10,7 @@ type Idea = {
   label?: string;
   snippet?: string;
   hint?: string;
+  category?: string;
 };
 
 function sanitizeIdeas(raw: unknown): Idea[] {
@@ -19,11 +21,15 @@ function sanitizeIdeas(raw: unknown): Idea[] {
     const o = item as Record<string, unknown>;
     const snippet = typeof o.snippet === "string" ? o.snippet.slice(0, 2000) : "";
     if (!snippet.trim()) continue;
+    const label = typeof o.label === "string" ? o.label.slice(0, 200) : undefined;
+    const category = o.category === "trades" ? "trades" : undefined;
+    if (category !== "trades" && containsTradesOnlyLanguage(`${label ?? ""} ${snippet}`)) continue;
     out.push({
       id: typeof o.id === "string" ? o.id.slice(0, 128) : undefined,
-      label: typeof o.label === "string" ? o.label.slice(0, 200) : undefined,
+      label,
       snippet,
       hint: typeof o.hint === "string" ? o.hint.slice(0, 400) : undefined,
+      category,
     });
   }
   return out;

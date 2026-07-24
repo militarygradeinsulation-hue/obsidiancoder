@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { discussBuild } from "@/lib/build-chat.functions";
+import { containsTradesOnlyLanguage, isExplicitTradesContext } from "@/lib/suggestion-safety";
 
 type Msg = {
   role: "user" | "assistant";
@@ -30,8 +31,9 @@ interface Props {
   onApplyAndRebuild?: (prompt: string) => void;
 }
 
-const STORAGE_KEY = "obs.build-chat.history.v2";
-const CONFIRMED_KEY = "obs.build-chat.confirmed.v1";
+const STORAGE_KEY = "obs.build-chat.history.v3";
+const CONFIRMED_KEY = "obs.build-chat.confirmed.v2";
+const STALE_KEYS = ["obs.build-chat.history.v2", "obs.build-chat.confirmed.v1"];
 
 /** Cheap revision id from HTML content. */
 function revisionOf(html: string): string {
@@ -83,10 +85,17 @@ export function BuildChatPanel({
   // Load persisted state.
   useEffect(() => {
     try {
+      STALE_KEYS.forEach((key) => localStorage.removeItem(key));
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) setMessages(JSON.parse(raw));
+      if (raw) {
+        const parsed = JSON.parse(raw) as Msg[];
+        setMessages(parsed);
+      }
       const c = localStorage.getItem(CONFIRMED_KEY);
-      if (c) setConfirmed(JSON.parse(c));
+      if (c) {
+        const parsed = JSON.parse(c) as string[];
+        setConfirmed(parsed);
+      }
     } catch { /* ignore */ }
   }, []);
   useEffect(() => {
@@ -124,6 +133,10 @@ export function BuildChatPanel({
           preferredModel: provider,
         },
       });
+      const allowTrades = isExplicitTradesContext(`${q}\n${liveDraft}\n${liveHtml}`);
+      if (!allowTrades && containsTradesOnlyLanguage(res.reply)) {
+        throw new Error("domain_mismatch");
+      }
       setLastProvider(res.providerUsed);
       setMessages([...next, { role: "assistant", content: res.reply, revisionId: currentRevision, ts: Date.now() }]);
     } catch (e) {

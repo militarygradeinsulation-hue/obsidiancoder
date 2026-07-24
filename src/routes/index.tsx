@@ -18,6 +18,11 @@ import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
 import { generateStarterIdeas, anticipateNextIdeas } from "@/lib/ideas.functions";
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
+import {
+  isExplicitTradesContext,
+  neutralEnhancementFallbacks,
+  suggestionAllowed,
+} from "@/lib/suggestion-safety";
 
 type DemoCat = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
 function classifyDemoCategory(...parts: (string | undefined | null)[]): DemoCat {
@@ -224,6 +229,8 @@ const SUGGESTIONS = [
 
 const STORAGE_KEY = "obsidian.vibe.sessions.v1";
 const ACTIVE_KEY = "obsidian.vibe.active.v1";
+const IDEA_CACHE_VERSION_KEY = "obs.idea-cache.version";
+const IDEA_CACHE_VERSION = "3";
 
 function newSession(): Session {
   return {
@@ -258,8 +265,17 @@ function Index() {
   const [savedIdeas, setSavedIdeas] = useState<Addon[]>(() => {
     if (typeof window === "undefined") return [];
     try {
+      const stale = window.localStorage.getItem(IDEA_CACHE_VERSION_KEY) !== IDEA_CACHE_VERSION;
       const raw = window.localStorage.getItem("obs.savedIdeas");
-      return raw ? (JSON.parse(raw) as Addon[]) : [];
+      const parsed = raw ? (JSON.parse(raw) as Array<Addon & { category?: string }>) : [];
+      const safe = parsed.filter((idea) =>
+        suggestionAllowed(`${idea.label} ${idea.snippet}`, idea.category === "trades"),
+      );
+      if (stale) {
+        window.localStorage.setItem(IDEA_CACHE_VERSION_KEY, IDEA_CACHE_VERSION);
+        window.localStorage.setItem("obs.savedIdeas", JSON.stringify(safe));
+      }
+      return safe;
     } catch { return []; }
   });
   useEffect(() => {
@@ -537,6 +553,8 @@ function Index() {
           const seen = new Set<string>();
           const merged: Addon[] = [];
           for (const item of [...remote, ...local]) {
+            const taggedTrades = (item as Addon & { category?: string }).category === "trades";
+            if (!suggestionAllowed(`${item.label} ${item.snippet}`, taggedTrades)) continue;
             const k = key(item);
             if (!k || seen.has(k)) continue;
             seen.add(k);
@@ -669,7 +687,10 @@ function Index() {
         }));
         return;
       }
-      if (res && "prompt" in res && res.prompt) setInput(res.prompt);
+      if (res && "prompt" in res && res.prompt) {
+        const allowTrades = ideaCategory === "trades" || isExplicitTradesContext(draft);
+        if (suggestionAllowed(res.prompt, allowTrades)) setInput(res.prompt);
+      }
     } catch (e) {
       console.error("enhance failed", e);
     } finally {
@@ -677,6 +698,11 @@ function Index() {
     }
   }
   function appendAddon(a: Addon) {
+    const allowTrades = ideaCategory === "trades" || isExplicitTradesContext(input);
+    if (!suggestionAllowed(`${a.label} ${a.snippet}`, allowTrades)) {
+      setError("That suggestion did not match this build and was removed. Try Expand again.");
+      return;
+    }
     activeIdeaLabelRef.current = a.label;
     setInput((prev) => {
       const base = prev.trim();
@@ -702,7 +728,7 @@ function Index() {
   // it. Press again to grow the prompt one step further.
   // Race any anticipate call against a hard timeout so a stalled AI Gateway
   // response can never leave the "Expand" spinner stuck forever.
-  async function anticipateWithTimeout(payload: { draft: string; hasHtml: boolean; count: number }, ms = 15000) {
+  async function anticipateWithTimeout(payload: { draft: string; hasHtml: boolean; count: number; tradesSelected?: boolean }, ms = 15000) {
     return await Promise.race([
       anticipateNextIdeasFn({ data: payload }),
       new Promise<never>((_, reject) => setTimeout(() => reject(new Error("expand-timeout")), ms)),
@@ -718,8 +744,11 @@ function Index() {
     if (!draft) return;
     setExpandingDraft(true);
     try {
-      const res = await anticipateWithTimeout({ draft, hasHtml: !!current.html, count: 3 });
-      const next = res?.ideas?.find((i) => i?.snippet)?.snippet;
+      const allowTrades = ideaCategory === "trades" || isExplicitTradesContext(draft);
+      const res = await anticipateWithTimeout({ draft, hasHtml: !!current.html, count: 3, tradesSelected: ideaCategory === "trades" });
+      const next = res?.ideas?.find((i) =>
+        i?.snippet && suggestionAllowed(`${i.label} ${i.snippet}`, allowTrades),
+      )?.snippet ?? (allowTrades ? undefined : neutralEnhancementFallbacks(draft, !!current.html, 1)[0]?.snippet);
       if (!next) return;
       setInput((prev) => {
         const base = prev.trim();
@@ -743,6 +772,11 @@ function Index() {
   // the prompt into a fuller brief without further clicks.
   async function expandIdea(seed: Addon) {
     if (expandingIdeaId) return;
+    const allowSeed = ideaCategory === "trades" || isExplicitTradesContext(input);
+    if (!suggestionAllowed(`${seed.label} ${seed.snippet}`, allowSeed)) {
+      setError("That saved suggestion came from another category and was removed.");
+      return;
+    }
     setExpandingIdeaId(seed.id);
     try {
       // Seed the composer with the idea if empty; otherwise keep user's text.
@@ -756,10 +790,11 @@ function Index() {
         const draft = (composerRef.current?.value ?? "").trim() || seed.snippet;
         let res;
         try {
-          res = await anticipateWithTimeout({ draft, hasHtml: !!current.html, count: 2 }, 12000);
+          res = await anticipateWithTimeout({ draft, hasHtml: !!current.html, count: 2, tradesSelected: ideaCategory === "trades" }, 12000);
         } catch { break; }
         const next = res?.ideas?.[0];
-        if (!next?.snippet) break;
+        const allowTrades = ideaCategory === "trades" || isExplicitTradesContext(draft);
+        if (!next?.snippet || !suggestionAllowed(`${next.label} ${next.snippet}`, allowTrades)) break;
         setInput((prev) => {
           const base = prev.trim();
           if (!base) return next.snippet;
@@ -1012,9 +1047,15 @@ function Index() {
     setNextStepsLoading(true);
     const t = window.setTimeout(async () => {
       try {
-        const res = await anticipateNextIdeasFn({ data: { draft, hasHtml: !!current.html, count: 3 } });
+        const allowTrades = ideaCategory === "trades" || isExplicitTradesContext(draft);
+        const res = await anticipateNextIdeasFn({ data: { draft, hasHtml: !!current.html, count: 3, tradesSelected: ideaCategory === "trades" } });
         if (cancelled) return;
-        setNextSteps((res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon)));
+        const safe = (res.ideas ?? [])
+          .filter((i) => suggestionAllowed(`${i.label} ${i.snippet}`, allowTrades))
+          .map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon));
+        setNextSteps(safe.length > 0 || allowTrades
+          ? safe
+          : neutralEnhancementFallbacks(draft, !!current.html, 3).map((i, index) => ({ id: `fallback-${index}`, ...i })));
       } catch {
         if (!cancelled) setNextSteps([]);
       } finally {
@@ -1022,7 +1063,7 @@ function Index() {
       }
     }, 650);
     return () => { cancelled = true; window.clearTimeout(t); setNextStepsLoading(false); };
-  }, [input, current.html, anticipateNextIdeasFn]);
+  }, [input, current.html, anticipateNextIdeasFn, ideaCategory]);
 
 
   // Fold new lastMetrics into per-session cost snapshot exactly once.
@@ -2931,7 +2972,7 @@ function Index() {
                   setSavedIdeas((prev) =>
                     prev.some((p) => savedKey(p) === key)
                       ? prev.filter((p) => savedKey(p) !== key)
-                      : [{ ...a, id: "saved-" + Date.now().toString(36) }, ...prev].slice(0, 40)
+                      : [{ ...a, category: ideaCategory, id: "saved-" + Date.now().toString(36) } as Addon & { category: string }, ...prev].slice(0, 40)
                   );
                 };
                 const fetchCategoryIdeas = async (category: string, replace: boolean) => {
@@ -2943,7 +2984,10 @@ function Index() {
                       ...Array.from(builtIdeas),
                     ])).slice(-120);
                     const res = await generateStarterIdeasFn({ data: { exclude, count: 8, category: category as never } });
-                    const fresh = (res.ideas ?? []).map((i) => ({ id: i.id, label: i.label, snippet: i.snippet } as Addon));
+                    const allowTrades = category === "trades";
+                    const fresh = (res.ideas ?? [])
+                      .filter((i) => suggestionAllowed(`${i.label} ${i.snippet}`, allowTrades))
+                      .map((i) => ({ id: i.id, label: i.label, snippet: i.snippet, category } as Addon & { category: string }));
                     fresh.forEach((f) => seenIdeaLabelsRef.current.add(f.label.toLowerCase()));
                     setAiIdeas((prev) => {
                       const next = replace ? fresh : [...fresh, ...prev];

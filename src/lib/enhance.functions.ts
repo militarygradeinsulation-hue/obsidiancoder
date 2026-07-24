@@ -8,6 +8,11 @@ import {
 import { creditsRequiredEnvelope } from "@/lib/credit-gate";
 import { makeUsage, estimateUsdForCall, parseUsageFromChatJson } from "@/lib/usage-record";
 import { newRequestId } from "@/lib/ai-errors";
+import {
+  containsTradesOnlyLanguage,
+  isExplicitTradesContext,
+  neutralEnhancementFallbacks,
+} from "@/lib/suggestion-safety";
 
 const inputSchema = z.object({
   prompt: z.string().min(1).max(4000),
@@ -77,6 +82,11 @@ export const enhancePrompt = createServerFn({ method: "POST" })
       parsedUsage = parseUsageFromChatJson(json);
       let out = json.choices?.[0]?.message?.content?.trim() ?? "";
       out = out.replace(/^["'`]+|["'`]+$/g, "").replace(/^```[a-z]*\s*|\s*```$/g, "").trim();
+      const allowTrades = isExplicitTradesContext(data.prompt);
+      if (out && !allowTrades && containsTradesOnlyLanguage(out)) {
+        const fallback = neutralEnhancementFallbacks(data.prompt, data.hasHtml, 2);
+        out = [data.prompt.trim(), ...fallback.map((item) => item.snippet)].join(" ").slice(0, 600);
+      }
       if (!out) {
         errorCode = "ai_empty_output";
         // Provider DID work; charge actual/estimated with failed status.
