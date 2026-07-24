@@ -225,20 +225,29 @@ export async function searchComponents(
         : [];
   if (!list.length) { cacheSet(cacheKey, []); return []; }
 
-  // Only fetch code for the top hit per query — cost + latency control.
-  const top = list[0];
-  const id = pickIdentifier(top);
-  if (!id) { cacheSet(cacheKey, []); return []; }
-  const code = await fetchComponentCode(key, id, opts.requestId, opts.signal);
-  if (!code) { cacheSet(cacheKey, []); return []; }
-
-  const hits: ComponentHit[] = [{
-    name: top.name || top.title || id,
-    description: top.description,
-    code,
-    previewUrl: top.preview_url ?? top.previewUrl ?? top.demo_url,
-    tags: top.tags,
-  }];
+  // Fetch code for up to N top hits per query in parallel — controlled cost.
+  const want = Math.max(1, Math.min(3, opts.limit ?? 1));
+  const candidates = list.slice(0, want);
+  const identifiers = candidates.map(pickIdentifier);
+  const codes = await Promise.all(
+    identifiers.map((id) => (id ? fetchComponentCode(key, id, opts.requestId, opts.signal) : Promise.resolve(null))),
+  );
+  const hits: ComponentHit[] = [];
+  candidates.forEach((c, i) => {
+    const id = identifiers[i]; const code = codes[i];
+    if (!id || !code) return;
+    hits.push({
+      name: c.name || c.title || id,
+      description: c.description,
+      code,
+      previewUrl: c.preview_url ?? c.previewUrl ?? c.demo_url,
+      tags: c.tags,
+      identifier: id,
+    });
+  });
   cacheSet(cacheKey, hits);
   return hits;
 }
+
+// Best-effort marker so telemetry can distinguish "never called" from "auth ok".
+export function twentyfirstAuthProbed(): boolean { return AUTH_PROBED_OK; }
