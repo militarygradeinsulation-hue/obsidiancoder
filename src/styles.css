@@ -1257,6 +1257,19 @@
   font-size: 12.5px;
   text-shadow: 0 0 12px rgba(138, 90, 19, 0.5);
 }
+.obs-preview-empty-scene {
+  position: absolute; inset: 0;
+  display: grid; place-items: center;
+  pointer-events: none;
+  opacity: 0.85;
+}
+.obs-preview-empty-canvas {
+  width: min(680px, 80%);
+  height: min(680px, 80%);
+  filter: drop-shadow(0 0 40px rgba(244, 161, 37, 0.28));
+}
+.obs-preview-empty p,
+.obs-preview-empty span { position: relative; z-index: 2; }
 @keyframes obs-gold-pulse {
   0%, 100% { filter: drop-shadow(0 0 10px rgba(201, 149, 61, 0.3)); }
   50% { filter: drop-shadow(0 0 20px rgba(201, 149, 61, 0.6)); }

@@ -119,6 +119,7 @@ function Unlock() {
     search.priceId && typeof search.priceId === "string" ? search.priceId : CREATOR_PRICE_ID,
   );
   const [expandDetails, setExpandDetails] = useState(false);
+  const [plansOpen, setPlansOpen] = useState(false);
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
@@ -308,7 +309,20 @@ function Unlock() {
 
       <div aria-hidden className="unlock-noise" />
 
-      <main className="unlock-card" role="main" aria-labelledby="unlock-heading">
+      <nav className="unlock-topbar" aria-label="Primary">
+        <a href="#top" className="unlock-topbar-brand" aria-label="Obsidian home">
+          <span className="unlock-topbar-mark">◆</span>
+          <span className="unlock-topbar-name">OBSIDIAN</span>
+        </a>
+        <div className="unlock-topbar-links">
+          <button type="button" className="unlock-topbar-link" onClick={() => { setTab("buy"); setPlansOpen(true); requestAnimationFrame(() => document.getElementById("plans-heading")?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>Pricing</button>
+          <button type="button" className="unlock-topbar-link" onClick={() => { setDemosOpen(true); requestAnimationFrame(() => document.getElementById("demos-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Live Demos</button>
+          <button type="button" className="unlock-topbar-link" onClick={() => setTab("code")}>Access Code</button>
+          <button type="button" className="unlock-topbar-cta" onClick={goSignIn}>Sign in</button>
+        </div>
+      </nav>
+
+      <main className="unlock-card" role="main" aria-labelledby="unlock-heading" id="top">
         <div className="unlock-card-glow" aria-hidden />
 
         <header className="unlock-brand">
@@ -379,48 +393,60 @@ function Unlock() {
                 </button>
 
                 <div className="plans-block" aria-labelledby="plans-heading">
-                  <div className="plans-head">
-                    <h3 id="plans-heading" className="plans-title">Choose your plan</h3>
-                  </div>
-                  <div className="tier-grid">
-                    {PLAN_TIERS.map((t) => (
-                      <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
-                        {t.featured && <div className="tier-badge">Most Popular</div>}
-                        <div className="tier-head">
-                          <span className="tier-name">{t.name}</span>
-                          <span className="tier-price">
-                            {t.price}
-                            {t.originalPrice && <span className="tier-price-strike">{t.originalPrice}</span>}
-                            <span className="tier-cadence">{t.cadence}</span>
-                          </span>
+                  <button
+                    type="button"
+                    className="plans-toggle"
+                    aria-expanded={plansOpen}
+                    aria-controls="plans-grid"
+                    onClick={() => setPlansOpen((v) => !v)}
+                  >
+                    <span className="plans-toggle-label">
+                      <span id="plans-heading" className="plans-title">Compare all plans</span>
+                      <span className="plans-toggle-sub">Starter · Creator · Professional · Business · Elite</span>
+                    </span>
+                    <span className="plans-toggle-caret" aria-hidden>{plansOpen ? "▲" : "▼"}</span>
+                  </button>
+                  {plansOpen && (
+                    <div id="plans-grid" className="tier-grid">
+                      {PLAN_TIERS.map((t) => (
+                        <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
+                          {t.featured && <div className="tier-badge">Most Popular</div>}
+                          <div className="tier-head">
+                            <span className="tier-name">{t.name}</span>
+                            <span className="tier-price">
+                              {t.price}
+                              {t.originalPrice && <span className="tier-price-strike">{t.originalPrice}</span>}
+                              <span className="tier-cadence">{t.cadence}</span>
+                            </span>
+                          </div>
+                          {t.founding && (
+                            <div className="tier-founding">Founding Member · First 100 · locked in for life</div>
+                          )}
+                          <div className="tier-headline">{t.headline}</div>
+                          <ul className="tier-outcomes">
+                            {t.outcomes.map((o) => <li key={o}>• {o}</li>)}
+                          </ul>
+                          {t.cta === "checkout" && t.priceId ? (
+                            <button
+                              type="button"
+                              className="tier-cta tier-cta-primary"
+                              onClick={() => startPurchase(t.priceId!)}
+                              disabled={sessionLoading}
+                            >
+                              {session ? `Choose ${t.name}` : `Buy ${t.name}`}
+                            </button>
+                          ) : (
+                            <a
+                              className="tier-cta tier-cta-locked"
+                              href="mailto:hello@aetheris.technology?subject=Obsidian%20Enterprise%20inquiry"
+                            >
+                              Contact sales
+                            </a>
+                          )}
                         </div>
-                        {t.founding && (
-                          <div className="tier-founding">Founding Member · First 100 · locked in for life</div>
-                        )}
-                        <div className="tier-headline">{t.headline}</div>
-                        <ul className="tier-outcomes">
-                          {t.outcomes.map((o) => <li key={o}>• {o}</li>)}
-                        </ul>
-                        {t.cta === "checkout" && t.priceId ? (
-                          <button
-                            type="button"
-                            className="tier-cta tier-cta-primary"
-                            onClick={() => startPurchase(t.priceId!)}
-                            disabled={sessionLoading}
-                          >
-                            {session ? `Choose ${t.name}` : `Buy ${t.name}`}
-                          </button>
-                        ) : (
-                          <a
-                            className="tier-cta tier-cta-locked"
-                            href="mailto:hello@aetheris.technology?subject=Obsidian%20Enterprise%20inquiry"
-                          >
-                            Contact sales
-                          </a>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
 
                 <button type="button" className="unlock-btn-secondary" onClick={goSignIn}>
@@ -560,7 +586,7 @@ function Unlock() {
         <Link to="/demos" aria-label="Admin portal" className="unlock-backdoor" title="Admin">·</Link>
       </main>
 
-      <section className="unlock-demos" aria-labelledby="demos-heading">
+      <section className="unlock-demos" aria-labelledby="demos-heading" id="demos-anchor">
         <div className="demos-header">
           <h2 id="demos-heading" className="demos-title">Live Demos</h2>
           <p className="demos-sub">Explore builds crafted with Obsidian. View-only — the vibe coder requires access.</p>
@@ -1351,6 +1377,66 @@ const unlockCss = `
 .plans-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(244,161,37,0.15); }
 .plans-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
 .plans-title { font-size: 13px; letter-spacing: 0.14em; text-transform: uppercase; color: #f4a125; margin: 0; }
+.plans-toggle {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  background: linear-gradient(180deg, rgba(244,161,37,0.08), rgba(244,161,37,0.02));
+  border: 1px solid rgba(244,161,37,0.28);
+  border-radius: 12px;
+  color: #f2eee7;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+.plans-toggle:hover { border-color: rgba(244,161,37,0.55); background: linear-gradient(180deg, rgba(244,161,37,0.14), rgba(244,161,37,0.04)); }
+.plans-toggle-label { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.plans-toggle-sub { font-size: 12px; color: rgba(242,238,231,0.65); letter-spacing: 0.02em; }
+.plans-toggle-caret { color: #f4a125; font-size: 14px; }
+.plans-toggle + .tier-grid { margin-top: 14px; }
+.unlock-topbar {
+  position: sticky; top: 0; z-index: 5;
+  width: 100%; max-width: min(1400px, 96vw);
+  margin: 0 auto 14px;
+  display: grid;
+  grid-template-columns: minmax(0,1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: rgba(8,8,10,0.72);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(244,161,37,0.22);
+  border-radius: 12px;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+.unlock-topbar-brand { display: flex; align-items: center; gap: 10px; color: #f2eee7; text-decoration: none; min-width: 0; }
+.unlock-topbar-mark { color: #f4a125; font-size: 18px; filter: drop-shadow(0 0 8px rgba(244,161,37,0.6)); }
+.unlock-topbar-name { font-family: var(--font-display, inherit); letter-spacing: 0.24em; font-weight: 700; font-size: 14px; }
+.unlock-topbar-links { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.unlock-topbar-link {
+  background: transparent; border: 0; color: rgba(242,238,231,0.8);
+  padding: 8px 12px; border-radius: 8px; cursor: pointer;
+  font-size: 13px; letter-spacing: 0.04em;
+  transition: color 140ms ease, background 140ms ease;
+}
+.unlock-topbar-link:hover { color: #f4a125; background: rgba(244,161,37,0.08); }
+.unlock-topbar-cta {
+  background: linear-gradient(180deg, #f4a125, #dd9324);
+  color: #111317; border: 0; font-weight: 700;
+  padding: 8px 14px; border-radius: 8px; cursor: pointer;
+  letter-spacing: 0.04em; font-size: 13px;
+  box-shadow: 0 6px 24px rgba(244,161,37,0.35);
+}
+.unlock-topbar-cta:hover { filter: brightness(1.05); }
+@media (max-width: 640px) {
+  .unlock-topbar { padding: 8px 10px; }
+  .unlock-topbar-name { font-size: 12px; letter-spacing: 0.18em; }
+  .unlock-topbar-link { padding: 6px 8px; font-size: 12px; }
+}
 .plans-sub { font-size: 11.5px; color: rgba(182,188,200,0.75); margin: 0 0 10px; }
 .unlock-btn-whitelist {
   background: linear-gradient(180deg, #f4a125, #dd9324);

@@ -1,6 +1,7 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { useMemo, useRef, useState, useEffect } from "react";
+import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
+import { useMemo, useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
+const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 import {
   Send, Eye, Code2, Loader2, Home, FolderOpen, FileText, Files, Code,
   Layers, Bot, CheckSquare, Database, Sparkles, TerminalSquare,
@@ -2795,6 +2796,13 @@ function Index() {
                   />
                 ) : (
                   <div className="obs-preview-empty">
+                    <div className="obs-preview-empty-scene" aria-hidden>
+                      <ClientOnly fallback={null}>
+                        <Suspense fallback={null}>
+                          <AnomalousMatterScene className="obs-preview-empty-canvas" />
+                        </Suspense>
+                      </ClientOnly>
+                    </div>
                     <p>Ask Aetheris Obsidian to build something.</p>
                     <span>Your sandbox preview will appear here.</span>
                   </div>
