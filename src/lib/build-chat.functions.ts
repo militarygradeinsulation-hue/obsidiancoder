@@ -4,6 +4,11 @@
 // fallbacks. Purely advisory — never writes back to the preview.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import {
+  containsTradesOnlyLanguage,
+  isExplicitTradesContext,
+  neutralEnhancementFallbacks,
+} from "./suggestion-safety";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -71,6 +76,7 @@ export const discussBuild = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => inputSchema.parse(d))
   .handler(async ({ data }): Promise<{ reply: string; providerUsed: string }> => {
     const html = trimHtml(data.currentHtml);
+    const allowTrades = isExplicitTradesContext(`${data.question}\n${data.draftPrompt}\n${html}`);
     const context: Array<{ role: string; content: string }> = [
       { role: "system", content: SYSTEM_PROMPT },
     ];
@@ -87,7 +93,16 @@ export const discussBuild = createServerFn({ method: "POST" })
     for (const key of order) {
       const p = PROVIDERS[key];
       const out = await callProvider(p, context);
-      if (out) return { reply: out, providerUsed: p.label };
+      if (out && (allowTrades || !containsTradesOnlyLanguage(out))) {
+        return { reply: out, providerUsed: p.label };
+      }
+    }
+    if (!allowTrades) {
+      const fallback = neutralEnhancementFallbacks(`${data.draftPrompt}\n${html}`, Boolean(html), 3);
+      return {
+        reply: fallback.map((idea) => `→ ${idea.snippet}`).join("\n"),
+        providerUsed: "Domain-aware fallback",
+      };
     }
     throw new Error("build_chat_unavailable");
   });
