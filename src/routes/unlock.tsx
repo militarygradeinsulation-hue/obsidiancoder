@@ -684,7 +684,7 @@ function Unlock() {
         )}
       </section>
 
-      {/* MEET THE ARCHITECT */}
+      {/* SIGNATURE CARD — bottom of page, out of the way */}
       <section className="unlock-architect" aria-labelledby="architect-heading">
         <div className="architect-card">
           <div className="architect-portrait">
@@ -727,6 +727,7 @@ function Unlock() {
       </section>
 
       {waitlistTier && (
+
         <WaitlistModal
           tier={waitlistTier}
           onClose={() => setWaitlistTier(null)}
@@ -1277,121 +1278,137 @@ const unlockCss = `
 
 .unlock-architect {
   position: relative;
-  width: 100%; max-width: 1200px;
-  margin: 40px auto 80px;
-  padding: 0 20px;
+  width: 100%;
+  margin-top: auto;
+  padding: 60px 16px 24px;
+  opacity: 0.85;
+}
+.unlock-architect::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  width: min(600px, 70vw); height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(244,161,37,0.25), transparent);
 }
 .architect-card {
   display: grid;
-  grid-template-columns: 300px 1fr;
-  gap: 36px;
+  grid-template-columns: 140px 1fr;
+  gap: 20px;
   align-items: center;
-  background: rgba(8,8,10,0.78);
-  border: 1px solid rgba(244,161,37,0.28);
-  border-radius: 20px;
-  padding: 32px;
-  backdrop-filter: blur(18px);
+  max-width: 720px;
+  margin: 0 auto;
+  background: rgba(8,8,10,0.55);
+  border: 1px solid rgba(244,161,37,0.18);
+  border-radius: 16px;
+  padding: 18px 22px;
+  backdrop-filter: blur(12px);
   box-shadow:
-    0 28px 80px rgba(0,0,0,0.72),
-    inset 0 1px 0 rgba(255,255,255,0.06),
-    0 0 0 1px rgba(244,161,37,0.08);
-  transition: transform .25s ease, border-color .25s ease, box-shadow .25s ease;
+    0 18px 50px rgba(0,0,0,0.55),
+    inset 0 1px 0 rgba(255,255,255,0.04),
+    0 0 0 1px rgba(244,161,37,0.05);
+  transition: border-color .25s ease, box-shadow .25s ease;
 }
 .architect-card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(244,161,37,0.55);
+  border-color: rgba(244,161,37,0.45);
   box-shadow:
-    0 34px 90px rgba(0,0,0,0.82),
-    0 0 0 1px rgba(244,161,37,0.18),
-    0 0 40px rgba(244,161,37,0.12);
+    0 22px 60px rgba(0,0,0,0.65),
+    0 0 0 1px rgba(244,161,37,0.12),
+    0 0 30px rgba(244,161,37,0.08);
 }
 .architect-portrait {
   position: relative;
-  border-radius: 16px;
+  border-radius: 12px;
   overflow: hidden;
-  border: 1px solid rgba(244,161,37,0.25);
+  border: 1px solid rgba(244,161,37,0.2);
   background: #050607;
-  box-shadow: 0 16px 45px rgba(0,0,0,0.6);
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
 }
 .architect-portrait::after {
   content: "";
   position: absolute;
   inset: 0;
-  border-radius: 16px;
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+  border-radius: 12px;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.06);
   pointer-events: none;
 }
 .architect-portrait img {
   display: block; width: 100%; height: auto;
   transition: transform .45s ease;
 }
-.architect-card:hover .architect-portrait img { transform: scale(1.04); }
+.architect-card:hover .architect-portrait img { transform: scale(1.03); }
 .architect-body { text-align: left; }
 .architect-title {
   font-family: Fraunces, Georgia, serif;
-  font-size: 17px; letter-spacing: 2.5px; text-transform: uppercase;
-  color: rgba(244,161,37,0.92); margin: 0 0 10px;
+  font-size: 11px; letter-spacing: 2px; text-transform: uppercase;
+  color: rgba(244,161,37,0.8); margin: 0 0 6px;
 }
 .architect-name {
   font-family: Fraunces, Georgia, serif;
-  font-size: 40px; color: #f2eee7; margin: 0 0 8px;
-  text-shadow: 0 0 24px rgba(244,161,37,0.3);
+  font-size: 22px; color: #f2eee7; margin: 0 0 4px;
+  text-shadow: 0 0 16px rgba(244,161,37,0.2);
 }
 .architect-tagline {
-  font-size: 16px; letter-spacing: 0.4px;
-  color: rgba(182,188,200,0.9); margin: 0 0 18px;
+  font-size: 12px; letter-spacing: 0.3px;
+  color: rgba(182,188,200,0.75); margin: 0 0 10px;
 }
 .architect-quote {
   font-family: Georgia, serif;
-  font-size: 19px; line-height: 1.65;
-  color: rgba(242,238,231,0.95); font-style: italic;
-  border-left: 3px solid rgba(244,161,37,0.55);
-  padding-left: 18px; margin: 0 0 22px;
+  font-size: 13px; line-height: 1.55;
+  color: rgba(242,238,231,0.8); font-style: italic;
+  border-left: 2px solid rgba(244,161,37,0.45);
+  padding-left: 12px; margin: 0 0 12px;
 }
 .architect-links {
-  display: flex; flex-wrap: wrap; gap: 14px;
+  display: flex; flex-wrap: wrap; gap: 10px;
 }
 .architect-link {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 11px 18px; border-radius: 10px;
-  border: 1px solid rgba(244,161,37,0.3);
-  background: rgba(244,161,37,0.1);
-  color: #f2eee7; font-size: 14px; letter-spacing: 0.6px;
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 12px; border-radius: 8px;
+  border: 1px solid rgba(244,161,37,0.22);
+  background: rgba(244,161,37,0.07);
+  color: #f2eee7; font-size: 11px; letter-spacing: 0.5px;
   text-decoration: none; font-weight: 600;
   transition: background .18s, border-color .18s, color .18s, transform .18s;
 }
 .architect-link:hover {
-  background: rgba(244,161,37,0.22);
-  border-color: rgba(244,161,37,0.6);
+  background: rgba(244,161,37,0.18);
+  border-color: rgba(244,161,37,0.5);
   color: #fff;
-  transform: translateY(-2px);
+  transform: translateY(-1px);
 }
 .architect-link:focus-visible {
   outline: 2px solid #f4a125; outline-offset: 2px;
 }
 
 @media (max-width: 800px) {
+  .unlock-architect { padding: 40px 14px 20px; }
+  .architect-card {
+    grid-template-columns: 110px 1fr;
+    gap: 16px;
+    padding: 16px 18px;
+  }
+  .architect-body { text-align: left; }
+  .architect-name { font-size: 20px; }
+  .architect-quote { font-size: 12px; }
+}
+@media (max-width: 520px) {
   .architect-card {
     grid-template-columns: 1fr;
     text-align: center;
-    gap: 24px;
-    padding: 26px;
+    gap: 14px;
+    padding: 16px;
   }
-  .architect-portrait { max-width: 260px; margin: 0 auto; }
+  .architect-portrait { max-width: 120px; margin: 0 auto; }
   .architect-body { text-align: center; }
-  .architect-name { font-size: 32px; }
+  .architect-name { font-size: 18px; }
+  .architect-tagline { font-size: 11px; }
   .architect-quote {
-    border-left: 0; border-top: 3px solid rgba(244,161,37,0.55);
-    padding-left: 0; padding-top: 16px;
+    border-left: 0; border-top: 2px solid rgba(244,161,37,0.45);
+    padding-left: 0; padding-top: 10px;
+    font-size: 12px;
   }
   .architect-links { justify-content: center; }
-}
-@media (max-width: 480px) {
-  .architect-card { padding: 20px; }
-  .architect-name { font-size: 26px; }
-  .architect-tagline { font-size: 14px; }
-  .architect-quote { font-size: 16px; }
-  .architect-link { font-size: 13px; padding: 9px 14px; }
+  .architect-link { font-size: 10px; padding: 6px 10px; }
 }
 .plans-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(244,161,37,0.15); }
 .plans-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
