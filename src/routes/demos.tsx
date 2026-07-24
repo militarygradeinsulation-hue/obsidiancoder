@@ -7,6 +7,7 @@ import {
   type FeaturedDemoRow, type WaitlistStats, type CreditLedgerStats,
 } from "@/lib/featured-demos.functions";
 import { getTwentyfirstHealthStats } from "@/lib/twentyfirst-metrics.functions";
+import type { TwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 
 const CATEGORIES = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
 type Category = (typeof CATEGORIES)[number];
