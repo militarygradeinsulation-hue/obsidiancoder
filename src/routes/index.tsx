@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
@@ -303,6 +303,18 @@ function Index() {
     if (t === "files") setTab("code");
     if (t === "preview") setTab("preview");
   };
+  // Mobile preview zoom (0.5x – 2x). Persisted per session.
+  const [mobZoom, setMobZoom] = useState<number>(() => {
+    if (typeof window === "undefined") return 1;
+    const raw = Number(window.sessionStorage.getItem("obs.mobZoom"));
+    return raw >= 0.5 && raw <= 2 ? raw : 1;
+  });
+  useEffect(() => {
+    try { window.sessionStorage.setItem("obs.mobZoom", String(mobZoom)); } catch { /* ignore */ }
+  }, [mobZoom]);
+  const zoomIn = () => setMobZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)));
+  const zoomOut = () => setMobZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)));
+  const zoomReset = () => setMobZoom(1);
   const [loading, setLoading] = useState(false);
   // Per-session build indicator: tab strip shows a spinner when its build is
   // still in flight even if the user has switched to another tab.
@@ -2057,6 +2069,22 @@ function Index() {
           <span>Ask Obsidian</span>
         </button>
       )}
+      {isMobile && mobileTab === "preview" && current.html && (
+        <div className="mob-zoom" role="group" aria-label="Preview zoom">
+          <button type="button" onClick={zoomOut} aria-label="Zoom out" disabled={mobZoom <= 0.5}>
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={zoomReset} aria-label="Reset zoom" title="Reset zoom">
+            {Math.round(mobZoom * 100)}%
+          </button>
+          <button type="button" onClick={zoomIn} aria-label="Zoom in" disabled={mobZoom >= 2}>
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={() => { const el = document.querySelector('.obs-preview-wrap'); if (el && (el as HTMLElement).requestFullscreen) (el as HTMLElement).requestFullscreen().catch(() => {}); }} aria-label="Fullscreen">
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {/* IntroSplash now mounted in src/routes/__root.tsx so it runs for every route */}
 
 
@@ -2691,6 +2719,12 @@ function Index() {
                     srcDoc={previewSrcDoc}
                     sandbox="allow-scripts"
                     className="obs-preview"
+                    style={isMobile && mobZoom !== 1 ? {
+                      transform: `scale(${mobZoom})`,
+                      transformOrigin: "top left",
+                      width: `${100 / mobZoom}%`,
+                      height: `${100 / mobZoom}%`,
+                    } : undefined}
                   />
                 ) : (
                   <div className="obs-preview-empty">

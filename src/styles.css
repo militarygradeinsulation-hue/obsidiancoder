@@ -2664,6 +2664,32 @@ body.is-resizing-composer * { user-select: none !important; }
   }
 .mob-fab:active { transform: translateY(1px); }
 
+  /* Floating zoom control (mobile preview) */
+  .mob-zoom {
+    position: fixed;
+    left: 16px;
+    bottom: calc(76px + env(safe-area-inset-bottom));
+    z-index: 45;
+    display: inline-flex; align-items: center; gap: 2px;
+    padding: 4px;
+    background: rgba(17,19,23,0.92);
+    border: 1px solid rgba(244,161,37,0.35);
+    border-radius: 999px;
+    box-shadow: 0 12px 32px -8px rgba(0,0,0,0.6);
+    backdrop-filter: blur(8px);
+  }
+  .mob-zoom button {
+    min-width: 36px; height: 36px;
+    display: inline-flex; align-items: center; justify-content: center;
+    background: transparent; color: #f2eee7;
+    border: 0; border-radius: 999px;
+    font-size: 12px; font-weight: 600;
+    cursor: pointer; padding: 0 8px;
+  }
+  .mob-zoom button:hover:not(:disabled) { background: rgba(244,161,37,0.15); }
+  .mob-zoom button:disabled { opacity: 0.35; cursor: not-allowed; }
+
+
 
 /* Native color-picker swatch used in DesignSystemPanel */
 .obs-color-swatch {
