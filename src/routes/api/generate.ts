@@ -16,6 +16,7 @@ import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, parseUsageFro
 import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from "@/lib/generate-settlement";
 import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
+import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 
 
 const messageSchema = z.object({
@@ -296,10 +297,13 @@ async function planAndFetchComponents(
   requestId: string,
   signal: AbortSignal,
 ): Promise<ComponentPhaseResult> {
+  const t0 = performance.now();
   // Only useful for fresh builds — skip micro-edits on an existing document.
   if (currentHtml && EDIT_KEYWORDS.test(prompt)) return { components: [], planUsage: null };
   if (!process.env.TWENTYFIRST_API_KEY) return { components: [], planUsage: null };
   let planUsage: UsageRecord | null = null;
+  let queries: string[] = [];
+  let components: ComponentHit[] = [];
   try {
     const planRes = await aiFetch(
       "https://ai.gateway.lovable.dev/v1/chat/completions",
@@ -309,7 +313,13 @@ async function planAndFetchComponents(
         body: JSON.stringify({
           model: "google/gemini-3.1-flash-lite",
           messages: [
-            { role: "system", content: 'Turn this build request into up to 3 short shadcn/Tailwind component search queries (2-6 words each). Focus on distinct UI sections: hero, pricing, feature grid, testimonial, cta, nav, dashboard card. Return ONLY JSON: {"queries":["...","..."]}. Return {"queries":[]} if the request is a small tweak, an internal dashboard with no marketing UI, or clearly non-UI. Max 3.' },
+            { role: "system", content:
+              'You pick shadcn/Tailwind component search queries for a marketing/product build. Rules:\n' +
+              '- Return ONLY JSON: {"queries":["...","..."]}. Up to 3 queries.\n' +
+              '- Each query is 2-5 words naming a CONCRETE component pattern, e.g. "animated hero with gradient", "3 tier pricing table", "logo cloud marquee", "bento grid features", "testimonial carousel dark", "navbar with dropdown", "cta section split", "footer with newsletter".\n' +
+              '- Prefer distinct SECTIONS (hero, features, pricing, testimonial, cta, nav/footer). No duplicates.\n' +
+              '- NO trailing words like "component", "shadcn", "react", "ui".\n' +
+              '- Return {"queries":[]} ONLY if the request is a tiny tweak or a purely internal dashboard with no marketing surface.' },
             { role: "user", content: `USER REQUEST: ${prompt}\n\nCURRENT HTML SNIPPET: ${currentHtml.slice(0, 800)}` },
           ],
           response_format: { type: "json_object" },
@@ -318,41 +328,72 @@ async function planAndFetchComponents(
       { breakerKey: "lovable/21st_plan", stage: "plan", requestId, attemptTimeoutMs: 3500, totalTimeoutMs: 5000, maxAttempts: 1, signal },
     );
     const guarded = await readGuarded(planRes.response, { expected: "application/json" });
-    if (!guarded.ok) return { components: [], planUsage: null };
-    const planJson = JSON.parse(guarded.text) as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown; model?: string };
-    const parsedPlanUsage = parseUsageFromChatJson(planJson);
-    const planEst = estimateUsdForCall({
-      model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
-      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
-      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
-      providerUsed: true,
-    });
-    planUsage = makeUsage({
-      provider: "lovable", model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
-      operation: "generate_html",
-      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
-      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
-      totalTokens: parsedPlanUsage?.totalTokens ?? 0,
-      estimatedCostUsd: planEst.usd, costBasis: planEst.basis,
-      providerUsed: true, status: "committed",
-      meta: { phase: "component_plan" },
-    });
-    const parsed = JSON.parse(planJson.choices?.[0]?.message?.content ?? "{}");
-    const queries: string[] = Array.isArray(parsed.queries)
-      ? parsed.queries.filter((q: unknown): q is string => typeof q === "string" && q.trim().length > 0).slice(0, 3)
-      : [];
+    if (guarded.ok) {
+      const planJson = JSON.parse(guarded.text) as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown; model?: string };
+      const parsedPlanUsage = parseUsageFromChatJson(planJson);
+      const planEst = estimateUsdForCall({
+        model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+        inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+        outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+        providerUsed: true,
+      });
+      planUsage = makeUsage({
+        provider: "lovable", model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+        operation: "generate_html",
+        inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+        outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+        totalTokens: parsedPlanUsage?.totalTokens ?? 0,
+        estimatedCostUsd: planEst.usd, costBasis: planEst.basis,
+        providerUsed: true, status: "committed",
+        meta: { phase: "component_plan" },
+      });
+      const parsed = JSON.parse(planJson.choices?.[0]?.message?.content ?? "{}");
+      queries = Array.isArray(parsed.queries)
+        ? parsed.queries.filter((q: unknown): q is string => typeof q === "string" && q.trim().length > 0).slice(0, 3)
+        : [];
+    }
+    // Seed archetypal queries when the planner returned nothing but this is
+    // clearly a public marketing surface — a landing/product/site request.
+    if (!queries.length && !currentHtml && /\b(landing|site|website|homepage|marketing|product\s?page|portfolio|pricing|saas|agency|studio|shop|store|restaurant|cafe|brand)\b/i.test(prompt)) {
+      queries = ["animated hero section", "pricing table 3 tier", "features bento grid"];
+    }
     if (!queries.length) return { components: [], planUsage };
+
     const settled = await Promise.all(
-      queries.map((q) => searchComponents(q, { requestId, signal, limit: 1 })),
+      queries.map((q) => searchComponents(q, { requestId, signal, limit: 2 })),
     );
-    const components = settled.flat().slice(0, 3);
+    // De-dupe by identifier or normalized name across queries.
+    const seen = new Set<string>();
+    for (const hits of settled) {
+      for (const h of hits) {
+        const key = (h.identifier || h.name || "").toLowerCase();
+        if (!key || seen.has(key)) continue;
+        seen.add(key);
+        components.push(h);
+      }
+    }
+    components = components.slice(0, 6);
     // eslint-disable-next-line no-console
     console.info("[21st.dev] plan", { queries, hits: components.map((c) => c.name) });
     return { components, planUsage };
   } catch {
-    return { components: [], planUsage };
+    return { components, planUsage };
+  } finally {
+    try {
+      recordTwentyfirstEvent({
+        at: Date.now(),
+        requestId,
+        queries,
+        hitCount: components.length,
+        componentNames: components.map((c) => c.name),
+        injectedBytes: 0,
+        authOk: !!process.env.TWENTYFIRST_API_KEY,
+        durationMs: Math.round(performance.now() - t0),
+      });
+    } catch { /* telemetry never blocks */ }
   }
 }
+
 
 
 
@@ -533,9 +574,24 @@ export const Route = createFileRoute("/api/generate")({
             });
           }
           if (!data.advisory && components.length) {
-            // Cap to ~40 KB total so Flash Lite doesn't blow context.
-            const MAX_BYTES = 40_000;
-            const sorted = [...components].sort((a, b) => a.code.length - b.code.length);
+            // Cap to ~90 KB total. Prioritize hero-like sections first, then
+            // pricing/features/testimonials, then the rest — smallest first
+            // within each tier so we fit as many patterns as possible.
+            const MAX_BYTES = 90_000;
+            const priorityFor = (c: ComponentHit): number => {
+              const s = `${c.name} ${c.description ?? ""} ${(c.tags ?? []).join(" ")}`.toLowerCase();
+              if (/\bhero\b/.test(s)) return 0;
+              if (/\bpricing|plans?\b/.test(s)) return 1;
+              if (/\bfeature|bento|grid\b/.test(s)) return 2;
+              if (/\btestimonial|review|logo\s?cloud\b/.test(s)) return 3;
+              if (/\bcta|call\s?to\s?action|newsletter\b/.test(s)) return 4;
+              if (/\bnav|footer|header\b/.test(s)) return 5;
+              return 6;
+            };
+            const sorted = [...components].sort((a, b) => {
+              const p = priorityFor(a) - priorityFor(b);
+              return p !== 0 ? p : a.code.length - b.code.length;
+            });
             const chosen: ComponentHit[] = [];
             let used = 0;
             for (const c of sorted) {
@@ -548,7 +604,7 @@ export const Route = createFileRoute("/api/generate")({
               messages.push({
                 role: "system",
                 content:
-                  `REFERENCE COMPONENTS from the 21st.dev library — adapt structure and idioms into ONE cohesive design, restyle to match the amber/dark aesthetic, do not paste verbatim, do not import external libraries, inline any needed Tailwind or CSS.\n\n` +
+                  `REFERENCE COMPONENTS from the 21st.dev library. Treat these as the STRUCTURAL BASIS for the corresponding sections of the build — reuse their layout, spacing, and interaction patterns — but restyle every token to match the archetype you picked and inline any needed Tailwind or CSS. Do not paste verbatim, do not import external libraries, do not preserve their original colors or fonts.\n\n` +
                   chosen
                     .map((c) => `// COMPONENT: ${c.name}${c.description ? ` — ${c.description}` : ""}\n${c.code}`)
                     .join("\n\n// ---\n\n"),

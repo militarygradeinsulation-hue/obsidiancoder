@@ -8,6 +8,7 @@
 // shape — silently returns [] so a bad 21st.dev day cannot break builds.
 
 import { aiFetch } from "./ai-fetch";
+import { markTwentyfirstAuth } from "./twentyfirst-metrics.server";
 
 export interface ComponentHit {
   name: string;
@@ -15,6 +16,7 @@ export interface ComponentHit {
   code: string;
   previewUrl?: string;
   tags?: string[];
+  identifier?: string;
 }
 
 const MCP_URL = "https://21st.dev/api/mcp";
@@ -27,6 +29,7 @@ const CACHE = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_MAX = 60;
 let AUTH_BAD_UNTIL = 0;
+let AUTH_PROBED_OK = false;
 
 function cacheGet(key: string): ComponentHit[] | null {
   const hit = CACHE.get(key);
@@ -90,10 +93,13 @@ async function mcpCall<T>(
     const status = res.response.status;
     if (status === 401 || status === 403) {
       AUTH_BAD_UNTIL = Date.now() + 5 * 60 * 1000;
+      AUTH_PROBED_OK = false;
+      markTwentyfirstAuth(false);
       // eslint-disable-next-line no-console
       console.warn("[21st.dev] auth rejected — pausing calls for 5 min", { status });
       return null;
     }
+    if (res.response.ok) { AUTH_PROBED_OK = true; markTwentyfirstAuth(true); }
     if (!res.response.ok) return null;
     const ct = res.response.headers.get("content-type") ?? "";
     let json: JsonRpcResp<T>;
@@ -219,20 +225,29 @@ export async function searchComponents(
         : [];
   if (!list.length) { cacheSet(cacheKey, []); return []; }
 
-  // Only fetch code for the top hit per query — cost + latency control.
-  const top = list[0];
-  const id = pickIdentifier(top);
-  if (!id) { cacheSet(cacheKey, []); return []; }
-  const code = await fetchComponentCode(key, id, opts.requestId, opts.signal);
-  if (!code) { cacheSet(cacheKey, []); return []; }
-
-  const hits: ComponentHit[] = [{
-    name: top.name || top.title || id,
-    description: top.description,
-    code,
-    previewUrl: top.preview_url ?? top.previewUrl ?? top.demo_url,
-    tags: top.tags,
-  }];
+  // Fetch code for up to N top hits per query in parallel — controlled cost.
+  const want = Math.max(1, Math.min(3, opts.limit ?? 1));
+  const candidates = list.slice(0, want);
+  const identifiers = candidates.map(pickIdentifier);
+  const codes = await Promise.all(
+    identifiers.map((id) => (id ? fetchComponentCode(key, id, opts.requestId, opts.signal) : Promise.resolve(null))),
+  );
+  const hits: ComponentHit[] = [];
+  candidates.forEach((c, i) => {
+    const id = identifiers[i]; const code = codes[i];
+    if (!id || !code) return;
+    hits.push({
+      name: c.name || c.title || id,
+      description: c.description,
+      code,
+      previewUrl: c.preview_url ?? c.previewUrl ?? c.demo_url,
+      tags: c.tags,
+      identifier: id,
+    });
+  });
   cacheSet(cacheKey, hits);
   return hits;
 }
+
+// Best-effort marker so telemetry can distinguish "never called" from "auth ok".
+export function twentyfirstAuthProbed(): boolean { return AUTH_PROBED_OK; }

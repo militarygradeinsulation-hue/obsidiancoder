@@ -1,78 +1,58 @@
-## Wire 21st.dev component library into build generation
+## Goal
+Make 21st.dev components land in more builds, land as *better* matches, and be visible when they don't — so builds stop looking generic.
 
-Goal: when a user asks for a landing page / dashboard / pricing section / etc., Obsidian queries 21st.dev's component API for a few polished shadcn/Tailwind components matching the request and injects their code into the model's system context. The model then adapts those real components instead of writing generic markup — same fix pattern as the Leonardo image work.
+## What changes
 
-## 1. Store the API key
+### 1. Sharper query planning (`src/routes/api/generate.ts`)
+- Rewrite the Flash Lite planner prompt to emit **concrete, shadcn-shaped** queries:
+  - Bad (today): `"modern hero"`, `"testimonials"`
+  - Good: `"saas landing hero with product screenshot and cta"`, `"pricing table 3 tiers monthly yearly toggle"`, `"testimonial grid with avatars"`
+- Ask for 3–5 queries (up from 3), require each to name a *section type + concrete detail*.
+- Add a hard-coded per-archetype query seed: when the style-library picks A3 (Clean SaaS), inject baseline queries like `"feature bento grid"`, `"footer with newsletter"` even if the model returns thin output. Same seeding for A1/A2/A5/A7 where component-heavy archetypes benefit most.
+- Skip planner only for true micro-edits — keep it on for "add a section", "add pricing", etc. (tighten the edit regex).
 
-- Save `TWENTYFIRST_API_KEY = 21st_sk_40804a…aada` via `set_secret` (value is already in chat, no user form needed).
+### 2. Keep more hits per query (`src/lib/twentyfirst.server.ts`)
+- `searchComponents` currently fetches code for **top 1 hit only**. Change to fetch top **2** (configurable, default 2) in parallel via `Promise.all`.
+- De-dupe by identifier across queries so the same component isn't injected twice.
+- Return richer metadata (author, install snippet) so the model can cite it in the archetype header comment.
 
-## 2. New server helper: `src/lib/twentyfirst.server.ts`
+### 3. Raise + smarten the injection cap (`src/routes/api/generate.ts`)
+- Bump total component payload cap from **~40 KB → ~90 KB** on fresh builds (Gemini 3.5 Flash and 3.1 Pro both have room).
+- Truncation strategy: instead of "truncate longest first", **rank by query order** (query 1 = hero > query 2 = pricing > …) and drop from the tail; keeps the hero always intact.
+- Per-component soft cap of 15 KB so one giant component can't crowd out the others.
 
-Server-only wrapper around 21st.dev's component search endpoint (`https://api.21st.dev/v1/components/search` — auth via `Authorization: Bearer <key>`). Exports:
+### 4. Health + telemetry
+- New response headers already exist (`X-Obs-Components`, `X-Obs-Component-Count`). Add:
+  - `X-Obs-Component-Queries` (comma-separated planner output)
+  - `X-Obs-Component-HitRate` (`hits/queries`)
+  - `X-Obs-21st-Auth` (`ok` | `bad` | `missing`)
+- Add a small **"21st.dev Health"** card in `/demos` (admin only) that reads those headers from the last N builds via a new lightweight in-memory ring buffer on the server (`src/lib/twentyfirst-metrics.server.ts`) exposed by a `getTwentyfirstHealth` server fn. Shows: total builds today, avg queries, avg hits, auth status, last 10 query→hit rows.
+- Log every planner call + hit count via `console.info("[21st]", …)` so `stack_modern--server-function-logs search=21st` shows real usage.
 
-- `searchComponents(query: string, opts?: { limit?: number; signal?: AbortSignal }) → Promise<ComponentHit[]>` returning `{ name, description, code, previewUrl, tags }[]`.
-- Silent-fail on 4xx/5xx/timeout (returns `[]`) so it never blocks a build.
-- 4-second per-call timeout via `aiFetch` with breaker key `21st/search`.
-- In-memory LRU cache (60 entries, 10-minute TTL) keyed by normalized query — component catalogs change slowly and prompts repeat.
+### 5. Verify the key actually works
+- One-time server-side probe on cold start (cached in memory): call `tools/list` against `https://21st.dev/api/mcp`; if it returns 401/403, set `X-Obs-21st-Auth=bad` and surface it in the health card so we know the key rotated or hit a quota — instead of silently returning `[]` for 5 min.
+- If the probe fails, offer `update_secret` for `TWENTYFIRST_API_KEY` in the follow-up (not part of this plan).
 
-## 3. Component-planning phase in `src/routes/api/generate.ts`
-
-Mirrors the existing `planAndGenerateImages` flow:
-
-- New helper `planAndFetchComponents(apiKey, prompt, currentHtml, requestId, signal)`.
-- Runs in parallel with `planAndGenerateImages` inside `Promise.all` so it adds zero wall-clock latency.
-- Uses `google/gemini-3.1-flash-lite` to convert the user prompt into up to **3 short component queries** (e.g. `["hero section with app screenshot", "3-tier pricing table", "testimonial grid"]`). Returns `{"queries":[]}` when the prompt is a small tweak, dashboard-only, or clearly non-UI.
-- Gate: skip the planner entirely when `data.currentHtml` is non-empty AND the prompt looks like an edit (`add`, `change`, `fix`, `remove`, `update` at word start) — component library helps first-build variety, not micro-edits.
-- Calls `searchComponents` for each query in parallel, keeps the top hit per query.
-- Returns `{ components: ComponentHit[], planUsage: UsageRecord | null }` (no per-fetch usage record — 21st.dev is flat-rate for us).
-
-## 4. Inject into the model call
-
-Where the request currently builds the messages array for the streaming chat call, append one extra system message when components come back:
-
-```text
-REFERENCE COMPONENTS (adapt into a single cohesive design — do not copy 1:1, restyle to match the amber/dark aesthetic; keep only what fits the user request):
-
-// COMPONENT: <name> — <description>
-<code>
-
-// COMPONENT: ...
-```
-
-Cap total injected size at ~40 KB (truncate longest first) so it doesn't blow the context window on Gemini Flash Lite.
-
-## 5. System prompt tweak
-
-One-line addition to `SYSTEM_PROMPT`: "When REFERENCE COMPONENTS are provided in system context, adapt their structure and idioms into a single cohesive design; do not paste them verbatim, do not import external libraries, and inline any needed Tailwind or CSS."
-
-Nothing else in the prompt changes.
-
-## 6. Observability
-
-- Add `X-Obs-Components` response header listing the component names actually injected (comma-separated, first 200 chars). Mirrors the existing `X-Obs-Image-Providers` header so `/demos` can show at a glance whether the library is firing.
-- Log the query list + hit count via `console.info` on the server so `stack_modern--server-function-logs` shows real usage.
-
-## 7. Failure behavior
-
-- Missing key → helper returns `[]`, planner is skipped, build behaves exactly as it does today.
-- 21st.dev 401 (key rejected) → log once, cache the failure for 5 minutes to avoid retry storms, treat as missing key.
-- Any exception inside `planAndFetchComponents` → swallowed, return empty; the outer generation pipeline is untouched.
-
-## 8. Verification
-
-- `curl` the new `/api/generate` route with prompt `"a landing page for a coffee shop"` and confirm the response header `X-Obs-Components` names 2–3 real component ids.
-- `stack_modern--server-function-logs` search=`21st` to confirm the search calls fire.
-- Visually spot-check one generated build in Playwright vs. a build made before the change — the new one should have more polished hero/pricing/testimonial structure.
+### 6. Model-side prompt nudge (`src/lib/aetheris.functions.ts`)
+- One-line addition to `SYSTEM_PROMPT`: "When REFERENCE COMPONENTS are provided, you MUST use at least one of them as the *structural basis* for the matching section (hero, pricing, testimonials). Do not throw them away and write generic markup."
+- Keeps the "adapt, don't paste" rule; adds a floor so components can't be ignored.
 
 ## Files touched
-
-- `src/lib/twentyfirst.server.ts` (new)
-- `src/routes/api/generate.ts` — add planner + inject system message + response header
-- No schema changes, no new dependencies, no client-side changes
-- Secret stored: `TWENTYFIRST_API_KEY`
+- `src/routes/api/generate.ts` — planner prompt, query seeding, injection cap/order, new headers
+- `src/lib/twentyfirst.server.ts` — top-2 hits, de-dupe, richer metadata, cold-start auth probe
+- `src/lib/twentyfirst-metrics.server.ts` — new; ring buffer of last 100 builds
+- `src/lib/twentyfirst-metrics.functions.ts` — new; `getTwentyfirstHealth` server fn (admin-only via existing gate)
+- `src/routes/demos.tsx` — new "21st.dev Health" card
+- `src/lib/aetheris.functions.ts` — one-line prompt nudge
 
 ## Explicitly NOT in this plan
+- Swapping providers (Magic UI, shadcn registry) — separate call.
+- Persistent DB table of components used per build — ring buffer is enough for now.
+- Rewriting image/Leonardo pipeline.
+- User-facing component picker in the composer.
 
-- Manual browse/search panel in the sandbox UI (user picked the auto-injection option, not the inspiration-only one).
-- Persistent per-build record of which components were used (can add later on `builds` table if useful).
-- Rewriting the existing image pipeline.
+## Verification
+1. `curl /api/generate` with `"a landing page for a coffee shop"` and confirm `X-Obs-Component-Count ≥ 3` and `X-Obs-Component-HitRate ≥ 0.6`.
+2. `stack_modern--server-function-logs search=21st` shows the planner queries and per-query hit counts.
+3. `/demos` health card shows `auth=ok` and non-zero hit rate.
+4. Playwright a before/after build side-by-side; new one should show real hero + pricing + testimonial structure rather than a single-hero-plus-gradient page.

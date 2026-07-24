@@ -6,6 +6,8 @@ import {
   getWaitlistStats, getCreditLedger,
   type FeaturedDemoRow, type WaitlistStats, type CreditLedgerStats,
 } from "@/lib/featured-demos.functions";
+import { getTwentyfirstHealthStats } from "@/lib/twentyfirst-metrics.functions";
+import type { TwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 
 const CATEGORIES = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
 type Category = (typeof CATEGORIES)[number];
@@ -354,6 +356,10 @@ function DemosAdmin() {
         )}
       </section>
 
+      <TwentyfirstHealthCard code={code} />
+
+
+
       <section style={{ padding: "16px 28px 0" }}>
         <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, gap: 12, flexWrap: "wrap" }}>
           <div>
@@ -646,6 +652,84 @@ function DemosAdmin() {
         {demos && demos.length === 0 && <div style={{ color: "#B6BCC8" }}>No demos yet. Push one from the builder.</div>}
       </div>
     </div>
+  );
+}
+
+function TwentyfirstHealthCard({ code }: { code: string }) {
+  const fetchHealth = useServerFn(getTwentyfirstHealthStats);
+  const [h, setH] = useState<Awaited<ReturnType<typeof fetchHealth>> | null>(null);
+  const load = useCallback(async () => {
+    if (!code) return;
+    try { setH(await fetchHealth({ data: { adminCode: code } })); } catch { /* ignore */ }
+  }, [code, fetchHealth]);
+  useEffect(() => { load(); const id = window.setInterval(load, 30_000); return () => window.clearInterval(id); }, [load]);
+  const health = h && h.ok ? h.health : null;
+  const err = h && !h.ok ? h.error : null;
+  return (
+    <section style={{ padding: "16px 28px 0" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 10, gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: 0, color: "#F4A125", fontSize: 20 }}>
+            21st.dev Component Library
+            <span style={{ marginLeft: 10, fontSize: 11, color: health?.hasKey ? (health.authOk === false ? "#ff8a8a" : "#7bd88f") : "#B6BCC8" }}>
+              {health?.hasKey ? (health.authOk === false ? "AUTH FAIL" : health.authOk === true ? "AUTH OK" : "READY") : "NO KEY"}
+            </span>
+          </h2>
+          <p style={{ margin: "2px 0 0", color: "#B6BCC8", fontSize: 12 }}>
+            Component planner + fetcher telemetry. Process-scoped, resets on cold start.
+          </p>
+        </div>
+        <button onClick={load} style={{ background: "transparent", border: "1px solid #22262d", color: "#f2eee7", borderRadius: 8, padding: "6px 12px", fontSize: 12, cursor: "pointer" }}>Refresh</button>
+      </div>
+      {err && <div style={{ color: "#ff8a8a", fontSize: 12, marginBottom: 8 }}>{err}</div>}
+      {health && (
+        <>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: 10, marginBottom: 12 }}>
+            {[
+              { label: "Rounds", value: health.totalRounds, accent: "#F4A125" },
+              { label: "Total hits", value: health.totalHits, accent: "#7bd88f" },
+              { label: "Hit rate", value: `${health.hitRate}%`, accent: "#F4A125" },
+              { label: "Avg hits / round", value: health.avgHitsPerRound, accent: "#B6BCC8" },
+              { label: "Avg duration", value: `${health.avgDurationMs}ms`, accent: "#B6BCC8" },
+            ].map((s) => (
+              <div key={s.label} style={{ background: "#0b0d10", border: "1px solid #22262d", borderRadius: 8, padding: 12 }}>
+                <div style={{ fontSize: 11, color: "#B6BCC8", textTransform: "uppercase", letterSpacing: 0.5 }}>{s.label}</div>
+                <div style={{ fontFamily: "Fraunces, Georgia, serif", color: s.accent, fontSize: 22, marginTop: 4 }}>{s.value}</div>
+              </div>
+            ))}
+          </div>
+          {health.recent.length > 0 && (
+            <details>
+              <summary style={{ cursor: "pointer", fontSize: 12, color: "#B6BCC8", marginBottom: 6 }}>Recent planner rounds ({health.recent.length})</summary>
+              <div style={{ overflowX: "auto", background: "#0b0d10", border: "1px solid #22262d", borderRadius: 8 }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid #22262d", color: "#B6BCC8", textAlign: "left" }}>
+                      <th style={{ padding: "6px 8px" }}>Time</th>
+                      <th style={{ padding: "6px 8px" }}>Queries</th>
+                      <th style={{ padding: "6px 8px" }}>Hits</th>
+                      <th style={{ padding: "6px 8px" }}>Components</th>
+                      <th style={{ padding: "6px 8px", textAlign: "right" }}>ms</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {health.recent.map((r: TwentyfirstEvent, i: number) => (
+                      <tr key={r.requestId + i} style={{ borderBottom: "1px solid #1a1e24" }}>
+                        <td style={{ padding: "6px 8px", color: "#B6BCC8", whiteSpace: "nowrap" }}>{new Date(r.at).toLocaleTimeString()}</td>
+                        <td style={{ padding: "6px 8px", color: "#f2eee7" }}>{r.queries.join(" · ") || "—"}</td>
+                        <td style={{ padding: "6px 8px", color: r.hitCount ? "#7bd88f" : "#ff8a8a" }}>{r.hitCount}</td>
+                        <td style={{ padding: "6px 8px", color: "#B6BCC8" }}>{r.componentNames.join(", ") || "—"}</td>
+                        <td style={{ padding: "6px 8px", textAlign: "right", color: "#B6BCC8" }}>{r.durationMs}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          )}
+        </>
+      )}
+    </section>
   );
 }
 
