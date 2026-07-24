@@ -586,7 +586,7 @@ function Unlock() {
         <Link to="/demos" aria-label="Admin portal" className="unlock-backdoor" title="Admin">·</Link>
       </main>
 
-      <section className="unlock-demos" aria-labelledby="demos-heading">
+      <section className="unlock-demos" aria-labelledby="demos-heading" id="demos-anchor">
         <div className="demos-header">
           <h2 id="demos-heading" className="demos-title">Live Demos</h2>
           <p className="demos-sub">Explore builds crafted with Obsidian. View-only — the vibe coder requires access.</p>
