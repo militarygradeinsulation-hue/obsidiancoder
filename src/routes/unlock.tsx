@@ -843,6 +843,19 @@ const unlockCss = `
     linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.65) 100%);
   mix-blend-mode: multiply;
 }
+.unlock-scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+.unlock-scene-canvas {
+  width: min(920px, 92vmin);
+  height: min(920px, 92vmin);
+  filter: drop-shadow(0 0 60px rgba(244,161,37,0.25));
+}
 .unlock-tab:focus-visible,
 .unlock-btn:focus-visible,
 .unlock-btn-primary:focus-visible,
