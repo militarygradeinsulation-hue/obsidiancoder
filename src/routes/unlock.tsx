@@ -597,8 +597,12 @@ function Unlock() {
           title="OBSIDIAN"
           style={{ cursor: "default", userSelect: "none" }}
         >OBSIDIAN</div>
-        <Link to="/demos" aria-label="Admin portal" className="unlock-backdoor" title="Admin">·</Link>
       </main>
+      )}
+      {/* Admin backdoor — visible only inside the Access Code panel and admin portal. */}
+      {panelOpen && tab === "code" && (
+        <Link to="/demos" aria-label="Admin portal" className="unlock-backdoor" title="Admin">·</Link>
+      )}
 
       <section className="unlock-demos" aria-labelledby="demos-heading" id="demos-anchor">
         <div className="demos-header">
