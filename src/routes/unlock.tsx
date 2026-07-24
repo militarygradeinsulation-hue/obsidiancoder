@@ -119,6 +119,7 @@ function Unlock() {
     search.priceId && typeof search.priceId === "string" ? search.priceId : CREATOR_PRICE_ID,
   );
   const [expandDetails, setExpandDetails] = useState(false);
+  const [plansOpen, setPlansOpen] = useState(false);
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
