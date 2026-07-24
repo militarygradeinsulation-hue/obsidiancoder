@@ -2886,7 +2886,7 @@ function Index() {
               {(() => {
                 const isStarters = !input.trim();
                 const IDEA_CATEGORIES: Array<{ id: string; label: string }> = [
-                  { id: "all", label: "All" },
+                  { id: "all", label: "All ideas" },
                   { id: "ai", label: "AI" },
                   { id: "app", label: "App" },
                   { id: "game", label: "Game" },
@@ -2896,6 +2896,7 @@ function Index() {
                   { id: "landing", label: "Landing page" },
                   { id: "dashboard", label: "Dashboard" },
                   { id: "portfolio", label: "Portfolio" },
+                  { id: "trades", label: "Trades (optional)" },
                 ];
                 const baseAddonsAll = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
                 const matchesSet = (a: Addon, set: Set<string>) => {
