@@ -11,6 +11,8 @@ import {
   Camera, Scissors, RefreshCw, GitMerge, Bookmark, BookmarkCheck, LogOut,
 } from "lucide-react";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
+import { BuildChatPanel } from "@/components/BuildChatPanel";
+import { MessageSquare } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
@@ -246,6 +248,7 @@ function Index() {
   const [activeId, setActiveId] = useState<string>(() => initialSession.id);
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
+  const [buildChatOpen, setBuildChatOpen] = useState(false);
   const [ideaOffset, setIdeaOffset] = useState(0);
   const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
   const [aiIdeas, setAiIdeas] = useState<Addon[]>([]);
@@ -2230,6 +2233,15 @@ function Index() {
           <div className="obs-topbar-right">
             <button
               type="button"
+              className={"obs-chip " + (buildChatOpen ? "is-on" : "")}
+              onClick={() => setBuildChatOpen((v) => !v)}
+              title="Chat with Claude/Grok about ideas to improve this build"
+              style={{ borderColor: "rgba(244,161,37,0.45)", color: "#f4a125" }}
+            >
+              <MessageSquare className="h-3.5 w-3.5" /> Discuss
+            </button>
+            <button
+              type="button"
               className={"obs-chip " + (tab === "preview" ? "is-on" : "")}
               onClick={() => setTab("preview")}
             >
@@ -3752,6 +3764,20 @@ function Index() {
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
+      <BuildChatPanel
+        open={buildChatOpen}
+        onClose={() => setBuildChatOpen(false)}
+        currentHtml={current.html || ""}
+        draftPrompt={input}
+        onInsertToPrompt={(text) => {
+          setInput((prev) => {
+            const base = prev.trim();
+            if (!base) return text;
+            return base.endsWith(".") ? `${base} ${text}` : `${base}. ${text}`;
+          });
+          requestAnimationFrame(() => composerRef.current?.focus());
+        }}
+      />
       <FusionModal
         open={fusionOpen}
         projects={sessions.map((s) => ({ id: s.id, title: s.title || "Untitled", html: s.html || "" }))}
