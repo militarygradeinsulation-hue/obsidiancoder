@@ -220,21 +220,26 @@ ${REAL_WORLD_LEAKS_PROMPT}`;
     }
   });
 
+const TRADES_RE = /\b(trade|trades|contractor|contractors|field[- ]?service|hvac|refrigerant|nfpa|fire[- ]?protection|glazing|glazier|electrician|electrical sub|plumb|plumbing|mechanical|inspection|deficienc|quickbooks|qbo|technician|dispatch|work order|compliance|permit)\b/i;
+
 export const anticipateNextIdeas = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => anticipateInput.parse(d))
   .handler(async ({ data }): Promise<{ ideas: IdeaSuggestion[] }> => {
+    const tradesContext = TRADES_RE.test(data.draft);
     const system = `You are a co-designer helping a user refine a prompt for a front-end AI builder.
-Read their in-progress prompt and propose ${data.count} concrete NEXT additions they will likely want.
+Read their in-progress prompt carefully and propose ${data.count} concrete NEXT additions THAT DIRECTLY EXTEND WHAT THEY ARE ACTUALLY BUILDING.
 Return ONLY JSON: {"ideas":[{"label":"+ short addon","snippet":"One sentence to append to the prompt."}]}
 Rules:
+- Ground every suggestion in the specific subject, audience, and features of the draft. If the draft is a recipe app, suggest recipe-app additions. If it's a game, suggest game additions. Never pivot to unrelated domains.
 - Each label starts with "+ " and is 2-5 words.
-- Each snippet is a single imperative sentence, 8-22 words, that adds ONE specific section, feature, or refinement.
+- Each snippet is a single imperative sentence, 8-22 words, that adds ONE specific section, feature, or refinement relevant to the draft's actual topic.
 - Do NOT repeat things already implied by the draft.
-- Prefer high-signal moves: missing sections, key components, states, accessibility, tone, or polish.
-- If the draft is a trades / contractor / field-service / compliance system, every addition must plug a leak (cite ID, e.g. "plugs L1") and respect the two-tap field rule.
+- Prefer high-signal moves: missing sections, key components, states, accessibility, tone, or polish — all specific to the draft's domain.
+- ${tradesContext
+      ? "The draft IS about trades / contractors / field-service / compliance — every addition must plug a leak (cite ID, e.g. \"plugs L1\") and respect the two-tap field rule."
+      : "The draft is NOT about trades or contractors — DO NOT mention leaks, L1-L10, trades, contractors, QuickBooks, NFPA, HVAC, or two-tap rules. Stay on the draft's actual topic."}
 - ${data.hasHtml ? "The user is iterating on an existing build; suggest focused enhancements, not rebuilds." : "The user is starting fresh; suggest structural additions."}
-
-${REAL_WORLD_LEAKS_PROMPT}`;
+${tradesContext ? `\n${REAL_WORLD_LEAKS_PROMPT}` : ""}`;
     const user = `Draft prompt:\n${data.draft}`;
     try {
       const raw = await callGateway(system, user);
