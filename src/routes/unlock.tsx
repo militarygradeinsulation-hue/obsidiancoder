@@ -120,6 +120,10 @@ function Unlock() {
   );
   const [expandDetails, setExpandDetails] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
+  const [panelOpen, setPanelOpen] = useState<boolean>(
+    search.checkout === "1" || search.intent === "buy" || search.intent === "code",
+  );
+  function openPanel(next: Intent) { setTab(next); setPanelOpen(true); }
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
