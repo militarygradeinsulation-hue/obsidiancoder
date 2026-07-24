@@ -2371,6 +2371,7 @@ function Index() {
                   window.open(liveUrl, "_blank", "noopener,noreferrer");
                   setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
                   if (libraryCode.trim()) refreshLibrary();
+                  recordLiveIdea(activeIdeaLabelRef.current);
                   // Note: Go Live only publishes the shareable link. To feature
                   // this build on the public login-page gallery, use the
                   // separate "Push to Demos" button (admin only).
