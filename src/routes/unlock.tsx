@@ -268,6 +268,15 @@ function Unlock() {
       />
       <div aria-hidden className="unlock-video-veil" />
 
+      <div aria-hidden className="unlock-scene">
+        <ClientOnly fallback={null}>
+          <Suspense fallback={null}>
+            <AnomalousMatterScene className="unlock-scene-canvas" />
+          </Suspense>
+        </ClientOnly>
+      </div>
+
+
       <div aria-hidden className="unlock-face">
         <svg viewBox="0 0 400 500" preserveAspectRatio="xMidYMid meet">
           <defs>
