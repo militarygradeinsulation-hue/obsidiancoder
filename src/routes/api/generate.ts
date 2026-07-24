@@ -774,6 +774,9 @@ export const Route = createFileRoute("/api/generate")({
           const providersSummary = images.length
             ? images.map((i) => `${i.slot}:${i.providerUsed}`).join(",")
             : "none";
+          const componentsSummary = components.length
+            ? components.map((c) => c.name).join(",").slice(0, 200)
+            : "none";
           return new Response(stream, {
             headers: {
               "Content-Type": "text/plain; charset=utf-8",
@@ -782,6 +785,8 @@ export const Route = createFileRoute("/api/generate")({
               "X-Request-Id": requestId,
               "X-Obs-Image-Providers": providersSummary,
               "X-Obs-Image-Count": String(images.length),
+              "X-Obs-Components": componentsSummary,
+              "X-Obs-Component-Count": String(components.length),
               "X-Obs-Model-Used": modelUsed,
               "X-Obs-Model-Requested": data.model,
               "X-Obs-Fallback": fallbackReason ? "1" : "0",
@@ -789,9 +794,10 @@ export const Route = createFileRoute("/api/generate")({
               "X-Obs-Compact-In": String(compacted.originalBytes),
               "X-Obs-Compact-Out": String(compacted.bytes),
               "Access-Control-Expose-Headers":
-                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out",
+                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Components, X-Obs-Component-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out",
             },
           });
+
         } catch (err) {
           // Settle failure — refund only if no provider work started,
           // otherwise record failed_with_usage. If settlement itself fails
