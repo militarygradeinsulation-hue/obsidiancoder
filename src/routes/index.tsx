@@ -3777,6 +3777,10 @@ function Index() {
           });
           requestAnimationFrame(() => composerRef.current?.focus());
         }}
+        onApplyAndRebuild={(prompt) => {
+          setInput(prompt);
+          requestAnimationFrame(() => { void submit(prompt); });
+        }}
       />
       <FusionModal
         open={fusionOpen}
