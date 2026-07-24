@@ -127,6 +127,13 @@ function Unlock() {
   function openPanel(next: Intent) { setTab(next); setPanelOpen(true); }
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
+  const [demoView, setDemoView] = useState<"sphere" | "grid">(() => {
+    if (typeof window === "undefined") return "sphere";
+    return (window.localStorage.getItem("obsidian.demoView") as "sphere" | "grid") || "sphere";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") window.localStorage.setItem("obsidian.demoView", demoView);
+  }, [demoView]);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
   const [featuredDemos, setFeaturedDemos] = useState<{ slug: string; title: string; url?: string; category: DemoCategory }[]>([]);
 
@@ -643,31 +650,89 @@ function Unlock() {
               </button>
             );
           })}
+          <div className="demo-view-toggle" role="group" aria-label="Demo view style">
+            <button
+              type="button"
+              className={`demo-view-btn ${demoView === "sphere" ? "is-active" : ""}`}
+              aria-pressed={demoView === "sphere"}
+              onClick={() => setDemoView("sphere")}
+            >Sphere</button>
+            <button
+              type="button"
+              className={`demo-view-btn ${demoView === "grid" ? "is-active" : ""}`}
+              aria-pressed={demoView === "grid"}
+              onClick={() => setDemoView("grid")}
+            >Grid</button>
+          </div>
         </div>
         {(demosOpen || demoCategory !== "All") && (() => {
-          const sphereItems: SphereDemoItem[] = Array.from(
+          const merged = Array.from(
             new Map(
               [...featuredDemos, ...DEMOS].map((d) => {
                 const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
                 return [demoUrl, { ...d, demoUrl }] as const;
               }),
             ).values(),
-          )
-            .filter(({ category }) => demoCategory === "All" || category === demoCategory)
-            .map(({ slug, title, demoUrl, category }) => ({
+          ).filter(({ category }) => demoCategory === "All" || category === demoCategory);
+
+          if (demoView === "sphere") {
+            const sphereItems: SphereDemoItem[] = merged.map(({ slug, title, demoUrl, category }) => ({
               id: slug,
               title: title.replace(/^Demo\s*·\s*/, ""),
               category,
               url: demoUrl,
             }));
+            return (
+              <div id="demos-grid" className="demos-sphere-wrap">
+                <SphereDemoGrid items={sphereItems} containerSize={600} sphereRadius={230} tileSize={104} />
+                <p className="demos-sphere-hint">Drag to rotate · click a tile to open</p>
+              </div>
+            );
+          }
           return (
-            <div id="demos-grid" className="demos-sphere-wrap">
-              <SphereDemoGrid items={sphereItems} containerSize={600} sphereRadius={230} tileSize={104} />
-              <p className="demos-sphere-hint">Drag to rotate · click a tile to open</p>
+            <div id="demos-grid" className="demos-thumb-grid">
+              {merged.map(({ slug, title, demoUrl, category }) => {
+                const clean = title.replace(/^Demo\s*·\s*/, "");
+                // Deterministic hue per slug for varied placeholder tones
+                let hue = 0;
+                for (let i = 0; i < slug.length; i++) hue = (hue * 31 + slug.charCodeAt(i)) % 360;
+                return (
+                  <a
+                    key={slug}
+                    href={demoUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="demo-thumb-card"
+                    title={`${clean} — ${category}`}
+                  >
+                    <div
+                      className="demo-thumb-preview"
+                      style={{
+                        background: `radial-gradient(140% 100% at 10% 0%, hsl(${hue} 70% 22% / 0.9), transparent 60%), radial-gradient(120% 100% at 90% 100%, hsl(${(hue + 40) % 360} 80% 30% / 0.7), transparent 55%), linear-gradient(160deg, #14161c, #0b0d12)`,
+                      }}
+                    >
+                      <iframe
+                        src={demoUrl}
+                        title={clean}
+                        loading="lazy"
+                        sandbox="allow-scripts allow-same-origin"
+                        className="demo-thumb-iframe"
+                        tabIndex={-1}
+                      />
+                      <div className="demo-thumb-shade" aria-hidden="true" />
+                    </div>
+                    <div className="demo-thumb-meta">
+                      <span className="demo-thumb-cat">{category}</span>
+                      <span className="demo-thumb-title">{clean}</span>
+                    </div>
+                  </a>
+                );
+              })}
             </div>
           );
         })()}
       </section>
+
 
 
       {/* SIGNATURE CARD — bottom of page, out of the way */}
