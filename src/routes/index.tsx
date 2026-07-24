@@ -677,6 +677,7 @@ function Index() {
     }
   }
   function appendAddon(a: Addon) {
+    activeIdeaLabelRef.current = a.label;
     setInput((prev) => {
       const base = prev.trim();
       if (!base) return a.snippet;
