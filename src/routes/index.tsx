@@ -2069,6 +2069,22 @@ function Index() {
           <span>Ask Obsidian</span>
         </button>
       )}
+      {isMobile && mobileTab === "preview" && current.html && (
+        <div className="mob-zoom" role="group" aria-label="Preview zoom">
+          <button type="button" onClick={zoomOut} aria-label="Zoom out" disabled={mobZoom <= 0.5}>
+            <ZoomOut className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={zoomReset} aria-label="Reset zoom" title="Reset zoom">
+            {Math.round(mobZoom * 100)}%
+          </button>
+          <button type="button" onClick={zoomIn} aria-label="Zoom in" disabled={mobZoom >= 2}>
+            <ZoomIn className="h-4 w-4" />
+          </button>
+          <button type="button" onClick={() => { const el = document.querySelector('.obs-preview-wrap'); if (el && (el as HTMLElement).requestFullscreen) (el as HTMLElement).requestFullscreen().catch(() => {}); }} aria-label="Fullscreen">
+            <Maximize2 className="h-4 w-4" />
+          </button>
+        </div>
+      )}
       {/* IntroSplash now mounted in src/routes/__root.tsx so it runs for every route */}
 
 
