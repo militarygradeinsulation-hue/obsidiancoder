@@ -2703,6 +2703,12 @@ function Index() {
                     srcDoc={previewSrcDoc}
                     sandbox="allow-scripts"
                     className="obs-preview"
+                    style={isMobile && mobZoom !== 1 ? {
+                      transform: `scale(${mobZoom})`,
+                      transformOrigin: "top left",
+                      width: `${100 / mobZoom}%`,
+                      height: `${100 / mobZoom}%`,
+                    } : undefined}
                   />
                 ) : (
                   <div className="obs-preview-empty">
