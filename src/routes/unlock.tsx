@@ -448,6 +448,7 @@ function Unlock() {
                     </div>
                   )}
                 </div>
+                )}
 
                 <button type="button" className="unlock-btn-secondary" onClick={goSignIn}>
                   Already purchased? Sign in
