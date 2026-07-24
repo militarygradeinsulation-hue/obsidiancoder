@@ -3090,6 +3090,7 @@ function Index() {
                               title={a.snippet}
                             >
                               <span>{a.label}</span>
+                              <IdeaBadge a={a} />
                             </button>
                             {isStarters && (
                               <>
