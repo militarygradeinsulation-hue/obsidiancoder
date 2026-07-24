@@ -15,6 +15,8 @@ import type { EntitlementResult } from "@/lib/credit-gate.server";
 import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "@/lib/usage-record";
 import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from "@/lib/generate-settlement";
 import type { Operation } from "@/lib/credit-gate";
+import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
+
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
