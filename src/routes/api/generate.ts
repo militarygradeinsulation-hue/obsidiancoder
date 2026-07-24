@@ -479,16 +479,25 @@ export const Route = createFileRoute("/api/generate")({
           //    asked for imagery or opted in via wantImages. This is what was
           //    silently adding 12-17s to every non-visual build.
           const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
-          const imagePhase = wantImages && apiKey
-            ? await planAndGenerateImages(apiKey, data.prompt, contextHtml, requestId, clientAbort)
-            : { images: [], usages: [], planUsage: null };
+          const wantComponents = !data.advisory && !!apiKey && !!process.env.TWENTYFIRST_API_KEY;
+          const [imagePhase, componentPhase] = await Promise.all([
+            wantImages && apiKey
+              ? planAndGenerateImages(apiKey, data.prompt, contextHtml, requestId, clientAbort)
+              : Promise.resolve({ images: [], usages: [] as UsageRecord[], planUsage: null as UsageRecord | null }),
+            wantComponents
+              ? planAndFetchComponents(apiKey!, data.prompt, contextHtml, requestId, clientAbort)
+              : Promise.resolve({ components: [] as ComponentHit[], planUsage: null as UsageRecord | null }),
+          ]);
 
           const images = imagePhase.images;
           imageUsages.push(...imagePhase.usages);
           if (imagePhase.planUsage) imageUsages.push(imagePhase.planUsage);
+          if (componentPhase.planUsage) imageUsages.push(componentPhase.planUsage);
+          const components = componentPhase.components;
           const t_images = performance.now();
           timing.image_ms = Math.round(t_images - t_ctx);
           timing.image_count = images.length;
+
 
           const messages: Array<{ role: string; content: string }> = [
             { role: "system", content: data.advisory ? ADVISORY_PROMPT : SYSTEM_PROMPT },
