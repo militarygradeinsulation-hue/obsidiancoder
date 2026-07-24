@@ -1,79 +1,78 @@
-## 1. Fix intro video (missing everywhere)
+## Wire 21st.dev component library into build generation
 
-Current bug: `IntroSplash` is imported only in `src/routes/index.tsx`, but the user's entry point is `/unlock`, so it never plays. A stale comment in `index.tsx` even claims it's already in `__root`, but it isn't.
+Goal: when a user asks for a landing page / dashboard / pricing section / etc., Obsidian queries 21st.dev's component API for a few polished shadcn/Tailwind components matching the request and injects their code into the model's system context. The model then adapts those real components instead of writing generic markup — same fix pattern as the Leonardo image work.
 
-- Mount `<IntroSplash />` in `src/routes/__root.tsx` (inside the root shell, after `<Outlet />`).
-- Remove the duplicate import from `src/routes/index.tsx` so it doesn't double-mount.
-- Keep the existing `sessionStorage` "once per session" gate — this matches the chosen answer (every route, first visit per session).
-- Verify by loading `/unlock` in a fresh session with Playwright and confirming the overlay appears and auto-dismisses.
+## 1. Store the API key
 
-## 2. Real image generation: Leonardo + Higgsfield + variety
+- Save `TWENTYFIRST_API_KEY = 21st_sk_40804a…aada` via `set_secret` (value is already in chat, no user form needed).
 
-Goal: when the AI produces a build, image placeholders resolve to real, varied, provider-generated art instead of the same Unsplash / SVG fallbacks.
+## 2. New server helper: `src/lib/twentyfirst.server.ts`
 
-**Secrets (request via `add_secret`):**
-- `LEONARDO_API_KEY` (leonardo.ai account → API access)
-- `HIGGSFIELD_API_KEY` + `HIGGSFIELD_API_SECRET` (Higgsfield partner API; if the user only has MCP access, the Higgsfield path will be marked unavailable at runtime and skipped — no crash)
+Server-only wrapper around 21st.dev's component search endpoint (`https://api.21st.dev/v1/components/search` — auth via `Authorization: Bearer <key>`). Exports:
 
-**New server route:** `src/routes/api/public/media/image.ts`
-- POST `{ prompt, style?, aspect?, provider? }` → `{ url, provider, requestId }`.
-- Provider chain (uses existing `orderImageProviders` in `src/lib/operation-tracker.ts` — already has `leonardo`, `higgsfield`, `gemini`):
-  1. **Leonardo** — POST `/v1/generations` (Phoenix or Lightning XL model id), poll `/v1/generations/{id}` until `COMPLETE`, return first `generated_images[].url`.
-  2. **Higgsfield** — POST their image endpoint; if 401/404 or missing key, fall through.
-  3. **Gemini image (Lovable Gateway)** — existing fallback via `/v1/images/generations` non-streaming, upload the returned base64 to Supabase Storage bucket `build-media` (new public bucket) and return the public URL.
-- Gate via `requirePaidOperation("image_gen", …)` like other paid ops, settle with real usage.
-- Rotate style seeds (`cinematic`, `editorial`, `isometric`, `photo-real`, `hand-drawn`) per call so builds visually diverge — this is the "stop looking the same" fix.
+- `searchComponents(query: string, opts?: { limit?: number; signal?: AbortSignal }) → Promise<ComponentHit[]>` returning `{ name, description, code, previewUrl, tags }[]`.
+- Silent-fail on 4xx/5xx/timeout (returns `[]`) so it never blocks a build.
+- 4-second per-call timeout via `aiFetch` with breaker key `21st/search`.
+- In-memory LRU cache (60 entries, 10-minute TTL) keyed by normalized query — component catalogs change slowly and prompts repeat.
 
-**Client hook:** `src/lib/media-provider.ts`
-- `generateImage(prompt, opts)` calls the route, caches by `(prompt+style)` in memory to avoid duplicate spend within a single build.
-- Exposes provider chain + last used provider so `CostPanel` / ledger can show it.
+## 3. Component-planning phase in `src/routes/api/generate.ts`
 
-**Wire into generation:** in `src/lib/aetheris.functions.ts`
-- Update `SYSTEM_PROMPT` so the model emits `<img data-obs-gen="1" data-prompt="…" data-style="…" />` placeholders instead of hardcoded Unsplash URLs.
-- Post-process the streamed HTML in `src/routes/api/generate.ts` (or a small helper): before returning to the client, scan for `data-obs-gen` imgs and resolve each via `/api/public/media/image` in parallel with `Promise.allSettled`, swapping `src` with the returned URL. On failure, fall back to a curated Unsplash query tied to the prompt (existing behavior) so builds never ship broken images.
-- Randomize the visual-style seed per build (store on the version) so re-runs of the same idea produce visibly different aesthetics.
+Mirrors the existing `planAndGenerateImages` flow:
 
-## 3. Video generation in builds
+- New helper `planAndFetchComponents(apiKey, prompt, currentHtml, requestId, signal)`.
+- Runs in parallel with `planAndGenerateImages` inside `Promise.all` so it adds zero wall-clock latency.
+- Uses `google/gemini-3.1-flash-lite` to convert the user prompt into up to **3 short component queries** (e.g. `["hero section with app screenshot", "3-tier pricing table", "testimonial grid"]`). Returns `{"queries":[]}` when the prompt is a small tweak, dashboard-only, or clearly non-UI.
+- Gate: skip the planner entirely when `data.currentHtml` is non-empty AND the prompt looks like an edit (`add`, `change`, `fix`, `remove`, `update` at word start) — component library helps first-build variety, not micro-edits.
+- Calls `searchComponents` for each query in parallel, keeps the top hit per query.
+- Returns `{ components: ComponentHit[], planUsage: UsageRecord | null }` (no per-fetch usage record — 21st.dev is flat-rate for us).
 
-**Secret:** reuse `HIGGSFIELD_API_KEY`; if absent, fall back to Lovable's `videogen` provider.
+## 4. Inject into the model call
 
-**Extend the media route:** `src/routes/api/public/media/video.ts`
-- POST `{ prompt, durationSec?, aspect? }` → `{ url, poster, provider }`.
-- Chain: Higgsfield video (if key present) → Lovable videogen fallback.
-- Store MP4s in the `build-media` Supabase bucket, return the public URL and a first-frame poster (extract via `<video>` seek on the client, or a simple thumbnail URL from the provider).
+Where the request currently builds the messages array for the streaming chat call, append one extra system message when components come back:
 
-**System prompt & post-process:**
-- Allow `<video data-obs-gen="1" data-prompt="…" poster="" />` in generated HTML.
-- Post-process resolves to the real MP4 URL; adds `autoplay muted playsinline loop` for hero-style clips.
+```text
+REFERENCE COMPONENTS (adapt into a single cohesive design — do not copy 1:1, restyle to match the amber/dark aesthetic; keep only what fits the user request):
 
-**Cost gate:** video costs ~10× images; require Creator plan or higher via `credit-gate.server.ts`, denial → friendly modal.
+// COMPONENT: <name> — <description>
+<code>
 
-## 4. Storage + schema
+// COMPONENT: ...
+```
 
-- New Supabase Storage bucket `build-media` (public read, authed write).
-- New migration: nothing schema-side beyond the bucket + a small `media_generations` audit table (`id, created_at, provider, prompt, kind, url, request_id, client_id`) with RLS `TO service_role` only + GRANTs. Used by the admin `/demos` portal to see per-build spend.
+Cap total injected size at ~40 KB (truncate longest first) so it doesn't blow the context window on Gemini Flash Lite.
 
-## 5. Admin visibility
+## 5. System prompt tweak
 
-- `/demos` portal: add a "Media" tab showing recent `media_generations` rows with provider chip, prompt, thumbnail, and cost — so you can see whether Leonardo/Higgsfield is actually being used.
+One-line addition to `SYSTEM_PROMPT`: "When REFERENCE COMPONENTS are provided in system context, adapt their structure and idioms into a single cohesive design; do not paste them verbatim, do not import external libraries, and inline any needed Tailwind or CSS."
 
-## 6. Verification
+Nothing else in the prompt changes.
 
-- Playwright: open `/unlock`, confirm intro plays, dismiss, log into builder with `9822`, generate a small build ("landing page for a coffee shop"), confirm generated HTML contains real Leonardo URLs (log the `X-Media-Provider` response header) and one video element.
-- Curl the new route directly with a fake prompt to confirm provider fallback order works when a key is missing.
-- Check `server-function-logs` for any Higgsfield 4xx (expected until key confirmed) — falls through cleanly.
+## 6. Observability
+
+- Add `X-Obs-Components` response header listing the component names actually injected (comma-separated, first 200 chars). Mirrors the existing `X-Obs-Image-Providers` header so `/demos` can show at a glance whether the library is firing.
+- Log the query list + hit count via `console.info` on the server so `stack_modern--server-function-logs` shows real usage.
+
+## 7. Failure behavior
+
+- Missing key → helper returns `[]`, planner is skipped, build behaves exactly as it does today.
+- 21st.dev 401 (key rejected) → log once, cache the failure for 5 minutes to avoid retry storms, treat as missing key.
+- Any exception inside `planAndFetchComponents` → swallowed, return empty; the outer generation pipeline is untouched.
+
+## 8. Verification
+
+- `curl` the new `/api/generate` route with prompt `"a landing page for a coffee shop"` and confirm the response header `X-Obs-Components` names 2–3 real component ids.
+- `stack_modern--server-function-logs` search=`21st` to confirm the search calls fire.
+- Visually spot-check one generated build in Playwright vs. a build made before the change — the new one should have more polished hero/pricing/testimonial structure.
 
 ## Files touched
 
-- `src/routes/__root.tsx` — mount `IntroSplash`
-- `src/routes/index.tsx` — remove duplicate import + stale comment
-- `src/routes/api/public/media/image.ts` (new)
-- `src/routes/api/public/media/video.ts` (new)
-- `src/lib/media-provider.ts` (new client helper)
-- `src/lib/leonardo.server.ts`, `src/lib/higgsfield.server.ts` (new, server-only)
-- `src/lib/aetheris.functions.ts` — prompt + post-process hook
-- `src/routes/api/generate.ts` — post-process generated HTML
-- `src/lib/credit-gate.server.ts` — add `image_gen` and `video_gen` ops
-- `src/routes/demos.tsx` — Media tab
-- New Supabase migration: `build-media` bucket + `media_generations` table
-- Secrets requested: `LEONARDO_API_KEY`, `HIGGSFIELD_API_KEY`, `HIGGSFIELD_API_SECRET`
+- `src/lib/twentyfirst.server.ts` (new)
+- `src/routes/api/generate.ts` — add planner + inject system message + response header
+- No schema changes, no new dependencies, no client-side changes
+- Secret stored: `TWENTYFIRST_API_KEY`
+
+## Explicitly NOT in this plan
+
+- Manual browse/search panel in the sandbox UI (user picked the auto-injection option, not the inspiration-only one).
+- Persistent per-build record of which components were used (can add later on `builds` table if useful).
+- Rewriting the existing image pipeline.

@@ -15,6 +15,8 @@ import type { EntitlementResult } from "@/lib/credit-gate.server";
 import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "@/lib/usage-record";
 import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from "@/lib/generate-settlement";
 import type { Operation } from "@/lib/credit-gate";
+import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
+
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -50,7 +52,9 @@ Hard rules:
 - Aesthetic: dark background, warm amber/gold accents, refined typography.
 - Never remove previously-built features unless asked.
 - No third-party scripts, no tracking, no external network calls beyond image URLs.
+- When REFERENCE COMPONENTS are provided in system context, adapt their structure and idioms into a single cohesive design; do not paste them verbatim, do not import external libraries, and inline any needed Tailwind or CSS.
 - Speed matters: begin streaming the <!doctype html> immediately. No preamble.`;
+
 
 const ADVISORY_PROMPT = `You are Aetheris Obsidian, a senior product engineer acting as a strategic advisor.
 The user is in CHAT or PLAN mode — you MUST NOT produce HTML, code, or a full document.
@@ -272,6 +276,86 @@ async function planAndGenerateImages(
   }
 }
 
+// ---- 21st.dev component library planner ---------------------------------
+// Ask a fast LLM for up to 3 short component queries that fit the user's
+// build (hero, pricing, feature grid, testimonial, etc.), then look each up
+// on 21st.dev. Skipped for edits and non-UI advisory calls. Total wall-clock
+// budget ~5s; anything slower falls through with an empty list.
+
+const EDIT_KEYWORDS = /^\s*(add|change|fix|remove|update|delete|rename|tweak|adjust|move|shrink|enlarge|swap)\b/i;
+
+interface ComponentPhaseResult {
+  components: ComponentHit[];
+  planUsage: UsageRecord | null;
+}
+
+async function planAndFetchComponents(
+  apiKey: string,
+  prompt: string,
+  currentHtml: string,
+  requestId: string,
+  signal: AbortSignal,
+): Promise<ComponentPhaseResult> {
+  // Only useful for fresh builds — skip micro-edits on an existing document.
+  if (currentHtml && EDIT_KEYWORDS.test(prompt)) return { components: [], planUsage: null };
+  if (!process.env.TWENTYFIRST_API_KEY) return { components: [], planUsage: null };
+  let planUsage: UsageRecord | null = null;
+  try {
+    const planRes = await aiFetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-lite",
+          messages: [
+            { role: "system", content: 'Turn this build request into up to 3 short shadcn/Tailwind component search queries (2-6 words each). Focus on distinct UI sections: hero, pricing, feature grid, testimonial, cta, nav, dashboard card. Return ONLY JSON: {"queries":["...","..."]}. Return {"queries":[]} if the request is a small tweak, an internal dashboard with no marketing UI, or clearly non-UI. Max 3.' },
+            { role: "user", content: `USER REQUEST: ${prompt}\n\nCURRENT HTML SNIPPET: ${currentHtml.slice(0, 800)}` },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      },
+      { breakerKey: "lovable/21st_plan", stage: "plan", requestId, attemptTimeoutMs: 3500, totalTimeoutMs: 5000, maxAttempts: 1, signal },
+    );
+    const guarded = await readGuarded(planRes.response, { expected: "application/json" });
+    if (!guarded.ok) return { components: [], planUsage: null };
+    const planJson = JSON.parse(guarded.text) as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown; model?: string };
+    const parsedPlanUsage = parseUsageFromChatJson(planJson);
+    const planEst = estimateUsdForCall({
+      model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+      providerUsed: true,
+    });
+    planUsage = makeUsage({
+      provider: "lovable", model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+      operation: "generate_html",
+      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+      totalTokens: parsedPlanUsage?.totalTokens ?? 0,
+      estimatedCostUsd: planEst.usd, costBasis: planEst.basis,
+      providerUsed: true, status: "committed",
+      meta: { phase: "component_plan" },
+    });
+    const parsed = JSON.parse(planJson.choices?.[0]?.message?.content ?? "{}");
+    const queries: string[] = Array.isArray(parsed.queries)
+      ? parsed.queries.filter((q: unknown): q is string => typeof q === "string" && q.trim().length > 0).slice(0, 3)
+      : [];
+    if (!queries.length) return { components: [], planUsage };
+    const settled = await Promise.all(
+      queries.map((q) => searchComponents(q, { requestId, signal, limit: 1 })),
+    );
+    const components = settled.flat().slice(0, 3);
+    // eslint-disable-next-line no-console
+    console.info("[21st.dev] plan", { queries, hits: components.map((c) => c.name) });
+    return { components, planUsage };
+  } catch {
+    return { components: [], planUsage };
+  }
+}
+
+
+
 
 export const Route = createFileRoute("/api/generate")({
   server: {
@@ -395,16 +479,25 @@ export const Route = createFileRoute("/api/generate")({
           //    asked for imagery or opted in via wantImages. This is what was
           //    silently adding 12-17s to every non-visual build.
           const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
-          const imagePhase = wantImages && apiKey
-            ? await planAndGenerateImages(apiKey, data.prompt, contextHtml, requestId, clientAbort)
-            : { images: [], usages: [], planUsage: null };
+          const wantComponents = !data.advisory && !!apiKey && !!process.env.TWENTYFIRST_API_KEY;
+          const [imagePhase, componentPhase] = await Promise.all([
+            wantImages && apiKey
+              ? planAndGenerateImages(apiKey, data.prompt, contextHtml, requestId, clientAbort)
+              : Promise.resolve({ images: [], usages: [] as UsageRecord[], planUsage: null as UsageRecord | null }),
+            wantComponents
+              ? planAndFetchComponents(apiKey!, data.prompt, contextHtml, requestId, clientAbort)
+              : Promise.resolve({ components: [] as ComponentHit[], planUsage: null as UsageRecord | null }),
+          ]);
 
           const images = imagePhase.images;
           imageUsages.push(...imagePhase.usages);
           if (imagePhase.planUsage) imageUsages.push(imagePhase.planUsage);
+          if (componentPhase.planUsage) imageUsages.push(componentPhase.planUsage);
+          const components = componentPhase.components;
           const t_images = performance.now();
           timing.image_ms = Math.round(t_images - t_ctx);
           timing.image_count = images.length;
+
 
           const messages: Array<{ role: string; content: string }> = [
             { role: "system", content: data.advisory ? ADVISORY_PROMPT : SYSTEM_PROMPT },
@@ -432,7 +525,31 @@ export const Route = createFileRoute("/api/generate")({
                   .join("\n\n"),
             });
           }
+          if (!data.advisory && components.length) {
+            // Cap to ~40 KB total so Flash Lite doesn't blow context.
+            const MAX_BYTES = 40_000;
+            const sorted = [...components].sort((a, b) => a.code.length - b.code.length);
+            const chosen: ComponentHit[] = [];
+            let used = 0;
+            for (const c of sorted) {
+              const size = c.code.length + (c.description?.length ?? 0) + (c.name.length + 32);
+              if (used + size > MAX_BYTES) continue;
+              used += size;
+              chosen.push(c);
+            }
+            if (chosen.length) {
+              messages.push({
+                role: "system",
+                content:
+                  `REFERENCE COMPONENTS from the 21st.dev library — adapt structure and idioms into ONE cohesive design, restyle to match the amber/dark aesthetic, do not paste verbatim, do not import external libraries, inline any needed Tailwind or CSS.\n\n` +
+                  chosen
+                    .map((c) => `// COMPONENT: ${c.name}${c.description ? ` — ${c.description}` : ""}\n${c.code}`)
+                    .join("\n\n// ---\n\n"),
+              });
+            }
+          }
           messages.push({ role: "user", content: data.prompt });
+
 
           const decoder = new TextDecoder();
           const encoder = new TextEncoder();
@@ -657,6 +774,9 @@ export const Route = createFileRoute("/api/generate")({
           const providersSummary = images.length
             ? images.map((i) => `${i.slot}:${i.providerUsed}`).join(",")
             : "none";
+          const componentsSummary = components.length
+            ? components.map((c) => c.name).join(",").slice(0, 200)
+            : "none";
           return new Response(stream, {
             headers: {
               "Content-Type": "text/plain; charset=utf-8",
@@ -665,6 +785,8 @@ export const Route = createFileRoute("/api/generate")({
               "X-Request-Id": requestId,
               "X-Obs-Image-Providers": providersSummary,
               "X-Obs-Image-Count": String(images.length),
+              "X-Obs-Components": componentsSummary,
+              "X-Obs-Component-Count": String(components.length),
               "X-Obs-Model-Used": modelUsed,
               "X-Obs-Model-Requested": data.model,
               "X-Obs-Fallback": fallbackReason ? "1" : "0",
@@ -672,9 +794,10 @@ export const Route = createFileRoute("/api/generate")({
               "X-Obs-Compact-In": String(compacted.originalBytes),
               "X-Obs-Compact-Out": String(compacted.bytes),
               "Access-Control-Expose-Headers":
-                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out",
+                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Components, X-Obs-Component-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out",
             },
           });
+
         } catch (err) {
           // Settle failure — refund only if no provider work started,
           // otherwise record failed_with_usage. If settlement itself fails
