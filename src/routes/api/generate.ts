@@ -16,6 +16,7 @@ import { StreamingUsageAccumulator, makeUsage, estimateUsdForCall, parseUsageFro
 import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from "@/lib/generate-settlement";
 import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
+import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 
 
 const messageSchema = z.object({
