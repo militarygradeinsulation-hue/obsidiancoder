@@ -503,6 +503,13 @@ export const Route = createFileRoute("/api/generate")({
             { role: "system", content: data.advisory ? ADVISORY_PROMPT : SYSTEM_PROMPT },
             ...data.history,
           ];
+          // Inject the style archetype library only for FRESH builds (no
+          // existing HTML). On edits we preserve the archetype already chosen.
+          if (!data.advisory && !contextHtml) {
+            const { STYLE_LIBRARY } = await import("@/lib/style-library");
+            messages.push({ role: "system", content: STYLE_LIBRARY });
+          }
+
           if (!data.advisory && contextHtml) {
             messages.push({
               role: "system",
