@@ -127,6 +127,13 @@ function Unlock() {
   function openPanel(next: Intent) { setTab(next); setPanelOpen(true); }
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
+  const [demoView, setDemoView] = useState<"sphere" | "grid">(() => {
+    if (typeof window === "undefined") return "sphere";
+    return (window.localStorage.getItem("obsidian.demoView") as "sphere" | "grid") || "sphere";
+  });
+  useEffect(() => {
+    if (typeof window !== "undefined") window.localStorage.setItem("obsidian.demoView", demoView);
+  }, [demoView]);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
   const [featuredDemos, setFeaturedDemos] = useState<{ slug: string; title: string; url?: string; category: DemoCategory }[]>([]);
 
