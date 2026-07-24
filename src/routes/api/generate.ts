@@ -574,9 +574,24 @@ export const Route = createFileRoute("/api/generate")({
             });
           }
           if (!data.advisory && components.length) {
-            // Cap to ~40 KB total so Flash Lite doesn't blow context.
-            const MAX_BYTES = 40_000;
-            const sorted = [...components].sort((a, b) => a.code.length - b.code.length);
+            // Cap to ~90 KB total. Prioritize hero-like sections first, then
+            // pricing/features/testimonials, then the rest — smallest first
+            // within each tier so we fit as many patterns as possible.
+            const MAX_BYTES = 90_000;
+            const priorityFor = (c: ComponentHit): number => {
+              const s = `${c.name} ${c.description ?? ""} ${(c.tags ?? []).join(" ")}`.toLowerCase();
+              if (/\bhero\b/.test(s)) return 0;
+              if (/\bpricing|plans?\b/.test(s)) return 1;
+              if (/\bfeature|bento|grid\b/.test(s)) return 2;
+              if (/\btestimonial|review|logo\s?cloud\b/.test(s)) return 3;
+              if (/\bcta|call\s?to\s?action|newsletter\b/.test(s)) return 4;
+              if (/\bnav|footer|header\b/.test(s)) return 5;
+              return 6;
+            };
+            const sorted = [...components].sort((a, b) => {
+              const p = priorityFor(a) - priorityFor(b);
+              return p !== 0 ? p : a.code.length - b.code.length;
+            });
             const chosen: ComponentHit[] = [];
             let used = 0;
             for (const c of sorted) {
@@ -589,7 +604,7 @@ export const Route = createFileRoute("/api/generate")({
               messages.push({
                 role: "system",
                 content:
-                  `REFERENCE COMPONENTS from the 21st.dev library — adapt structure and idioms into ONE cohesive design, restyle to match the amber/dark aesthetic, do not paste verbatim, do not import external libraries, inline any needed Tailwind or CSS.\n\n` +
+                  `REFERENCE COMPONENTS from the 21st.dev library. Treat these as the STRUCTURAL BASIS for the corresponding sections of the build — reuse their layout, spacing, and interaction patterns — but restyle every token to match the archetype you picked and inline any needed Tailwind or CSS. Do not paste verbatim, do not import external libraries, do not preserve their original colors or fonts.\n\n` +
                   chosen
                     .map((c) => `// COMPONENT: ${c.name}${c.description ? ` — ${c.description}` : ""}\n${c.code}`)
                     .join("\n\n// ---\n\n"),
