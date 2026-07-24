@@ -368,6 +368,29 @@ function Index() {
       return n;
     });
   };
+  // Ideas that were built AND then pushed live (Go Live / Push to Demos).
+  const [liveIdeas, setLiveIdeas] = useState<Set<string>>(() => {
+    if (typeof window === "undefined") return new Set();
+    try {
+      const raw = window.localStorage.getItem("obs.liveIdeas");
+      return raw ? new Set(JSON.parse(raw) as string[]) : new Set();
+    } catch { return new Set(); }
+  });
+  const recordLiveIdea = (labelOrSnippet: string | null | undefined) => {
+    if (!labelOrSnippet) return;
+    const key = labelOrSnippet.trim().toLowerCase().slice(0, 120);
+    if (!key) return;
+    setLiveIdeas((prev) => {
+      if (prev.has(key)) return prev;
+      const n = new Set(prev); n.add(key);
+      try { window.localStorage.setItem("obs.liveIdeas", JSON.stringify(Array.from(n).slice(-400))); } catch {}
+      return n;
+    });
+    recordBuiltIdea(labelOrSnippet);
+  };
+  // Tracks the last idea label the user clicked into the composer, so when
+  // they push that build live we can mark the source idea as "already made".
+  const activeIdeaLabelRef = useRef<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [lastAiError, setLastAiError] = useState<AiErrorEnvelope | null>(null);
   const lastSubmitRef = useRef<{ prompt: string; attachments: Attachment[] } | null>(null);
@@ -654,6 +677,7 @@ function Index() {
     }
   }
   function appendAddon(a: Addon) {
+    activeIdeaLabelRef.current = a.label;
     setInput((prev) => {
       const base = prev.trim();
       if (!base) return a.snippet;
@@ -2347,6 +2371,7 @@ function Index() {
                   window.open(liveUrl, "_blank", "noopener,noreferrer");
                   setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
                   if (libraryCode.trim()) refreshLibrary();
+                  recordLiveIdea(activeIdeaLabelRef.current);
                   // Note: Go Live only publishes the shareable link. To feature
                   // this build on the public login-page gallery, use the
                   // separate "Push to Demos" button (admin only).
@@ -2410,6 +2435,7 @@ function Index() {
                 try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
                 setTerminal((t) => [...t, `${label}: ${liveUrl}`]);
                 refreshLibrary();
+                recordLiveIdea(activeIdeaLabelRef.current);
               };
               const handlePush = async () => {
                 if (!current.html) return;
@@ -2872,24 +2898,31 @@ function Index() {
                   { id: "portfolio", label: "Portfolio" },
                 ];
                 const baseAddonsAll = suggestAddons(input, !!current.html, ideaOffset, ideaSeed);
-                const isBuilt = (a: Addon) => {
+                const matchesSet = (a: Addon, set: Set<string>) => {
                   const l = a.label.trim().toLowerCase();
                   const s = a.snippet.trim().toLowerCase();
-                  for (const k of builtIdeas) {
+                  for (const k of set) {
                     if (!k) continue;
                     if (l && (l.includes(k) || k.includes(l))) return true;
                     if (s && (s.includes(k) || k.includes(s.slice(0, 60)))) return true;
                   }
                   return false;
                 };
-                const baseAddons = baseAddonsAll.filter((a) => !isBuilt(a));
-                const filteredAi = aiIdeas.filter((a) => !isBuilt(a));
-                // Idle + a category selected → show AI ideas only (unlimited fresh pool).
-                // Idle + "all" and no AI yet → deterministic starter pool.
+                const isLiveIdea = (a: Addon) => matchesSet(a, liveIdeas);
+                const isBuilt = (a: Addon) => matchesSet(a, builtIdeas);
+                // Don't hide built/live ideas — show them with a badge so the
+                // user can see what's already been made instead of guessing.
+                const baseAddons = baseAddonsAll;
+                const filteredAi = aiIdeas;
                 const addons: Addon[] = isStarters
                   ? (filteredAi.length ? filteredAi.slice(0, 6) : baseAddons)
                   : baseAddons;
                 const label = isStarters ? "Try one of these" : "Add to your prompt";
+                const IdeaBadge = ({ a }: { a: Addon }) => {
+                  if (isLiveIdea(a)) return <span title="You already built this and pushed it live" style={{ fontSize: 9, padding: "1px 5px", borderRadius: 999, background: "rgba(34,197,94,0.18)", color: "#7ee2a4", border: "1px solid rgba(34,197,94,0.45)", letterSpacing: 0.3 }}>LIVE</span>;
+                  if (isBuilt(a)) return <span title="You already built this" style={{ fontSize: 9, padding: "1px 5px", borderRadius: 999, background: "rgba(244,161,37,0.15)", color: "#F4A125", border: "1px solid rgba(244,161,37,0.45)", letterSpacing: 0.3 }}>BUILT</span>;
+                  return null;
+                };
                 const savedKey = (a: Addon) => a.snippet.trim().toLowerCase();
                 const savedSet = new Set(savedIdeas.map(savedKey));
                 const toggleSave = (a: Addon) => {
@@ -3008,6 +3041,7 @@ function Index() {
                                 style={{ borderColor: "rgba(244,161,37,0.35)" }}
                               >
                                 <span>{a.label}</span>
+                                <IdeaBadge a={a} />
                               </button>
                               <button
                                 type="button"
@@ -3056,6 +3090,7 @@ function Index() {
                               title={a.snippet}
                             >
                               <span>{a.label}</span>
+                              <IdeaBadge a={a} />
                             </button>
                             {isStarters && (
                               <>

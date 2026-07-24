@@ -112,10 +112,83 @@ async function callGateway(system: string, user: string): Promise<string> {
   return json.choices?.[0]?.message?.content ?? "";
 }
 
+// Fetch real-world pain-point signals from the web so ideas aren't the same
+// recycled AI templates. Best-effort — silently no-ops if Firecrawl isn't
+// configured or a call fails. Rotates queries so repeat calls stay fresh.
+const TRADE_QUERIES: string[] = [
+  "site:reddit.com/r/fireprotection what software do you wish existed",
+  "site:reddit.com/r/HVAC field tech app pain points",
+  "site:reddit.com/r/Construction subcontractor billing problems 2025",
+  "site:reddit.com/r/Electricians what do you hate about ServiceTitan",
+  "site:reddit.com/r/glazing quoting software gaps",
+  "commercial trades contractor unbilled work leakage 2025",
+  "NFPA 25 inspection deficiency to quote workflow problems",
+  "EPA 608 refrigerant leak logging January 2026 compliance",
+  "QuickBooks Online field service double entry problems",
+  "small mechanical contractor change order dispute software",
+];
+const GENERIC_QUERIES: string[] = [
+  "what web tools do small businesses actually need 2025 site:reddit.com",
+  "indie hacker painful workflows manual spreadsheets site:reddit.com",
+  "professionals ask for tools that don't exist site:reddit.com",
+  "underserved SMB vertical software gaps 2025",
+];
+
+type ResearchSnippet = { source: string; text: string };
+
+async function firecrawlResearch(category: string, count: number): Promise<ResearchSnippet[]> {
+  const key = process.env.FIRECRAWL_API_KEY;
+  if (!key) return [];
+  const isTradeContext = category === "app" || category === "productivity" || category === "dashboard" || category === "all";
+  const pool = isTradeContext ? [...TRADE_QUERIES, ...GENERIC_QUERIES] : GENERIC_QUERIES;
+  // Pick 2 random queries per call so ideas rotate.
+  const picks: string[] = [];
+  const used = new Set<number>();
+  while (picks.length < 2 && used.size < pool.length) {
+    const i = Math.floor(Math.random() * pool.length);
+    if (used.has(i)) continue;
+    used.add(i);
+    picks.push(pool[i]);
+  }
+  const collect: ResearchSnippet[] = [];
+  await Promise.all(picks.map(async (q) => {
+    try {
+      const res = await fetch("https://api.firecrawl.dev/v1/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+        body: JSON.stringify({ query: q, limit: 4 }),
+        signal: AbortSignal.timeout(9_000),
+      });
+      if (!res.ok) return;
+      const json = (await res.json()) as { data?: Array<{ title?: string; description?: string; url?: string }> };
+      for (const it of json.data ?? []) {
+        const text = [it.title, it.description].filter(Boolean).join(" — ").trim();
+        if (!text) continue;
+        collect.push({ source: it.url ?? "", text: text.slice(0, 220) });
+      }
+    } catch { /* swallow — research is best-effort */ }
+  }));
+  // De-dupe and cap.
+  const seen = new Set<string>();
+  const out: ResearchSnippet[] = [];
+  for (const s of collect) {
+    const k = s.text.toLowerCase().slice(0, 80);
+    if (seen.has(k)) continue;
+    seen.add(k);
+    out.push(s);
+    if (out.length >= count) break;
+  }
+  return out;
+}
+
 export const generateStarterIdeas = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => starterInput.parse(d))
   .handler(async ({ data }): Promise<{ ideas: IdeaSuggestion[] }> => {
     const seed = Math.random().toString(36).slice(2, 8);
+    const research = await firecrawlResearch(data.category, 8);
+    const researchBlock = research.length
+      ? `LIVE RESEARCH SIGNALS (real, current pain points scraped from the web — anchor at least half of the ideas to something concrete you see here; do NOT invent generic SaaS clichés):\n${research.map((r, i) => `[R${i + 1}] ${r.text}${r.source ? ` (src: ${r.source})` : ""}`).join("\n")}`
+      : `LIVE RESEARCH SIGNALS: none available — you MUST still avoid generic ideas (todo apps, weather apps, calorie trackers, generic dashboards). Pick niche, specific problems.`;
     const system = `You brainstorm fresh, buildable single-page web project ideas for a front-end AI builder.
 Return ONLY JSON of the exact shape: {"ideas":[{"label":"short name","snippet":"Build a ... describing the page in one sentence."}]}
 Rules:
@@ -126,6 +199,8 @@ Rules:
 - Avoid anything in the exclude list (case-insensitive) and do not repeat concepts already listed.
 - Be inventive — surprising, specific niches beat safe generic picks.
 - When an idea targets trades, contractors, field service, or compliance, anchor it to a leak from the library below and reference the leak ID(s) inside the snippet (e.g. "…plugs L3+L8.").
+
+${researchBlock}
 
 ${REAL_WORLD_LEAKS_PROMPT}`;
     const user = `category:${data.category}\nvariety-seed:${seed}\nexclude:${JSON.stringify(data.exclude)}`;
