@@ -24,6 +24,7 @@ const CATEGORIES = [
   "landing",
   "dashboard",
   "portfolio",
+  "trades",
 ] as const;
 
 const starterInput = z.object({
@@ -33,16 +34,17 @@ const starterInput = z.object({
 });
 
 const CATEGORY_GUIDANCE: Record<(typeof CATEGORIES)[number], string> = {
-  all: "Vary widely across creative tools, dashboards, storytelling, utilities, communities, playful microsites.",
+  all: "Vary WIDELY across many domains — consumers, creators, families, education, health & fitness, local businesses, finance, entertainment, hobbies, nonprofits, communities, professional services, games, and productivity. Do NOT default to trades, contractors, field service, or B2B ops.",
   ai: "AI-powered single-page tools: chat UIs, agents, generators, summarizers, classifiers, playgrounds.",
-  app: "Interactive single-page web apps: utilities, trackers, planners, mini social tools.",
+  app: "Interactive single-page web apps for everyday people: utilities, trackers, planners, mini social tools, hobby helpers. Consumer / prosumer, not trades.",
   game: "Playable browser mini-games: puzzles, arcade, idle/clicker, word, memory, physics, trivia.",
-  productivity: "Productivity tools: task managers, timers, note-takers, planners, focus/habit trackers.",
-  education: "Educational pages: interactive lessons, flashcards, quizzes, explainers, visualizers.",
+  productivity: "Personal & team productivity: task managers, timers, note-takers, planners, focus/habit trackers, journals, review tools. Consumer / knowledge-worker, not field-service.",
+  education: "Educational pages: interactive lessons, flashcards, quizzes, explainers, visualizers, language learning.",
   presentation: "Presentation-style pages: pitch decks, slide flows, story scrollers, keynote-style microsites.",
   landing: "Marketing landing pages for products, apps, events, launches, waitlists.",
-  dashboard: "Analytics/admin dashboards with KPI cards, charts, tables, filters.",
+  dashboard: "Analytics dashboards for creators, marketers, finance, ops, personal metrics — KPI cards, charts, tables, filters. Not field-service dispatch.",
   portfolio: "Portfolio and personal sites: designers, developers, photographers, agencies, resumes.",
+  trades: "Commercial specialty trades ONLY — fire protection, HVAC/mechanical, commercial glazing, electrical subs, field-service compliance. Use the leak library and cite leak IDs.",
 };
 
 const anticipateInput = z.object({
@@ -112,9 +114,9 @@ async function callGateway(system: string, user: string): Promise<string> {
   return json.choices?.[0]?.message?.content ?? "";
 }
 
-// Fetch real-world pain-point signals from the web so ideas aren't the same
-// recycled AI templates. Best-effort — silently no-ops if Firecrawl isn't
-// configured or a call fails. Rotates queries so repeat calls stay fresh.
+// --- Research query pools ------------------------------------------------
+// Trades queries run ONLY when the category is `trades`. Never mixed in for
+// generic categories, or the model biases every idea toward field service.
 const TRADE_QUERIES: string[] = [
   "site:reddit.com/r/fireprotection what software do you wish existed",
   "site:reddit.com/r/HVAC field tech app pain points",
@@ -127,20 +129,53 @@ const TRADE_QUERIES: string[] = [
   "QuickBooks Online field service double entry problems",
   "small mechanical contractor change order dispute software",
 ];
+
+// Broad, rotating generic pool — covers many audiences so the "all" tab
+// doesn't collapse into the same 3 ideas every load.
 const GENERIC_QUERIES: string[] = [
-  "what web tools do small businesses actually need 2025 site:reddit.com",
+  "what web tools do people wish existed 2025 site:reddit.com",
+  "site:reddit.com/r/AskReddit what app do you wish existed",
+  "site:reddit.com/r/SomebodyMakeThis best ideas 2025",
+  "site:reddit.com/r/lifehacks tools I built for myself",
+  "site:reddit.com/r/personalfinance app I wish existed",
+  "site:reddit.com/r/parenting apps that would actually help",
+  "site:reddit.com/r/teachers classroom tools that don't exist",
+  "site:reddit.com/r/fitness app feature nobody has built",
+  "site:reddit.com/r/cooking recipe tool I wish existed",
+  "site:reddit.com/r/weddingplanning tool I wish existed",
+  "site:reddit.com/r/petcare app idea nobody built",
+  "site:reddit.com/r/gamedev tiny web games people love",
+  "site:reddit.com/r/languagelearning tool that would help",
+  "site:reddit.com/r/nonprofit software gaps 2025",
+  "creator economy sponsorship tracker gaps 2025",
   "indie hacker painful workflows manual spreadsheets site:reddit.com",
-  "professionals ask for tools that don't exist site:reddit.com",
-  "underserved SMB vertical software gaps 2025",
 ];
+
+// Category-specific seed queries mixed in with the generic pool for variety.
+const CATEGORY_QUERIES: Partial<Record<(typeof CATEGORIES)[number], string[]>> = {
+  ai: ["fun AI web tools people want 2025", "site:reddit.com/r/singularity ai tool ideas"],
+  game: ["site:reddit.com/r/WebGames tiny web game ideas", "browser mini game ideas 2025"],
+  education: ["site:reddit.com/r/teachers classroom tool ideas", "language learning app gaps 2025"],
+  productivity: ["site:reddit.com/r/productivity tool I wish existed", "personal task app gaps 2025"],
+  dashboard: ["creator analytics dashboard gaps", "personal finance dashboard ideas 2025"],
+  portfolio: ["designer portfolio inspiration 2025", "developer portfolio trends 2025"],
+  landing: ["saas landing page trends 2025", "product launch waitlist ideas"],
+  presentation: ["interactive pitch deck ideas 2025", "story scroller microsite examples"],
+  app: ["site:reddit.com/r/SomebodyMakeThis best ideas 2025", "consumer web app ideas 2025"],
+};
 
 type ResearchSnippet = { source: string; text: string };
 
-async function firecrawlResearch(category: string, count: number): Promise<ResearchSnippet[]> {
+async function firecrawlResearch(
+  category: (typeof CATEGORIES)[number],
+  count: number,
+): Promise<ResearchSnippet[]> {
   const key = process.env.FIRECRAWL_API_KEY;
   if (!key) return [];
-  const isTradeContext = category === "app" || category === "productivity" || category === "dashboard" || category === "all";
-  const pool = isTradeContext ? [...TRADE_QUERIES, ...GENERIC_QUERIES] : GENERIC_QUERIES;
+  const isTrades = category === "trades";
+  const pool = isTrades
+    ? TRADE_QUERIES
+    : [...(CATEGORY_QUERIES[category] ?? []), ...GENERIC_QUERIES];
   // Pick 2 random queries per call so ideas rotate.
   const picks: string[] = [];
   const used = new Set<number>();
@@ -168,7 +203,6 @@ async function firecrawlResearch(category: string, count: number): Promise<Resea
       }
     } catch { /* swallow — research is best-effort */ }
   }));
-  // De-dupe and cap.
   const seen = new Set<string>();
   const out: ResearchSnippet[] = [];
   for (const s of collect) {
@@ -181,14 +215,23 @@ async function firecrawlResearch(category: string, count: number): Promise<Resea
   return out;
 }
 
+const NEUTRAL_GUARDRAIL = `HARD CONSTRAINT: This is NOT a trades / contractor / field-service context. You MUST NOT mention any of: L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, "leak", "leaks", "two-tap", "field tech", "field techs", "contractor", "subcontractor", "QuickBooks", "QBO", "NFPA", "EPA 608", "HVAC", "fire protection", "glazing", "ServiceTitan", "Procore", "dispatch", "work order", "refrigerant". Stay strictly on the requested category's audience. Ideas must feel fresh and consumer/creator/education/hobby-friendly.`;
+
 export const generateStarterIdeas = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => starterInput.parse(d))
   .handler(async ({ data }): Promise<{ ideas: IdeaSuggestion[] }> => {
     const seed = Math.random().toString(36).slice(2, 8);
+    const isTrades = data.category === "trades";
     const research = await firecrawlResearch(data.category, 8);
     const researchBlock = research.length
-      ? `LIVE RESEARCH SIGNALS (real, current pain points scraped from the web — anchor at least half of the ideas to something concrete you see here; do NOT invent generic SaaS clichés):\n${research.map((r, i) => `[R${i + 1}] ${r.text}${r.source ? ` (src: ${r.source})` : ""}`).join("\n")}`
+      ? `LIVE RESEARCH SIGNALS (real, current signals scraped from the web — anchor at least half of the ideas to something concrete you see here; do NOT invent generic SaaS clichés):\n${research.map((r, i) => `[R${i + 1}] ${r.text}${r.source ? ` (src: ${r.source})` : ""}`).join("\n")}`
       : `LIVE RESEARCH SIGNALS: none available — you MUST still avoid generic ideas (todo apps, weather apps, calorie trackers, generic dashboards). Pick niche, specific problems.`;
+
+    const tradesBlock = isTrades ? `\n${REAL_WORLD_LEAKS_PROMPT}` : `\n${NEUTRAL_GUARDRAIL}`;
+    const leakRule = isTrades
+      ? "- Anchor each idea to a leak from the library below and reference the leak ID(s) inside the snippet (e.g. \"…plugs L3+L8.\")."
+      : "- Do NOT reference leak IDs, trades, contractors, or field-service jargon.";
+
     const system = `You brainstorm fresh, buildable single-page web project ideas for a front-end AI builder.
 Return ONLY JSON of the exact shape: {"ideas":[{"label":"short name","snippet":"Build a ... describing the page in one sentence."}]}
 Rules:
@@ -198,11 +241,10 @@ Rules:
 - Category focus: ${CATEGORY_GUIDANCE[data.category]}
 - Avoid anything in the exclude list (case-insensitive) and do not repeat concepts already listed.
 - Be inventive — surprising, specific niches beat safe generic picks.
-- When an idea targets trades, contractors, field service, or compliance, anchor it to a leak from the library below and reference the leak ID(s) inside the snippet (e.g. "…plugs L3+L8.").
+${leakRule}
 
 ${researchBlock}
-
-${REAL_WORLD_LEAKS_PROMPT}`;
+${tradesBlock}`;
     const user = `category:${data.category}\nvariety-seed:${seed}\nexclude:${JSON.stringify(data.exclude)}`;
     try {
       const raw = await callGateway(system, user);
@@ -220,24 +262,27 @@ ${REAL_WORLD_LEAKS_PROMPT}`;
     }
   });
 
-const TRADES_RE = /\b(trade|trades|contractor|contractors|field[- ]?service|hvac|refrigerant|nfpa|fire[- ]?protection|glazing|glazier|electrician|electrical sub|plumb|plumbing|mechanical|inspection|deficienc|quickbooks|qbo|technician|dispatch|work order|compliance|permit)\b/i;
+// Tight trades detector — must see a clearly trade-specific noun/phrase, not
+// a generic business word. "job", "customer", "service", "inspection",
+// "compliance", "scheduling", "work order" alone are NOT enough.
+const TRADES_RE = /\b(hvac|refrigerant|nfpa\s?25|epa\s?608|fire\s?protection|fire\s?sprinkler|commercial\s+glazing|glazier|electrical\s+sub(contractor)?|mechanical\s+contractor|plumbing\s+contractor|specialty\s+trade|field\s+technician|field\s+tech(s)?\b|servicetitan|procore|jobber|housecall\s?pro|quickbooks\s+online\s+(sync|integration)|two[- ]tap|itm\s+report|deficiency[- ]to[- ]quote|change[- ]order\s+(dispute|bleed))\b/i;
 
 export const anticipateNextIdeas = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => anticipateInput.parse(d))
   .handler(async ({ data }): Promise<{ ideas: IdeaSuggestion[] }> => {
     const tradesContext = TRADES_RE.test(data.draft);
     const system = `You are a co-designer helping a user refine a prompt for a front-end AI builder.
-Read their in-progress prompt carefully and propose ${data.count} concrete NEXT additions THAT DIRECTLY EXTEND WHAT THEY ARE ACTUALLY BUILDING.
+Read their in-progress prompt CAREFULLY and propose ${data.count} concrete NEXT additions THAT DIRECTLY EXTEND WHAT THEY ARE ACTUALLY BUILDING.
 Return ONLY JSON: {"ideas":[{"label":"+ short addon","snippet":"One sentence to append to the prompt."}]}
 Rules:
-- Ground every suggestion in the specific subject, audience, and features of the draft. If the draft is a recipe app, suggest recipe-app additions. If it's a game, suggest game additions. Never pivot to unrelated domains.
+- Ground every suggestion in the specific subject, audience, and features of the draft. If the draft is a recipe app, suggest recipe-app additions. If it's a wedding planner, wedding features. If it's a game, game additions. If it's a church site, church features. If it's a fitness tracker, fitness features. Never pivot to unrelated domains.
 - Each label starts with "+ " and is 2-5 words.
 - Each snippet is a single imperative sentence, 8-22 words, that adds ONE specific section, feature, or refinement relevant to the draft's actual topic.
 - Do NOT repeat things already implied by the draft.
 - Prefer high-signal moves: missing sections, key components, states, accessibility, tone, or polish — all specific to the draft's domain.
 - ${tradesContext
-      ? "The draft IS about trades / contractors / field-service / compliance — every addition must plug a leak (cite ID, e.g. \"plugs L1\") and respect the two-tap field rule."
-      : "The draft is NOT about trades or contractors — DO NOT mention leaks, L1-L10, trades, contractors, QuickBooks, NFPA, HVAC, or two-tap rules. Stay on the draft's actual topic."}
+      ? "The draft IS clearly about commercial specialty trades / field-service / compliance — every addition may plug a leak (cite ID, e.g. \"plugs L1\") and respect the two-tap field rule."
+      : NEUTRAL_GUARDRAIL}
 - ${data.hasHtml ? "The user is iterating on an existing build; suggest focused enhancements, not rebuilds." : "The user is starting fresh; suggest structural additions."}
 ${tradesContext ? `\n${REAL_WORLD_LEAKS_PROMPT}` : ""}`;
     const user = `Draft prompt:\n${data.draft}`;
