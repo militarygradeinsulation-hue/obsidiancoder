@@ -298,6 +298,44 @@ interface ComponentPhaseResult {
   planUsage: UsageRecord | null;
 }
 
+const FIRST_RESPONSE_BUDGET_MS = 17_000;
+const ENRICHMENT_BUDGET_MS = 4_000;
+const PRIMARY_OPEN_BUDGET_MS = 6_000;
+const FALLBACK_OPEN_BUDGET_MS = 5_500;
+const MAX_COMPONENT_CONTEXT_BYTES = 32_000;
+
+async function runOptionalPhase<T>(
+  budgetMs: number,
+  parentSignal: AbortSignal,
+  fallback: T,
+  run: (signal: AbortSignal) => Promise<T>,
+): Promise<{ value: T; timedOut: boolean }> {
+  const controller = new AbortController();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let timedOut = false;
+  const onParentAbort = () => controller.abort();
+  parentSignal.addEventListener("abort", onParentAbort, { once: true });
+
+  try {
+    const value = await Promise.race([
+      run(controller.signal),
+      new Promise<T>((resolve) => {
+        timer = setTimeout(() => {
+          timedOut = true;
+          controller.abort();
+          resolve(fallback);
+        }, Math.max(1, budgetMs));
+      }),
+    ]);
+    return { value, timedOut };
+  } catch {
+    return { value: fallback, timedOut };
+  } finally {
+    if (timer) clearTimeout(timer);
+    parentSignal.removeEventListener("abort", onParentAbort);
+  }
+}
+
 async function planAndFetchComponents(
   apiKey: string,
   prompt: string,
@@ -411,6 +449,8 @@ export const Route = createFileRoute("/api/generate")({
     handlers: {
       POST: async ({ request }) => {
         const requestId = newRequestId();
+        const requestStartedAt = performance.now();
+        const firstResponseDeadline = requestStartedAt + FIRST_RESPONSE_BUDGET_MS;
         // Dual gate: site-owner cookie OR signed-in Pro user with credits.
         // Advisory (chat/plan) is a lighter op; full HTML generation is priced higher.
         // We defer the entitlement decision to after we parse `data` so we can
@@ -529,14 +569,25 @@ export const Route = createFileRoute("/api/generate")({
           //    silently adding 12-17s to every non-visual build.
           const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
           const wantComponents = !data.advisory && !!apiKey && !!process.env.TWENTYFIRST_API_KEY;
-          const [imagePhase, componentPhase] = await Promise.all([
+          const emptyImagePhase: ImagePhaseResult = { images: [], usages: [], planUsage: null };
+          const emptyComponentPhase: ComponentPhaseResult = { components: [], planUsage: null };
+          const enrichmentBudget = Math.max(
+            250,
+            Math.min(ENRICHMENT_BUDGET_MS, firstResponseDeadline - performance.now() - 9_000),
+          );
+          const [imageResult, componentResult] = await Promise.all([
             wantImages && apiKey
-              ? planAndGenerateImages(apiKey, data.prompt, contextHtml, requestId, clientAbort)
-              : Promise.resolve({ images: [], usages: [] as UsageRecord[], planUsage: null as UsageRecord | null }),
+              ? runOptionalPhase(enrichmentBudget, clientAbort, emptyImagePhase, (signal) =>
+                  planAndGenerateImages(apiKey, data.prompt, contextHtml, requestId, signal))
+              : Promise.resolve({ value: emptyImagePhase, timedOut: false }),
             wantComponents
-              ? planAndFetchComponents(apiKey!, data.prompt, contextHtml, requestId, clientAbort)
-              : Promise.resolve({ components: [] as ComponentHit[], planUsage: null as UsageRecord | null }),
+              ? runOptionalPhase(enrichmentBudget, clientAbort, emptyComponentPhase, (signal) =>
+                  planAndFetchComponents(apiKey!, data.prompt, contextHtml, requestId, signal))
+              : Promise.resolve({ value: emptyComponentPhase, timedOut: false }),
           ]);
+
+          const imagePhase = imageResult.value;
+          const componentPhase = componentResult.value;
 
           const images = imagePhase.images;
           imageUsages.push(...imagePhase.usages);
@@ -546,6 +597,8 @@ export const Route = createFileRoute("/api/generate")({
           const t_images = performance.now();
           timing.image_ms = Math.round(t_images - t_ctx);
           timing.image_count = images.length;
+          timing.image_enrichment_timeout = imageResult.timedOut;
+          timing.component_enrichment_timeout = componentResult.timedOut;
 
 
           const messages: Array<{ role: string; content: string }> = [
@@ -571,6 +624,10 @@ export const Route = createFileRoute("/api/generate")({
               content: `For reference only — the user's current build (do NOT rewrite it, just advise):\n\n${contextHtml.slice(0, 8000)}`,
             });
           }
+          // Keep a compact retry prompt ready before adding optional generated
+          // images and component source. If the rich attempt cannot produce a
+          // first token quickly, Auto mode retries with this lightweight form.
+          const lightweightMessages = [...messages, { role: "user", content: data.prompt }];
           if (!data.advisory && images.length) {
             messages.push({
               role: "system",
@@ -585,7 +642,6 @@ export const Route = createFileRoute("/api/generate")({
             // Cap to ~90 KB total. Prioritize hero-like sections first, then
             // pricing/features/testimonials, then the rest — smallest first
             // within each tier so we fit as many patterns as possible.
-            const MAX_BYTES = 90_000;
             const priorityFor = (c: ComponentHit): number => {
               const s = `${c.name} ${c.description ?? ""} ${(c.tags ?? []).join(" ")}`.toLowerCase();
               if (/\bhero\b/.test(s)) return 0;
@@ -604,7 +660,7 @@ export const Route = createFileRoute("/api/generate")({
             let used = 0;
             for (const c of sorted) {
               const size = c.code.length + (c.description?.length ?? 0) + (c.name.length + 32);
-              if (used + size > MAX_BYTES) continue;
+              if (chosen.length >= 3 || used + size > MAX_COMPONENT_CONTEXT_BYTES) continue;
               used += size;
               chosen.push(c);
             }
@@ -630,7 +686,11 @@ export const Route = createFileRoute("/api/generate")({
           // read enough bytes to guard against proxy HTML, and hand back the
           // reader + buffered prefix. Bounded by `budgetMs` end-to-end so we
           // can decide whether to fall back to the fast tier.
-          async function openStream(model: string, budgetMs: number) {
+          async function openStream(
+            model: string,
+            budgetMs: number,
+            attemptMessages: Array<{ role: string; content: string }>,
+          ) {
             const t_open = performance.now();
             const viaRouteLLM = isRouteLLMModel(model);
             const upstreamKey = viaRouteLLM ? routellmKey : apiKey;
@@ -651,7 +711,7 @@ export const Route = createFileRoute("/api/generate")({
                 },
                 body: JSON.stringify({
                   model: upstreamModel,
-                  messages,
+                  messages: attemptMessages,
                   stream: true,
                   // Ask the gateway for a final usage frame at the end of the SSE.
                   stream_options: { include_usage: true },
@@ -679,10 +739,26 @@ export const Route = createFileRoute("/api/generate")({
             let first: { done: boolean; value: Uint8Array | undefined } | null = null;
             const remaining = () => Math.max(500, budgetMs - (performance.now() - t_open));
             while (sniff.length < 4096) {
-              const r = await Promise.race<{ done: boolean; value: Uint8Array | undefined }>([
-                rdr.read(),
-                new Promise((_, rej) => setTimeout(() => rej(new Error("first_byte_timeout")), remaining())),
-              ]);
+              let firstByteTimer: ReturnType<typeof setTimeout> | undefined;
+              let r: { done: boolean; value: Uint8Array | undefined };
+              try {
+                r = await Promise.race<{ done: boolean; value: Uint8Array | undefined }>([
+                  rdr.read(),
+                  new Promise((_, reject) => {
+                    firstByteTimer = setTimeout(() => reject(new AiError({
+                      code: "ai_timeout",
+                      stage: "generate",
+                      requestId,
+                      message: "Upstream did not produce a first response in time.",
+                    })), remaining());
+                  }),
+                ]);
+              } catch (err) {
+                try { await rdr.cancel(); } catch { /* ignore */ }
+                throw err;
+              } finally {
+                if (firstByteTimer) clearTimeout(firstByteTimer);
+              }
               first = r;
               if (r.done) break;
               sniff += decoder.decode(r.value, { stream: true });
@@ -713,9 +789,13 @@ export const Route = createFileRoute("/api/generate")({
           // captured as a minimum-cost UsageRecord for the attempted model.
           // On fallback we keep the first record and add the second — settlement
           // aggregates both into the final total.
-          const tryOpen = async (model: string, budgetMs: number) => {
+          const tryOpen = async (
+            model: string,
+            budgetMs: number,
+            attemptMessages: Array<{ role: string; content: string }>,
+          ) => {
             try {
-              return await openStream(model, budgetMs);
+              return await openStream(model, budgetMs, attemptMessages);
             } catch (err) {
               modelAttempts.push(modelAttemptUsage({
                 model,
@@ -729,13 +809,27 @@ export const Route = createFileRoute("/api/generate")({
           };
           let opened;
           let fallbackReason = "";
+          const remainingFirstResponseMs = () => Math.max(0, firstResponseDeadline - performance.now());
           try {
-            opened = await tryOpen(data.model, 8_000);
+            const primaryBudget = Math.min(PRIMARY_OPEN_BUDGET_MS, remainingFirstResponseMs() - 5_750);
+            if (primaryBudget < 750) {
+              throw new AiError({ code: "ai_timeout", stage: "generate", requestId });
+            }
+            const primaryStartedAt = performance.now();
+            opened = await tryOpen(data.model, primaryBudget, messages);
+            timing.primary_open_ms = Math.round(performance.now() - primaryStartedAt);
           } catch (err) {
             const canFallback = !explicit && data.model !== DEFAULT_MODEL && !isFastTier(data.model);
             if (!canFallback) throw err;
             fallbackReason = err instanceof Error ? err.message.slice(0, 60) : "unknown";
-            opened = await tryOpen(DEFAULT_MODEL, 15_000);
+            const fallbackBudget = Math.min(FALLBACK_OPEN_BUDGET_MS, remainingFirstResponseMs() - 500);
+            if (fallbackBudget < 750) {
+              throw new AiError({ code: "ai_timeout", stage: "generate", requestId });
+            }
+            const fallbackStartedAt = performance.now();
+            opened = await tryOpen(DEFAULT_MODEL, fallbackBudget, lightweightMessages);
+            timing.fallback_open_ms = Math.round(performance.now() - fallbackStartedAt);
+            timing.fallback_lightweight = true;
           }
           const { reader, sniffBuffer, firstChunk, model: modelUsed, openedAt, headersAt } = opened;
           const breakerKeyGen = `lovable/generate:${modelUsed}`;
