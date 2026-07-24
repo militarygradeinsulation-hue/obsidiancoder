@@ -338,9 +338,10 @@ function Unlock() {
         <div className="unlock-card-glow" aria-hidden />
 
 
-        <header className="unlock-brand">
+        <header className="unlock-brand" hidden aria-hidden>
           <h1 id="unlock-heading" className="unlock-title" data-text="OBSIDIAN VIBE">OBSIDIAN VIBE</h1>
         </header>
+
 
         {/* Tabs */}
         <div className="unlock-tabs" role="tablist" aria-label="Access options">
