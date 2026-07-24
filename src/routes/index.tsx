@@ -3764,6 +3764,20 @@ function Index() {
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
+      <BuildChatPanel
+        open={buildChatOpen}
+        onClose={() => setBuildChatOpen(false)}
+        currentHtml={current.html || ""}
+        draftPrompt={input}
+        onInsertToPrompt={(text) => {
+          setInput((prev) => {
+            const base = prev.trim();
+            if (!base) return text;
+            return base.endsWith(".") ? `${base} ${text}` : `${base}. ${text}`;
+          });
+          requestAnimationFrame(() => composerRef.current?.focus());
+        }}
+      />
       <FusionModal
         open={fusionOpen}
         projects={sessions.map((s) => ({ id: s.id, title: s.title || "Untitled", html: s.html || "" }))}
