@@ -326,8 +326,7 @@ function Unlock() {
         <div className="unlock-card-glow" aria-hidden />
 
         <header className="unlock-brand">
-          <h1 id="unlock-heading" className="unlock-title" data-text="OBSIDIAN">OBSIDIAN</h1>
-          <div className="unlock-sub">Obsidian // Access Terminal</div>
+          <h1 id="unlock-heading" className="unlock-title" data-text="OBSIDIAN VIBE">OBSIDIAN VIBE</h1>
         </header>
 
         {/* Tabs */}
@@ -392,19 +391,20 @@ function Unlock() {
                   {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $49/month"}
                 </button>
 
+                {plansOpen && (
                 <div className="plans-block" aria-labelledby="plans-heading">
                   <button
                     type="button"
                     className="plans-toggle"
                     aria-expanded={plansOpen}
                     aria-controls="plans-grid"
-                    onClick={() => setPlansOpen((v) => !v)}
+                    onClick={() => setPlansOpen(false)}
                   >
                     <span className="plans-toggle-label">
                       <span id="plans-heading" className="plans-title">Compare all plans</span>
                       <span className="plans-toggle-sub">Starter · Creator · Professional · Business · Elite</span>
                     </span>
-                    <span className="plans-toggle-caret" aria-hidden>{plansOpen ? "▲" : "▼"}</span>
+                    <span className="plans-toggle-caret" aria-hidden>▲</span>
                   </button>
                   {plansOpen && (
                     <div id="plans-grid" className="tier-grid">
@@ -448,6 +448,7 @@ function Unlock() {
                     </div>
                   )}
                 </div>
+                )}
 
                 <button type="button" className="unlock-btn-secondary" onClick={goSignIn}>
                   Already purchased? Sign in
