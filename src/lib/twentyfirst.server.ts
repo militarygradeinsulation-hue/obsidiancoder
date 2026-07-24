@@ -29,6 +29,7 @@ const CACHE = new Map<string, CacheEntry>();
 const CACHE_TTL_MS = 10 * 60 * 1000;
 const CACHE_MAX = 60;
 let AUTH_BAD_UNTIL = 0;
+let AUTH_PROBED_OK = false;
 
 function cacheGet(key: string): ComponentHit[] | null {
   const hit = CACHE.get(key);
