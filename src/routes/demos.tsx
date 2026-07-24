@@ -713,7 +713,7 @@ function TwentyfirstHealthCard({ code }: { code: string }) {
                     </tr>
                   </thead>
                   <tbody>
-                    {health.recent.map((r, i) => (
+                    {health.recent.map((r: TwentyfirstEvent, i: number) => (
                       <tr key={r.requestId + i} style={{ borderBottom: "1px solid #1a1e24" }}>
                         <td style={{ padding: "6px 8px", color: "#B6BCC8", whiteSpace: "nowrap" }}>{new Date(r.at).toLocaleTimeString()}</td>
                         <td style={{ padding: "6px 8px", color: "#f2eee7" }}>{r.queries.join(" · ") || "—"}</td>
