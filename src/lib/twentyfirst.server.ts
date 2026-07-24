@@ -80,7 +80,7 @@ async function mcpCall<T>(
       },
       {
         breakerKey: `21st/${method}`,
-        stage: "components",
+        stage: "plan",
         requestId,
         signal,
         maxAttempts: 1,
