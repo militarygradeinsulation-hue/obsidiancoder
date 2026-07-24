@@ -326,8 +326,7 @@ function Unlock() {
         <div className="unlock-card-glow" aria-hidden />
 
         <header className="unlock-brand">
-          <h1 id="unlock-heading" className="unlock-title" data-text="OBSIDIAN">OBSIDIAN</h1>
-          <div className="unlock-sub">Obsidian // Access Terminal</div>
+          <h1 id="unlock-heading" className="unlock-title" data-text="OBSIDIAN VIBE">OBSIDIAN VIBE</h1>
         </header>
 
         {/* Tabs */}
