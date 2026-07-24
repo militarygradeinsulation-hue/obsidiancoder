@@ -3041,6 +3041,7 @@ function Index() {
                                 style={{ borderColor: "rgba(244,161,37,0.35)" }}
                               >
                                 <span>{a.label}</span>
+                                <IdeaBadge a={a} />
                               </button>
                               <button
                                 type="button"
