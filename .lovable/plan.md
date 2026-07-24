@@ -1,46 +1,30 @@
 ## Goal
-Replace the current static hero on the `/unlock` (home/login) page with a Three.js "Anomalous Matter" animated icosahedron as the centerpiece, keeping all existing login/pricing functionality intact.
+Give visitors a choice between the new 3D sphere and the classic thumbnail grid for the Live Demos section on `/unlock`, so they can actually see previews.
 
-## What it would look like
-- Full-viewport dark backdrop (existing `#111317` Obsidian bg).
-- A slowly rotating, wireframe icosahedron with Perlin-noise displacement floats behind the login content, reacting to mouse position via a moving point light.
-- Tinted in Obsidian's Burnt Gold (`#F4A125` / `#DD9324`) instead of the sample's sky-blue, so it matches the current brand.
-- Overlaid on top (centered, glass card):
-  - Aetheris emblem
-  - Headline: "Think it, Type it, See it."
-  - Sub: "A tool builder for people that can't code."
-  - Library-code unlock input + button
-  - Existing pricing grid and collapsed Live Demos below
-- On mobile: the 3D scene stays but at reduced pixel ratio; login card sits on top with a stronger scrim for readability.
+## Changes (scoped to `src/routes/unlock.tsx` + `src/styles.css`)
 
-## Implementation
+1. **View toggle state**
+   - Add `demoView: "sphere" | "grid"` state, default `"sphere"`.
+   - Persist choice in `localStorage` (`obsidian.demoView`) so it sticks between visits.
 
-1. **Add dependency**
-   - `bun add three` and `bun add -d @types/three`.
+2. **Toggle UI**
+   - Inside the Live Demos section header (next to the existing category chips), add a small segmented control: `[ Sphere | Grid ]`, styled with the existing glass pill treatment used by the top nav.
 
-2. **New component** `src/components/AnomalousMatterScene.tsx`
-   - Port the provided `GenerativeArtScene` (fixing the JSX that got stripped in the paste: returns `<div ref={mountRef} className="absolute inset-0" />`).
-   - Client-only: dynamic-import via `React.lazy` behind `<ClientOnly fallback={<div className="absolute inset-0 bg-[#111317]" />}>` (Three touches `window` at import time; see execution-model rules).
-   - Uniform `color` set from a prop, default to Obsidian gold `new THREE.Color('#F4A125')`.
-   - Cap `setPixelRatio(Math.min(devicePixelRatio, 1.5))` and pause `requestAnimationFrame` when tab hidden to protect mobile perf.
-   - Respect `prefers-reduced-motion`: render one static frame, skip the animation loop.
+3. **Conditional render**
+   - If `demoView === "sphere"` → keep the current `<SphereDemoGrid />`.
+   - If `demoView === "grid"` → render a responsive thumbnail grid:
+     - Card per demo showing category chip, title, and a live thumbnail.
+     - Thumbnail source priority: `featured_demos.thumbnail_url` if present, else a lightweight iframe screenshot fallback (`<img>` pointing at `/api/public/share/:slug/thumb` if it exists; otherwise a CSS gradient placeholder with the title — no network cost).
+     - Whole card is an `<a target="_blank">` to the demo URL.
+   - Grid uses the same filter state (category chips) already wired up.
 
-3. **Wire into `src/routes/unlock.tsx`**
-   - Wrap the current hero block in a `relative` container with `min-h-[100svh]`.
-   - Insert `<ClientOnly><Suspense><AnomalousMatterScene /></Suspense></ClientOnly>` as an `absolute inset-0 -z-0` layer.
-   - Add a subtle radial gradient scrim (`bg-[radial-gradient(ellipse_at_center,transparent,rgba(17,19,23,0.85))]`) above the canvas for text contrast.
-   - Keep the existing login card, pricing grid, and Live Demos section as the `relative z-10` foreground; no copy or logic changes.
-
-4. **Cleanup / guards**
-   - Keep the existing starfield/aura only on other routes; on `/unlock` the 3D scene replaces them to avoid double-animation cost.
-   - No changes to auth, Stripe, demos, or admin logic.
-
-## Technical notes
-- Three.js is browser-only — must not be imported into any module that renders during SSR. Isolate the import inside the lazy component module.
-- The provided shader uses `uniform vec3 pointLightPosition` in the fragment shader but the JS sets `pointLightPos`. Fix by renaming the uniform to `pointLightPos` in the fragment shader so lighting works.
-- Fragment shader currently ignores `time`; safe to leave (still animates via vertex displacement).
-- Bundle impact: `three` adds ~150 KB gzipped; acceptable for the marketing/login route and lazy-loaded.
+4. **Styling**
+   - Add `.demo-view-toggle`, `.demo-grid`, `.demo-grid-card`, `.demo-grid-thumb` rules in `src/styles.css` matching the burnt-gold / glass aesthetic. Mobile: single column; ≥640px: 2 cols; ≥1024px: 3 cols.
 
 ## Out of scope
-- No changes to the builder (`/`) UI, pricing tiers, or backend.
-- No new routes or database changes.
+- No changes to admin `/demos`, backend, or the demo data source.
+- No new thumbnail-generation pipeline; use existing `thumbnail_url` field or a gradient placeholder.
+
+## Technical notes
+- `SphereDemoGrid` stays mounted only when selected to avoid its RAF loop running in the background.
+- One clarifying assumption: featured demos already expose a URL and title; if a `thumbnail_url` column doesn't exist, the grid falls back to gradient placeholders — no schema change needed.
