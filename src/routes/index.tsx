@@ -11,6 +11,8 @@ import {
   Camera, Scissors, RefreshCw, GitMerge, Bookmark, BookmarkCheck, LogOut,
 } from "lucide-react";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
+import { BuildChatPanel } from "@/components/BuildChatPanel";
+import { MessageSquare } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
