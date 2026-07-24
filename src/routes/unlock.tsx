@@ -1,6 +1,8 @@
-import { createFileRoute, redirect, useRouter, Link } from "@tanstack/react-router";
+import { createFileRoute, redirect, useRouter, Link, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
+
+const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
@@ -265,6 +267,15 @@ function Unlock() {
         tabIndex={-1}
       />
       <div aria-hidden className="unlock-video-veil" />
+
+      <div aria-hidden className="unlock-scene">
+        <ClientOnly fallback={null}>
+          <Suspense fallback={null}>
+            <AnomalousMatterScene className="unlock-scene-canvas" />
+          </Suspense>
+        </ClientOnly>
+      </div>
+
 
       <div aria-hidden className="unlock-face">
         <svg viewBox="0 0 400 500" preserveAspectRatio="xMidYMid meet">
@@ -831,6 +842,19 @@ const unlockCss = `
     radial-gradient(120% 90% at 50% 40%, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.78) 60%, rgba(0,0,0,0.92) 100%),
     linear-gradient(180deg, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.65) 100%);
   mix-blend-mode: multiply;
+}
+.unlock-scene {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  display: grid;
+  place-items: center;
+}
+.unlock-scene-canvas {
+  width: min(920px, 92vmin);
+  height: min(920px, 92vmin);
+  filter: drop-shadow(0 0 60px rgba(244,161,37,0.25));
 }
 .unlock-tab:focus-visible,
 .unlock-btn:focus-visible,
