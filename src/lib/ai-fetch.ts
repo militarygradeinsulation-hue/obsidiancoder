@@ -138,8 +138,16 @@ export async function aiFetch(url: string, init: RequestInit, opts: AiFetchOptio
       throw new AiError({ code: "ai_unauthorized", stage: opts.stage, requestId });
     }
     if (res.status === 400) {
-      try { await res.body?.cancel(); } catch { /* ignore */ }
-      throw new AiError({ code: "ai_bad_request", stage: opts.stage, requestId });
+      let snippet = "";
+      try { snippet = (await res.text()).slice(0, 400); } catch { /* ignore */ }
+      // eslint-disable-next-line no-console
+      console.error("[aiFetch] upstream 400", { url, breakerKey: opts.breakerKey, stage: opts.stage, requestId, snippet });
+      throw new AiError({
+        code: "ai_bad_request",
+        stage: opts.stage,
+        requestId,
+        message: snippet ? `Upstream 400: ${snippet}` : undefined,
+      });
     }
     if (res.status === 402) {
       try { await res.body?.cancel(); } catch { /* ignore */ }
