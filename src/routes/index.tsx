@@ -2435,6 +2435,7 @@ function Index() {
                 try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
                 setTerminal((t) => [...t, `${label}: ${liveUrl}`]);
                 refreshLibrary();
+                recordLiveIdea(activeIdeaLabelRef.current);
               };
               const handlePush = async () => {
                 if (!current.html) return;
