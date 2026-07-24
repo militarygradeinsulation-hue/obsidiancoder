@@ -68,7 +68,7 @@ import { DesignSystemPanel } from "@/components/panels/DesignSystemPanel";
 import { createPipeline, type StageName, type StageState } from "@/lib/pipeline";
 import { TrustDashboard } from "@/components/panels/TrustDashboard";
 import { RulesPanel, reconcileRules } from "@/components/panels/RulesPanel";
-import IntroSplash from "@/components/IntroSplash";
+// IntroSplash mounted in src/routes/__root.tsx — do not re-import here.
 import { RuntimePanel, countRuntimeBlockers } from "@/components/panels/RuntimePanel";
 import { CostPanel } from "@/components/panels/CostPanel";
 import { CreditBar } from "@/components/panels/CreditBar";

@@ -61,7 +61,12 @@ Keep the reply skimmable — under ~400 words unless the user explicitly asks fo
 
 type PlannedImage = { slot: string; prompt: string; url: string; providerUsed: "leonardo" | "higgsfield" | "gemini" };
 
-const VISUAL_KEYWORDS = /\b(generate (?:an? )?(?:image|photo|picture|illustration|logo|banner|avatar|poster|artwork)|with (?:an? |real )?(?:image|photo|picture|illustration|logo|banner|avatar|poster|artwork)s?|make (?:me )?(?:an? )?(?:image|logo|banner|poster|illustration))\b/i;
+// Broader trigger: any prompt that names a visual medium OR describes a build
+// that is inherently visual (landing page, portfolio, product, gallery, hero,
+// brand, restaurant, cafe, agency, artist, photographer, real-estate listing).
+// The image planner still gets final say and can return {"images":[]}.
+const VISUAL_KEYWORDS = /\b(image|photo|picture|illustration|logo|banner|avatar|poster|artwork|hero|cover|thumbnail|gallery|portfolio|landing(?:\s?page)?|product\s?page|brand|website|site|restaurant|cafe|coffee|bakery|agency|studio|artist|photographer|real[-\s]?estate|listing|shop|store|menu|team|about)\b/i;
+
 
 // Multi-provider image helpers — mirror aetheris.functions.ts but scoped to
 // the streaming route with its own AbortSignal.
