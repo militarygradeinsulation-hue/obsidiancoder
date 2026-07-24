@@ -89,12 +89,12 @@ export function BuildChatPanel({
       const raw = localStorage.getItem(STORAGE_KEY);
       if (raw) {
         const parsed = JSON.parse(raw) as Msg[];
-        setMessages(parsed.filter((message) => !containsTradesOnlyLanguage(message.content)));
+        setMessages(parsed);
       }
       const c = localStorage.getItem(CONFIRMED_KEY);
       if (c) {
         const parsed = JSON.parse(c) as string[];
-        setConfirmed(parsed.filter((item) => !containsTradesOnlyLanguage(item)));
+        setConfirmed(parsed);
       }
     } catch { /* ignore */ }
   }, []);

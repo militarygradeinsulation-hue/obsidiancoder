@@ -772,6 +772,11 @@ function Index() {
   // the prompt into a fuller brief without further clicks.
   async function expandIdea(seed: Addon) {
     if (expandingIdeaId) return;
+    const allowSeed = ideaCategory === "trades" || isExplicitTradesContext(input);
+    if (!suggestionAllowed(`${seed.label} ${seed.snippet}`, allowSeed)) {
+      setError("That saved suggestion came from another category and was removed.");
+      return;
+    }
     setExpandingIdeaId(seed.id);
     try {
       // Seed the composer with the idea if empty; otherwise keep user's text.
