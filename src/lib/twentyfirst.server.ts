@@ -93,10 +93,13 @@ async function mcpCall<T>(
     const status = res.response.status;
     if (status === 401 || status === 403) {
       AUTH_BAD_UNTIL = Date.now() + 5 * 60 * 1000;
+      AUTH_PROBED_OK = false;
+      markTwentyfirstAuth(false);
       // eslint-disable-next-line no-console
       console.warn("[21st.dev] auth rejected — pausing calls for 5 min", { status });
       return null;
     }
+    if (res.response.ok) { AUTH_PROBED_OK = true; markTwentyfirstAuth(true); }
     if (!res.response.ok) return null;
     const ct = res.response.headers.get("content-type") ?? "";
     let json: JsonRpcResp<T>;
