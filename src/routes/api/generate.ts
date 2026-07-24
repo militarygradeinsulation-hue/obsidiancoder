@@ -525,7 +525,31 @@ export const Route = createFileRoute("/api/generate")({
                   .join("\n\n"),
             });
           }
+          if (!data.advisory && components.length) {
+            // Cap to ~40 KB total so Flash Lite doesn't blow context.
+            const MAX_BYTES = 40_000;
+            const sorted = [...components].sort((a, b) => a.code.length - b.code.length);
+            const chosen: ComponentHit[] = [];
+            let used = 0;
+            for (const c of sorted) {
+              const size = c.code.length + (c.description?.length ?? 0) + (c.name.length + 32);
+              if (used + size > MAX_BYTES) continue;
+              used += size;
+              chosen.push(c);
+            }
+            if (chosen.length) {
+              messages.push({
+                role: "system",
+                content:
+                  `REFERENCE COMPONENTS from the 21st.dev library — adapt structure and idioms into ONE cohesive design, restyle to match the amber/dark aesthetic, do not paste verbatim, do not import external libraries, inline any needed Tailwind or CSS.\n\n` +
+                  chosen
+                    .map((c) => `// COMPONENT: ${c.name}${c.description ? ` — ${c.description}` : ""}\n${c.code}`)
+                    .join("\n\n// ---\n\n"),
+              });
+            }
+          }
           messages.push({ role: "user", content: data.prompt });
+
 
           const decoder = new TextDecoder();
           const encoder = new TextEncoder();
