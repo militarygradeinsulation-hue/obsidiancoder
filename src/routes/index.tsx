@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
-import { MessageSquare, ZoomIn, ZoomOut, Maximize2 } from "lucide-react";
+import { MessageSquare, ZoomIn, ZoomOut, Maximize2, ClipboardList } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
@@ -3276,6 +3276,19 @@ function Index() {
                   onClick={handleEnhance}
                 >
                   {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
+                </button>
+                <button
+                  type="button"
+                  className="obs-composer-attach"
+                  aria-label={current.mode === "plan" ? "Plan mode on — click to exit" : "Plan first"}
+                  title={current.mode === "plan"
+                    ? "Plan mode ON — the AI will dialogue and outline the architecture before any code is generated. Click to switch back to Agent."
+                    : "Plan first — dialogue the build with the AI (architecture outline, no code) before generating"}
+                  disabled={loading}
+                  onClick={() => updateCurrent({ mode: current.mode === "plan" ? "agent" : "plan" })}
+                  style={current.mode === "plan" ? { background: "rgba(244,161,37,0.18)", color: "#f4a125" } : undefined}
+                >
+                  <ClipboardList className="h-3.5 w-3.5" />
                 </button>
                 <button
                   type="button"
