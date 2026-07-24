@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
+import SphereDemoGrid, { type SphereDemoItem } from "@/components/SphereDemoGrid";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
@@ -643,46 +644,31 @@ function Unlock() {
             );
           })}
         </div>
-        {(demosOpen || demoCategory !== "All") && (
-          <div id="demos-grid" className="demos-grid">
-            {Array.from(
-              new Map(
-                [...featuredDemos, ...DEMOS].map((d) => {
-                  const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
-                  return [demoUrl, { ...d, demoUrl }] as const;
-                })
-              ).values()
-            ).map(({ slug, title, demoUrl, category }) => {
-              const hidden = demoCategory !== "All" && category !== demoCategory;
-              return (
-                <a
-                  key={slug}
-                  href={demoUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="demo-card"
-                  data-hidden={hidden ? "true" : undefined}
-                >
-                  <div className="demo-frame" aria-hidden>
-                    <iframe
-                      src={demoUrl}
-                      title={title}
-                      loading="lazy"
-                      sandbox=""
-                      tabIndex={-1}
-                    />
-                    <div className="demo-scrim" />
-                  </div>
-                  <div className="demo-meta">
-                    <span className="demo-name">{title}</span>
-                    <span className="demo-open">{category} ↗</span>
-                  </div>
-                </a>
-              );
-            })}
-          </div>
-        )}
+        {(demosOpen || demoCategory !== "All") && (() => {
+          const sphereItems: SphereDemoItem[] = Array.from(
+            new Map(
+              [...featuredDemos, ...DEMOS].map((d) => {
+                const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
+                return [demoUrl, { ...d, demoUrl }] as const;
+              }),
+            ).values(),
+          )
+            .filter(({ category }) => demoCategory === "All" || category === demoCategory)
+            .map(({ slug, title, demoUrl, category }) => ({
+              id: slug,
+              title: title.replace(/^Demo\s*·\s*/, ""),
+              category,
+              url: demoUrl,
+            }));
+          return (
+            <div id="demos-grid" className="demos-sphere-wrap">
+              <SphereDemoGrid items={sphereItems} containerSize={600} sphereRadius={230} tileSize={104} />
+              <p className="demos-sphere-hint">Drag to rotate · click a tile to open</p>
+            </div>
+          );
+        })()}
       </section>
+
 
       {/* SIGNATURE CARD — bottom of page, out of the way */}
       <section className="unlock-architect" aria-labelledby="architect-heading">
