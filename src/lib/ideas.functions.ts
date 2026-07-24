@@ -7,6 +7,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { REAL_WORLD_LEAKS_PROMPT } from "./real-world-leaks";
+import {
+  filterGenericSuggestions,
+  isExplicitTradesContext,
+  neutralEnhancementFallbacks,
+} from "./suggestion-safety";
 
 const MODEL = "google/gemini-3.1-flash-lite";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -51,6 +56,7 @@ const anticipateInput = z.object({
   draft: z.string().min(1).max(2000),
   hasHtml: z.boolean().optional().default(false),
   count: z.number().int().min(2).max(5).optional().default(3),
+  tradesSelected: z.boolean().optional().default(false),
 });
 
 function slug(s: string, i: number): string {
@@ -215,7 +221,7 @@ async function firecrawlResearch(
   return out;
 }
 
-const NEUTRAL_GUARDRAIL = `HARD CONSTRAINT: This is NOT a trades / contractor / field-service context. You MUST NOT mention any of: L1, L2, L3, L4, L5, L6, L7, L8, L9, L10, "leak", "leaks", "two-tap", "field tech", "field techs", "contractor", "subcontractor", "QuickBooks", "QBO", "NFPA", "EPA 608", "HVAC", "fire protection", "glazing", "ServiceTitan", "Procore", "dispatch", "work order", "refrigerant". Stay strictly on the requested category's audience. Ideas must feel fresh and consumer/creator/education/hobby-friendly.`;
+const NEUTRAL_GUARDRAIL = `HARD CONSTRAINT: Stay entirely inside the requested subject, audience, and category. Do not introduce an unrelated industry, operational workflow, specialized jargon, acronym, or numbered business framework. Every idea must be understandable from the requested category alone.`;
 
 export const generateStarterIdeas = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => starterInput.parse(d))
@@ -250,7 +256,8 @@ ${tradesBlock}`;
       const raw = await callGateway(system, user);
       const parsed = parseIdeas(raw);
       const excludeSet = new Set(data.exclude.map((s) => s.toLowerCase()));
-      const ideas: IdeaSuggestion[] = parsed
+      const safeParsed = isTrades ? parsed : filterGenericSuggestions(parsed);
+      const ideas: IdeaSuggestion[] = safeParsed
         .filter((p) => !excludeSet.has(p.label.toLowerCase()))
         .slice(0, data.count)
         .map((p, i) => ({ id: slug(p.label, i), label: p.label, snippet: p.snippet }));
@@ -262,15 +269,10 @@ ${tradesBlock}`;
     }
   });
 
-// Tight trades detector — must see a clearly trade-specific noun/phrase, not
-// a generic business word. "job", "customer", "service", "inspection",
-// "compliance", "scheduling", "work order" alone are NOT enough.
-const TRADES_RE = /\b(hvac|refrigerant|nfpa\s?25|epa\s?608|fire\s?protection|fire\s?sprinkler|commercial\s+glazing|glazier|electrical\s+sub(contractor)?|mechanical\s+contractor|plumbing\s+contractor|specialty\s+trade|field\s+technician|field\s+tech(s)?\b|servicetitan|procore|jobber|housecall\s?pro|quickbooks\s+online\s+(sync|integration)|two[- ]tap|itm\s+report|deficiency[- ]to[- ]quote|change[- ]order\s+(dispute|bleed))\b/i;
-
 export const anticipateNextIdeas = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => anticipateInput.parse(d))
   .handler(async ({ data }): Promise<{ ideas: IdeaSuggestion[] }> => {
-    const tradesContext = TRADES_RE.test(data.draft);
+    const tradesContext = data.tradesSelected || isExplicitTradesContext(data.draft);
     const system = `You are a co-designer helping a user refine a prompt for a front-end AI builder.
 Read their in-progress prompt CAREFULLY and propose ${data.count} concrete NEXT additions THAT DIRECTLY EXTEND WHAT THEY ARE ACTUALLY BUILDING.
 Return ONLY JSON: {"ideas":[{"label":"+ short addon","snippet":"One sentence to append to the prompt."}]}
@@ -289,7 +291,11 @@ ${tradesContext ? `\n${REAL_WORLD_LEAKS_PROMPT}` : ""}`;
     try {
       const raw = await callGateway(system, user);
       const parsed = parseIdeas(raw);
-      const ideas: IdeaSuggestion[] = parsed.slice(0, data.count).map((p, i) => ({
+      const safeParsed = tradesContext ? parsed : filterGenericSuggestions(parsed);
+      const selected = safeParsed.length > 0
+        ? safeParsed.slice(0, data.count)
+        : neutralEnhancementFallbacks(data.draft, data.hasHtml, data.count);
+      const ideas: IdeaSuggestion[] = selected.map((p, i) => ({
         id: slug(p.label, i),
         label: p.label.startsWith("+") ? p.label : "+ " + p.label,
         snippet: p.snippet,
@@ -298,6 +304,13 @@ ${tradesContext ? `\n${REAL_WORLD_LEAKS_PROMPT}` : ""}`;
     } catch (err) {
       const msg = err instanceof Error ? err.message : "ideas_error";
       if (msg === "ideas_credit_limit" || msg === "ideas_rate_limited") throw err;
-      return { ideas: [] };
+      const fallback = neutralEnhancementFallbacks(data.draft, data.hasHtml, data.count);
+      return {
+        ideas: fallback.map((p, i) => ({
+          id: slug(p.label, i),
+          label: p.label.startsWith("+") ? p.label : "+ " + p.label,
+          snippet: p.snippet,
+        })),
+      };
     }
   });
