@@ -303,6 +303,18 @@ function Index() {
     if (t === "files") setTab("code");
     if (t === "preview") setTab("preview");
   };
+  // Mobile preview zoom (0.5x – 2x). Persisted per session.
+  const [mobZoom, setMobZoom] = useState<number>(() => {
+    if (typeof window === "undefined") return 1;
+    const raw = Number(window.sessionStorage.getItem("obs.mobZoom"));
+    return raw >= 0.5 && raw <= 2 ? raw : 1;
+  });
+  useEffect(() => {
+    try { window.sessionStorage.setItem("obs.mobZoom", String(mobZoom)); } catch { /* ignore */ }
+  }, [mobZoom]);
+  const zoomIn = () => setMobZoom((z) => Math.min(2, +(z + 0.1).toFixed(2)));
+  const zoomOut = () => setMobZoom((z) => Math.max(0.5, +(z - 0.1).toFixed(2)));
+  const zoomReset = () => setMobZoom(1);
   const [loading, setLoading] = useState(false);
   // Per-session build indicator: tab strip shows a spinner when its build is
   // still in flight even if the user has switched to another tab.
