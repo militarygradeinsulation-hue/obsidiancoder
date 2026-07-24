@@ -2796,6 +2796,13 @@ function Index() {
                   />
                 ) : (
                   <div className="obs-preview-empty">
+                    <div className="obs-preview-empty-scene" aria-hidden>
+                      <ClientOnly fallback={null}>
+                        <Suspense fallback={null}>
+                          <AnomalousMatterScene className="obs-preview-empty-canvas" />
+                        </Suspense>
+                      </ClientOnly>
+                    </div>
                     <p>Ask Aetheris Obsidian to build something.</p>
                     <span>Your sandbox preview will appear here.</span>
                   </div>
