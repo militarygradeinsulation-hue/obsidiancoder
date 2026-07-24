@@ -119,6 +119,11 @@ function RootShell({ children }: { children: ReactNode }) {
       <body>
         {children}
         <Scripts />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){var k='__lov_chunk_reload';function isChunkErr(m){return typeof m==='string'&&(m.indexOf('Failed to fetch dynamically imported module')!==-1||m.indexOf('error loading dynamically imported module')!==-1||m.indexOf('Importing a module script failed')!==-1);}function bounce(){try{if(sessionStorage.getItem(k))return;sessionStorage.setItem(k,'1');}catch(e){}location.reload();}window.addEventListener('error',function(e){if(isChunkErr(e&&e.message))bounce();});window.addEventListener('unhandledrejection',function(e){var r=e&&e.reason;if(isChunkErr(r&&(r.message||String(r))))bounce();});})();`,
+          }}
+        />
       </body>
     </html>
   );
