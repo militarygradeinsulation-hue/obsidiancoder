@@ -276,6 +276,86 @@ async function planAndGenerateImages(
   }
 }
 
+// ---- 21st.dev component library planner ---------------------------------
+// Ask a fast LLM for up to 3 short component queries that fit the user's
+// build (hero, pricing, feature grid, testimonial, etc.), then look each up
+// on 21st.dev. Skipped for edits and non-UI advisory calls. Total wall-clock
+// budget ~5s; anything slower falls through with an empty list.
+
+const EDIT_KEYWORDS = /^\s*(add|change|fix|remove|update|delete|rename|tweak|adjust|move|shrink|enlarge|swap)\b/i;
+
+interface ComponentPhaseResult {
+  components: ComponentHit[];
+  planUsage: UsageRecord | null;
+}
+
+async function planAndFetchComponents(
+  apiKey: string,
+  prompt: string,
+  currentHtml: string,
+  requestId: string,
+  signal: AbortSignal,
+): Promise<ComponentPhaseResult> {
+  // Only useful for fresh builds — skip micro-edits on an existing document.
+  if (currentHtml && EDIT_KEYWORDS.test(prompt)) return { components: [], planUsage: null };
+  if (!process.env.TWENTYFIRST_API_KEY) return { components: [], planUsage: null };
+  let planUsage: UsageRecord | null = null;
+  try {
+    const planRes = await aiFetch(
+      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        body: JSON.stringify({
+          model: "google/gemini-3.1-flash-lite",
+          messages: [
+            { role: "system", content: 'Turn this build request into up to 3 short shadcn/Tailwind component search queries (2-6 words each). Focus on distinct UI sections: hero, pricing, feature grid, testimonial, cta, nav, dashboard card. Return ONLY JSON: {"queries":["...","..."]}. Return {"queries":[]} if the request is a small tweak, an internal dashboard with no marketing UI, or clearly non-UI. Max 3.' },
+            { role: "user", content: `USER REQUEST: ${prompt}\n\nCURRENT HTML SNIPPET: ${currentHtml.slice(0, 800)}` },
+          ],
+          response_format: { type: "json_object" },
+        }),
+      },
+      { breakerKey: "lovable/21st_plan", stage: "plan", requestId, attemptTimeoutMs: 3500, totalTimeoutMs: 5000, maxAttempts: 1, signal },
+    );
+    const guarded = await readGuarded(planRes.response, { expected: "application/json" });
+    if (!guarded.ok) return { components: [], planUsage: null };
+    const planJson = JSON.parse(guarded.text) as { choices?: Array<{ message?: { content?: string } }>; usage?: unknown; model?: string };
+    const parsedPlanUsage = parseUsageFromChatJson(planJson);
+    const planEst = estimateUsdForCall({
+      model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+      providerUsed: true,
+    });
+    planUsage = makeUsage({
+      provider: "lovable", model: parsedPlanUsage?.model ?? "google/gemini-3.1-flash-lite",
+      operation: "generate_html",
+      inputTokens: parsedPlanUsage?.inputTokens ?? 0,
+      outputTokens: parsedPlanUsage?.outputTokens ?? 0,
+      totalTokens: parsedPlanUsage?.totalTokens ?? 0,
+      estimatedCostUsd: planEst.usd, costBasis: planEst.basis,
+      providerUsed: true, status: "committed",
+      meta: { phase: "component_plan" },
+    });
+    const parsed = JSON.parse(planJson.choices?.[0]?.message?.content ?? "{}");
+    const queries: string[] = Array.isArray(parsed.queries)
+      ? parsed.queries.filter((q: unknown): q is string => typeof q === "string" && q.trim().length > 0).slice(0, 3)
+      : [];
+    if (!queries.length) return { components: [], planUsage };
+    const settled = await Promise.all(
+      queries.map((q) => searchComponents(q, { requestId, signal, limit: 1 })),
+    );
+    const components = settled.flat().slice(0, 3);
+    // eslint-disable-next-line no-console
+    console.info("[21st.dev] plan", { queries, hits: components.map((c) => c.name) });
+    return { components, planUsage };
+  } catch {
+    return { components: [], planUsage };
+  }
+}
+
+
+
 
 export const Route = createFileRoute("/api/generate")({
   server: {
