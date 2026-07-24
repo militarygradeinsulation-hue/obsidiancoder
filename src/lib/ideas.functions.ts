@@ -6,6 +6,7 @@
 //      proposes concrete next-step additions they can accept with one click.
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { REAL_WORLD_LEAKS_PROMPT } from "./real-world-leaks";
 
 const MODEL = "google/gemini-3.1-flash-lite";
 const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
@@ -123,7 +124,10 @@ Rules:
 - snippet: one imperative sentence starting with "Build a" or "Build an", 12-28 words, mentions 2-3 concrete sections/features.
 - Category focus: ${CATEGORY_GUIDANCE[data.category]}
 - Avoid anything in the exclude list (case-insensitive) and do not repeat concepts already listed.
-- Be inventive — surprising, specific niches beat safe generic picks.`;
+- Be inventive — surprising, specific niches beat safe generic picks.
+- When an idea targets trades, contractors, field service, or compliance, anchor it to a leak from the library below and reference the leak ID(s) inside the snippet (e.g. "…plugs L3+L8.").
+
+${REAL_WORLD_LEAKS_PROMPT}`;
     const user = `category:${data.category}\nvariety-seed:${seed}\nexclude:${JSON.stringify(data.exclude)}`;
     try {
       const raw = await callGateway(system, user);
@@ -152,7 +156,10 @@ Rules:
 - Each snippet is a single imperative sentence, 8-22 words, that adds ONE specific section, feature, or refinement.
 - Do NOT repeat things already implied by the draft.
 - Prefer high-signal moves: missing sections, key components, states, accessibility, tone, or polish.
-- ${data.hasHtml ? "The user is iterating on an existing build; suggest focused enhancements, not rebuilds." : "The user is starting fresh; suggest structural additions."}`;
+- If the draft is a trades / contractor / field-service / compliance system, every addition must plug a leak (cite ID, e.g. "plugs L1") and respect the two-tap field rule.
+- ${data.hasHtml ? "The user is iterating on an existing build; suggest focused enhancements, not rebuilds." : "The user is starting fresh; suggest structural additions."}
+
+${REAL_WORLD_LEAKS_PROMPT}`;
     const user = `Draft prompt:\n${data.draft}`;
     try {
       const raw = await callGateway(system, user);
