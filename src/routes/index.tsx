@@ -2233,6 +2233,15 @@ function Index() {
           <div className="obs-topbar-right">
             <button
               type="button"
+              className={"obs-chip " + (buildChatOpen ? "is-on" : "")}
+              onClick={() => setBuildChatOpen((v) => !v)}
+              title="Chat with Claude/Grok about ideas to improve this build"
+              style={{ borderColor: "rgba(244,161,37,0.45)", color: "#f4a125" }}
+            >
+              <MessageSquare className="h-3.5 w-3.5" /> Discuss
+            </button>
+            <button
+              type="button"
               className={"obs-chip " + (tab === "preview" ? "is-on" : "")}
               onClick={() => setTab("preview")}
             >
