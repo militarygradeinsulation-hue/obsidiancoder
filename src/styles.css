@@ -2745,7 +2745,7 @@ body.is-resizing-composer * { user-select: none !important; }
   padding: 8px 0;
   border-radius: 24px;
   overflow: hidden;
-  background: radial-gradient(120% 80% at 50% 0%, rgba(244,161,37,0.06), transparent 60%), #060010;
+  background: transparent;
 }
 .demos-dome-wrap .demos-sphere-hint {
   position: absolute;
