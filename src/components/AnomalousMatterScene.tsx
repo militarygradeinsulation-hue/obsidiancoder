@@ -139,10 +139,10 @@ export default function AnomalousMatterScene({
     let running = true;
 
     const render = (t: number) => {
-      uniforms.time.value = t * 0.0003;
+      uniforms.time.value = t * 0.0012;
       if (!reduce) {
-        mesh.rotation.y += 0.0005;
-        mesh.rotation.x += 0.0002;
+        mesh.rotation.y += 0.003;
+        mesh.rotation.x += 0.0015;
       }
       renderer.render(scene, camera);
     };
