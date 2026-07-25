@@ -490,6 +490,34 @@ export default function DomeGallery({
           </div>
         </main>
       </div>
+      {hover ? (
+        <div
+          className="pointer-events-none fixed z-[100]"
+          style={{
+            left: Math.min(hover.x + 20, (typeof window !== "undefined" ? window.innerWidth : 1200) - 340),
+            top: Math.max(12, Math.min(hover.y - 160, (typeof window !== "undefined" ? window.innerHeight : 800) - 340)),
+            width: 320,
+            height: 320,
+            borderRadius: 16,
+            overflow: "hidden",
+            background: "rgba(10,10,14,0.85)",
+            border: "1px solid rgba(244,161,37,0.35)",
+            boxShadow: "0 20px 60px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.05) inset",
+            backdropFilter: "blur(10px)",
+            transition: "opacity 120ms ease",
+          }}
+        >
+          <img src={hover.src} alt={hover.alt} className="w-full h-full object-cover" draggable={false} />
+          {hover.alt ? (
+            <div
+              className="absolute left-0 right-0 bottom-0 px-3 py-2 text-[12px] font-medium"
+              style={{ background: "linear-gradient(to top, rgba(0,0,0,0.75), transparent)", color: "#f2eee7" }}
+            >
+              {hover.alt}
+            </div>
+          ) : null}
+        </div>
+      ) : null}
     </>
   );
 }
