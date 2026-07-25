@@ -6,9 +6,9 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { X, Search, Sparkles, Layers, Palette, Layout, Component, Star, RotateCcw, Check, Loader2, ExternalLink } from "lucide-react";
 import {
-  CATALOG, COMPONENTS, STYLES, TEMPLATES, FONT_PAIRINGS,
+  COMPONENTS, STYLES, TEMPLATES, FONT_PAIRINGS,
   applyStyleToContract, applyTemplateToContract, clearContract, defaultContract,
-  fontById, inspireDirections, loadApproved, loadContract, recommendComponentIds,
+  fontById, guessTemplateId, inspireDirections, loadApproved, loadContract, recommendComponentIds,
   saveContract, styleById, templateById, toggleApproved, type DesignContract,
   type DesignStylePreset, type TemplatePreset, type ComponentReference,
 } from "@/lib/design-library";
