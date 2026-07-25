@@ -1753,6 +1753,7 @@ function Index() {
           model: modelForServer,
           pickerModel: current.model,
           advisory: !previewMode,
+          designContract: loadDesignContract(current.id),
         }),
         signal: controller.signal,
       });
