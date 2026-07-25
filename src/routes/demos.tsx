@@ -8,6 +8,7 @@ import {
 } from "@/lib/featured-demos.functions";
 import { getTwentyfirstHealthStats } from "@/lib/twentyfirst-metrics.functions";
 import type { TwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
+import { listFeedback, markFeedbackHandled, deleteFeedback, type FeedbackRow } from "@/lib/feedback.functions";
 
 const CATEGORIES = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
 type Category = (typeof CATEGORIES)[number];
@@ -651,9 +652,118 @@ function DemosAdmin() {
         })}
         {demos && demos.length === 0 && <div style={{ color: "#B6BCC8" }}>No demos yet. Push one from the builder.</div>}
       </div>
+
+      <FeedbackAdminPanel code={code} />
     </div>
   );
 }
+
+function FeedbackAdminPanel({ code }: { code: string }) {
+  const list = useServerFn(listFeedback);
+  const mark = useServerFn(markFeedbackHandled);
+  const remove = useServerFn(deleteFeedback);
+  const [rows, setRows] = useState<FeedbackRow[] | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [filter, setFilter] = useState<"open" | "handled" | "all">("open");
+
+  const load = useCallback(async () => {
+    if (!code) return;
+    try {
+      const res = await list({ data: { adminCode: code } });
+      if (res.ok) { setRows(res.rows); setErr(null); }
+      else setErr(res.error);
+    } catch (e) { setErr(e instanceof Error ? e.message : "failed"); }
+  }, [code, list]);
+  useEffect(() => { load(); }, [load]);
+
+  if (!code) return null;
+  const visible = (rows ?? []).filter((r) =>
+    filter === "all" ? true : filter === "handled" ? r.handled : !r.handled
+  );
+
+  async function onToggle(r: FeedbackRow) {
+    await mark({ data: { adminCode: code, id: r.id, handled: !r.handled } });
+    load();
+  }
+  async function onRemove(r: FeedbackRow) {
+    if (!confirm("Delete this feedback? This cannot be undone.")) return;
+    await remove({ data: { adminCode: code, id: r.id } });
+    load();
+  }
+
+  return (
+    <section style={{ padding: "24px 28px 40px" }}>
+      <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
+        <div>
+          <h2 style={{ fontFamily: "Fraunces, Georgia, serif", margin: 0, color: "#F4A125", fontSize: 20 }}>User Feedback</h2>
+          <p style={{ margin: "2px 0 0", color: "#B6BCC8", fontSize: 12 }}>
+            Public submissions from the login page. {rows ? `${rows.filter((r) => !r.handled).length} open · ${rows.length} total` : ""}
+          </p>
+        </div>
+        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <div style={{ display: "inline-flex", border: "1px solid #22262d", borderRadius: 6, overflow: "hidden" }}>
+            {(["open", "handled", "all"] as const).map((m) => (
+              <button
+                key={m} type="button" onClick={() => setFilter(m)}
+                style={{
+                  background: filter === m ? "#F4A125" : "transparent",
+                  color: filter === m ? "#111317" : "#B6BCC8",
+                  border: 0, padding: "6px 10px", fontSize: 12, cursor: "pointer",
+                  textTransform: "capitalize", fontWeight: filter === m ? 600 : 400,
+                }}
+              >{m}</button>
+            ))}
+          </div>
+          <button type="button" onClick={load} style={{ background: "transparent", color: "#F4A125", border: "1px solid rgba(244,161,37,0.35)", padding: "6px 10px", borderRadius: 6, cursor: "pointer", fontSize: 12 }}>
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      {err && <div style={{ color: "#ff8a8a", fontSize: 12, marginBottom: 8 }}>{err}</div>}
+      {rows === null && <div style={{ color: "#B6BCC8", fontSize: 13 }}>Loading…</div>}
+      {rows !== null && visible.length === 0 && (
+        <div style={{ color: "#B6BCC8", fontSize: 13, background: "#171a20", border: "1px solid #22262d", borderRadius: 10, padding: 16 }}>
+          No feedback in this view.
+        </div>
+      )}
+
+      <div style={{ display: "grid", gap: 10 }}>
+        {visible.map((r) => (
+          <div key={r.id} style={{
+            background: r.handled ? "#141820" : "#171a20",
+            border: `1px solid ${r.handled ? "#22262d" : "rgba(244,161,37,0.35)"}`,
+            borderRadius: 10, padding: 14,
+            opacity: r.handled ? 0.75 : 1,
+          }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 8, flexWrap: "wrap" }}>
+              <div style={{ display: "flex", gap: 10, alignItems: "center", fontSize: 11, color: "#8a919b" }}>
+                <span>{new Date(r.created_at).toLocaleString()}</span>
+                {r.path && <span>· {r.path}</span>}
+                {r.handled && <span style={{ color: "#7bd88f" }}>· handled</span>}
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                <button type="button" onClick={() => onToggle(r)} style={{ background: "transparent", color: r.handled ? "#B6BCC8" : "#7bd88f", border: `1px solid ${r.handled ? "#22262d" : "rgba(123,216,143,0.35)"}`, padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11 }}>
+                  {r.handled ? "Reopen" : "Mark handled"}
+                </button>
+                <button type="button" onClick={() => onRemove(r)} style={{ background: "transparent", color: "#ff8a8a", border: "1px solid #3a2226", padding: "4px 10px", borderRadius: 6, cursor: "pointer", fontSize: 11 }}>
+                  Delete
+                </button>
+              </div>
+            </div>
+            <div style={{ fontSize: 14, color: "#f2eee7", whiteSpace: "pre-wrap", lineHeight: 1.5 }}>
+              {r.message}
+            </div>
+            {r.contact && (
+              <div style={{ marginTop: 8, fontSize: 12, color: "#F4A125" }}>Contact: {r.contact}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 
 function TwentyfirstHealthCard({ code }: { code: string }) {
   const fetchHealth = useServerFn(getTwentyfirstHealthStats);

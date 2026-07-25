@@ -203,6 +203,36 @@ export type Database = {
         }
         Relationships: []
       }
+      feedback: {
+        Row: {
+          contact: string | null
+          created_at: string
+          handled: boolean
+          id: string
+          message: string
+          path: string | null
+          user_agent: string | null
+        }
+        Insert: {
+          contact?: string | null
+          created_at?: string
+          handled?: boolean
+          id?: string
+          message: string
+          path?: string | null
+          user_agent?: string | null
+        }
+        Update: {
+          contact?: string | null
+          created_at?: string
+          handled?: boolean
+          id?: string
+          message?: string
+          path?: string | null
+          user_agent?: string | null
+        }
+        Relationships: []
+      }
       one_time_purchases: {
         Row: {
           amount_paid: number
