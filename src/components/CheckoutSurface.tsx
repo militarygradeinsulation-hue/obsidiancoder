@@ -1,20 +1,23 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { getStripe, getStripeEnvironment } from "@/lib/stripe";
-import { createCheckoutSession } from "@/utils/payments.functions";
+import { createCheckoutSession, createCustomAmountSubscription } from "@/utils/payments.functions";
 import { nextCheckoutState, checkoutErrorFromThrow, type CheckoutState } from "@/lib/checkout-state";
 
 /**
  * Wrapper around Stripe Embedded Checkout that surfaces explicit
- * loading / error / retry / cancel states. The base <StripeEmbeddedCheckout />
- * remains for callers that want Stripe to own the loading UX.
+ * loading / error / retry / cancel states. Accepts either a fixed
+ * `priceId` (tier checkout) or an `amountCents` value (custom-amount
+ * monthly subscription via inline price_data).
  */
 export function CheckoutSurface({
   priceId,
+  amountCents,
   returnUrl,
   onCancel,
 }: {
-  priceId: string;
+  priceId?: string;
+  amountCents?: number;
   returnUrl?: string;
   onCancel?: () => void;
 }) {
@@ -25,18 +28,25 @@ export function CheckoutSurface({
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
-      const result = await createCheckoutSession({
-        data: {
-          priceId,
-          returnUrl: returnUrl || `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
-          environment: getStripeEnvironment(),
-        },
-      });
+      const resolvedReturn = returnUrl
+        || `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`;
+      const environment = getStripeEnvironment();
+
+      const result = amountCents && amountCents > 0
+        ? await createCustomAmountSubscription({
+            data: { amountCents, returnUrl: resolvedReturn, environment },
+          })
+        : priceId
+          ? await createCheckoutSession({
+              data: { priceId, returnUrl: resolvedReturn, environment },
+            })
+          : { error: "No plan selected." };
+
       setState(nextCheckoutState(result));
     } catch (err) {
       setState(checkoutErrorFromThrow(err));
     }
-  }, [priceId, returnUrl]);
+  }, [priceId, amountCents, returnUrl]);
 
   useEffect(() => { load(); }, [load, attempt]);
 
