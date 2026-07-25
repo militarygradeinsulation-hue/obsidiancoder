@@ -111,26 +111,22 @@ import { restoreAndVerify } from "@/lib/context-compactor";
 
 
 export const Route = createFileRoute("/build")({
-  beforeLoad: async () => {
-    const { ensureUnlocked } = await import("@/lib/gate.functions");
-    const { unlocked } = await ensureUnlocked();
-    if (!unlocked) throw redirect({ to: "/unlock" });
-  },
   head: () => ({
     meta: [
-      { title: "Obsidian — System builder for people that can't code" },
-      { name: "description", content: "Obsidian is an AI system builder — think it, type it, see it. Ship production-ready software without writing code." },
-      { property: "og:title", content: "Obsidian — Think it, Type it, See it" },
-      { property: "og:description", content: "AI system builder for people that can't code. Ship production-ready software with an AI engineering team." },
-      { property: "og:url", content: "https://obsidianvibe.live/" },
+      { title: "Build with Obsidian — Free AI System Builder" },
+      { name: "description", content: "Start your free build. One high-quality project, best-in-class AI, no credit card. Upgrade only to save permanently, deploy, or continue editing." },
+      { property: "og:title", content: "Build with Obsidian — Free AI System Builder" },
+      { property: "og:description", content: "Think it, type it, see it. Build your first project free — no credit card required." },
+      { property: "og:url", content: "https://obsidianvibe.live/build" },
       { property: "og:type", content: "website" },
-      { name: "twitter:title", content: "Obsidian — Think it, Type it, See it" },
-      { name: "twitter:description", content: "AI system builder for people that can't code." },
+      { name: "twitter:title", content: "Build with Obsidian" },
+      { name: "twitter:description", content: "Free AI system builder. One project free, no credit card." },
     ],
-    links: [{ rel: "canonical", href: "https://obsidianvibe.live/" }],
+    links: [{ rel: "canonical", href: "https://obsidianvibe.live/build" }],
   }),
   component: Index,
 });
+
 
 type ChatMsg = { role: "user" | "assistant"; content: string };
 
