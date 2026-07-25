@@ -54,9 +54,17 @@ async function handleSubscriptionDeleted(sub: any, env: StripeEnv) {
 }
 
 async function handleCheckoutCompleted(session: any, env: StripeEnv) {
-  // One-time purchase — either the $20 Save & Host flow, or a $100
-  // whitelist / early-access spot. Route by metadata.
-  if (session.mode !== "payment") return;
+  if (session.mode !== "payment") {
+    // Subscription checkout — mark Creator trial credit as consumed.
+    if (session.metadata?.trial_credit_applied === "1" && session.metadata?.userId) {
+      await getSupabase()
+        .from("trial_claims")
+        .update({ credit_applied: true, credit_applied_at: new Date().toISOString(), updated_at: new Date().toISOString() })
+        .eq("user_id", session.metadata.userId)
+        .eq("environment", env);
+    }
+    return;
+  }
 
   // ── Whitelist / early-access ────────────────────────────────────────────
   const waitlistEntryId = session.metadata?.waitlist_entry_id;
@@ -74,7 +82,6 @@ async function handleCheckoutCompleted(session: any, env: StripeEnv) {
     return;
   }
 
-  // ── User-scoped one-time purchases (Save & Host) ────────────────────────
   const userId = session.metadata?.userId;
   if (!userId) return;
   const line = session.line_items?.data?.[0] || null;
@@ -90,6 +97,28 @@ async function handleCheckoutCompleted(session: any, env: StripeEnv) {
       console.error("listLineItems failed", e);
     }
   }
+
+  // ── Try Pro $5 trial claim ──────────────────────────────────────────────
+  if (session.metadata?.trial_claim === "1" || priceId === "obsidian_try_pro_7day") {
+    const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+    await getSupabase().from("trial_claims").upsert(
+      {
+        user_id: userId,
+        email: session.customer_details?.email ?? session.customer_email ?? null,
+        stripe_customer_id: session.customer,
+        stripe_session_id: session.id,
+        amount_paid: session.amount_total ?? 500,
+        currency: session.currency ?? "usd",
+        environment: env,
+        paid: true,
+        paid_at: new Date().toISOString(),
+        expires_at: expiresAt,
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: "stripe_session_id" },
+    );
+  }
+
   await getSupabase().from("one_time_purchases").upsert(
     {
       user_id: userId,
@@ -103,6 +132,7 @@ async function handleCheckoutCompleted(session: any, env: StripeEnv) {
     { onConflict: "stripe_session_id" },
   );
 }
+
 
 async function handleWebhook(req: Request, env: StripeEnv) {
   const event = await verifyWebhook(req, env);

@@ -5,7 +5,9 @@ import { trackHomeVisit, track } from "@/lib/analytics";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
 import { DitheringBackground } from "@/components/DitheringBackground";
+import { PricingConfigurator } from "@/components/PricingConfigurator";
 import obsidianLogo from "@/assets/obsidian-vibe-logo.png.asset.json";
+
 
 // Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
@@ -395,13 +397,22 @@ function Home() {
                 Build Free – No Credit Card Required
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <a href="#pricing" className="px-6 py-3.5 rounded-xl border border-white/20 bg-black/40 text-sm text-white hover:text-white hover:border-white/40 transition backdrop-blur">
+              <a
+                href="/unlock?intent=buy&priceId=obsidian_try_pro_7day&checkout=1"
+                onClick={() => track("try_pro_5_clicked", { source: "hero" })}
+                className="cta-glow group px-6 py-3.5 rounded-xl bg-black/70 border border-[#F4A125]/60 text-[#F4A125] font-semibold text-base flex items-center gap-2 hover:bg-black/80 transition backdrop-blur"
+              >
+                Try Pro for $5
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </a>
+              <a href="#configurator" className="px-6 py-3.5 rounded-xl border border-white/20 bg-black/40 text-sm text-white hover:text-white hover:border-white/40 transition backdrop-blur">
                 See pricing
               </a>
             </div>
             <p className="hero-cta mt-4 text-xs text-white/70" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.8)" }}>
-              Free build stays available for 7 days. Upgrade any time to save it permanently.
+              Build one real app with the full premium experience for 7 days. $5 credits toward Creator if you upgrade.
             </p>
+
           </div>
         </section>
 
@@ -533,8 +544,12 @@ function Home() {
           </Reveal>
         </section>
 
+        {/* Choose Your Investment — interactive configurator */}
+        <PricingConfigurator />
+
         {/* Pricing */}
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-16">
+
           <Reveal>
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold">Free to start. Upgrade when you're ready.</h2>

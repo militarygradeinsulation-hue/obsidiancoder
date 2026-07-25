@@ -157,12 +157,26 @@ export async function hasActiveProWithClient(
 }
 
 export async function hasActivePro(user: AuthedUser, env: Environment): Promise<boolean> {
-  // Service-role admin client bypasses RLS and does not depend on grants
-  // for `public.has_active_pro` (which remains service_role-only). The
-  // verified user id (`user.userId`) must come from resolveUserFromRequest.
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return hasActiveProWithClient(supabaseAdmin as unknown as MinimalSubscriptionQueryClient, user.userId, env);
+  const subActive = await hasActiveProWithClient(supabaseAdmin as unknown as MinimalSubscriptionQueryClient, user.userId, env);
+  if (subActive) return true;
+  // Try Pro 7-day trial fallback — paid one-time claim that hasn't expired.
+  try {
+    const { data } = await supabaseAdmin
+      .from("trial_claims" as never)
+      .select("paid, expires_at")
+      .eq("user_id", user.userId)
+      .eq("environment", env)
+      .eq("paid", true)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    const row = data as { paid?: boolean; expires_at?: string | null } | null;
+    if (row?.paid && row.expires_at && Date.parse(row.expires_at) > Date.now()) return true;
+  } catch { /* best-effort */ }
+  return false;
 }
+
 
 /**
  * Resolve the caller's active monthly credit cap from their current
