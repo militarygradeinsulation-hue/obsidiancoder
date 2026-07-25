@@ -65,6 +65,11 @@ export const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryP
 
     const count = Math.max(items.length, 1);
     const anglePerItem = 360 / count;
+    const TILE_W = 300;
+    const TILE_H = 200;
+    // Auto-fit radius so tiles sit side-by-side without overlap
+    const autoRadius = (TILE_W * 1.15) / (2 * Math.tan((Math.PI / count) || 0.1));
+    const effectiveRadius = Math.max(radius, Math.min(autoRadius, 2000));
 
     return (
       <div
@@ -74,7 +79,7 @@ export const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryP
           else if (ref) (ref as React.MutableRefObject<HTMLDivElement | null>).current = node;
         }}
         className={cn("relative w-full h-full overflow-hidden", className)}
-        style={{ perspective: "1400px" }}
+        style={{ perspective: "1600px" }}
         onMouseEnter={() => setHovered(true)}
         onMouseLeave={() => setHovered(false)}
         {...props}
@@ -83,7 +88,7 @@ export const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryP
           className="absolute left-1/2 top-1/2 w-0 h-0"
           style={{
             transformStyle: "preserve-3d",
-            transform: `translate(-50%,-50%) rotateX(-8deg) rotateY(${rotation}deg)`,
+            transform: `translate(-50%,-50%) rotateX(-6deg) rotateY(${rotation}deg)`,
             transition: isScrolling ? "transform 0.05s linear" : "transform 0.1s linear",
           }}
         >
@@ -92,7 +97,9 @@ export const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryP
             const totalRotation = rotation % 360;
             const relativeAngle = (itemAngle + totalRotation + 360) % 360;
             const normalizedAngle = Math.abs(relativeAngle > 180 ? 360 - relativeAngle : relativeAngle);
-            const opacity = Math.max(0.25, 1 - normalizedAngle / 180);
+            // Hide back half so we don't see through the ring
+            if (normalizedAngle > 95) return null;
+            const opacity = Math.max(0.15, 1 - normalizedAngle / 95);
             const isFront = normalizedAngle < anglePerItem / 2;
 
             return (
@@ -102,11 +109,11 @@ export const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryP
                 onClick={() => onItemClick?.(item)}
                 className="absolute left-0 top-0 group"
                 style={{
-                  width: 260,
-                  height: 340,
-                  marginLeft: -130,
-                  marginTop: -170,
-                  transform: `rotateY(${itemAngle}deg) translateZ(${radius}px)`,
+                  width: TILE_W,
+                  height: TILE_H,
+                  marginLeft: -TILE_W / 2,
+                  marginTop: -TILE_H / 2,
+                  transform: `rotateY(${itemAngle}deg) translateZ(${effectiveRadius}px)`,
                   opacity,
                   transition: "opacity 0.3s ease",
                 }}
@@ -117,7 +124,7 @@ export const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryP
                     "relative w-full h-full rounded-2xl overflow-hidden border border-white/10 bg-[#111317]",
                     "shadow-[0_20px_60px_rgba(0,0,0,0.55)]",
                     "transition-transform duration-300 group-hover:scale-[1.04]",
-                    isFront && "ring-1 ring-[#F4A125]/40"
+                    isFront && "ring-1 ring-[#F4A125]/50"
                   )}
                 >
                   <img
@@ -127,12 +134,12 @@ export const CircularGallery = React.forwardRef<HTMLDivElement, CircularGalleryP
                     className="w-full h-full object-cover"
                     style={{ objectPosition: item.pos ?? "center" }}
                   />
-                  <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/90 via-black/50 to-transparent text-left">
-                    <div className="text-white font-semibold text-sm leading-tight line-clamp-2">
+                  <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/95 via-black/60 to-transparent text-left">
+                    <div className="text-white font-semibold text-sm leading-tight line-clamp-1">
                       {item.title}
                     </div>
                     {item.subtitle && (
-                      <div className="text-[11px] text-[#F4A125]/90 mt-1 uppercase tracking-wide">
+                      <div className="text-[10px] text-[#F4A125]/90 mt-0.5 uppercase tracking-wider">
                         {item.subtitle}
                       </div>
                     )}
