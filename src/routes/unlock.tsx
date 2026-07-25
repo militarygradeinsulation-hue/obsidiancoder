@@ -665,6 +665,12 @@ function Unlock() {
               aria-pressed={demoView === "grid"}
               onClick={() => setDemoView("grid")}
             >Grid</button>
+            <button
+              type="button"
+              className={`demo-view-btn ${demoView === "dome" ? "is-active" : ""}`}
+              aria-pressed={demoView === "dome"}
+              onClick={() => setDemoView("dome")}
+            >Dome</button>
           </div>
         </div>
         {(demosOpen || demoCategory !== "All") && (() => {
