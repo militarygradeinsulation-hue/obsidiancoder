@@ -1,7 +1,7 @@
 // Interactive 3D dome image gallery. Drag to rotate the sphere, tap a tile
 // to either enlarge it in place or (when `onImageClick` is provided) invoke
 // custom behavior — used on /unlock to open live demos in a new tab.
-import { useEffect, useMemo, useRef, useCallback } from "react";
+import { useEffect, useMemo, useRef, useCallback, useState } from "react";
 import { useGesture } from "@use-gesture/react";
 
 type ImageItem = string | { src: string; alt?: string; href?: string };
