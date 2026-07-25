@@ -386,6 +386,60 @@ export type Database = {
         }
         Relationships: []
       }
+      trial_claims: {
+        Row: {
+          amount_paid: number
+          created_at: string
+          credit_applied: boolean
+          credit_applied_at: string | null
+          currency: string
+          email: string | null
+          environment: string
+          expires_at: string | null
+          id: string
+          paid: boolean
+          paid_at: string | null
+          stripe_customer_id: string | null
+          stripe_session_id: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          amount_paid?: number
+          created_at?: string
+          credit_applied?: boolean
+          credit_applied_at?: string | null
+          currency?: string
+          email?: string | null
+          environment?: string
+          expires_at?: string | null
+          id?: string
+          paid?: boolean
+          paid_at?: string | null
+          stripe_customer_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          amount_paid?: number
+          created_at?: string
+          credit_applied?: boolean
+          credit_applied_at?: string | null
+          currency?: string
+          email?: string | null
+          environment?: string
+          expires_at?: string | null
+          id?: string
+          paid?: boolean
+          paid_at?: string | null
+          stripe_customer_id?: string | null
+          stripe_session_id?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       waitlist_entries: {
         Row: {
           amount_paid: number | null
