@@ -292,7 +292,7 @@ function Home() {
         </header>
 
         {/* Hero */}
-        <section className="relative overflow-hidden">
+        <section className="relative overflow-hidden bg-black">
           <HeroOrb />
           <div className="max-w-5xl mx-auto px-6 pt-24 pb-20 text-center relative z-10">
             <div className="hero-title inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#F4A125]/30 bg-[#F4A125]/10 text-xs text-[#F4A125] mb-6 backdrop-blur">
