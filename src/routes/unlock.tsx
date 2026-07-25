@@ -209,15 +209,21 @@ function Unlock() {
   }, [session?.userId, proUnlock, router]);
 
   // If the user arrived from the pricing configurator with checkout intent
-  // but has no session, forward them into auth (preserving priceId) instead
-  // of showing the legacy pitch page.
+  // but has no session, forward them into auth (preserving priceId or
+  // custom amount) instead of showing the pitch page.
   useEffect(() => {
     if (sessionLoading || session) return;
     if (search.checkout !== "1" && search.intent !== "buy") return;
-    const priceId = selectedPriceId || CREATOR_PRICE_ID;
-    const q = `intent=buy&checkout=1&priceId=${encodeURIComponent(priceId)}`;
-    window.location.assign(buildAuthUrl("signup", `/unlock?${q}`));
-  }, [sessionLoading, session, search.checkout, search.intent, selectedPriceId]);
+    const params: string[] = ["intent=buy", "checkout=1"];
+    if (customAmount && customAmount >= 5 && customAmount <= 499) {
+      params.push(`amount=${customAmount}`);
+    } else {
+      const priceId = selectedPriceId || CREATOR_PRICE_ID;
+      params.push(`priceId=${encodeURIComponent(priceId)}`);
+    }
+    window.location.assign(buildAuthUrl("signup", `/unlock?${params.join("&")}`));
+  }, [sessionLoading, session, search.checkout, search.intent, selectedPriceId, customAmount]);
+
 
 
 
