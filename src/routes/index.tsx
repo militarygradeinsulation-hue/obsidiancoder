@@ -421,11 +421,12 @@ function Home() {
                     <Play className="w-3 h-3" /> Open the Builder
                   </div>
                   <h2 className="text-3xl md:text-4xl font-bold leading-tight">
-                    One prompt away from a <span className="gold-text">working product.</span>
+                    One prompt. A real thing <span className="gold-text">that just works.</span>
                   </h2>
                   <p className="mt-4 text-[#B6BCC8]">
-                    Type an idea. Obsidian streams the code, renders a live preview, and gives you a real
-                    React + TypeScript project you can share, export, or deploy.
+                    No templates to hunt through, no settings to tune. Type what you want, and Obsidian
+                    builds a working React + TypeScript project with a live preview. Built for people
+                    who don't code — but powerful enough to ship.
                   </p>
                   <PromptLauncher />
                   <p className="mt-3 text-xs text-[#8b93a1]">Free · No credit card · 7-day retention on the free tier</p>
