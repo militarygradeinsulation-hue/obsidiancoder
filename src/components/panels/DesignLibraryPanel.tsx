@@ -336,7 +336,6 @@ function RemoteCard({ name, description, previewUrl, tags, kind, onUse, onApprov
     <div className="dl-card">
       {previewUrl && imgOk && (
         <div className="dl-card-preview">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={previewUrl} alt="" loading="lazy" onError={() => setImgOk(false)} />
         </div>
       )}
