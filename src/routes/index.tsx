@@ -5,7 +5,9 @@ import { trackHomeVisit, track } from "@/lib/analytics";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
 import { DitheringBackground } from "@/components/DitheringBackground";
+import { PricingConfigurator } from "@/components/PricingConfigurator";
 import obsidianLogo from "@/assets/obsidian-vibe-logo.png.asset.json";
+
 
 // Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
@@ -542,8 +544,12 @@ function Home() {
           </Reveal>
         </section>
 
+        {/* Choose Your Investment — interactive configurator */}
+        <PricingConfigurator />
+
         {/* Pricing */}
         <section id="pricing" className="max-w-6xl mx-auto px-6 py-16">
+
           <Reveal>
             <div className="text-center mb-12">
               <h2 className="text-3xl md:text-4xl font-bold">Free to start. Upgrade when you're ready.</h2>
