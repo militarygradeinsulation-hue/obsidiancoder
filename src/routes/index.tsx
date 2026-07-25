@@ -4,6 +4,7 @@ import { ArrowRight, Sparkles, Zap, Shield, Rocket, Check, Brain, Layers, Lock, 
 import { trackHomeVisit, track } from "@/lib/analytics";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
+import obsidianLogo from "@/assets/obsidian-vibe-logo.png.asset.json";
 
 // Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
@@ -265,10 +266,14 @@ function Home() {
       <div className="relative z-10">
         <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/40 border-b border-white/5">
           <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded bg-gradient-to-br from-[#F4A125] to-[#DD9324] shadow-[0_0_20px_rgba(244,161,37,0.5)]" aria-hidden />
-              <span className="font-semibold tracking-tight">Obsidian</span>
-            </div>
+            <a href="#" className="flex items-center gap-2" aria-label="Obsidian Vibe">
+              <img
+                src={obsidianLogo.url}
+                alt="Obsidian Vibe"
+                className="h-8 w-auto object-contain select-none"
+                draggable={false}
+              />
+            </a>
             <nav className="hidden md:flex items-center gap-6 text-sm text-[#B6BCC8]">
               <a href="#demo" className="hover:text-white transition-colors">Demo</a>
               <a href="#features" className="hover:text-white transition-colors">Features</a>
@@ -517,7 +522,13 @@ function Home() {
         {/* Founder */}
         <section id="founder" className="max-w-4xl mx-auto px-6 py-20 text-center">
           <Reveal>
-            <div className="inline-block w-20 h-20 rounded-full bg-gradient-to-br from-[#F4A125] to-[#DD9324] mb-6 shadow-[0_0_60px_rgba(244,161,37,0.4)] float-y" aria-hidden />
+            <img
+              src={obsidianLogo.url}
+              alt="Obsidian Vibe"
+              className="mx-auto mb-6 h-16 w-auto object-contain float-y select-none"
+              style={{ filter: "drop-shadow(0 0 40px rgba(244,161,37,0.4))" }}
+              draggable={false}
+            />
             <h2 className="text-2xl md:text-3xl font-bold">Built by an independent architect</h2>
             <p className="mt-4 text-[#B6BCC8] max-w-2xl mx-auto">
               Obsidian is built by a single operator focused on making real software creation
