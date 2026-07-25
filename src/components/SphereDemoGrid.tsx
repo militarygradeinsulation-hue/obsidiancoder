@@ -8,6 +8,8 @@ export type SphereDemoItem = {
   title: string;
   category: string;
   url: string;
+  thumbnailUrl?: string;
+  previewUrl?: string;
 };
 
 type Props = {
@@ -161,6 +163,11 @@ export default function SphereDemoGrid({
           const n = nodes[i];
           const isHover = hovered === i;
           const s = n.scale * (isHover ? 1.25 : 1);
+          // Deterministic hue per id for placeholder background
+          let hue = 0;
+          for (let k = 0; k < it.id.length; k++) hue = (hue * 31 + it.id.charCodeAt(k)) % 360;
+          const isFront = n.opacity > 0.65;
+          const showIframe = isFront && !it.thumbnailUrl && !!it.previewUrl;
           return (
             <a
               key={it.id}
@@ -180,7 +187,31 @@ export default function SphereDemoGrid({
               }}
               title={`${it.title} — ${it.category}`}
             >
-              <div className="sphere-demo-tile">
+              <div
+                className="sphere-demo-tile"
+                style={{
+                  background: `radial-gradient(140% 100% at 10% 0%, hsl(${hue} 70% 22% / 0.9), transparent 60%), radial-gradient(120% 100% at 90% 100%, hsl(${(hue + 40) % 360} 80% 30% / 0.7), transparent 55%), linear-gradient(160deg, #14161c, #0b0d12)`,
+                }}
+              >
+                {it.thumbnailUrl ? (
+                  <img
+                    src={it.thumbnailUrl}
+                    alt={it.title}
+                    loading="lazy"
+                    className="sphere-demo-thumb"
+                    draggable={false}
+                  />
+                ) : showIframe ? (
+                  <iframe
+                    src={it.previewUrl}
+                    title={it.title}
+                    loading="lazy"
+                    sandbox="allow-scripts allow-same-origin"
+                    className="sphere-demo-thumb sphere-demo-iframe"
+                    tabIndex={-1}
+                  />
+                ) : null}
+                <div className="sphere-demo-tile-shade" aria-hidden="true" />
                 <span className="sphere-demo-cat">{it.category}</span>
                 <span className="sphere-demo-title">{it.title}</span>
               </div>
