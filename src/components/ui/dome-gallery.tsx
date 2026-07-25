@@ -25,6 +25,8 @@ type DomeGalleryProps = {
   openedImageBorderRadius?: string;
   grayscale?: boolean;
   onImageClick?: (item: { src: string; alt: string; href?: string }) => void;
+  /** Degrees per second of automatic Y-axis rotation while idle. 0 = off. */
+  autoRotateSpeed?: number;
 };
 
 type ItemDef = {
