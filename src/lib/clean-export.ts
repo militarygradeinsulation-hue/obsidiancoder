@@ -152,25 +152,6 @@ function stripMetaRefresh(html: string): string {
   );
 }
 
-// Neutralize <script> blocks that assign a blocked URL to a location target.
-// Conservative: only touch scripts that both mention a location target AND a
-// blocked path/host as a string literal.
-function stripCreatorNavScripts(html: string): string {
-  return html.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, (m, body: string) => {
-    if (!/(location\.(assign|replace|href)|window\.open|top\.location|parent\.location)/.test(body)) {
-      return m;
-    }
-    const strings = body.match(/"([^"\n]*)"|'([^'\n]*)'/g) ?? [];
-    for (const s of strings) {
-      const inner = s.slice(1, -1);
-      if (isCreatorTarget(inner)) {
-        return `<script data-obsidian-blocked="1">/* creator-nav removed */</script>`;
-      }
-    }
-    return m;
-  });
-}
-
 export function stripCreatorLinks(html: string): string {
   if (!html) return html;
   let out = html;
@@ -181,7 +162,9 @@ export function stripCreatorLinks(html: string): string {
   out = replaceNavAttrs(out, "action");
   out = replaceNavAttrs(out, "formaction");
   out = stripMetaRefresh(out);
-  out = stripCreatorNavScripts(out);
+  // Note: <script> bodies are NOT rewritten. Standalone builds often include
+  // their own SPA router, redirect logic, or checkout scripts with quoted
+  // path literals — blanket-wiping those scripts breaks legitimate demos.
   return out;
 }
 
