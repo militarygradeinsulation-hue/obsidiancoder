@@ -105,7 +105,7 @@ export function isCreatorTarget(target: string): boolean {
 
   // Bare/relative link like "dashboard" or "unlock?x=1" — treat conservatively.
   const firstSeg = raw.split(/[/?#]/)[0].toLowerCase();
-  if (["dashboard", "gallery", "demos", "unlock", "auth", "checkout", "admin"].includes(firstSeg)) {
+  if (["unlock", "auth", "admin"].includes(firstSeg)) {
     return true;
   }
   return false;
