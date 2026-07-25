@@ -33,12 +33,23 @@ const HOME_DEMOS: { slug: string; title: string; url?: string; category: DemoCat
   { slug: "4g71725v6y2o5b", title: "Obsidian Build 24", category: "App", url: "https://obsidianvibe.live/api/public/share/4g71725v6y2o5b" },
 ];
 
+function cleanDemoTitle(raw: string): string {
+  let t = (raw || "").replace(/^Demo\s*·\s*/i, "").trim();
+  // strip markdown headings, "Role & Persona" prompt starts, code fences
+  t = t.replace(/^#+\s*/g, "").replace(/^Role\s*&\s*Persona[:\-]?\s*/i, "");
+  t = t.replace(/^You are (?:the|a|an)?\s*/i, "").replace(/["`*_]/g, "");
+  t = t.split(/[\r\n]/)[0].trim();
+  if (t.length > 60) t = t.slice(0, 57).trimEnd() + "…";
+  return t || "Untitled build";
+}
+
 function LiveDemosSection() {
   const [cat, setCat] = useState<DemoCategory | "All">("All");
+  const [expanded, setExpanded] = useState(false);
   const [featured, setFeatured] = useState<typeof HOME_DEMOS>([]);
   useEffect(() => {
     let alive = true;
-    supabase.from("featured_demos").select("slug, title, category, url").order("sort_order", { ascending: false }).limit(60)
+    supabase.from("featured_demos").select("slug, title, category, url").order("sort_order", { ascending: false }).limit(200)
       .then(({ data }) => {
         if (!alive || !data) return;
         setFeatured(data.map((d) => ({
@@ -48,28 +59,43 @@ function LiveDemosSection() {
       });
     return () => { alive = false; };
   }, []);
-  const merged = useMemo(() => {
+
+  const allMerged = useMemo(() => {
+    // DB is source of truth; only fall back to HOME_DEMOS if DB is empty.
+    const source = featured.length > 0 ? featured : HOME_DEMOS;
     const map = new Map<string, typeof HOME_DEMOS[number] & { demoUrl: string }>();
-    for (const d of [...featured, ...HOME_DEMOS]) {
+    for (const d of source) {
       const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
       if (!map.has(demoUrl)) map.set(demoUrl, { ...d, demoUrl });
     }
-    return [...map.values()].filter((d) => cat === "All" || d.category === cat);
-  }, [featured, cat]);
+    return [...map.values()];
+  }, [featured]);
+
+  const merged = useMemo(
+    () => allMerged.filter((d) => cat === "All" || d.category === cat),
+    [allMerged, cat],
+  );
 
   const items = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     return merged.map((d) => {
       const abs = /^https?:\/\//i.test(d.demoUrl) ? d.demoUrl : `${origin}${d.demoUrl}`;
-      const clean = d.title.replace(/^Demo\s*·\s*/, "");
       return {
         src: `https://image.thum.io/get/width/600/crop/600/noanimate/${abs}`,
-        title: clean,
+        title: cleanDemoTitle(d.title),
         subtitle: d.category,
         href: d.demoUrl,
       };
     });
   }, [merged]);
+
+  const totalCount = allMerged.length;
+
+  function handleCat(c: DemoCategory | "All") {
+    setCat(c);
+    // Selecting a specific category auto-expands; "All" collapses back to summary
+    setExpanded(c !== "All");
+  }
 
   return (
     <section id="demo" className="max-w-6xl mx-auto px-6 py-20">
@@ -81,18 +107,20 @@ function LiveDemosSection() {
           <h2 className="text-4xl md:text-5xl font-bold">
             Real builds. <span className="gold-text">Real code.</span>
           </h2>
-          <p className="mt-3 text-[#B6BCC8]">Explore what people have shipped with Obsidian.</p>
+          <p className="mt-3 text-[#B6BCC8]">
+            {totalCount > 0 ? `${totalCount} live demos` : "Explore what people have shipped with Obsidian."}
+          </p>
         </div>
       </Reveal>
       <Reveal delay={100}>
-        <div className="flex flex-wrap justify-center gap-2 mb-8">
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
           {(["All", ...DEMO_CATEGORIES] as const).map((c) => {
             const active = cat === c;
             return (
               <button
                 key={c}
                 type="button"
-                onClick={() => setCat(c)}
+                onClick={() => handleCat(c)}
                 className={`px-4 py-1.5 rounded-full text-xs font-medium border transition ${
                   active
                     ? "border-[#F4A125]/60 bg-[#F4A125]/15 text-[#F4A125] shadow-[0_0_20px_rgba(244,161,37,0.25)]"
@@ -106,38 +134,51 @@ function LiveDemosSection() {
         </div>
       </Reveal>
       <Reveal delay={150}>
-        {items.length === 0 ? (
-          <div className="text-center text-[#8b93a1] text-sm py-16">No demos in this category yet.</div>
-        ) : (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
-            {items.map((it) => (
-              <a
-                key={it.href}
-                href={it.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="group glass rounded-2xl overflow-hidden border border-white/10 hover:border-[#F4A125]/50 transition shadow-[0_10px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_20px_60px_rgba(244,161,37,0.15)]"
-              >
-                <div className="relative aspect-[4/3] overflow-hidden bg-[#0b0d10]">
-                  <img
-                    src={it.src}
-                    alt={it.title}
-                    loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  />
-                  <div className="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-black/70 text-[#F4A125] border border-[#F4A125]/30">
-                    {it.subtitle}
-                  </div>
-                </div>
-                <div className="p-4">
-                  <div className="text-white font-semibold text-sm line-clamp-1">{it.title}</div>
-                  <div className="text-[11px] text-[#B6BCC8] mt-1">Open demo →</div>
-                </div>
-              </a>
-            ))}
-          </div>
-        )}
+        <div className="flex justify-center mb-6">
+          <button
+            type="button"
+            onClick={() => setExpanded((v) => !v)}
+            className="px-6 py-2.5 rounded-full text-sm font-semibold border border-[#F4A125]/50 bg-[#F4A125]/10 text-[#F4A125] hover:bg-[#F4A125]/20 transition shadow-[0_0_25px_rgba(244,161,37,0.2)]"
+          >
+            {expanded ? "Hide demos" : `Show ${items.length || totalCount} demo${(items.length || totalCount) === 1 ? "" : "s"}`}
+          </button>
+        </div>
       </Reveal>
+      {expanded && (
+        <Reveal delay={200}>
+          {items.length === 0 ? (
+            <div className="text-center text-[#8b93a1] text-sm py-16">No demos in this category yet.</div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+              {items.map((it) => (
+                <a
+                  key={it.href}
+                  href={it.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group glass rounded-2xl overflow-hidden border border-white/10 hover:border-[#F4A125]/50 transition shadow-[0_10px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_20px_60px_rgba(244,161,37,0.15)]"
+                >
+                  <div className="relative aspect-[4/3] overflow-hidden bg-[#0b0d10]">
+                    <img
+                      src={it.src}
+                      alt={it.title}
+                      loading="lazy"
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                    />
+                    <div className="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-black/70 text-[#F4A125] border border-[#F4A125]/30">
+                      {it.subtitle}
+                    </div>
+                  </div>
+                  <div className="p-4">
+                    <div className="text-white font-semibold text-sm line-clamp-1">{it.title}</div>
+                    <div className="text-[11px] text-[#B6BCC8] mt-1">Open demo →</div>
+                  </div>
+                </a>
+              ))}
+            </div>
+          )}
+        </Reveal>
+      )}
     </section>
   );
 }
