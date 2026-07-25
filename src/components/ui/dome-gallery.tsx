@@ -521,8 +521,8 @@ export default function DomeGallery({
         <div
           className="pointer-events-none fixed z-[100]"
           style={{
-            left: Math.min(hover.x + 20, (typeof window !== "undefined" ? window.innerWidth : 1200) - 340),
-            top: Math.max(12, Math.min(hover.y - 160, (typeof window !== "undefined" ? window.innerHeight : 800) - 340)),
+            left: Math.max(12, Math.min(hover.x - 160, (typeof window !== "undefined" ? window.innerWidth : 1200) - 332)),
+            top: Math.max(12, Math.min(hover.y - 160, (typeof window !== "undefined" ? window.innerHeight : 800) - 332)),
             width: 320,
             height: 320,
             borderRadius: 16,
