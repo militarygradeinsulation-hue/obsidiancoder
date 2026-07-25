@@ -474,8 +474,8 @@ function Home() {
           </Reveal>
           <div className="grid md:grid-cols-3 gap-5">
             {[
-              { icon: Zap, title: "Best default model", body: "We pick the strongest model for each task so your first build is quality — not a demo toy." },
-              { icon: Shield, title: "Honest limits", body: "Free = one project, limited revisions, 7-day retention. You know before you start." },
+              { icon: Zap, title: "Built for non-coders", body: "No confusing options or technical jargon. Just describe what you want and get a working product on the first try." },
+              { icon: Shield, title: "Honest limits", body: "Free = one project, limited revisions, 7-day retention. You know before you start. No gotchas." },
               { icon: Rocket, title: "Upgrade only when needed", body: "Deploy, permanent save, exports, auth, databases, and premium models on paid plans." },
             ].map(({ icon: Icon, title, body }, i) => (
               <Reveal key={title} delay={i * 100}>
