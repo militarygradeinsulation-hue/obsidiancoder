@@ -105,7 +105,7 @@ export default function AnomalousMatterScene({
         void main() {
           vNormal = normal;
           vPosition = position;
-          float displacement = snoise(position * 2.0 + time * 0.5) * 0.2;
+          float displacement = snoise(position * 2.0 + time * 0.9) * 0.35;
           vec3 newPosition = position + normal * displacement;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
         }
