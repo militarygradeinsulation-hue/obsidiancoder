@@ -31,13 +31,13 @@ export function containsPreviewOnly(html: string): boolean {
 // that navigation neutralized. In-page anchors (#foo), mailto:, tel:, and
 // third-party URLs are left alone.
 
-// Only creator-app paths that no standalone export would legitimately use.
-// Explicitly excludes "/", "/checkout", "/dashboard", "/gallery", "/demos"
-// because those are common in generic apps (a landscaping demo linking to
-// "/checkout" or a portfolio's Home logo href="/" must keep working).
 const BLOCKED_PATH_PREFIXES = [
+  "/dashboard",
+  "/gallery",
+  "/demos",
   "/unlock",
   "/auth",
+  "/checkout",
   "/admin",
 ];
 
@@ -54,7 +54,7 @@ function hostIsBlocked(host: string): boolean {
 }
 
 function pathIsBlocked(pathname: string): boolean {
-  if (!pathname) return false;
+  if (!pathname || pathname === "/" || pathname === "/index" || pathname === "/index.html") return true;
   for (const p of BLOCKED_PATH_PREFIXES) {
     if (pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p + "?") || pathname.startsWith(p + "#")) {
       return true;
@@ -62,7 +62,6 @@ function pathIsBlocked(pathname: string): boolean {
   }
   return false;
 }
-
 
 /**
  * True if `target` (the value of an href/action/formaction attribute or a
@@ -105,7 +104,7 @@ export function isCreatorTarget(target: string): boolean {
 
   // Bare/relative link like "dashboard" or "unlock?x=1" — treat conservatively.
   const firstSeg = raw.split(/[/?#]/)[0].toLowerCase();
-  if (["unlock", "auth", "admin"].includes(firstSeg)) {
+  if (["dashboard", "gallery", "demos", "unlock", "auth", "checkout", "admin"].includes(firstSeg)) {
     return true;
   }
   return false;
@@ -152,6 +151,25 @@ function stripMetaRefresh(html: string): string {
   );
 }
 
+// Neutralize <script> blocks that assign a blocked URL to a location target.
+// Conservative: only touch scripts that both mention a location target AND a
+// blocked path/host as a string literal.
+function stripCreatorNavScripts(html: string): string {
+  return html.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, (m, body: string) => {
+    if (!/(location\.(assign|replace|href)|window\.open|top\.location|parent\.location)/.test(body)) {
+      return m;
+    }
+    const strings = body.match(/"([^"\n]*)"|'([^'\n]*)'/g) ?? [];
+    for (const s of strings) {
+      const inner = s.slice(1, -1);
+      if (isCreatorTarget(inner)) {
+        return `<script data-obsidian-blocked="1">/* creator-nav removed */</script>`;
+      }
+    }
+    return m;
+  });
+}
+
 export function stripCreatorLinks(html: string): string {
   if (!html) return html;
   let out = html;
@@ -162,9 +180,7 @@ export function stripCreatorLinks(html: string): string {
   out = replaceNavAttrs(out, "action");
   out = replaceNavAttrs(out, "formaction");
   out = stripMetaRefresh(out);
-  // Note: <script> bodies are NOT rewritten. Standalone builds often include
-  // their own SPA router, redirect logic, or checkout scripts with quoted
-  // path literals — blanket-wiping those scripts breaks legitimate demos.
+  out = stripCreatorNavScripts(out);
   return out;
 }
 

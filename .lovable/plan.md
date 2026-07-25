@@ -1,43 +1,30 @@
-# Fix: "Build Free" promise blocked by paywall
+## Goal
+Give visitors a choice between the new 3D sphere and the classic thumbnail grid for the Live Demos section on `/unlock`, so they can actually see previews.
 
-## Confirmed issue
-The homepage (`src/routes/index.tsx`) and `/build` (`src/routes/build.tsx`) advertise "one high-quality project free, no credit card required" and route every CTA to `/build`. But the moment a visitor submits a prompt, `src/routes/api/generate.ts` calls `requirePaidOperation(...)` in `src/lib/credit-gate.server.ts`, which returns `401 auth_required` for anonymous callers and `402 not_pro` for signed-in free users. The client's `authFetch` turns that into an `obs:paywall` event and `build.tsx` opens the pricing modal. There is no free-tier bypass or anonymous quota anywhere in `credit-gate.server.ts` or `gate.functions.ts`.
+## Changes (scoped to `src/routes/unlock.tsx` + `src/styles.css`)
 
-This needs a product decision before code — two viable directions.
+1. **View toggle state**
+   - Add `demoView: "sphere" | "grid"` state, default `"sphere"`.
+   - Persist choice in `localStorage` (`obsidian.demoView`) so it sticks between visits.
 
-## Option A — Deliver one real free build (recommended, matches current copy)
+2. **Toggle UI**
+   - Inside the Live Demos section header (next to the existing category chips), add a small segmented control: `[ Sphere | Grid ]`, styled with the existing glass pill treatment used by the top nav.
 
-Grant every visitor (anonymous or signed-in free) exactly one successful `generate_html` per browser + IP, then paywall everything after that (including further edits, enhance, chat).
+3. **Conditional render**
+   - If `demoView === "sphere"` → keep the current `<SphereDemoGrid />`.
+   - If `demoView === "grid"` → render a responsive thumbnail grid:
+     - Card per demo showing category chip, title, and a live thumbnail.
+     - Thumbnail source priority: `featured_demos.thumbnail_url` if present, else a lightweight iframe screenshot fallback (`<img>` pointing at `/api/public/share/:slug/thumb` if it exists; otherwise a CSS gradient placeholder with the title — no network cost).
+     - Whole card is an `<a target="_blank">` to the demo URL.
+   - Grid uses the same filter state (category chips) already wired up.
 
-Server changes:
-- New table `public.free_build_ledger` (fingerprint text PK: sha256 of IP + a signed browser cookie id, `used_at timestamptz`, `environment text`). GRANT on the table + RLS restricting all access to `service_role`; the endpoint is the only reader/writer.
-- New helper in `src/lib/credit-gate.server.ts`: `tryConsumeFreeBuild(request)` that (a) reads/sets an httpOnly `obs_fb` cookie, (b) hashes cookie + `x-forwarded-for` first hop, (c) atomically inserts into the ledger, (d) returns `{ granted: true }` on first use and `{ granted: false, reason: "free_build_used" }` after.
-- `requirePaidOperation` in the same file gains an early branch: for `operation === "generate_html"` only, when the caller has no active Pro, call `tryConsumeFreeBuild`; if granted, return a synthetic `allowed` entitlement with `mode: "free_trial"` and skip the credit reservation. `enhance_prompt`, `patch_html`, and every other op stay paywalled.
-- `src/routes/api/generate.ts` needs no change beyond returning the new mode in the response so the client can display "You've used your free build — upgrade to keep going" after the first success.
+4. **Styling**
+   - Add `.demo-view-toggle`, `.demo-grid`, `.demo-grid-card`, `.demo-grid-thumb` rules in `src/styles.css` matching the burnt-gold / glass aesthetic. Mobile: single column; ≥640px: 2 cols; ≥1024px: 3 cols.
 
-Client changes:
-- `src/routes/build.tsx`: on a `free_build_used` denial, open the pricing modal with a friendly headline ("Your free build is saved — upgrade to keep editing") instead of the generic paywall copy.
-- `src/routes/index.tsx`: no copy changes needed; the promise now matches behaviour.
+## Out of scope
+- No changes to admin `/demos`, backend, or the demo data source.
+- No new thumbnail-generation pipeline; use existing `thumbnail_url` field or a gradient placeholder.
 
-Risk: single-IP abuse is possible but bounded (one free `generate_html` per fingerprint). No credit-card cost since generate is served through the existing AI gateway budget.
-
-## Option B — Keep the paywall, correct the copy
-
-If the business does not want to give anonymous visitors a free `generate_html`, update `src/routes/index.tsx` so the hero, nav, examples, and pricing tier stop promising a free build. Concretely:
-- Nav CTA "Build Free" → "See pricing" (links to `/unlock`).
-- Hero CTA "Build Free – No Credit Card Required" → "Start your 7-day Pro trial for $5" (links to `/unlock?intent=buy&priceId=obsidian_try_pro_7day`).
-- Pricing tile "Free · $0 · Start free" → remove entirely (or convert to "$5 trial").
-- FAQ answer "Do I need an account? Not to try." → rewrite to reflect that a paid trial is required.
-- Example-prompt tiles still link to `/build`, but `/build` gets a `beforeLoad` gate that redirects unauthenticated + non-Pro users to `/unlock` with `?intent=buy`.
-
-Risk: none — this is a copy/routing change.
-
-## Recommendation
-Option A. It's the smaller lie to fix (the copy is already live and users have seen it), the entitlement plumbing already understands multiple modes, and one free `generate_html` per fingerprint is a common conversion funnel. Option B is only better if you specifically don't want any anonymous AI spend.
-
-## Technical detail (for engineer implementing A)
-- Migration must GRANT `ALL` on `public.free_build_ledger` to `service_role` only, no anon/authenticated grants; `ENABLE ROW LEVEL SECURITY`; no policies (locked).
-- Fingerprint hash uses `SESSION_SECRET` as HMAC key so the same IP + different browsers don't collide, and so a leaked cookie can't be replayed across projects.
-- Cookie: `obs_fb=<uuid>; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=63072000`.
-- On a successful free build, immediately update `subscriptions`-analogue state exposed by `/api/public/entitlement.ts` so the CreditBar shows "Free build used — upgrade" instead of "0 credits".
-- Do NOT extend the free path to `enhance_prompt` or `patch_html` — one full generation only.
+## Technical notes
+- `SphereDemoGrid` stays mounted only when selected to avoid its RAF loop running in the background.
+- One clarifying assumption: featured demos already expose a URL and title; if a `thumbnail_url` column doesn't exist, the grid falls back to gradient placeholders — no schema change needed.

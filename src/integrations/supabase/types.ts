@@ -233,27 +233,6 @@ export type Database = {
         }
         Relationships: []
       }
-      free_build_ledger: {
-        Row: {
-          environment: string
-          fingerprint: string
-          ip_prefix: string | null
-          used_at: string
-        }
-        Insert: {
-          environment: string
-          fingerprint: string
-          ip_prefix?: string | null
-          used_at?: string
-        }
-        Update: {
-          environment?: string
-          fingerprint?: string
-          ip_prefix?: string | null
-          used_at?: string
-        }
-        Relationships: []
-      }
       one_time_purchases: {
         Row: {
           amount_paid: number
@@ -365,10 +344,8 @@ export type Database = {
           created_at: string | null
           current_period_end: string | null
           current_period_start: string | null
-          custom_amount_cents: number | null
           environment: string
           id: string
-          plan_tier: string | null
           price_id: string
           product_id: string
           status: string
@@ -382,10 +359,8 @@ export type Database = {
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
-          custom_amount_cents?: number | null
           environment?: string
           id?: string
-          plan_tier?: string | null
           price_id: string
           product_id: string
           status?: string
@@ -399,10 +374,8 @@ export type Database = {
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
-          custom_amount_cents?: number | null
           environment?: string
           id?: string
-          plan_tier?: string | null
           price_id?: string
           product_id?: string
           status?: string
@@ -410,60 +383,6 @@ export type Database = {
           stripe_subscription_id?: string
           updated_at?: string | null
           user_id?: string
-        }
-        Relationships: []
-      }
-      trial_claims: {
-        Row: {
-          amount_paid: number
-          created_at: string
-          credit_applied: boolean
-          credit_applied_at: string | null
-          currency: string
-          email: string | null
-          environment: string
-          expires_at: string | null
-          id: string
-          paid: boolean
-          paid_at: string | null
-          stripe_customer_id: string | null
-          stripe_session_id: string | null
-          updated_at: string
-          user_id: string | null
-        }
-        Insert: {
-          amount_paid?: number
-          created_at?: string
-          credit_applied?: boolean
-          credit_applied_at?: string | null
-          currency?: string
-          email?: string | null
-          environment?: string
-          expires_at?: string | null
-          id?: string
-          paid?: boolean
-          paid_at?: string | null
-          stripe_customer_id?: string | null
-          stripe_session_id?: string | null
-          updated_at?: string
-          user_id?: string | null
-        }
-        Update: {
-          amount_paid?: number
-          created_at?: string
-          credit_applied?: boolean
-          credit_applied_at?: string | null
-          currency?: string
-          email?: string | null
-          environment?: string
-          expires_at?: string | null
-          id?: string
-          paid?: boolean
-          paid_at?: string | null
-          stripe_customer_id?: string | null
-          stripe_session_id?: string | null
-          updated_at?: string
-          user_id?: string | null
         }
         Relationships: []
       }

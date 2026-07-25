@@ -4,17 +4,15 @@
 // a waitlist CTA until the corresponding Stripe price is live.
 
 import type { LucideIcon } from "lucide-react";
-import { Rocket, Sparkles, Briefcase, Building2, Crown, Landmark, Zap } from "lucide-react";
+import { Rocket, Sparkles, Briefcase, Building2, Crown, Landmark } from "lucide-react";
 
 export type PlanTierId =
-  | "try_pro"
   | "starter"
   | "creator"
   | "professional"
   | "business"
   | "elite"
   | "enterprise";
-
 
 export interface PlanTier {
   id: PlanTierId;
@@ -34,33 +32,13 @@ export interface PlanTier {
   founding?: boolean;
 }
 
-export const TRY_PRO_PRICE_ID = "obsidian_try_pro_7day";
-export const TRIAL_CREDIT_COUPON_ID = "obsidian_trial_credit_5";
-
 export const PLAN_TIERS: PlanTier[] = [
-  {
-    id: "try_pro",
-    name: "Try Pro",
-    price: "$5",
-    cadence: "one-time · 7 days",
-    headline: "Build one real app with the full premium experience.",
-    bestFor: "Anyone who wants to feel the Creator experience before committing.",
-    outcomes: [
-      "1 premium project for 7 days",
-      "Full premium model access",
-      "Deploy & share your build",
-      "$5 credited toward Creator if you upgrade",
-      "One trial per account",
-    ],
-    priceId: TRY_PRO_PRICE_ID,
-    cta: "checkout",
-    icon: Zap,
-  },
-
   {
     id: "starter",
     name: "Starter",
-    price: "$29",
+    price: "$19",
+    originalPrice: "$29",
+    founding: true,
     cadence: "/month",
     headline: "Perfect for learning and small projects.",
     bestFor: "First-time builders exploring what AI can ship.",
@@ -78,7 +56,9 @@ export const PLAN_TIERS: PlanTier[] = [
   {
     id: "creator",
     name: "Creator",
-    price: "$79",
+    price: "$49",
+    originalPrice: "$79",
+    founding: true,
     cadence: "/month",
     headline: "For solo builders shipping regularly.",
     bestFor: "Independent builders and side-project founders.",
@@ -202,7 +182,6 @@ export function tierForPriceId(priceId: string | null | undefined): PlanTier | u
  * returns 0 (free plan — no paid AI operations).
  */
 export const TIER_CREDIT_CAP: Record<PlanTierId, number> = {
-  try_pro: 400,
   starter: 400,
   creator: 1000,
   professional: 2500,
@@ -210,7 +189,6 @@ export const TIER_CREDIT_CAP: Record<PlanTierId, number> = {
   elite: 12000,
   enterprise: 12000,
 };
-
 
 export function capForTier(tier: PlanTierId | null | undefined): number {
   if (!tier) return 0;

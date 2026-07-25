@@ -80,10 +80,19 @@ function buildItems(pool: ImageItem[], seg: number): ItemDef[] {
   const normalized = pool.map((image) =>
     typeof image === "string" ? { src: image, alt: "", href: undefined } : { src: image.src || "", alt: image.alt || "", href: image.href },
   );
-  // Never duplicate an image to fill unused slots — leave them empty instead.
-  const used = Array.from({ length: totalSlots }, (_, i) =>
-    i < normalized.length ? normalized[i] : { src: "", alt: "", href: undefined },
-  );
+  const used = Array.from({ length: totalSlots }, (_, i) => normalized[i % normalized.length]);
+  for (let i = 1; i < used.length; i++) {
+    if (used[i].src === used[i - 1].src) {
+      for (let j = i + 1; j < used.length; j++) {
+        if (used[j].src !== used[i].src) {
+          const tmp = used[i];
+          used[i] = used[j];
+          used[j] = tmp;
+          break;
+        }
+      }
+    }
+  }
   return coords.map((c, i) => ({ ...c, src: used[i].src, alt: used[i].alt, href: used[i].href }));
 }
 
@@ -464,25 +473,25 @@ export default function DomeGallery({
                     top: "-999px", bottom: "-999px", left: "-999px", right: "-999px",
                   } as React.CSSProperties}
                 >
-                  {it.src ? (
-                    <div
-                      className="item__image absolute block overflow-hidden cursor-pointer bg-gray-200 transition-transform duration-300"
-                      role="button"
-                      tabIndex={0}
-                      aria-label={it.alt || "Open image"}
-                      onClick={(e) => {
-                        if (performance.now() - lastDragEndAt.current < 80) return;
-                        openItemFromElement(e.currentTarget as HTMLElement);
-                      }}
-                      onTouchEnd={(e) => {
-                        if (performance.now() - lastDragEndAt.current < 80) return;
-                        openItemFromElement(e.currentTarget as unknown as HTMLElement);
-                      }}
-                      onMouseEnter={(e) => setHover({ src: it.src, alt: it.alt, x: e.clientX, y: e.clientY })}
-                      onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
-                      onMouseLeave={() => setHover(null)}
-                      style={{ inset: "10px", borderRadius: `var(--tile-radius, ${imageBorderRadius})`, backfaceVisibility: "hidden" }}
-                    >
+                  <div
+                    className="item__image absolute block overflow-hidden cursor-pointer bg-gray-200 transition-transform duration-300"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={it.alt || "Open image"}
+                    onClick={(e) => {
+                      if (performance.now() - lastDragEndAt.current < 80) return;
+                      openItemFromElement(e.currentTarget as HTMLElement);
+                    }}
+                    onTouchEnd={(e) => {
+                      if (performance.now() - lastDragEndAt.current < 80) return;
+                      openItemFromElement(e.currentTarget as unknown as HTMLElement);
+                    }}
+                    onMouseEnter={(e) => setHover({ src: it.src, alt: it.alt, x: e.clientX, y: e.clientY })}
+                    onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
+                    onMouseLeave={() => setHover(null)}
+                    style={{ inset: "10px", borderRadius: `var(--tile-radius, ${imageBorderRadius})`, backfaceVisibility: "hidden" }}
+                  >
+                    {it.src ? (
                       <img
                         src={it.src}
                         draggable={false}
@@ -490,8 +499,8 @@ export default function DomeGallery({
                         className="w-full h-full object-cover pointer-events-none"
                         style={{ backfaceVisibility: "hidden", filter: `var(--image-filter, ${grayscale ? "grayscale(1)" : "none"})` }}
                       />
-                    </div>
-                  ) : null}
+                    ) : null}
+                  </div>
                 </div>
               ))}
             </div>
@@ -512,8 +521,8 @@ export default function DomeGallery({
         <div
           className="pointer-events-none fixed z-[100]"
           style={{
-            left: Math.max(12, Math.min(hover.x - 160, (typeof window !== "undefined" ? window.innerWidth : 1200) - 332)),
-            top: Math.max(12, Math.min(hover.y - 160, (typeof window !== "undefined" ? window.innerHeight : 800) - 332)),
+            left: Math.min(hover.x + 20, (typeof window !== "undefined" ? window.innerWidth : 1200) - 340),
+            top: Math.max(12, Math.min(hover.y - 160, (typeof window !== "undefined" ? window.innerHeight : 800) - 340)),
             width: 320,
             height: 320,
             borderRadius: 16,

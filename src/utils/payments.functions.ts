@@ -1,24 +1,8 @@
-// Server functions for Stripe checkout. All amount-based self-serve purchases
-// route through `createOfferCheckout` which delegates to `resolveOfferForAmount`
-// (src/lib/pricing-resolver.ts). No route may create a Checkout Session with a
-// legacy `priceId` — inline `price_data` at the exact selected amount is the
-// canonical path, with a single fixed-price fallback for the $5 Try Pro trial.
-//
-// Every session uses `ui_mode: "embedded"` (the valid Stripe value) and
-// `return_url` that includes the `{CHECKOUT_SESSION_ID}` template.
-
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
-import { TRIAL_CREDIT_COUPON_ID } from "@/lib/plans";
-import {
-  resolveOfferForAmount,
-  TRY_PRO_LOOKUP_KEY,
-  MIN_AMOUNT_CENTS,
-  MAX_AMOUNT_CENTS,
-  type Offer,
-} from "@/lib/pricing-resolver";
+import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
 
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
@@ -26,6 +10,7 @@ type CancelResult = { ok: true } | { error: string };
 
 export const WHITELIST_PRICE_ID = "whitelist_early_access_onetime";
 export const WHITELIST_CAP = 1000;
+
 
 async function resolveOrCreateCustomer(
   stripe: ReturnType<typeof createStripeClient>,
@@ -57,197 +42,66 @@ async function resolveOrCreateCustomer(
   return created.id;
 }
 
-// ────────────────────────────────────────────────────────────────────────────
-// Canonical checkout: amount (cents) → Stripe embedded checkout session.
-// ────────────────────────────────────────────────────────────────────────────
-export const createOfferCheckout = createServerFn({ method: "POST" })
+
+
+export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { amountCents: number; returnUrl: string; environment: StripeEnv }) => {
-    const offer = resolveOfferForAmount(data.amountCents);
-    if (offer.kind === "invalid") throw new Error(offer.reason);
-    if (offer.kind === "enterprise") {
-      throw new Error("$500+ plans require contacting sales at sales@obsidianvibe.live.");
+  .inputValidator((data: { priceId: string; returnUrl: string; environment: StripeEnv }) => {
+    if (!/^[a-zA-Z0-9_-]+$/.test(data.priceId)) throw new Error("Invalid priceId");
+    // Launch policy: allow any tier whose Stripe price has been provisioned
+    // in the Obsidian catalog. Enterprise is contact-sales, not self-serve.
+    // Legacy `obsidian_pro_monthly` remains callable for backward compat.
+    const allowed = new Set<string>([...PURCHASABLE_LOOKUP_KEYS, "obsidian_pro_monthly"]);
+    if (!allowed.has(data.priceId)) {
+      throw new Error("This plan is not available for self-serve checkout. Contact sales for Enterprise.");
     }
-    if (typeof data.returnUrl !== "string" || !/^https?:\/\//.test(data.returnUrl)) {
-      throw new Error("Invalid returnUrl");
-    }
-    if (data.environment !== "sandbox" && data.environment !== "live") {
-      throw new Error("Invalid environment");
-    }
-    return { ...data, amountCents: offer.amountCents };
+    return data;
   })
   .handler(async ({ data, context }): Promise<CheckoutSessionResult> => {
-    const requestId = `chk_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-    let offer: Offer | null = null;
     try {
-      offer = resolveOfferForAmount(data.amountCents);
-      if (offer.kind !== "trial" && offer.kind !== "subscription") {
-        return { error: "This amount cannot be purchased. Choose $5 to $499." };
-      }
-
       const { supabase, userId } = context;
       const { data: userData } = await supabase.auth.getUser();
       const email = userData.user?.email ?? undefined;
+
       const stripe = createStripeClient(data.environment);
-
-      // Duplicate-subscription guard. Users with an active row must use the
-      // Customer Portal to change plans — creating a second row here would
-      // double-bill them.
-      if (offer.kind === "subscription") {
-        const { data: activeSub } = await supabase
-          .from("subscriptions")
-          .select("stripe_subscription_id, status")
-          .eq("user_id", userId)
-          .eq("environment", data.environment)
-          .in("status", ["active", "trialing"])
-          .order("created_at", { ascending: false })
-          .limit(1)
-          .maybeSingle();
-        if (activeSub?.stripe_subscription_id) {
-          return {
-            error: "You already have an active subscription. Open Manage subscription to change your plan.",
-          };
-        }
-      }
-
-      // Try-Pro guard: one paid trial per user + environment.
-      if (offer.kind === "trial") {
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data: existing } = await supabaseAdmin
-          .from("trial_claims" as never)
-          .select("id")
-          .eq("user_id", userId)
-          .eq("environment", data.environment)
-          .eq("paid", true)
-          .limit(1)
-          .maybeSingle();
-        if (existing) {
-          return { error: "You've already used your $5 Try Pro trial. Choose a paid plan to continue." };
-        }
-      }
+      const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
+      if (!prices.data.length) throw new Error("Price not found");
+      const stripePrice = prices.data[0];
+      const isRecurring = stripePrice.type === "recurring";
 
       const customerId = await resolveOrCreateCustomer(stripe, { email, userId });
 
-      // $5 trial credit toward ANY paid subscription (was Creator-only).
-      let discounts: Array<{ coupon: string }> | undefined;
-      if (offer.kind === "subscription") {
-        try {
-          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-          const { data: claim } = await supabaseAdmin
-            .from("trial_claims" as never)
-            .select("id")
-            .eq("user_id", userId)
-            .eq("environment", data.environment)
-            .eq("paid", true)
-            .eq("credit_applied", false)
-            .limit(1)
-            .maybeSingle();
-          if (claim) {
-            try { await stripe.coupons.retrieve(TRIAL_CREDIT_COUPON_ID); }
-            catch {
-              try {
-                await stripe.coupons.create({
-                  id: TRIAL_CREDIT_COUPON_ID,
-                  amount_off: 500,
-                  currency: "usd",
-                  duration: "once",
-                  name: "Try Pro $5 credit",
-                });
-              } catch { /* concurrent create OK */ }
-            }
-            discounts = [{ coupon: TRIAL_CREDIT_COUPON_ID }];
-          }
-        } catch { /* best-effort, never block checkout */ }
-      }
-
-      if (offer.kind === "trial") {
-        const prices = await stripe.prices.list({ lookup_keys: [TRY_PRO_LOOKUP_KEY] });
-        if (!prices.data.length) return { error: "Trial price is not configured. Contact support." };
-        const stripePrice = prices.data[0];
-        const productId = typeof stripePrice.product === "string" ? stripePrice.product : stripePrice.product.id;
+      let productDescription: string | undefined;
+      if (!isRecurring) {
+        const productId = typeof stripePrice.product === "string"
+          ? stripePrice.product
+          : stripePrice.product.id;
         const product = await stripe.products.retrieve(productId);
-
-        console.log("[checkout]", { requestId, kind: "trial", amountCents: offer.amountCents, tier: offer.tier, env: data.environment });
-
-        const session = await stripe.checkout.sessions.create({
-          line_items: [{ price: stripePrice.id, quantity: 1 }],
-          mode: "payment",
-          ui_mode: "embedded",
-          return_url: data.returnUrl,
-          customer: customerId,
-          payment_intent_data: { description: product.name },
-          metadata: {
-            userId,
-            offer_kind: "trial",
-            plan_tier: offer.tier,
-            amount_cents: String(offer.amountCents),
-            trial_claim: "1",
-          },
-        });
-        return { clientSecret: session.client_secret ?? "" };
+        productDescription = product.name;
       }
-
-      const dollars = Math.round(offer.amountCents / 100);
-      console.log("[checkout]", { requestId, kind: "subscription", amountCents: offer.amountCents, tier: offer.tier, env: data.environment, trialCredit: !!discounts });
 
       const session = await stripe.checkout.sessions.create({
-        mode: "subscription",
-        ui_mode: "embedded",
+        line_items: [{ price: stripePrice.id, quantity: 1 }],
+        mode: isRecurring ? "subscription" : "payment",
+        ui_mode: "embedded_page",
         return_url: data.returnUrl,
         customer: customerId,
-        line_items: [{
-          quantity: 1,
-          price_data: {
-            currency: "usd",
-            recurring: { interval: "month" },
-            unit_amount: offer.amountCents,
-            product_data: {
-              name: `Obsidian ${offer.tier.replace(/_/g, " ")} — $${dollars}/mo`,
-              metadata: {
-                obsidian_offer: "1",
-                amount_cents: String(offer.amountCents),
-                plan_tier: offer.tier,
-              },
-            },
+        ...(!isRecurring && { payment_intent_data: { description: productDescription } }),
+        metadata: { userId, priceId: data.priceId, planTier: tierForPriceId(data.priceId)?.id ?? "" },
+        ...(isRecurring && {
+          subscription_data: {
+            metadata: { userId, priceId: data.priceId, planTier: tierForPriceId(data.priceId)?.id ?? "" },
+            proration_behavior: "create_prorations",
           },
-        }],
-        ...(discounts && { discounts }),
-        metadata: {
-          userId,
-          offer_kind: "subscription",
-          plan_tier: offer.tier,
-          amount_cents: String(offer.amountCents),
-          ...(discounts && { trial_credit_applied: "1" }),
-        },
-        subscription_data: {
-          metadata: {
-            userId,
-            offer_kind: "subscription",
-            plan_tier: offer.tier,
-            amount_cents: String(offer.amountCents),
-            ...(discounts && { trial_credit_applied: "1" }),
-          },
-          proration_behavior: "create_prorations",
-        },
-      });
+        }),
+      } as any);
+
       return { clientSecret: session.client_secret ?? "" };
     } catch (error) {
-      const errObj = error as { code?: string; type?: string; message?: string };
-      console.error("[checkout error]", {
-        requestId,
-        code: errObj?.code ?? null,
-        type: errObj?.type ?? null,
-        env: data.environment,
-        amountCents: offer?.kind === "trial" || offer?.kind === "subscription" ? offer.amountCents : data.amountCents,
-        tier: offer?.kind === "trial" || offer?.kind === "subscription" ? offer.tier : null,
-      });
       return { error: getStripeErrorMessage(error) };
     }
   });
 
-// ────────────────────────────────────────────────────────────────────────────
-// Manage-subscription portal (unchanged behavior, kept explicit for clarity).
-// ────────────────────────────────────────────────────────────────────────────
 export const createPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { returnUrl?: string; environment: StripeEnv }) => data)
@@ -274,6 +128,9 @@ export const createPortalSession = createServerFn({ method: "POST" })
     }
   });
 
+// User chose "Revoke immediately on cancel" — cancel the sub via API,
+// not just at period end. Webhook flips status → 'canceled' and
+// has_active_pro() returns false immediately.
 export const cancelSubscriptionNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { environment: StripeEnv }) => data)
@@ -298,9 +155,11 @@ export const cancelSubscriptionNow = createServerFn({ method: "POST" })
     }
   });
 
-// ────────────────────────────────────────────────────────────────────────────
-// Whitelist / early-access $100 one-time — kept isolated from tier flow.
-// ────────────────────────────────────────────────────────────────────────────
+// ─── Whitelist / early-access checkout ────────────────────────────────────────
+// Public (unauthenticated) $100 one-time purchase. Creates a pending waitlist
+// row first, then opens Stripe embedded checkout with the row id in metadata.
+// The payments webhook flips the row to paid=true on
+// `checkout.session.completed`. Capped at 1,000 paid entries.
 
 const whitelistInput = z.object({
   name: z.string().trim().min(1).max(200),
@@ -323,6 +182,7 @@ export const createWhitelistCheckout = createServerFn({ method: "POST" })
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
 
+      // Cap check — reject once 1,000 paid spots are taken.
       const { data: countData, error: countErr } = await supabaseAdmin
         .rpc("waitlist_paid_count" as never);
       if (countErr) return { error: countErr.message };
@@ -332,6 +192,7 @@ export const createWhitelistCheckout = createServerFn({ method: "POST" })
         return { error: "The first 1,000 early-access spots are all claimed.", full: true, remaining: 0 };
       }
 
+      // Insert pending row (paid=false). Uses service role → bypasses RLS.
       const { data: inserted, error: insertErr } = await supabaseAdmin
         .from("waitlist_entries")
         .insert({
@@ -361,7 +222,7 @@ export const createWhitelistCheckout = createServerFn({ method: "POST" })
       const session = await stripe.checkout.sessions.create({
         line_items: [{ price: stripePrice.id, quantity: 1 }],
         mode: "payment",
-        ui_mode: "embedded",
+        ui_mode: "embedded_page",
         return_url: data.returnUrl,
         customer_email: data.email.toLowerCase(),
         client_reference_id: entryId,
@@ -371,7 +232,7 @@ export const createWhitelistCheckout = createServerFn({ method: "POST" })
           waitlist_email: data.email.toLowerCase(),
           waitlist_tier: data.tier || "",
         },
-      });
+      } as never);
 
       return {
         clientSecret: session.client_secret ?? "",
@@ -391,5 +252,3 @@ export const getWhitelistStatus = createServerFn({ method: "GET" }).handler(asyn
   return { cap: WHITELIST_CAP, paid, remaining: Math.max(0, WHITELIST_CAP - paid) };
 });
 
-// Re-export the amount window for client callers that need to display bounds.
-export { MIN_AMOUNT_CENTS, MAX_AMOUNT_CENTS };

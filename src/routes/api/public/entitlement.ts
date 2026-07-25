@@ -8,7 +8,6 @@ import {
   resolveUserFromRequest,
   serverStripeEnv,
   hasActivePro,
-  capForUser,
 } from "@/lib/credit-gate.server";
 
 export type EntitlementMode = "owner" | "pro" | "free";
@@ -59,14 +58,10 @@ export const Route = createFileRoute("/api/public/entitlement")({
           };
           return new Response(JSON.stringify(snap), { headers: NO_STORE });
         }
-        // Active Pro — resolve the caller's real per-tier cap (Starter 400,
-        // Creator 1000, Professional 2500, Business 6000, Elite/Enterprise
-        // 12000) so the CreditBar and PricingModal match the server-side
-        // reservation cap used by usage_reserve.
-        const userCap = await capForUser(user.userId, env);
+        // Active Pro — pull the subscription-window balance from usage_balance.
         let periodStart: string | null = null;
         let periodEnd: string | null = null;
-        let used = 0, reserved = 0, remaining = userCap;
+        let used = 0, reserved = 0, remaining = 0;
         let subStatus: string | null = "active";
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
@@ -85,7 +80,7 @@ export const Route = createFileRoute("/api/public/entitlement")({
             periodEnd = r.current_period_end;
           }
           const { data: bal } = await supabaseAdmin.rpc("usage_balance" as never, {
-            _user_id: user.userId, _env: env, _cap: userCap,
+            _user_id: user.userId, _env: env, _cap: CAP_PRO_MONTHLY,
           } as never);
           const row = (Array.isArray(bal) ? bal[0] : bal) as
             | { used: number; reserved: number; cap: number; remaining: number; period_start: string | null; period_end: string | null; active: boolean }
@@ -100,9 +95,8 @@ export const Route = createFileRoute("/api/public/entitlement")({
         } catch { /* best-effort */ }
         const snap: EntitlementSnapshot = {
           mode: "pro", authed: true, subStatus, environment: env,
-          periodStart, periodEnd, used, reserved, cap: userCap, remaining,
+          periodStart, periodEnd, used, reserved, cap: CAP_PRO_MONTHLY, remaining,
         };
-
 
         return new Response(JSON.stringify(snap), { headers: NO_STORE });
       },

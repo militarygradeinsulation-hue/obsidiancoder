@@ -56,23 +56,17 @@ const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory
 type Intent = "buy" | "code";
 
 export const Route = createFileRoute("/unlock")({
-  validateSearch: (s: Record<string, unknown>) => {
-    const rawAmount = typeof s.amount === "string" ? parseInt(s.amount, 10)
-      : typeof s.amount === "number" ? s.amount : NaN;
-    const amount = Number.isInteger(rawAmount) && rawAmount >= 5 && rawAmount <= 499 ? rawAmount : undefined;
-    return {
-      password: typeof s.password === "string" ? s.password : undefined,
-      intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
-      checkout: s.checkout === "1" ? "1" : undefined,
-      priceId: typeof s.priceId === "string" && /^[a-zA-Z0-9_-]+$/.test(s.priceId) ? s.priceId : undefined,
-      amount,
-    };
-  },
+  validateSearch: (s: Record<string, unknown>) => ({
+    password: typeof s.password === "string" ? s.password : undefined,
+    intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
+    checkout: s.checkout === "1" ? "1" : undefined,
+    priceId: typeof s.priceId === "string" && /^[a-zA-Z0-9_-]+$/.test(s.priceId) ? s.priceId : undefined,
+  }),
   beforeLoad: async ({ search }) => {
     const pwd = (search as { password?: string }).password;
     if (!pwd) return;
     const { ok } = await unlockSite({ data: { password: pwd } });
-    if (ok) throw redirect({ to: "/build" });
+    if (ok) throw redirect({ to: "/" });
     throw redirect({ to: "/unlock" });
   },
   head: () => ({
@@ -125,9 +119,6 @@ function Unlock() {
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
   const [selectedPriceId, setSelectedPriceId] = useState<string>(
     search.priceId && typeof search.priceId === "string" ? search.priceId : CREATOR_PRICE_ID,
-  );
-  const [customAmount, setCustomAmount] = useState<number | null>(
-    typeof search.amount === "number" ? search.amount : null,
   );
   const [expandDetails, setExpandDetails] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
@@ -200,31 +191,13 @@ function Unlock() {
         if (cancelled) return;
         if (ok) {
           setStatus("Pro access verified — opening Obsidian…");
-          await router.navigate({ to: "/build" });
+          await router.navigate({ to: "/" });
           router.invalidate();
         }
       } catch { /* not pro or transport error — stay on page */ }
     })();
     return () => { cancelled = true; };
   }, [session?.userId, proUnlock, router]);
-
-  // If the user arrived from the pricing configurator with checkout intent
-  // but has no session, forward them into auth (preserving priceId or
-  // custom amount) instead of showing the pitch page.
-  useEffect(() => {
-    if (sessionLoading || session) return;
-    if (search.checkout !== "1" && search.intent !== "buy") return;
-    const params: string[] = ["intent=buy", "checkout=1"];
-    if (customAmount && customAmount >= 5 && customAmount <= 499) {
-      params.push(`amount=${customAmount}`);
-    } else {
-      const priceId = selectedPriceId || CREATOR_PRICE_ID;
-      params.push(`priceId=${encodeURIComponent(priceId)}`);
-    }
-    window.location.assign(buildAuthUrl("signup", `/unlock?${params.join("&")}`));
-  }, [sessionLoading, session, search.checkout, search.intent, selectedPriceId, customAmount]);
-
-
 
 
   async function onCodeSubmit(e: FormEvent<HTMLFormElement>) {
@@ -234,7 +207,7 @@ function Unlock() {
     try {
       const { ok } = await unlock({ data: { password } });
       if (ok) {
-        await router.navigate({ to: "/build" });
+        await router.navigate({ to: "/" });
         router.invalidate();
       } else setError("Access denied.");
     } catch { setError("Something went wrong. Try again."); }
@@ -410,39 +383,30 @@ function Unlock() {
           <section id="panel-buy" role="tabpanel" aria-labelledby="tab-buy">
             {!showCheckout && (
               <>
-                {(() => {
-                  const selectedTier = PLAN_TIERS.find((t) => t.priceId === selectedPriceId)
-                    ?? PLAN_TIERS.find((t) => t.priceId === CREATOR_PRICE_ID)!;
-                  const cadence = selectedTier.cadence || "/month";
-                  return (
-                    <>
-                      <h2 className="unlock-headline">Think it, Type it, See it.</h2>
-                      <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
+                <h2 className="unlock-headline">Think it, Type it, See it.</h2>
+                <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
 
-                      <div className="unlock-price">
-                        <span className="price-amount">{selectedTier.price}</span>
-                        <span className="price-cadence">{cadence}</span>
-                      </div>
-                      <p className="unlock-allowance">
-                        <strong style={{ color: "#F4A125" }}>{selectedTier.name}</strong> — {selectedTier.headline}
-                        {" "}Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period.
-                      </p>
+                <div className="unlock-price">
+                  <span className="price-amount">$49</span>
+                  <span className="price-cadence">/month</span>
+                  <span className="price-strike">$79</span>
+                </div>
+                <p className="unlock-allowance">
+                  <strong style={{ color: "#F4A125" }}>Founding Member Pricing</strong> — first 100 Creator members lock in $49/month for life.
+                  Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period.
+                </p>
 
-                      {status && <div className="unlock-status" role="status">{status}</div>}
-                      {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
+                {status && <div className="unlock-status" role="status">{status}</div>}
+                {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
 
-                      <button
-                        type="button"
-                        className="unlock-btn unlock-btn-primary"
-                        onClick={() => startPurchase(selectedTier.priceId!)}
-                        disabled={sessionLoading}
-                      >
-                        {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : `Start ${selectedTier.name} — ${selectedTier.price}${cadence}`}
-                      </button>
-                    </>
-                  );
-                })()}
-
+                <button
+                  type="button"
+                  className="unlock-btn unlock-btn-primary"
+                  onClick={() => startPurchase(CREATOR_PRICE_ID)}
+                  disabled={sessionLoading}
+                >
+                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $49/month"}
+                </button>
 
                 {plansOpen && (
                 <div className="plans-block" aria-labelledby="plans-heading">
@@ -569,9 +533,7 @@ function Unlock() {
                 <div className="checkout-header">
                   <div>
                     <div className="checkout-title">
-                      {customAmount
-                        ? `Obsidian Custom · $${customAmount}/mo`
-                        : (PLAN_TIERS.find((t) => t.priceId === selectedPriceId)?.name ?? "Obsidian")}
+                      {PLAN_TIERS.find((t) => t.priceId === selectedPriceId)?.name ?? "Obsidian"}
                     </div>
                     <div className="checkout-sub">
                       Signed in as {session.email ?? "your account"}
@@ -583,11 +545,9 @@ function Unlock() {
                   <button type="button" onClick={() => setShowCheckout(false)} className="checkout-back">← Back</button>
                 </div>
                 <CheckoutSurface
-                  priceId={customAmount ? undefined : selectedPriceId}
-                  amountCents={customAmount ? customAmount * 100 : undefined}
+                  priceId={selectedPriceId}
                   onCancel={() => setShowCheckout(false)}
                 />
-
 
                 <p className="checkout-legal">
                   Secure billing through Stripe. Cancel anytime. By continuing you accept our{" "}

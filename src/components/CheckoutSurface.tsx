@@ -1,21 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { getStripe, getStripeEnvironment } from "@/lib/stripe";
-import { createOfferCheckout } from "@/utils/payments.functions";
+import { createCheckoutSession } from "@/utils/payments.functions";
 import { nextCheckoutState, checkoutErrorFromThrow, type CheckoutState } from "@/lib/checkout-state";
-import { resolveOfferForAmount } from "@/lib/pricing-resolver";
 
 /**
- * Wrapper around Stripe Embedded Checkout. The ONLY input is `amountCents` —
- * every self-serve purchase resolves through `resolveOfferForAmount` so tier
- * lookup, capabilities, and billing come from a single source of truth.
+ * Wrapper around Stripe Embedded Checkout that surfaces explicit
+ * loading / error / retry / cancel states. The base <StripeEmbeddedCheckout />
+ * remains for callers that want Stripe to own the loading UX.
  */
 export function CheckoutSurface({
-  amountCents,
+  priceId,
   returnUrl,
   onCancel,
 }: {
-  amountCents: number;
+  priceId: string;
   returnUrl?: string;
   onCancel?: () => void;
 }) {
@@ -26,29 +25,22 @@ export function CheckoutSurface({
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
-      const offer = resolveOfferForAmount(amountCents);
-      if (offer.kind === "invalid") {
-        setState({ kind: "error", message: offer.reason });
-        return;
-      }
-      if (offer.kind === "enterprise") {
-        setState({ kind: "error", message: "$500+ plans are Enterprise — contact sales@obsidianvibe.live." });
-        return;
-      }
-      const resolvedReturn = returnUrl
-        || `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`;
-      const environment = getStripeEnvironment();
-      const result = await createOfferCheckout({
-        data: { amountCents: offer.amountCents, returnUrl: resolvedReturn, environment },
+      const result = await createCheckoutSession({
+        data: {
+          priceId,
+          returnUrl: returnUrl || `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
+          environment: getStripeEnvironment(),
+        },
       });
       setState(nextCheckoutState(result));
     } catch (err) {
       setState(checkoutErrorFromThrow(err));
     }
-  }, [amountCents, returnUrl]);
+  }, [priceId, returnUrl]);
 
   useEffect(() => { load(); }, [load, attempt]);
 
+  // Move focus to the live region when state changes so screen readers announce.
   useEffect(() => {
     if (state.kind !== "loading") focusRef.current?.focus();
   }, [state.kind]);
