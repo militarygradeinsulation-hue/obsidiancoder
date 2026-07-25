@@ -1010,10 +1010,16 @@ function Index() {
   }, [current.messages, loading, activeId]);
 
   const previewSrcDoc = useMemo(
-    () =>
-      injectRuntimeBridge(current.html ||
-        `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`),
-    [current.html],
+    () => {
+      const base = injectRuntimeBridge(current.html ||
+        `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`);
+      if (!current.themeCss) return base;
+      const styleTag = `<style data-obsidian-theme="${(current.themeName ?? "").replace(/"/g, "&quot;")}">\n${current.themeCss}\n</style>`;
+      if (/<\/head>/i.test(base)) return base.replace(/<\/head>/i, `${styleTag}</head>`);
+      if (/<body[^>]*>/i.test(base)) return base.replace(/<body([^>]*)>/i, `<body$1>${styleTag}`);
+      return styleTag + base;
+    },
+    [current.html, current.themeCss, current.themeName],
   );
 
   // Runtime bridge — listen for sanitized preview events, bounded to 100 per session.
