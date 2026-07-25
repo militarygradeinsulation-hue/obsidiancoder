@@ -231,7 +231,4 @@ function ThemeCard({
     </div>
   );
 }
-      </div>
-    </div>
-  );
-}
+
