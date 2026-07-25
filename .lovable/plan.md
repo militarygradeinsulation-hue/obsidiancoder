@@ -1,30 +1,27 @@
-## Goal
-Give visitors a choice between the new 3D sphere and the classic thumbnail grid for the Live Demos section on `/unlock`, so they can actually see previews.
+# Fix Live Demos section on the homepage
 
-## Changes (scoped to `src/routes/unlock.tsx` + `src/styles.css`)
+## What's wrong now
+- The database has **31** demos in `featured_demos`, but the grid renders them all inline, always open — so the section is huge and hard to scan.
+- Some rows have raw prompts as titles (e.g. `## Role & Persona…`), making the grid look messy and inconsistent.
+- User wants the section **collapsed by default**, expanded on click, and to actually surface every pushed demo.
 
-1. **View toggle state**
-   - Add `demoView: "sphere" | "grid"` state, default `"sphere"`.
-   - Persist choice in `localStorage` (`obsidian.demoView`) so it sticks between visits.
+## Changes
 
-2. **Toggle UI**
-   - Inside the Live Demos section header (next to the existing category chips), add a small segmented control: `[ Sphere | Grid ]`, styled with the existing glass pill treatment used by the top nav.
+1. **Collapse by default**
+   - Replace the always-visible grid in `LiveDemosSection` (`src/routes/index.tsx`) with a collapsed summary card:
+     - Shows demo count (e.g. "31 live demos") and the category chips.
+     - A prominent "Show demos" / "Hide demos" toggle button.
+   - Grid only mounts when expanded, keeping the homepage short and fast.
 
-3. **Conditional render**
-   - If `demoView === "sphere"` → keep the current `<SphereDemoGrid />`.
-   - If `demoView === "grid"` → render a responsive thumbnail grid:
-     - Card per demo showing category chip, title, and a live thumbnail.
-     - Thumbnail source priority: `featured_demos.thumbnail_url` if present, else a lightweight iframe screenshot fallback (`<img>` pointing at `/api/public/share/:slug/thumb` if it exists; otherwise a CSS gradient placeholder with the title — no network cost).
-     - Whole card is an `<a target="_blank">` to the demo URL.
-   - Grid uses the same filter state (category chips) already wired up.
+2. **Show every demo**
+   - Keep the current fetch (`featured_demos`, limit 60) but stop letting `HOME_DEMOS` overwrite DB entries; use DB rows as the source of truth and only fall back to `HOME_DEMOS` if the DB returns nothing.
+   - Clean up titles: strip leading `#`, `##`, "Role & Persona", and trim to ~60 chars so prompt-shaped titles read as short labels.
 
-4. **Styling**
-   - Add `.demo-view-toggle`, `.demo-grid`, `.demo-grid-card`, `.demo-grid-thumb` rules in `src/styles.css` matching the burnt-gold / glass aesthetic. Mobile: single column; ≥640px: 2 cols; ≥1024px: 3 cols.
-
-## Out of scope
-- No changes to admin `/demos`, backend, or the demo data source.
-- No new thumbnail-generation pipeline; use existing `thumbnail_url` field or a gradient placeholder.
+3. **Category chips stay visible when collapsed**
+   - Selecting a category auto-expands the grid and filters it.
+   - "All" resets to collapsed summary.
 
 ## Technical notes
-- `SphereDemoGrid` stays mounted only when selected to avoid its RAF loop running in the background.
-- One clarifying assumption: featured demos already expose a URL and title; if a `thumbnail_url` column doesn't exist, the grid falls back to gradient placeholders — no schema change needed.
+- File touched: `src/routes/index.tsx` (only `LiveDemosSection`).
+- No schema or backend changes.
+- Uses existing `Reveal`, glass utility, and `image.thum.io` thumbnail pipeline — no new deps.
