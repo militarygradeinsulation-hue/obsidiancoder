@@ -569,7 +569,9 @@ function Unlock() {
                 <div className="checkout-header">
                   <div>
                     <div className="checkout-title">
-                      {PLAN_TIERS.find((t) => t.priceId === selectedPriceId)?.name ?? "Obsidian"}
+                      {customAmount
+                        ? `Obsidian Custom · $${customAmount}/mo`
+                        : (PLAN_TIERS.find((t) => t.priceId === selectedPriceId)?.name ?? "Obsidian")}
                     </div>
                     <div className="checkout-sub">
                       Signed in as {session.email ?? "your account"}
@@ -581,9 +583,11 @@ function Unlock() {
                   <button type="button" onClick={() => setShowCheckout(false)} className="checkout-back">← Back</button>
                 </div>
                 <CheckoutSurface
-                  priceId={selectedPriceId}
+                  priceId={customAmount ? undefined : selectedPriceId}
+                  amountCents={customAmount ? customAmount * 100 : undefined}
                   onCancel={() => setShowCheckout(false)}
                 />
+
 
                 <p className="checkout-legal">
                   Secure billing through Stripe. Cancel anytime. By continuing you accept our{" "}
