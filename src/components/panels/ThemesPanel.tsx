@@ -1,9 +1,10 @@
-// Themes browser — searches 21st.dev themes and applies them to the sandbox
-// preview. Renders as a floating modal opened from the preview header.
-import { useEffect, useState, useCallback } from "react";
+// Themes browser — curated presets plus 21st.dev search, applied to the
+// sandbox preview. Renders as a floating modal opened from the preview header.
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { X, Search, Sparkles, Download, Palette, Loader2 } from "lucide-react";
 import { searchThemesFn, getThemeCssFn, type UiThemeHit } from "@/lib/themes-21st.functions";
+import { THEME_PRESETS, type ThemePreset } from "@/lib/theme-presets";
 
 type Props = {
   open: boolean;
@@ -18,36 +19,75 @@ const PRESET_QUERIES = [
   "editorial", "glassmorphism", "brutalist mono", "warm sunset", "corporate blue",
 ];
 
+function presetToHit(p: ThemePreset): UiThemeHit {
+  return {
+    id: p.identifier,
+    identifier: p.identifier,
+    name: p.name,
+    description: p.description,
+    author: p.author ?? "Obsidian preset",
+    colors: p.colors,
+  };
+}
+
+function withFontImport(css: string, fontImport?: string): string {
+  if (!fontImport) return css;
+  return `@import url("${fontImport}");\n${css}`;
+}
+
 export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear }: Props) {
   const search = useServerFn(searchThemesFn);
   const getCss = useServerFn(getThemeCssFn);
   const [query, setQuery] = useState("");
-  const [themes, setThemes] = useState<UiThemeHit[]>([]);
+  const [remoteThemes, setRemoteThemes] = useState<UiThemeHit[]>([]);
   const [loading, setLoading] = useState(false);
-  const [enabled, setEnabled] = useState(true);
+  const [remoteEnabled, setRemoteEnabled] = useState(true);
   const [applyingId, setApplyingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const presetHits = useMemo<UiThemeHit[]>(() => {
+    const q = query.trim().toLowerCase();
+    const all = THEME_PRESETS.map(presetToHit);
+    if (!q) return all;
+    return all.filter((h) =>
+      h.name.toLowerCase().includes(q) ||
+      (h.description ?? "").toLowerCase().includes(q) ||
+      (h.colors ?? []).some((c) => c.toLowerCase().includes(q))
+    );
+  }, [query]);
+
+  // Dedupe remote themes against presets by identifier
+  const themes = useMemo<UiThemeHit[]>(() => {
+    const seen = new Set(presetHits.map((h) => h.identifier));
+    const remote = remoteThemes.filter((h) => !seen.has(h.identifier));
+    return [...presetHits, ...remote];
+  }, [presetHits, remoteThemes]);
 
   const runSearch = useCallback(async (q: string) => {
     setLoading(true); setError(null);
     try {
       const res = await search({ data: { query: q, limit: 18 } });
-      setThemes(res.themes);
-      setEnabled(res.enabled);
-      if (!res.enabled) setError("21st.dev key is not configured on the server.");
-      else if (!res.themes.length) setError("No themes matched — try a different keyword.");
+      setRemoteThemes(res.themes);
+      setRemoteEnabled(res.enabled);
     } catch {
-      setError("Theme search failed. Try again.");
+      setRemoteThemes([]);
     } finally {
       setLoading(false);
     }
   }, [search]);
 
-  useEffect(() => { if (open && !themes.length && !loading) runSearch(""); }, [open, themes.length, loading, runSearch]);
+  useEffect(() => { if (open && !remoteThemes.length && !loading) runSearch(""); }, [open, remoteThemes.length, loading, runSearch]);
 
   const applyTheme = useCallback(async (t: UiThemeHit) => {
     setApplyingId(t.identifier); setError(null);
     try {
+      // Presets ship full CSS + fonts client-side; no network needed.
+      const preset = THEME_PRESETS.find((p) => p.identifier === t.identifier);
+      if (preset) {
+        onApply(withFontImport(preset.css, preset.fontImport), preset.name);
+        onClose();
+        return;
+      }
       const res = await getCss({ data: { identifier: t.identifier, name: t.name, colors: t.colors ?? [] } });
       if (!res?.css) { setError("Theme has no CSS available."); return; }
       onApply(res.css, res.name ?? t.name);
@@ -62,12 +102,21 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
   const downloadTheme = useCallback(async (t: UiThemeHit) => {
     setApplyingId(t.identifier);
     try {
-      const res = await getCss({ data: { identifier: t.identifier, name: t.name, colors: t.colors ?? [] } });
-      if (!res?.css) return;
-      const blob = new Blob([res.css], { type: "text/css" });
+      const preset = THEME_PRESETS.find((p) => p.identifier === t.identifier);
+      let cssOut: string | undefined;
+      let nameOut = t.name;
+      if (preset) {
+        cssOut = withFontImport(preset.css, preset.fontImport);
+        nameOut = preset.name;
+      } else {
+        const res = await getCss({ data: { identifier: t.identifier, name: t.name, colors: t.colors ?? [] } });
+        if (!res?.css) return;
+        cssOut = res.css; nameOut = res.name ?? t.name;
+      }
+      const blob = new Blob([cssOut], { type: "text/css" });
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `${(res.name ?? t.name).replace(/[^a-z0-9-_]+/gi, "-")}.css`;
+      a.href = url; a.download = `${nameOut.replace(/[^a-z0-9-_]+/gi, "-")}.css`;
       document.body.appendChild(a); a.click(); a.remove();
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } finally { setApplyingId(null); }
@@ -133,21 +182,30 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
 
         {error ? <div className="themes-error">{error}</div> : null}
 
-        {!enabled ? null : (
-          <div className="themes-grid">
-            {loading && !themes.length
-              ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="theme-card skeleton" />)
-              : themes.map((t) => (
-                  <ThemeCard
-                    key={t.identifier}
-                    theme={t}
-                    applying={applyingId === t.identifier}
-                    onApply={() => applyTheme(t)}
-                    onDownload={() => downloadTheme(t)}
-                  />
-                ))}
-          </div>
-        )}
+        <div className="themes-grid">
+          {loading && themes.length === presetHits.length
+            ? [...themes.map((t) => (
+                <ThemeCard
+                  key={t.identifier}
+                  theme={t}
+                  applying={applyingId === t.identifier}
+                  onApply={() => applyTheme(t)}
+                  onDownload={() => downloadTheme(t)}
+                />
+              )), ...Array.from({ length: 3 }).map((_, i) => <div key={`sk-${i}`} className="theme-card skeleton" />)]
+            : themes.map((t) => (
+                <ThemeCard
+                  key={t.identifier}
+                  theme={t}
+                  applying={applyingId === t.identifier}
+                  onApply={() => applyTheme(t)}
+                  onDownload={() => downloadTheme(t)}
+                />
+              ))}
+        </div>
+        {!remoteEnabled && !themes.length ? (
+          <div className="themes-error">No themes matched — try a different keyword.</div>
+        ) : null}
       </div>
     </div>
   );
