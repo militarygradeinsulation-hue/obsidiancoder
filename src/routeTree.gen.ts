@@ -18,8 +18,8 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as DemosRouteImport } from './routes/demos'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as BuildRouteImport } from './routes/build'
 import { Route as AuthRouteImport } from './routes/auth'
-import { Route as IndexRouteImport } from './routes/index'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as ApiPatchRouteImport } from './routes/api/patch'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
@@ -88,14 +88,14 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BuildRoute = BuildRouteImport.update({
+  id: '/build',
+  path: '/build',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
@@ -215,8 +215,8 @@ const ApiPublicLibraryCodeIdRoute = ApiPublicLibraryCodeIdRouteImport.update({
 } as any)
 
 export interface FileRoutesByFullPath {
-  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/build': typeof BuildRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/gallery': typeof GalleryRoute
@@ -250,8 +250,8 @@ export interface FileRoutesByFullPath {
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRoutesByTo {
-  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/build': typeof BuildRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/gallery': typeof GalleryRoute
@@ -286,8 +286,8 @@ export interface FileRoutesByTo {
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
-  '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/build': typeof BuildRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/gallery': typeof GalleryRoute
@@ -323,8 +323,8 @@ export interface FileRoutesById {
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
-    | '/'
     | '/auth'
+    | '/build'
     | '/dashboard'
     | '/demos'
     | '/gallery'
@@ -358,8 +358,8 @@ export interface FileRouteTypes {
     | '/api/public/library/$code/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
-    | '/'
     | '/auth'
+    | '/build'
     | '/dashboard'
     | '/demos'
     | '/gallery'
@@ -393,8 +393,8 @@ export interface FileRouteTypes {
     | '/api/public/library/$code/$id'
   id:
     | '__root__'
-    | '/'
     | '/auth'
+    | '/build'
     | '/dashboard'
     | '/demos'
     | '/gallery'
@@ -429,8 +429,8 @@ export interface FileRouteTypes {
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
-  IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  BuildRoute: typeof BuildRoute
   DashboardRoute: typeof DashboardRoute
   DemosRoute: typeof DemosRoute
   GalleryRoute: typeof GalleryRoute
@@ -527,18 +527,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/build': {
+      id: '/build'
+      path: '/build'
+      fullPath: '/build'
+      preLoaderRoute: typeof BuildRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout/return': {
@@ -722,8 +722,8 @@ const ApiPublicLibraryCodeRouteWithChildren =
   ApiPublicLibraryCodeRoute._addFileChildren(ApiPublicLibraryCodeRouteChildren)
 
 const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  BuildRoute: BuildRoute,
   DashboardRoute: DashboardRoute,
   DemosRoute: DemosRoute,
   GalleryRoute: GalleryRoute,

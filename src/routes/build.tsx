@@ -110,7 +110,7 @@ import { restoreAndVerify } from "@/lib/context-compactor";
 
 
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/build")({
   beforeLoad: async () => {
     const { ensureUnlocked } = await import("@/lib/gate.functions");
     const { unlocked } = await ensureUnlocked();
