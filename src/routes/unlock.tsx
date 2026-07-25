@@ -126,6 +126,9 @@ function Unlock() {
   const [selectedPriceId, setSelectedPriceId] = useState<string>(
     search.priceId && typeof search.priceId === "string" ? search.priceId : CREATOR_PRICE_ID,
   );
+  const [customAmount, setCustomAmount] = useState<number | null>(
+    typeof search.amount === "number" ? search.amount : null,
+  );
   const [expandDetails, setExpandDetails] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState<boolean>(
