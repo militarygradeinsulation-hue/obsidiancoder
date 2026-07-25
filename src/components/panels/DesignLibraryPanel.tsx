@@ -262,8 +262,6 @@ export function DesignLibraryPanel({ open, onClose, sessionId, currentPrompt, on
 }
 
 function guess(prompt: string): string {
-  // Delegated to design-library helper to avoid duplicating the map.
-  const { guessTemplateId } = require("@/lib/design-library") as typeof import("@/lib/design-library");
   return guessTemplateId(prompt);
 }
 
