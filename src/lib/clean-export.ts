@@ -31,13 +31,13 @@ export function containsPreviewOnly(html: string): boolean {
 // that navigation neutralized. In-page anchors (#foo), mailto:, tel:, and
 // third-party URLs are left alone.
 
+// Only creator-app paths that no standalone export would legitimately use.
+// Explicitly excludes "/", "/checkout", "/dashboard", "/gallery", "/demos"
+// because those are common in generic apps (a landscaping demo linking to
+// "/checkout" or a portfolio's Home logo href="/" must keep working).
 const BLOCKED_PATH_PREFIXES = [
-  "/dashboard",
-  "/gallery",
-  "/demos",
   "/unlock",
   "/auth",
-  "/checkout",
   "/admin",
 ];
 
@@ -54,7 +54,7 @@ function hostIsBlocked(host: string): boolean {
 }
 
 function pathIsBlocked(pathname: string): boolean {
-  if (!pathname || pathname === "/" || pathname === "/index" || pathname === "/index.html") return true;
+  if (!pathname) return false;
   for (const p of BLOCKED_PATH_PREFIXES) {
     if (pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p + "?") || pathname.startsWith(p + "#")) {
       return true;
@@ -62,6 +62,7 @@ function pathIsBlocked(pathname: string): boolean {
   }
   return false;
 }
+
 
 /**
  * True if `target` (the value of an href/action/formaction attribute or a
