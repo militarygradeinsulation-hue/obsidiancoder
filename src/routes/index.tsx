@@ -380,8 +380,10 @@ function Home() {
               className="hero-sub mt-6 text-lg md:text-xl text-white/90 max-w-2xl mx-auto"
               style={{ textShadow: "0 2px 16px rgba(0,0,0,0.8)" }}
             >
-              Obsidian is an AI system builder for people who don't code. Get one high-quality
-              project built free using our best default model. Upgrade only when you're ready.
+              Obsidian is an AI system builder for people who don't code. This isn't like Base 44,
+              Lovable, or Bolt. This is a starter tool for vibe coding. Build something that works the
+              first time without confusing options. Get one high-quality project built free using our
+              best default model. Upgrade only when you're ready.
             </p>
             <div className="hero-cta mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
