@@ -573,16 +573,19 @@ export async function requirePaidOperation(
 
 
 
-export function denialResponse(denial: CreditsRequiredEnvelope, requestId?: string): Response {
+export function denialResponse(
+  denial: CreditsRequiredEnvelope,
+  requestId?: string,
+  setCookieHeader?: string,
+): Response {
   const status = denial.code === "auth_required" ? 401 : 402;
-  return new Response(JSON.stringify(denial), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      ...(requestId ? { "X-Request-Id": requestId } : {}),
-    },
-  });
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    ...(requestId ? { "X-Request-Id": requestId } : {}),
+  };
+  if (setCookieHeader) headers["Set-Cookie"] = setCookieHeader;
+  return new Response(JSON.stringify(denial), { status, headers });
 }
 
 /** Outcome shapes accepted by settleOperation. */
@@ -594,6 +597,7 @@ export type SettleOutcome =
 /**
  * Commit / refund / log the reservation in ONE call.
  *   - denied      → no-op (denial already returned to the caller).
+ *   - free_trial  → no-op (one-time free build; no reservation to settle).
  *   - owner       → writes an ai_usage row + owner_usage log (credits=0).
  *   - pro success → usage_finalize(charge, status='committed') — updates the pending row.
  *   - pro failed_with_usage → usage_finalize(charge, status='failed').
@@ -606,7 +610,8 @@ export async function settleOperation(
   ent: EntitlementResult,
   outcome: SettleOutcome,
 ): Promise<void> {
-  if (ent.kind === "denied") return;
+  if (ent.kind === "denied" || ent.kind === "free_trial") return;
+
 
   if (ent.kind === "owner") {
     if (outcome.kind === "no_provider") return;
