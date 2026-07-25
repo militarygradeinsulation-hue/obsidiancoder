@@ -43,7 +43,8 @@ function Home() {
           <div className="flex items-center gap-2">
             <Link
               to="/build"
-              onClick={onBuildFree}
+
+              search={{}}              onClick={onBuildFree}
               className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#F4A125] to-[#DD9324] text-black text-sm font-semibold hover:opacity-90"
             >
               Build Free
@@ -71,7 +72,8 @@ function Home() {
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               to="/build"
-              onClick={onBuildFree}
+
+              search={{}}              onClick={onBuildFree}
               className="group px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#F4A125] to-[#DD9324] text-black font-semibold text-base flex items-center gap-2 hover:opacity-90"
             >
               Build Free – No Credit Card Required
@@ -102,7 +104,8 @@ function Home() {
               <p className="text-[#B6BCC8]">Live demo — try it yourself</p>
               <Link
                 to="/build"
-                onClick={() => track("build_free_click", { source: "demo" })}
+
+              search={{}}                onClick={() => track("build_free_click", { source: "demo" })}
                 className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
               >
                 Open the builder <ArrowRight className="w-4 h-4" />
@@ -121,7 +124,8 @@ function Home() {
             <Link
               key={ex}
               to="/build"
-              search={{ q: ex } as never}
+
+              search={{}}              search={{ q: ex } as never}
               onClick={() => track("build_free_click", { source: "example", prompt: ex })}
               className="text-left px-4 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm text-[#f2eee7]"
             >
@@ -172,7 +176,8 @@ function Home() {
             ]}
             cta="Start free"
             to="/build"
-            onClick={() => track("build_free_click", { source: "pricing" })}
+
+              search={{}}            onClick={() => track("build_free_click", { source: "pricing" })}
             highlight
           />
           <PricingCard
@@ -224,8 +229,8 @@ function Home() {
 
       <footer className="border-t border-white/5 py-8 text-center text-xs text-[#8b93a1]">
         <div className="flex items-center justify-center gap-4">
-          <Link to="/privacy">Privacy</Link>
-          <Link to="/terms">Terms</Link>
+          <Link to="/privacy" search={{}}>Privacy</Link>
+          <Link to="/terms" search={{}}>Terms</Link>
           <a href="https://businessforensics.tech/aetheris-universe" target="_blank" rel="noopener noreferrer">Aetheris Universe</a>
         </div>
         <p className="mt-3">© {new Date().getFullYear()} Obsidian · Aetheris.Technology</p>
