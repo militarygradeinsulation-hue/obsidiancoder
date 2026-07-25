@@ -80,19 +80,10 @@ function buildItems(pool: ImageItem[], seg: number): ItemDef[] {
   const normalized = pool.map((image) =>
     typeof image === "string" ? { src: image, alt: "", href: undefined } : { src: image.src || "", alt: image.alt || "", href: image.href },
   );
-  const used = Array.from({ length: totalSlots }, (_, i) => normalized[i % normalized.length]);
-  for (let i = 1; i < used.length; i++) {
-    if (used[i].src === used[i - 1].src) {
-      for (let j = i + 1; j < used.length; j++) {
-        if (used[j].src !== used[i].src) {
-          const tmp = used[i];
-          used[i] = used[j];
-          used[j] = tmp;
-          break;
-        }
-      }
-    }
-  }
+  // Never duplicate an image to fill unused slots — leave them empty instead.
+  const used = Array.from({ length: totalSlots }, (_, i) =>
+    i < normalized.length ? normalized[i] : { src: "", alt: "", href: undefined },
+  );
   return coords.map((c, i) => ({ ...c, src: used[i].src, alt: used[i].alt, href: used[i].href }));
 }
 
