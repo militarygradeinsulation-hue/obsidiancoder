@@ -4,6 +4,7 @@ import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from 
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 import SphereDemoGrid, { type SphereDemoItem } from "@/components/SphereDemoGrid";
+import DomeGallery from "@/components/ui/dome-gallery";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
