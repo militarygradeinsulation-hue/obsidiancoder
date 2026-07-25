@@ -707,11 +707,16 @@ function Unlock() {
               const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(${hue},70%,28%)'/><stop offset='1' stop-color='hsl(${(hue+40)%360},80%,18%)'/></linearGradient></defs><rect width='600' height='600' fill='url(#g)'/><text x='50%' y='52%' text-anchor='middle' font-family='Inter,Arial' font-size='42' font-weight='700' fill='rgba(255,255,255,0.92)'>${label.replace(/[<&>]/g, "")}</text></svg>`;
               return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
             };
+            const origin = typeof window !== "undefined" ? window.location.origin : "";
+            const shot = (url: string) => {
+              const abs = /^https?:\/\//i.test(url) ? url : `${origin}${url}`;
+              return `https://image.thum.io/get/width/600/crop/600/noanimate/${abs}`;
+            };
             const domeImages = merged.map((d) => {
               const clean = d.title.replace(/^Demo\s*·\s*/, "");
               const thumb = (d as { thumbnail_url?: string; thumbnailUrl?: string }).thumbnail_url
                 ?? (d as { thumbnailUrl?: string }).thumbnailUrl;
-              return { src: thumb || placeholder(d.slug, clean), alt: `${clean} — ${d.category}`, href: d.demoUrl };
+              return { src: thumb || shot(d.demoUrl) || placeholder(d.slug, clean), alt: `${clean} — ${d.category}`, href: d.demoUrl };
             });
             return (
               <div id="demos-grid" className="demos-dome-wrap">
