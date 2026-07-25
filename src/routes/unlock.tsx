@@ -72,7 +72,7 @@ export const Route = createFileRoute("/unlock")({
     const pwd = (search as { password?: string }).password;
     if (!pwd) return;
     const { ok } = await unlockSite({ data: { password: pwd } });
-    if (ok) throw redirect({ to: "/" });
+    if (ok) throw redirect({ to: "/build" });
     throw redirect({ to: "/unlock" });
   },
   head: () => ({
@@ -200,7 +200,7 @@ function Unlock() {
         if (cancelled) return;
         if (ok) {
           setStatus("Pro access verified — opening Obsidian…");
-          await router.navigate({ to: "/" });
+          await router.navigate({ to: "/build" });
           router.invalidate();
         }
       } catch { /* not pro or transport error — stay on page */ }
@@ -234,7 +234,7 @@ function Unlock() {
     try {
       const { ok } = await unlock({ data: { password } });
       if (ok) {
-        await router.navigate({ to: "/" });
+        await router.navigate({ to: "/build" });
         router.invalidate();
       } else setError("Access denied.");
     } catch { setError("Something went wrong. Try again."); }
