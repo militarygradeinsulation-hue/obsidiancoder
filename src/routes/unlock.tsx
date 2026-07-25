@@ -200,7 +200,7 @@ function Unlock() {
         if (cancelled) return;
         if (ok) {
           setStatus("Pro access verified — opening Obsidian…");
-          await router.navigate({ to: "/" });
+          await router.navigate({ to: "/build" });
           router.invalidate();
         }
       } catch { /* not pro or transport error — stay on page */ }
