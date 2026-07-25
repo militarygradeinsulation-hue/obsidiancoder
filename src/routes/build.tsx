@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 import { useMemo, useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
