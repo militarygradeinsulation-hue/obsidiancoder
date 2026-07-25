@@ -700,6 +700,32 @@ function Unlock() {
               </div>
             );
           }
+          if (demoView === "dome") {
+            const placeholder = (slug: string, label: string) => {
+              let hue = 0;
+              for (let i = 0; i < slug.length; i++) hue = (hue * 31 + slug.charCodeAt(i)) % 360;
+              const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(${hue},70%,28%)'/><stop offset='1' stop-color='hsl(${(hue+40)%360},80%,18%)'/></linearGradient></defs><rect width='600' height='600' fill='url(#g)'/><text x='50%' y='52%' text-anchor='middle' font-family='Inter,Arial' font-size='42' font-weight='700' fill='rgba(255,255,255,0.92)'>${label.replace(/[<&>]/g, "")}</text></svg>`;
+              return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+            };
+            const domeImages = merged.map((d) => {
+              const clean = d.title.replace(/^Demo\s*·\s*/, "");
+              const thumb = (d as { thumbnail_url?: string; thumbnailUrl?: string }).thumbnail_url
+                ?? (d as { thumbnailUrl?: string }).thumbnailUrl;
+              return { src: thumb || placeholder(d.slug, clean), alt: `${clean} — ${d.category}`, href: d.demoUrl };
+            });
+            return (
+              <div id="demos-grid" className="demos-dome-wrap">
+                <DomeGallery
+                  images={domeImages}
+                  grayscale={false}
+                  minRadius={340}
+                  segments={Math.max(20, Math.min(35, domeImages.length))}
+                  onImageClick={({ href }) => { if (href) window.open(href, "_blank", "noopener,noreferrer"); }}
+                />
+                <p className="demos-sphere-hint">Drag to rotate · tap a tile to open</p>
+              </div>
+            );
+          }
           return (
             <div id="demos-grid" className="demos-thumb-grid">
               {merged.map(({ slug, title, demoUrl, category }) => {
