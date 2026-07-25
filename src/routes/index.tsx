@@ -41,6 +41,7 @@ import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId, type M
 import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
 import { AccountModal } from "@/components/AccountModal";
+import { ThemesPanel } from "@/components/panels/ThemesPanel";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
 import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
