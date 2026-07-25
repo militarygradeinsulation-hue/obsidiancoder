@@ -690,7 +690,7 @@ function Unlock() {
         })()}
       </section>
 
-      <FeedbackSection />
+      <FeedbackWidget />
 
 
 
