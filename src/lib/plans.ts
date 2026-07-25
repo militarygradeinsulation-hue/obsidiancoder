@@ -206,6 +206,7 @@ export function tierForPriceId(priceId: string | null | undefined): PlanTier | u
  * returns 0 (free plan — no paid AI operations).
  */
 export const TIER_CREDIT_CAP: Record<PlanTierId, number> = {
+  try_pro: 400,
   starter: 400,
   creator: 1000,
   professional: 2500,
@@ -213,6 +214,7 @@ export const TIER_CREDIT_CAP: Record<PlanTierId, number> = {
   elite: 12000,
   enterprise: 12000,
 };
+
 
 export function capForTier(tier: PlanTierId | null | undefined): number {
   if (!tier) return 0;
