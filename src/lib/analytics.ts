@@ -9,10 +9,21 @@ export type AnalyticsEvent =
   | "successful_build"
   | "upgrade_view"
   | "checkout_start"
+  | "checkout_started"
+  | "checkout_completed"
+  | "checkout_cancelled"
   | "purchase"
   | "return_visit"
   | "onboarding_start"
-  | "onboarding_complete";
+  | "onboarding_complete"
+  | "pricing_configurator_viewed"
+  | "pricing_amount_changed"
+  | "pricing_anchor_selected"
+  | "try_pro_5_clicked"
+  | "trial_started"
+  | "trial_upgraded_to_creator"
+  | "standard_plan_card_selected";
+
 
 const SEEN_KEY = "obs:analytics:visited";
 
