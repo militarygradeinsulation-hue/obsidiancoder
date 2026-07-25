@@ -105,7 +105,7 @@ export default function AnomalousMatterScene({
         void main() {
           vNormal = normal;
           vPosition = position;
-          float displacement = snoise(position * 2.0 + time * 0.5) * 0.2;
+          float displacement = snoise(position * 2.0 + time * 0.9) * 0.35;
           vec3 newPosition = position + normal * displacement;
           gl_Position = projectionMatrix * modelViewMatrix * vec4(newPosition, 1.0);
         }
@@ -139,10 +139,10 @@ export default function AnomalousMatterScene({
     let running = true;
 
     const render = (t: number) => {
-      uniforms.time.value = t * 0.0003;
+      uniforms.time.value = t * 0.0012;
       if (!reduce) {
-        mesh.rotation.y += 0.0005;
-        mesh.rotation.x += 0.0002;
+        mesh.rotation.y += 0.003;
+        mesh.rotation.x += 0.0015;
       }
       renderer.render(scene, camera);
     };
