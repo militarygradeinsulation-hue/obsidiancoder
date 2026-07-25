@@ -1,74 +1,43 @@
-## Goal
+# Fix: "Build Free" promise blocked by paywall
 
-Let the horizontal pricing slider stop at any dollar amount ($5–$500) and, on Buy Now, charge that exact amount as a monthly Stripe subscription — routing unauthenticated users through signup first.
+## Confirmed issue
+The homepage (`src/routes/index.tsx`) and `/build` (`src/routes/build.tsx`) advertise "one high-quality project free, no credit card required" and route every CTA to `/build`. But the moment a visitor submits a prompt, `src/routes/api/generate.ts` calls `requirePaidOperation(...)` in `src/lib/credit-gate.server.ts`, which returns `401 auth_required` for anonymous callers and `402 not_pro` for signed-in free users. The client's `authFetch` turns that into an `obs:paywall` event and `build.tsx` opens the pricing modal. There is no free-tier bypass or anonymous quota anywhere in `credit-gate.server.ts` or `gate.functions.ts`.
 
-## Changes
+This needs a product decision before code — two viable directions.
 
-### 1. Slider — remove snapping (`src/components/PricingConfigurator.tsx`)
-- Delete magnetic pull + release-snap in `setFromClientX`; every pointer position maps 1:1 to the dollar amount.
-- Keep the tier anchor ticks purely as visual reference labels (click still jumps to that amount as a convenience). Remove the "snapped-anchor pulse" indicator.
-- Keep keyboard arrow keys stepping by $1 (Shift+Arrow = $10); Home/End clamp to $5/$500.
-- Live price wordmark shows `$<amount>` for 5–499, and "Custom" only at exactly 500 (Enterprise). Plan-name label shows the nearest tier ("~ Creator tier") for context, not for pricing.
-- Feature-unlock cards continue to light up based on the picked $ threshold — already dollar-driven.
-- CTA rules:
-  - Amount 5–499 → "Continue at $<amount>/month" (or "Try Pro for $5" when exactly $5, kept as the 7-day trial one-time flow).
-  - Amount = 500 → "Contact sales" → mailto (unchanged).
+## Option A — Deliver one real free build (recommended, matches current copy)
 
-### 2. Dynamic subscription server function (`src/utils/payments.functions.ts`)
-Add `createCustomAmountCheckoutSession` alongside the existing checkout fn:
-- Input: `{ amountInCents, customerEmail?, userId?, returnUrl, environment }`, validated (min 500 = $5, max 49900 = $499, integer, `amount % 100 === 0` so the UI stays in whole dollars).
-- Resolves/creates a Stripe Customer via the existing `resolveOrCreateCustomer` helper (userId metadata for later Search API lookups).
-- Creates a Stripe subscription checkout session using inline `price_data`:
-  ```ts
-  line_items: [{
-    price_data: {
-      currency: "usd",
-      recurring: { interval: "month" },
-      unit_amount: amountInCents,
-      product: OBSIDIAN_CUSTOM_PRODUCT_ID, // one shared product, reused
-    },
-    quantity: 1,
-  }],
-  mode: "subscription",
-  ui_mode: "embedded_page",
-  return_url,
-  customer: customerId,
-  subscription_data: { metadata: { userId, custom_amount_cents: String(amountInCents) } },
-  metadata: { userId, custom_amount_cents: String(amountInCents) },
-  ```
-- Wraps Stripe errors with `getStripeErrorMessage` and returns `{ clientSecret } | { error }`, matching the existing pattern.
-- One-time setup: a shared product `obsidian_custom_monthly` (name: "Obsidian — Custom Plan") registered via `payments--create_product` with SaaS tax code `txcd_10103001`. No fixed price attached — every checkout mints its own `price_data`. Existing fixed prices ($5 trial, $29, $79, $149, $299, $499) stay untouched for the tier anchor buttons and legacy links.
+Grant every visitor (anonymous or signed-in free) exactly one successful `generate_html` per browser + IP, then paywall everything after that (including further edits, enhance, chat).
 
-### 3. Signup-then-checkout routing
-- Configurator's Buy Now for a custom amount navigates to:
-  `/unlock?intent=buy&checkout=1&amount=<dollars>` (no `priceId`).
-- `src/routes/unlock.tsx`:
-  - Extend `validateSearch` with `amount?: number` (integer 5–499).
-  - The existing "no-session → redirect to signup preserving query" effect (added in the last turn) already covers the custom-amount case as long as `amount` is forwarded — extend it to include `amount` in the preserved query string.
-  - When authenticated and `amount` is present, render `CheckoutSurface` in "custom amount" mode.
-- `src/components/CheckoutSurface.tsx`: accept either `priceId` OR `amountCents`. When `amountCents` is set, call `createCustomAmountCheckoutSession` instead of `createCheckoutSession`. Same loading / error / retry UX.
-- Post-purchase: existing `/checkout/return` page and webhook path already handle `checkout.session.completed` for subscription mode — the custom subscription flows through the same code path, and `subscriptions` rows get written with the custom price via the webhook.
+Server changes:
+- New table `public.free_build_ledger` (fingerprint text PK: sha256 of IP + a signed browser cookie id, `used_at timestamptz`, `environment text`). GRANT on the table + RLS restricting all access to `service_role`; the endpoint is the only reader/writer.
+- New helper in `src/lib/credit-gate.server.ts`: `tryConsumeFreeBuild(request)` that (a) reads/sets an httpOnly `obs_fb` cookie, (b) hashes cookie + `x-forwarded-for` first hop, (c) atomically inserts into the ledger, (d) returns `{ granted: true }` on first use and `{ granted: false, reason: "free_build_used" }` after.
+- `requirePaidOperation` in the same file gains an early branch: for `operation === "generate_html"` only, when the caller has no active Pro, call `tryConsumeFreeBuild`; if granted, return a synthetic `allowed` entitlement with `mode: "free_trial"` and skip the credit reservation. `enhance_prompt`, `patch_html`, and every other op stay paywalled.
+- `src/routes/api/generate.ts` needs no change beyond returning the new mode in the response so the client can display "You've used your free build — upgrade to keep going" after the first success.
 
-### 4. Entitlement handling
-- `useSubscription` / `hasActivePro` currently gate on any active Stripe subscription for the user — unchanged; custom-amount subscribers get Pro entitlement automatically.
-- Tier-specific gates (`tierForPriceId`) will return `undefined` for the custom `price_data` price. Add a fallback: if the subscription row has no known tier but is active, treat it as **Creator equivalent** for feature gating (Creator is the current baseline paid tier). This keeps custom-amount subscribers from being locked out of Creator-tier UI.
-- Credit cap for custom amounts: scale linearly against the Creator baseline (`Math.round((amountDollars / 79) * TIER_CREDIT_CAP.creator)`, clamped between Starter and Elite caps). Implemented in a small helper used by the credit-gate.
+Client changes:
+- `src/routes/build.tsx`: on a `free_build_used` denial, open the pricing modal with a friendly headline ("Your free build is saved — upgrade to keep editing") instead of the generic paywall copy.
+- `src/routes/index.tsx`: no copy changes needed; the promise now matches behaviour.
 
-### 5. Cleanup
-- Keep tier anchor snap-clicks for accessibility (users can click a tick to jump exactly to $79, etc.), but no forced snap on drag release.
-- Remove `SNAP_DISTANCE` constant and the magnetic-pull math.
-- No visual regressions elsewhere — homepage, orb, gallery, auth, free-build untouched.
+Risk: single-IP abuse is possible but bounded (one free `generate_html` per fingerprint). No credit-card cost since generate is served through the existing AI gateway budget.
 
-## Technical notes
+## Option B — Keep the paywall, correct the copy
 
-- Stripe subscriptions with inline `price_data` are supported and create an ad-hoc Price under the parent product; this is exactly the pattern Stripe recommends for pay-what-you-want subscriptions.
-- We enforce whole-dollar amounts server-side (`amountInCents % 100 === 0`) so displayed price = charged price.
-- Full compliance handling (`managed_payments`) is not toggled on in this change — it can be layered on later without touching the slider UX.
+If the business does not want to give anonymous visitors a free `generate_html`, update `src/routes/index.tsx` so the hero, nav, examples, and pricing tier stop promising a free build. Concretely:
+- Nav CTA "Build Free" → "See pricing" (links to `/unlock`).
+- Hero CTA "Build Free – No Credit Card Required" → "Start your 7-day Pro trial for $5" (links to `/unlock?intent=buy&priceId=obsidian_try_pro_7day`).
+- Pricing tile "Free · $0 · Start free" → remove entirely (or convert to "$5 trial").
+- FAQ answer "Do I need an account? Not to try." → rewrite to reflect that a paid trial is required.
+- Example-prompt tiles still link to `/build`, but `/build` gets a `beforeLoad` gate that redirects unauthenticated + non-Pro users to `/unlock` with `?intent=buy`.
 
-## Acceptance
+Risk: none — this is a copy/routing change.
 
-- Drag slider to any $5–$499 → wordmark shows that exact amount, CTA reads "Continue at $<amount>/month".
-- Click Buy Now while signed out → land on signup with `amount` preserved → after signup return to `/unlock` and see embedded Stripe Checkout for a monthly subscription at that exact amount.
-- Completing checkout returns to `/checkout/return`, webhook fires, `subscriptions` row appears, user gains Pro entitlement.
-- $5 continues to run the existing 7-day trial (one-time) flow; $500 continues to route to Contact Sales.
-- No `$49` or legacy pricing surfaces anywhere.
+## Recommendation
+Option A. It's the smaller lie to fix (the copy is already live and users have seen it), the entitlement plumbing already understands multiple modes, and one free `generate_html` per fingerprint is a common conversion funnel. Option B is only better if you specifically don't want any anonymous AI spend.
+
+## Technical detail (for engineer implementing A)
+- Migration must GRANT `ALL` on `public.free_build_ledger` to `service_role` only, no anon/authenticated grants; `ENABLE ROW LEVEL SECURITY`; no policies (locked).
+- Fingerprint hash uses `SESSION_SECRET` as HMAC key so the same IP + different browsers don't collide, and so a leaked cookie can't be replayed across projects.
+- Cookie: `obs_fb=<uuid>; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=63072000`.
+- On a successful free build, immediately update `subscriptions`-analogue state exposed by `/api/public/entitlement.ts` so the CreditBar shows "Free build used — upgrade" instead of "0 credits".
+- Do NOT extend the free path to `enhance_prompt` or `patch_html` — one full generation only.

@@ -217,13 +217,20 @@ export interface Reservation {
 }
 
 export interface EntitlementResult {
-  kind: "owner" | "pro" | "denied";
+  // "free_trial" = homepage promise honoured for one lifetime generate_html
+  // per browser+IP fingerprint. No reservation, no billing, no charge.
+  kind: "owner" | "pro" | "denied" | "free_trial";
   user?: AuthedUser;
   reservation?: Reservation;
   denial?: CreditsRequiredEnvelope;
   env: Environment;
   requestId: string;
+  // Populated when a free-build fingerprint cookie was newly issued this
+  // request. The endpoint MUST attach this as a Set-Cookie response header
+  // so subsequent visits from the same browser hit the same ledger row.
+  setCookieHeader?: string;
 }
+
 
 /**
  * Atomic, idempotent reservation via `usage_reserve`. The same
@@ -379,11 +386,105 @@ export async function logOwnerUsage(
   if (error) throw new Error(`ai_usage insert (owner) failed: ${error.message}`);
 }
 
+// ---------------------------------------------------------------------------
+// Free-build ledger — delivers the homepage's "one free build" promise.
+// ---------------------------------------------------------------------------
+//
+// Exactly ONE successful `generate_html` per browser+IP fingerprint, forever.
+// Every subsequent generate call — and every edit / enhance / cloud save —
+// still requires paid Pro. See `.lovable/plan.md`.
+
+const FREE_BUILD_COOKIE = "obs_fb";
+const FREE_BUILD_COOKIE_MAX_AGE = 60 * 60 * 24 * 365 * 2; // 2y
+
+function readFreeBuildCookie(request: Request): string | null {
+  const header = request.headers.get("cookie") || request.headers.get("Cookie");
+  if (!header) return null;
+  for (const part of header.split(/;\s*/)) {
+    const eq = part.indexOf("=");
+    if (eq < 0) continue;
+    if (part.slice(0, eq) === FREE_BUILD_COOKIE) {
+      const v = part.slice(eq + 1).trim();
+      return v.length >= 8 && v.length <= 128 ? v : null;
+    }
+  }
+  return null;
+}
+
+function firstForwardedIp(request: Request): string {
+  const xff = request.headers.get("x-forwarded-for");
+  if (xff) {
+    const first = xff.split(",")[0]?.trim();
+    if (first) return first;
+  }
+  return request.headers.get("cf-connecting-ip")
+    || request.headers.get("x-real-ip")
+    || "0.0.0.0";
+}
+
+async function fingerprintFor(cookieValue: string, ip: string): Promise<string> {
+  const secret = process.env.SESSION_SECRET || "obs_fb_fallback_secret";
+  const { createHmac } = await import("node:crypto");
+  return createHmac("sha256", secret).update(`${cookieValue}|${ip}`).digest("hex");
+}
+
+function buildSetCookieHeader(value: string): string {
+  return `${FREE_BUILD_COOKIE}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${FREE_BUILD_COOKIE_MAX_AGE}`;
+}
+
+/**
+ * Attempts to consume the visitor's single free `generate_html` allowance.
+ * On success returns `{ granted: true, setCookieHeader? }` — the caller MUST
+ * forward `setCookieHeader` on its outgoing Response when present. On
+ * exhaustion returns `{ granted: false, reason: "free_build_used" }`.
+ * Any infrastructure error also returns `granted:false` so we never grant
+ * a free build we can't record (would allow unlimited replays).
+ */
+export async function tryConsumeFreeBuild(
+  request: Request,
+  env: Environment,
+): Promise<{ granted: boolean; setCookieHeader?: string; reason?: string }> {
+  try {
+    let cookieValue = readFreeBuildCookie(request);
+    let setCookieHeader: string | undefined;
+    if (!cookieValue) {
+      cookieValue = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+      setCookieHeader = buildSetCookieHeader(cookieValue);
+    }
+    const ip = firstForwardedIp(request);
+    const fingerprint = await fingerprintFor(cookieValue, ip);
+    const ipPrefix = ip.includes(":")
+      ? ip.split(":").slice(0, 4).join(":")
+      : ip.split(".").slice(0, 3).join(".");
+
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { error } = await supabaseAdmin
+      .from("free_build_ledger" as never)
+      .insert({ fingerprint, environment: env, ip_prefix: ipPrefix } as never);
+    if (error) {
+      // Postgres unique-violation → already redeemed.
+      if ((error as { code?: string }).code === "23505"
+          || /duplicate key value/i.test(error.message ?? "")) {
+        return { granted: false, reason: "free_build_used", setCookieHeader };
+      }
+      return { granted: false, reason: "free_build_error" };
+    }
+    return { granted: true, setCookieHeader };
+  } catch {
+    return { granted: false, reason: "free_build_error" };
+  }
+}
+
 /**
  * One-call entitlement check. Owner session bypasses charge and only logs.
  * Otherwise: bearer → Pro entitlement → reserve credits via v2 (idempotent
  * on requestId). Never charges unless the reservation succeeds; caller MUST
  * call settleOperation with the same requestId to release/finalize.
+ *
+ * SPECIAL CASE — `operation === "generate_html"`:
+ * When the caller has no session or no Pro, we attempt the one-lifetime
+ * free-build allowance BEFORE returning a denial. If granted we return
+ * `kind: "free_trial"` (no reservation, no billing).
  */
 export async function requirePaidOperation(
   request: Request,
@@ -398,6 +499,20 @@ export async function requirePaidOperation(
 
   const user = await resolveUserFromRequest(request);
   if (!user) {
+    if (operation === "generate_html") {
+      const free = await tryConsumeFreeBuild(request, env);
+      if (free.granted) {
+        return { kind: "free_trial", env, requestId, setCookieHeader: free.setCookieHeader };
+      }
+      return {
+        kind: "denied", env, requestId,
+        setCookieHeader: free.setCookieHeader,
+        denial: creditsRequiredEnvelope({
+          code: "auth_required", operation,
+          message: "You've used your one free build. Sign in and upgrade to Obsidian Pro to keep building.",
+        }),
+      };
+    }
     return {
       kind: "denied", env, requestId,
       denial: creditsRequiredEnvelope({
@@ -409,6 +524,20 @@ export async function requirePaidOperation(
 
   const pro = await hasActivePro(user, env);
   if (!pro) {
+    if (operation === "generate_html") {
+      const free = await tryConsumeFreeBuild(request, env);
+      if (free.granted) {
+        return { kind: "free_trial", env, requestId, user, setCookieHeader: free.setCookieHeader };
+      }
+      return {
+        kind: "denied", env, requestId, user,
+        setCookieHeader: free.setCookieHeader,
+        denial: creditsRequiredEnvelope({
+          code: "not_pro", operation,
+          message: "Your free build is used. Upgrade to Obsidian Pro to keep building and editing.",
+        }),
+      };
+    }
     return {
       kind: "denied", env, requestId, user,
       denial: creditsRequiredEnvelope({
@@ -443,16 +572,20 @@ export async function requirePaidOperation(
 }
 
 
-export function denialResponse(denial: CreditsRequiredEnvelope, requestId?: string): Response {
+
+export function denialResponse(
+  denial: CreditsRequiredEnvelope,
+  requestId?: string,
+  setCookieHeader?: string,
+): Response {
   const status = denial.code === "auth_required" ? 401 : 402;
-  return new Response(JSON.stringify(denial), {
-    status,
-    headers: {
-      "Content-Type": "application/json; charset=utf-8",
-      "Cache-Control": "no-store",
-      ...(requestId ? { "X-Request-Id": requestId } : {}),
-    },
-  });
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json; charset=utf-8",
+    "Cache-Control": "no-store",
+    ...(requestId ? { "X-Request-Id": requestId } : {}),
+  };
+  if (setCookieHeader) headers["Set-Cookie"] = setCookieHeader;
+  return new Response(JSON.stringify(denial), { status, headers });
 }
 
 /** Outcome shapes accepted by settleOperation. */
@@ -464,6 +597,7 @@ export type SettleOutcome =
 /**
  * Commit / refund / log the reservation in ONE call.
  *   - denied      → no-op (denial already returned to the caller).
+ *   - free_trial  → no-op (one-time free build; no reservation to settle).
  *   - owner       → writes an ai_usage row + owner_usage log (credits=0).
  *   - pro success → usage_finalize(charge, status='committed') — updates the pending row.
  *   - pro failed_with_usage → usage_finalize(charge, status='failed').
@@ -476,7 +610,8 @@ export async function settleOperation(
   ent: EntitlementResult,
   outcome: SettleOutcome,
 ): Promise<void> {
-  if (ent.kind === "denied") return;
+  if (ent.kind === "denied" || ent.kind === "free_trial") return;
+
 
   if (ent.kind === "owner") {
     if (outcome.kind === "no_provider") return;

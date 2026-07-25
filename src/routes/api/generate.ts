@@ -523,8 +523,9 @@ export const Route = createFileRoute("/api/generate")({
           opForSettle = op;
           entitlement = await requirePaidOperation(request, op, requestId);
           if (entitlement.kind === "denied" && entitlement.denial) {
-            return denialResponse(entitlement.denial, requestId);
+            return denialResponse(entitlement.denial, requestId, entitlement.setCookieHeader);
           }
+
 
 
           // TEST HOOK — honoured only outside production so it can't be abused
@@ -956,26 +957,32 @@ export const Route = createFileRoute("/api/generate")({
           const componentsSummary = components.length
             ? components.map((c) => c.name).join(",").slice(0, 200)
             : "none";
-          return new Response(stream, {
-            headers: {
-              "Content-Type": "text/plain; charset=utf-8",
-              "Cache-Control": "no-store",
-              "X-Accel-Buffering": "no",
-              "X-Request-Id": requestId,
-              "X-Obs-Image-Providers": providersSummary,
-              "X-Obs-Image-Count": String(images.length),
-              "X-Obs-Components": componentsSummary,
-              "X-Obs-Component-Count": String(components.length),
-              "X-Obs-Model-Used": modelUsed,
-              "X-Obs-Model-Requested": data.model,
-              "X-Obs-Fallback": fallbackReason ? "1" : "0",
-              "X-Obs-First-Byte-Ms": String(timing.first_byte_ms),
-              "X-Obs-Compact-In": String(compacted.originalBytes),
-              "X-Obs-Compact-Out": String(compacted.bytes),
-              "Access-Control-Expose-Headers":
-                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Components, X-Obs-Component-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out",
-            },
-          });
+          const responseHeaders: Record<string, string> = {
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Accel-Buffering": "no",
+            "X-Request-Id": requestId,
+            "X-Obs-Image-Providers": providersSummary,
+            "X-Obs-Image-Count": String(images.length),
+            "X-Obs-Components": componentsSummary,
+            "X-Obs-Component-Count": String(components.length),
+            "X-Obs-Model-Used": modelUsed,
+            "X-Obs-Model-Requested": data.model,
+            "X-Obs-Fallback": fallbackReason ? "1" : "0",
+            "X-Obs-First-Byte-Ms": String(timing.first_byte_ms),
+            "X-Obs-Compact-In": String(compacted.originalBytes),
+            "X-Obs-Compact-Out": String(compacted.bytes),
+            "Access-Control-Expose-Headers":
+              "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Components, X-Obs-Component-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out, X-Obs-Free-Build",
+          };
+          if (entitlement.kind === "free_trial") {
+            responseHeaders["X-Obs-Free-Build"] = "1";
+          }
+          if (entitlement.setCookieHeader) {
+            responseHeaders["Set-Cookie"] = entitlement.setCookieHeader;
+          }
+          return new Response(stream, { headers: responseHeaders });
+
 
         } catch (err) {
           // Settle failure — refund only if no provider work started,
