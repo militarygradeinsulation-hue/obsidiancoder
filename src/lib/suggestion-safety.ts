@@ -7,7 +7,10 @@ export type SafeSuggestion = {
 // vertical-specific output from entering generic composer and chat flows.
 const EXPLICIT_TRADES_CONTEXT_RE = /\b(?:hvac|refrigerant|nfpa\s*25|epa\s*608|fire\s+(?:protection|sprinkler)|commercial\s+glazing|glazier|electrical\s+subcontractor|mechanical\s+contractor|plumbing\s+contractor|specialty\s+trade|field\s+technician|field\s+techs?|servicetitan|procore|jobber|housecall\s*pro|quickbooks\s+online\s+(?:sync|integration)|itm\s+report|deficiency[- ]to[- ]quote|refrigerant\s+compliance)\b/i;
 
-const TRADES_ONLY_OUTPUT_RE = /(?:\bplugs?\s+l(?:[1-9]|10)\b|\bl(?:[1-9]|10)\s*(?:\+|,|&|\/)?\s*(?:l(?:[1-9]|10))?\b|\btwo[- ]tap\b|\bfield\s+(?:technician|techs?)\b|\bdeficien(?:cy|cies|t)\b|\bfollow[- ]up\s+repair\s+quote\b|\b(?:hvac|nfpa|qbo|refrigerant|quickbooks|servicetitan|procore)\b|\b(?:sub)?contractors?\b)/i;
+// Deliberately narrow: only phrases that are unambiguously part of the
+// Aetheris trades vertical (never triggered by general prompts mentioning
+// "contractor", "deficiency", "L2", "quickbooks", etc.).
+const TRADES_ONLY_OUTPUT_RE = /(?:\bplugs?\s+l(?:[1-9]|10)\b|\btwo[- ]tap\b|\bfollow[- ]up\s+repair\s+quote\b|\bdeficiency[- ]to[- ]quote\b|\bnfpa\s*25\b|\bepa\s*608\b|\bitm\s+report\b|\brefrigerant\s+compliance\b|\b(?:servicetitan|procore|housecall\s*pro|jobber)\b|\bquickbooks\s+online\s+(?:sync|integration)\b)/i;
 
 export function isExplicitTradesContext(text: string): boolean {
   return EXPLICIT_TRADES_CONTEXT_RE.test(text);
