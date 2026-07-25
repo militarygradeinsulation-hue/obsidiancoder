@@ -2761,6 +2761,14 @@ function Index() {
                 </select>
                 <button
                   type="button"
+                  className={"obs-chip " + (current.themeName ? "is-on" : "")}
+                  onClick={() => setThemesOpen(true)}
+                  title={current.themeName ? `Theme: ${current.themeName}` : "Browse visual themes from 21st.dev"}
+                >
+                  <Palette className="h-3.5 w-3.5" /> {current.themeName ? current.themeName.slice(0, 18) : "Themes"}
+                </button>
+                <button
+                  type="button"
                   className="obs-chip"
                   onClick={clearAll}
                   disabled={loading}
