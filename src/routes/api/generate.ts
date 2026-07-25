@@ -35,6 +35,9 @@ const inputSchema = z.object({
   pickerModel: z.string().optional(),
   // Explicit opt-in for generated imagery. Bypasses the tight keyword filter.
   wantImages: z.boolean().optional().default(false),
+  // Optional DesignContract from the Design Library panel. Passed through
+  // opaquely and validated shallowly — we only read fields we know about.
+  designContract: z.unknown().optional(),
 });
 
 
