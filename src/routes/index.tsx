@@ -322,54 +322,62 @@ function Home() {
           </div>
         </section>
 
-        {/* Demo */}
-        <section id="demo" className="max-w-6xl mx-auto px-6 py-16">
+        {/* Live Demos — dome gallery */}
+        <LiveDemosSection />
+
+        {/* Open the Builder — interactive prompt launcher */}
+        <section id="try" className="max-w-6xl mx-auto px-6 py-20">
           <Reveal>
-            <div className="text-center mb-10">
-              <h2 className="text-3xl md:text-4xl font-bold">Watch it build in real time</h2>
-              <p className="mt-3 text-[#B6BCC8]">From plain-English idea to working preview in seconds.</p>
-            </div>
-          </Reveal>
-          <Reveal delay={100}>
-            <div className="glass glass-hover relative aspect-video rounded-2xl overflow-hidden">
-              <div className="absolute inset-0 flex items-center justify-center text-center">
-                <div>
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#F4A125]/20 flex items-center justify-center float-y">
-                    <Code2 className="w-8 h-8 text-[#F4A125]" />
+            <div className="grid md:grid-cols-[1.1fr_1fr] gap-8 items-stretch">
+              <div className="glass glass-hover rounded-3xl p-8 md:p-10 relative overflow-hidden">
+                <div aria-hidden className="absolute -top-24 -right-24 w-72 h-72 rounded-full opacity-40 blur-3xl"
+                     style={{ background: "radial-gradient(circle, #F4A125 0%, transparent 65%)" }} />
+                <div className="relative">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#F4A125]/30 bg-[#F4A125]/10 text-xs text-[#F4A125] mb-5 backdrop-blur">
+                    <Play className="w-3 h-3" /> Open the Builder
                   </div>
-                  <p className="text-[#B6BCC8]">Live demo — try it yourself</p>
-                  <Link
-                    to="/build"
-                    search={{ q: undefined }}
-                    onClick={onBuildFree("demo")}
-                    className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm transition"
-                  >
-                    Open the builder <ArrowRight className="w-4 h-4" />
-                  </Link>
+                  <h2 className="text-3xl md:text-4xl font-bold leading-tight">
+                    One prompt away from a <span className="gold-text">working product.</span>
+                  </h2>
+                  <p className="mt-4 text-[#B6BCC8]">
+                    Type an idea. Obsidian streams the code, renders a live preview, and gives you a real
+                    React + TypeScript project you can share, export, or deploy.
+                  </p>
+                  <PromptLauncher />
+                  <p className="mt-3 text-xs text-[#8b93a1]">Free · No credit card · 7-day retention on the free tier</p>
                 </div>
+              </div>
+
+              <div className="grid gap-3">
+                {[
+                  "A landing page for my coffee subscription",
+                  "A budget tracker with charts",
+                  "A tic-tac-toe game with sound",
+                  "A dashboard for tracking client invoices",
+                  "A portfolio site with a dark cinematic hero",
+                ].map((ex, i) => (
+                  <Reveal key={ex} delay={i * 60}>
+                    <Link
+                      to="/build"
+                      search={{ q: ex }}
+                      onClick={() => track("build_free_click", { source: "example", prompt: ex })}
+                      className="glass glass-hover group flex items-center justify-between px-5 py-4 rounded-2xl text-sm text-[#f2eee7]"
+                    >
+                      <span className="flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-lg bg-[#F4A125]/10 border border-[#F4A125]/30 flex items-center justify-center text-[#F4A125] text-xs font-bold">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        {ex}
+                      </span>
+                      <ArrowRight className="w-4 h-4 text-[#F4A125] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                    </Link>
+                  </Reveal>
+                ))}
               </div>
             </div>
           </Reveal>
-
-          <div className="mt-8 grid md:grid-cols-3 gap-3">
-            {[
-              "A landing page for my coffee subscription",
-              "A budget tracker with charts",
-              "A tic-tac-toe game with sound",
-            ].map((ex, i) => (
-              <Reveal key={ex} delay={i * 80}>
-                <Link
-                  to="/build"
-                  search={{ q: ex }}
-                  onClick={() => track("build_free_click", { source: "example", prompt: ex })}
-                  className="glass glass-hover block text-left px-4 py-3 rounded-xl text-sm text-[#f2eee7]"
-                >
-                  <span className="text-[#F4A125] mr-2">›</span>{ex}
-                </Link>
-              </Reveal>
-            ))}
-          </div>
         </section>
+
 
         {/* Features */}
         <section id="features" className="max-w-6xl mx-auto px-6 py-16">
