@@ -264,6 +264,7 @@ function Index() {
   const [input, setInput] = useState("");
   const [buildChatOpen, setBuildChatOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
+  const [designLibraryOpen, setDesignLibraryOpen] = useState(false);
   const [ideaOffset, setIdeaOffset] = useState(0);
   const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
   const [aiIdeas, setAiIdeas] = useState<Addon[]>([]);
