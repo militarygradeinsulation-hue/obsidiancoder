@@ -56,12 +56,18 @@ const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory
 type Intent = "buy" | "code";
 
 export const Route = createFileRoute("/unlock")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    password: typeof s.password === "string" ? s.password : undefined,
-    intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
-    checkout: s.checkout === "1" ? "1" : undefined,
-    priceId: typeof s.priceId === "string" && /^[a-zA-Z0-9_-]+$/.test(s.priceId) ? s.priceId : undefined,
-  }),
+  validateSearch: (s: Record<string, unknown>) => {
+    const rawAmount = typeof s.amount === "string" ? parseInt(s.amount, 10)
+      : typeof s.amount === "number" ? s.amount : NaN;
+    const amount = Number.isInteger(rawAmount) && rawAmount >= 5 && rawAmount <= 499 ? rawAmount : undefined;
+    return {
+      password: typeof s.password === "string" ? s.password : undefined,
+      intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
+      checkout: s.checkout === "1" ? "1" : undefined,
+      priceId: typeof s.priceId === "string" && /^[a-zA-Z0-9_-]+$/.test(s.priceId) ? s.priceId : undefined,
+      amount,
+    };
+  },
   beforeLoad: async ({ search }) => {
     const pwd = (search as { password?: string }).password;
     if (!pwd) return;
