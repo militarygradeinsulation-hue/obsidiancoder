@@ -676,11 +676,14 @@ function Unlock() {
           ).filter(({ category }) => demoCategory === "All" || category === demoCategory);
 
           if (demoView === "sphere") {
-            const sphereItems: SphereDemoItem[] = merged.map(({ slug, title, demoUrl, category }) => ({
-              id: slug,
-              title: title.replace(/^Demo\s*·\s*/, ""),
-              category,
-              url: demoUrl,
+            const sphereItems: SphereDemoItem[] = merged.map((d) => ({
+              id: d.slug,
+              title: d.title.replace(/^Demo\s*·\s*/, ""),
+              category: d.category,
+              url: d.demoUrl,
+              thumbnailUrl: (d as { thumbnail_url?: string; thumbnailUrl?: string }).thumbnail_url
+                ?? (d as { thumbnailUrl?: string }).thumbnailUrl,
+              previewUrl: d.demoUrl,
             }));
             return (
               <div id="demos-grid" className="demos-sphere-wrap">
