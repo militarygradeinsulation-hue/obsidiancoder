@@ -365,8 +365,10 @@ export type Database = {
           created_at: string | null
           current_period_end: string | null
           current_period_start: string | null
+          custom_amount_cents: number | null
           environment: string
           id: string
+          plan_tier: string | null
           price_id: string
           product_id: string
           status: string
@@ -380,8 +382,10 @@ export type Database = {
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
+          custom_amount_cents?: number | null
           environment?: string
           id?: string
+          plan_tier?: string | null
           price_id: string
           product_id: string
           status?: string
@@ -395,8 +399,10 @@ export type Database = {
           created_at?: string | null
           current_period_end?: string | null
           current_period_start?: string | null
+          custom_amount_cents?: number | null
           environment?: string
           id?: string
+          plan_tier?: string | null
           price_id?: string
           product_id?: string
           status?: string
