@@ -464,25 +464,25 @@ export default function DomeGallery({
                     top: "-999px", bottom: "-999px", left: "-999px", right: "-999px",
                   } as React.CSSProperties}
                 >
-                  <div
-                    className="item__image absolute block overflow-hidden cursor-pointer bg-gray-200 transition-transform duration-300"
-                    role="button"
-                    tabIndex={0}
-                    aria-label={it.alt || "Open image"}
-                    onClick={(e) => {
-                      if (performance.now() - lastDragEndAt.current < 80) return;
-                      openItemFromElement(e.currentTarget as HTMLElement);
-                    }}
-                    onTouchEnd={(e) => {
-                      if (performance.now() - lastDragEndAt.current < 80) return;
-                      openItemFromElement(e.currentTarget as unknown as HTMLElement);
-                    }}
-                    onMouseEnter={(e) => setHover({ src: it.src, alt: it.alt, x: e.clientX, y: e.clientY })}
-                    onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
-                    onMouseLeave={() => setHover(null)}
-                    style={{ inset: "10px", borderRadius: `var(--tile-radius, ${imageBorderRadius})`, backfaceVisibility: "hidden" }}
-                  >
-                    {it.src ? (
+                  {it.src ? (
+                    <div
+                      className="item__image absolute block overflow-hidden cursor-pointer bg-gray-200 transition-transform duration-300"
+                      role="button"
+                      tabIndex={0}
+                      aria-label={it.alt || "Open image"}
+                      onClick={(e) => {
+                        if (performance.now() - lastDragEndAt.current < 80) return;
+                        openItemFromElement(e.currentTarget as HTMLElement);
+                      }}
+                      onTouchEnd={(e) => {
+                        if (performance.now() - lastDragEndAt.current < 80) return;
+                        openItemFromElement(e.currentTarget as unknown as HTMLElement);
+                      }}
+                      onMouseEnter={(e) => setHover({ src: it.src, alt: it.alt, x: e.clientX, y: e.clientY })}
+                      onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
+                      onMouseLeave={() => setHover(null)}
+                      style={{ inset: "10px", borderRadius: `var(--tile-radius, ${imageBorderRadius})`, backfaceVisibility: "hidden" }}
+                    >
                       <img
                         src={it.src}
                         draggable={false}
@@ -490,8 +490,8 @@ export default function DomeGallery({
                         className="w-full h-full object-cover pointer-events-none"
                         style={{ backfaceVisibility: "hidden", filter: `var(--image-filter, ${grayscale ? "grayscale(1)" : "none"})` }}
                       />
-                    ) : null}
-                  </div>
+                    </div>
+                  ) : null}
                 </div>
               ))}
             </div>
