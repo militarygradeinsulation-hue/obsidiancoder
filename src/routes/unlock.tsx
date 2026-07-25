@@ -72,7 +72,7 @@ export const Route = createFileRoute("/unlock")({
     const pwd = (search as { password?: string }).password;
     if (!pwd) return;
     const { ok } = await unlockSite({ data: { password: pwd } });
-    if (ok) throw redirect({ to: "/" });
+    if (ok) throw redirect({ to: "/build" });
     throw redirect({ to: "/unlock" });
   },
   head: () => ({
