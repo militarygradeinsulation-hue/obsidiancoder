@@ -3929,6 +3929,21 @@ function Index() {
         onApply={(css, name) => updateCurrent({ themeCss: css, themeName: name })}
         onClear={() => updateCurrent({ themeCss: undefined, themeName: undefined })}
       />
+      <DesignLibraryPanel
+        open={designLibraryOpen}
+        onClose={() => setDesignLibraryOpen(false)}
+        sessionId={current.id}
+        currentPrompt={input}
+      />
+      <button
+        type="button"
+        className="dl-fab"
+        title="Design Library"
+        aria-label="Open Design Library"
+        onClick={() => setDesignLibraryOpen(true)}
+      >
+        <span className="dl-fab-dot" /> Design
+      </button>
       <BuildChatPanel
         open={buildChatOpen}
         onClose={() => setBuildChatOpen(false)}
