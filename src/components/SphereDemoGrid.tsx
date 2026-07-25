@@ -8,6 +8,8 @@ export type SphereDemoItem = {
   title: string;
   category: string;
   url: string;
+  thumbnailUrl?: string;
+  previewUrl?: string;
 };
 
 type Props = {
