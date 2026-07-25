@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useRouter, Link, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
+import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type FormEvent } from "react";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 import DomeGallery from "@/components/ui/dome-gallery";
