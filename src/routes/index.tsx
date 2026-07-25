@@ -42,6 +42,8 @@ import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
 import { AccountModal } from "@/components/AccountModal";
 import { ThemesPanel } from "@/components/panels/ThemesPanel";
+import { DesignLibraryPanel } from "@/components/panels/DesignLibraryPanel";
+import { loadContract as loadDesignContract } from "@/lib/design-library";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
 import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
