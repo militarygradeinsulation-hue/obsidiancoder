@@ -93,6 +93,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "twitter:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
       { property: "og:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784764538689-aacb4d97-6216-41d6-b94b-60469cd582cf.webp" },
       { name: "twitter:image", content: "https://storage.googleapis.com/gpt-engineer-file-uploads/woUrJmRpneXvSPG2x2tehm04QPW2/social-images/social-1784764538689-aacb4d97-6216-41d6-b94b-60469cd582cf.webp" },
+      { name: "google-site-verification", content: "MzjGV7yyk-jDOJdDCp4JgaV8wBlBUB8fu-8Lh2aVk2o" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
