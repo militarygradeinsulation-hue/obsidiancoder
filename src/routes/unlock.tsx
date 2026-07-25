@@ -199,6 +199,18 @@ function Unlock() {
     return () => { cancelled = true; };
   }, [session?.userId, proUnlock, router]);
 
+  // If the user arrived from the pricing configurator with checkout intent
+  // but has no session, forward them into auth (preserving priceId) instead
+  // of showing the legacy pitch page.
+  useEffect(() => {
+    if (sessionLoading || session) return;
+    if (search.checkout !== "1" && search.intent !== "buy") return;
+    const priceId = selectedPriceId || CREATOR_PRICE_ID;
+    const q = `intent=buy&checkout=1&priceId=${encodeURIComponent(priceId)}`;
+    window.location.assign(buildAuthUrl("signup", `/unlock?${q}`));
+  }, [sessionLoading, session, search.checkout, search.intent, selectedPriceId]);
+
+
 
   async function onCodeSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
