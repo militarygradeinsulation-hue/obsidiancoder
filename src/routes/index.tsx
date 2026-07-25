@@ -23,11 +23,10 @@ export const Route = createFileRoute("/")({
 
 function Home() {
   useEffect(() => { trackHomeVisit(); }, []);
-  const onBuildFree = () => track("build_free_click", { source: "hero" });
+  const onBuildFree = (source: string) => () => track("build_free_click", { source });
 
   return (
     <div className="min-h-screen bg-[#030405] text-[#f2eee7]">
-      {/* Top nav */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-black/40 border-b border-white/5">
         <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-2">
@@ -40,16 +39,14 @@ function Home() {
             <a href="#pricing" className="hover:text-white">Pricing</a>
             <a href="#founder" className="hover:text-white">Founder</a>
           </nav>
-          <div className="flex items-center gap-2">
-            <Link
-              to="/build"
-
-              search={{}}              onClick={onBuildFree}
-              className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#F4A125] to-[#DD9324] text-black text-sm font-semibold hover:opacity-90"
-            >
-              Build Free
-            </Link>
-          </div>
+          <Link
+            to="/build"
+            search={{ q: undefined }}
+            onClick={onBuildFree("nav")}
+            className="px-4 py-2 rounded-lg bg-gradient-to-r from-[#F4A125] to-[#DD9324] text-black text-sm font-semibold hover:opacity-90"
+          >
+            Build Free
+          </Link>
         </div>
       </header>
 
@@ -66,14 +63,14 @@ function Home() {
           </h1>
           <p className="mt-6 text-lg md:text-xl text-[#B6BCC8] max-w-2xl mx-auto">
             Obsidian is an AI system builder for people who don't code. Get one high-quality
-            project built free — using the best default model. Upgrade only when you're ready to
+            project built free using our best default model. Upgrade only when you're ready to
             save it permanently, deploy, or keep editing.
           </p>
           <div className="mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link
               to="/build"
-
-              search={{}}              onClick={onBuildFree}
+              search={{ q: undefined }}
+              onClick={onBuildFree("hero")}
               className="group px-6 py-3.5 rounded-xl bg-gradient-to-r from-[#F4A125] to-[#DD9324] text-black font-semibold text-base flex items-center gap-2 hover:opacity-90"
             >
               Build Free – No Credit Card Required
@@ -89,23 +86,23 @@ function Home() {
         </div>
       </section>
 
-      {/* Demo section */}
+      {/* Demo */}
       <section id="demo" className="max-w-6xl mx-auto px-6 py-16">
         <div className="text-center mb-10">
           <h2 className="text-3xl md:text-4xl font-bold">Watch it build in real time</h2>
           <p className="mt-3 text-[#B6BCC8]">From plain-English idea to working preview in seconds.</p>
         </div>
         <div className="relative aspect-video rounded-2xl overflow-hidden border border-white/10 bg-gradient-to-br from-[#0a0b0f] to-[#111317] shadow-2xl">
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="text-center">
+          <div className="absolute inset-0 flex items-center justify-center text-center">
+            <div>
               <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#F4A125]/20 flex items-center justify-center">
                 <Code2 className="w-8 h-8 text-[#F4A125]" />
               </div>
               <p className="text-[#B6BCC8]">Live demo — try it yourself</p>
               <Link
                 to="/build"
-
-              search={{}}                onClick={() => track("build_free_click", { source: "demo" })}
+                search={{ q: undefined }}
+                onClick={onBuildFree("demo")}
                 className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm"
               >
                 Open the builder <ArrowRight className="w-4 h-4" />
@@ -114,7 +111,6 @@ function Home() {
           </div>
         </div>
 
-        {/* Example prompts */}
         <div className="mt-8 grid md:grid-cols-3 gap-3">
           {[
             "A landing page for my coffee subscription",
@@ -124,8 +120,7 @@ function Home() {
             <Link
               key={ex}
               to="/build"
-
-              search={{}}              search={{ q: ex } as never}
+              search={{ q: ex }}
               onClick={() => track("build_free_click", { source: "example", prompt: ex })}
               className="text-left px-4 py-3 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm text-[#f2eee7]"
             >
@@ -163,55 +158,54 @@ function Home() {
           <p className="mt-3 text-[#B6BCC8]">No credit card for your first build.</p>
         </div>
         <div className="grid md:grid-cols-3 gap-5">
-          <PricingCard
-            name="Free"
-            price="$0"
-            tag="Try it now"
-            features={[
-              "1 high-quality project",
-              "Best default AI model",
-              "Limited revisions",
-              "7-day retention",
-              "Preview in browser",
-            ]}
-            cta="Start free"
-            to="/build"
-
-              search={{}}            onClick={() => track("build_free_click", { source: "pricing" })}
-            highlight
-          />
-          <PricingCard
-            name="Creator"
-            price="$79/mo"
-            tag="For makers"
-            features={[
-              "Unlimited builds",
-              "Permanent save",
-              "Deploy & share",
-              "Exports (HTML/ZIP)",
-              "Auth & database",
-              "Premium models",
-            ]}
-            cta="Get Creator"
-            to="/unlock"
-            search={{ intent: "buy", checkout: "1" } as never}
-            onClick={() => track("upgrade_view", { plan: "creator" })}
-          />
-          <PricingCard
-            name="Whitelist"
-            price="$100"
-            tag="First 1,000"
-            features={[
-              "Early access forever",
-              "Founder pricing lock-in",
-              "Priority feature votes",
-              "Direct architect access",
-            ]}
-            cta="Join Whitelist"
-            to="/unlock"
-            search={{ intent: "buy", priceId: "obsidian_whitelist" } as never}
-            onClick={() => track("upgrade_view", { plan: "whitelist" })}
-          />
+          <div className="p-6 rounded-2xl border border-[#F4A125]/40 bg-[#F4A125]/[0.06]">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-xl font-bold">Free</h3>
+              <span className="text-xs text-[#B6BCC8]">Try it now</span>
+            </div>
+            <div className="mt-2 text-3xl font-bold">$0</div>
+            <PriceList items={["1 high-quality project", "Best default AI model", "Limited revisions", "7-day retention", "Preview in browser"]} />
+            <Link
+              to="/build"
+              search={{ q: undefined }}
+              onClick={onBuildFree("pricing")}
+              className="mt-6 block text-center px-4 py-2.5 rounded-lg text-sm font-semibold bg-gradient-to-r from-[#F4A125] to-[#DD9324] text-black hover:opacity-90"
+            >
+              Start free
+            </Link>
+          </div>
+          <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.03]">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-xl font-bold">Creator</h3>
+              <span className="text-xs text-[#B6BCC8]">For makers</span>
+            </div>
+            <div className="mt-2 text-3xl font-bold">$79/mo</div>
+            <PriceList items={["Unlimited builds", "Permanent save", "Deploy & share", "Exports (HTML/ZIP)", "Auth & database", "Premium models"]} />
+            <Link
+              to="/unlock"
+              search={{ intent: "buy", checkout: "1" }}
+              onClick={() => track("upgrade_view", { plan: "creator" })}
+              className="mt-6 block text-center px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/15 text-white hover:bg-white/5"
+            >
+              Get Creator
+            </Link>
+          </div>
+          <div className="p-6 rounded-2xl border border-white/10 bg-white/[0.03]">
+            <div className="flex items-baseline justify-between">
+              <h3 className="text-xl font-bold">Whitelist</h3>
+              <span className="text-xs text-[#B6BCC8]">First 1,000</span>
+            </div>
+            <div className="mt-2 text-3xl font-bold">$100</div>
+            <PriceList items={["Early access forever", "Founder pricing lock-in", "Priority feature votes", "Direct architect access"]} />
+            <Link
+              to="/unlock"
+              search={{ intent: "buy", priceId: "obsidian_whitelist" }}
+              onClick={() => track("upgrade_view", { plan: "whitelist" })}
+              className="mt-6 block text-center px-4 py-2.5 rounded-lg text-sm font-semibold border border-white/15 text-white hover:bg-white/5"
+            >
+              Join Whitelist
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -229,8 +223,8 @@ function Home() {
 
       <footer className="border-t border-white/5 py-8 text-center text-xs text-[#8b93a1]">
         <div className="flex items-center justify-center gap-4">
-          <Link to="/privacy" search={{}}>Privacy</Link>
-          <Link to="/terms" search={{}}>Terms</Link>
+          <Link to="/privacy">Privacy</Link>
+          <Link to="/terms">Terms</Link>
           <a href="https://businessforensics.tech/aetheris-universe" target="_blank" rel="noopener noreferrer">Aetheris Universe</a>
         </div>
         <p className="mt-3">© {new Date().getFullYear()} Obsidian · Aetheris.Technology</p>
@@ -239,39 +233,15 @@ function Home() {
   );
 }
 
-function PricingCard({
-  name, price, tag, features, cta, to, search, onClick, highlight,
-}: {
-  name: string; price: string; tag: string; features: string[]; cta: string;
-  to: string; search?: never; onClick?: () => void; highlight?: boolean;
-}) {
+function PriceList({ items }: { items: string[] }) {
   return (
-    <div className={`p-6 rounded-2xl border ${highlight ? "border-[#F4A125]/40 bg-[#F4A125]/[0.06]" : "border-white/10 bg-white/[0.03]"}`}>
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-xl font-bold">{name}</h3>
-        <span className="text-xs text-[#B6BCC8]">{tag}</span>
-      </div>
-      <div className="mt-2 text-3xl font-bold">{price}</div>
-      <ul className="mt-5 space-y-2 text-sm text-[#B6BCC8]">
-        {features.map((f) => (
-          <li key={f} className="flex items-start gap-2">
-            <Check className="w-4 h-4 text-[#F4A125] mt-0.5 shrink-0" />
-            <span>{f}</span>
-          </li>
-        ))}
-      </ul>
-      <Link
-        to={to as never}
-        search={search}
-        onClick={onClick}
-        className={`mt-6 block text-center px-4 py-2.5 rounded-lg text-sm font-semibold ${
-          highlight
-            ? "bg-gradient-to-r from-[#F4A125] to-[#DD9324] text-black hover:opacity-90"
-            : "border border-white/15 text-white hover:bg-white/5"
-        }`}
-      >
-        {cta}
-      </Link>
-    </div>
+    <ul className="mt-5 space-y-2 text-sm text-[#B6BCC8]">
+      {items.map((f) => (
+        <li key={f} className="flex items-start gap-2">
+          <Check className="w-4 h-4 text-[#F4A125] mt-0.5 shrink-0" />
+          <span>{f}</span>
+        </li>
+      ))}
+    </ul>
   );
 }
