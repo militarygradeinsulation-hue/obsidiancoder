@@ -35,6 +35,9 @@ const inputSchema = z.object({
   pickerModel: z.string().optional(),
   // Explicit opt-in for generated imagery. Bypasses the tight keyword filter.
   wantImages: z.boolean().optional().default(false),
+  // Optional DesignContract from the Design Library panel. Passed through
+  // opaquely and validated shallowly — we only read fields we know about.
+  designContract: z.unknown().optional(),
 });
 
 
@@ -346,7 +349,7 @@ async function planAndFetchComponents(
   const t0 = performance.now();
   // Only useful for fresh builds — skip micro-edits on an existing document.
   if (currentHtml && EDIT_KEYWORDS.test(prompt)) return { components: [], planUsage: null };
-  if (!process.env.TWENTYFIRST_API_KEY) return { components: [], planUsage: null };
+  if (!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST)) return { components: [], planUsage: null };
   let planUsage: UsageRecord | null = null;
   let queries: string[] = [];
   let components: ComponentHit[] = [];
@@ -433,7 +436,7 @@ async function planAndFetchComponents(
         hitCount: components.length,
         componentNames: components.map((c) => c.name),
         injectedBytes: 0,
-        authOk: !!process.env.TWENTYFIRST_API_KEY,
+        authOk: !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST),
         durationMs: Math.round(performance.now() - t0),
       });
     } catch { /* telemetry never blocks */ }
@@ -568,7 +571,7 @@ export const Route = createFileRoute("/api/generate")({
           //    asked for imagery or opted in via wantImages. This is what was
           //    silently adding 12-17s to every non-visual build.
           const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
-          const wantComponents = !data.advisory && !!apiKey && !!process.env.TWENTYFIRST_API_KEY;
+          const wantComponents = !data.advisory && !!apiKey && !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
           const emptyImagePhase: ImagePhaseResult = { images: [], usages: [], planUsage: null };
           const emptyComponentPhase: ComponentPhaseResult = { components: [], planUsage: null };
           const enrichmentBudget = Math.max(
@@ -610,6 +613,17 @@ export const Route = createFileRoute("/api/generate")({
           if (!data.advisory && !contextHtml) {
             const { STYLE_LIBRARY } = await import("@/lib/style-library");
             messages.push({ role: "system", content: STYLE_LIBRARY });
+          }
+          // Design Contract injection — applies to both fresh builds and edits
+          // so follow-up prompts preserve the chosen direction.
+          if (!data.advisory && data.designContract && typeof data.designContract === "object") {
+            try {
+              const { contractToSystemPrompt } = await import("@/lib/design-library");
+              const dc = data.designContract as Parameters<typeof contractToSystemPrompt>[0];
+              if (dc?.palette && dc?.fontPairingId) {
+                messages.push({ role: "system", content: contractToSystemPrompt(dc) });
+              }
+            } catch { /* ignore contract injection errors — non-fatal */ }
           }
 
           if (!data.advisory && contextHtml) {

@@ -42,6 +42,8 @@ import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
 import { AccountModal } from "@/components/AccountModal";
 import { ThemesPanel } from "@/components/panels/ThemesPanel";
+import { DesignLibraryPanel } from "@/components/panels/DesignLibraryPanel";
+import { loadContract as loadDesignContract } from "@/lib/design-library";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
 import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
@@ -262,6 +264,7 @@ function Index() {
   const [input, setInput] = useState("");
   const [buildChatOpen, setBuildChatOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
+  const [designLibraryOpen, setDesignLibraryOpen] = useState(false);
   const [ideaOffset, setIdeaOffset] = useState(0);
   const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
   const [aiIdeas, setAiIdeas] = useState<Addon[]>([]);
@@ -1750,6 +1753,7 @@ function Index() {
           model: modelForServer,
           pickerModel: current.model,
           advisory: !previewMode,
+          designContract: loadDesignContract(current.id),
         }),
         signal: controller.signal,
       });
@@ -3925,6 +3929,21 @@ function Index() {
         onApply={(css, name) => updateCurrent({ themeCss: css, themeName: name })}
         onClear={() => updateCurrent({ themeCss: undefined, themeName: undefined })}
       />
+      <DesignLibraryPanel
+        open={designLibraryOpen}
+        onClose={() => setDesignLibraryOpen(false)}
+        sessionId={current.id}
+        currentPrompt={input}
+      />
+      <button
+        type="button"
+        className="dl-fab"
+        title="Design Library"
+        aria-label="Open Design Library"
+        onClick={() => setDesignLibraryOpen(true)}
+      >
+        <span className="dl-fab-dot" /> Design
+      </button>
       <BuildChatPanel
         open={buildChatOpen}
         onClose={() => setBuildChatOpen(false)}
