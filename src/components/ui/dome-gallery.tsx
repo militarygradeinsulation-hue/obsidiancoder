@@ -202,6 +202,30 @@ export default function DomeGallery({
 
   useEffect(() => { applyTransform(rotationRef.current.x, rotationRef.current.y); }, []);
 
+  // Slow idle auto-rotation on the Y-axis. Pauses while dragging, during
+  // inertia, or when a tile is focused/enlarged. Respects reduced-motion.
+  useEffect(() => {
+    if (!autoRotateSpeed || autoRotateSpeed <= 0) return;
+    if (typeof window === "undefined") return;
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) return;
+    let raf = 0;
+    let last = performance.now();
+    const tick = (now: number) => {
+      const dt = Math.min(64, now - last) / 1000;
+      last = now;
+      if (!draggingRef.current && !focusedElRef.current && !inertiaRAF.current) {
+        const nextY = wrapAngleSigned(rotationRef.current.y + autoRotateSpeed * dt);
+        rotationRef.current = { x: rotationRef.current.x, y: nextY };
+        applyTransform(rotationRef.current.x, nextY);
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [autoRotateSpeed]);
+
+
   const stopInertia = useCallback(() => {
     if (inertiaRAF.current) { cancelAnimationFrame(inertiaRAF.current); inertiaRAF.current = null; }
   }, []);
