@@ -325,7 +325,15 @@ function Unlock() {
           <button type="button" className="unlock-topbar-link" onClick={() => { openPanel("buy"); setPlansOpen(true); requestAnimationFrame(() => document.getElementById("plans-heading")?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>Pricing</button>
           <button type="button" className="unlock-topbar-link" onClick={() => { setDemosOpen(true); requestAnimationFrame(() => document.getElementById("demos-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Live Demos</button>
           <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Access Code</button>
-          <button type="button" className="unlock-topbar-cta" onClick={() => { openPanel("buy"); goSignIn(); }}>Sign in</button>
+          {session ? (
+            <>
+              <span className="unlock-topbar-link" aria-live="polite" style={{ opacity: 0.75 }}>{session.email ?? "Signed in"}</span>
+              <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Enter Access Code</button>
+              <button type="button" className="unlock-topbar-cta" onClick={signOutAndReset}>Sign out</button>
+            </>
+          ) : (
+            <button type="button" className="unlock-topbar-cta" onClick={goSignIn}>Sign in</button>
+          )}
         </div>
       </nav>
 
