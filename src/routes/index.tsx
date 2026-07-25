@@ -1,11 +1,131 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
-import { ArrowRight, Sparkles, Zap, Shield, Code2, Rocket, Check, Brain, Layers, Lock, Plug, HelpCircle, Cpu } from "lucide-react";
+import { createFileRoute, Link, ClientOnly } from "@tanstack/react-router";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, Sparkles, Zap, Shield, Rocket, Check, Brain, Layers, Lock, Plug, HelpCircle, Cpu, Play } from "lucide-react";
 import { trackHomeVisit, track } from "@/lib/analytics";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { supabase } from "@/integrations/supabase/client";
 
 // Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
+const DomeGallery = lazy(() => import("@/components/ui/dome-gallery"));
+
+type DemoCategory = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
+const DEMO_CATEGORIES: readonly DemoCategory[] = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
+
+const HOME_DEMOS: { slug: string; title: string; url?: string; category: DemoCategory }[] = [
+  { slug: "0w653a21633k5v", title: "Obsidian Build 08", category: "Landing", url: "https://obsidianvibe.live/api/public/share/0w653a21633k5v" },
+  { slug: "3s190o0x3o2r14", title: "Obsidian Build 09", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/3s190o0x3o2r14" },
+  { slug: "1l370y43144a2o", title: "Obsidian Build 10", category: "Tool", url: "https://obsidianvibe.live/api/public/share/1l370y43144a2o" },
+  { slug: "0t485n6s6i1203", title: "Obsidian Build 11", category: "Game", url: "https://obsidianvibe.live/api/public/share/0t485n6s6i1203" },
+  { slug: "5i3e202p646j66", title: "Obsidian Build 12", category: "Portfolio", url: "https://obsidianvibe.live/api/public/share/5i3e202p646j66" },
+  { slug: "1z63663n0j6c3n", title: "Obsidian Build 13", category: "App", url: "https://obsidianvibe.live/api/public/share/1z63663n0j6c3n#home" },
+  { slug: "6t4k4d2h31512r", title: "Obsidian Build 14", category: "Landing", url: "https://obsidianvibe.live/api/public/share/6t4k4d2h31512r" },
+  { slug: "0x1b67096z3d2l", title: "Obsidian Build 15", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/0x1b67096z3d2l" },
+  { slug: "4a452v014l4a3d", title: "Obsidian Build 16", category: "Tool", url: "https://obsidianvibe.live/api/public/share/4a452v014l4a3d" },
+  { slug: "4t4k4q2u0e2i0y", title: "Obsidian Build 17", category: "Game", url: "https://obsidianvibe.live/api/public/share/4t4k4q2u0e2i0y" },
+  { slug: "3u6x2m401k4y6q", title: "Obsidian Build 18", category: "Portfolio", url: "https://obsidianvibe.live/api/public/share/3u6x2m401k4y6q" },
+  { slug: "214o3v5d1g421g", title: "Obsidian Build 20", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/214o3v5d1g421g#live-map" },
+  { slug: "4b3k4t624s4n1l", title: "Obsidian Build 21", category: "Landing", url: "https://obsidianvibe.live/api/public/share/4b3k4t624s4n1l#preview" },
+  { slug: "2e5n3j0y47664q", title: "Obsidian Build 23", category: "Game", url: "https://obsidianvibe.live/api/public/share/2e5n3j0y47664q#episodes" },
+  { slug: "4g71725v6y2o5b", title: "Obsidian Build 24", category: "App", url: "https://obsidianvibe.live/api/public/share/4g71725v6y2o5b" },
+];
+
+function LiveDemosSection() {
+  const [cat, setCat] = useState<DemoCategory | "All">("All");
+  const [featured, setFeatured] = useState<typeof HOME_DEMOS>([]);
+  useEffect(() => {
+    let alive = true;
+    supabase.from("featured_demos").select("slug, title, category, url").order("sort_order", { ascending: false }).limit(60)
+      .then(({ data }) => {
+        if (!alive || !data) return;
+        setFeatured(data.map((d) => ({
+          slug: d.slug, title: d.title, url: d.url ?? undefined,
+          category: (DEMO_CATEGORIES as readonly string[]).includes(d.category) ? (d.category as DemoCategory) : "App",
+        })));
+      });
+    return () => { alive = false; };
+  }, []);
+  const merged = useMemo(() => {
+    const map = new Map<string, typeof HOME_DEMOS[number] & { demoUrl: string }>();
+    for (const d of [...featured, ...HOME_DEMOS]) {
+      const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
+      if (!map.has(demoUrl)) map.set(demoUrl, { ...d, demoUrl });
+    }
+    return [...map.values()].filter((d) => cat === "All" || d.category === cat);
+  }, [featured, cat]);
+
+  const images = useMemo(() => {
+    const origin = typeof window !== "undefined" ? window.location.origin : "";
+    return merged.map((d) => {
+      const abs = /^https?:\/\//i.test(d.demoUrl) ? d.demoUrl : `${origin}${d.demoUrl}`;
+      const clean = d.title.replace(/^Demo\s*·\s*/, "");
+      return {
+        src: `https://image.thum.io/get/width/600/crop/600/noanimate/${abs}`,
+        alt: `${clean} — ${d.category}`,
+        href: d.demoUrl,
+      };
+    });
+  }, [merged]);
+
+  return (
+    <section id="demo" className="max-w-6xl mx-auto px-6 py-20">
+      <Reveal>
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#F4A125]/30 bg-[#F4A125]/10 text-xs text-[#F4A125] mb-4 backdrop-blur">
+            <Sparkles className="w-3 h-3" /> Live Demos
+          </div>
+          <h2 className="text-4xl md:text-5xl font-bold">
+            Real builds. <span className="gold-text">Real code.</span>
+          </h2>
+          <p className="mt-3 text-[#B6BCC8]">Explore what people have shipped with Obsidian. Drag to rotate — tap to open.</p>
+        </div>
+      </Reveal>
+      <Reveal delay={100}>
+        <div className="flex flex-wrap justify-center gap-2 mb-6">
+          {(["All", ...DEMO_CATEGORIES] as const).map((c) => {
+            const active = cat === c;
+            return (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setCat(c)}
+                className={`px-4 py-1.5 rounded-full text-xs font-medium border transition ${
+                  active
+                    ? "border-[#F4A125]/60 bg-[#F4A125]/15 text-[#F4A125] shadow-[0_0_20px_rgba(244,161,37,0.25)]"
+                    : "border-white/10 bg-white/5 text-[#B6BCC8] hover:text-white hover:border-white/25"
+                }`}
+              >
+                {c}
+              </button>
+            );
+          })}
+        </div>
+      </Reveal>
+      <Reveal delay={150}>
+        <div className="glass rounded-3xl overflow-hidden relative" style={{ height: "min(78vh, 620px)" }}>
+          <ClientOnly fallback={<div className="absolute inset-0 flex items-center justify-center text-[#8b93a1] text-sm">Loading gallery…</div>}>
+            <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-[#8b93a1] text-sm">Loading gallery…</div>}>
+              {images.length > 0 && (
+                <DomeGallery
+                  images={images}
+                  grayscale={false}
+                  minRadius={340}
+                  segments={Math.max(20, Math.min(35, images.length))}
+                  overlayBlurColor="transparent"
+                  autoRotateSpeed={4}
+                  onImageClick={({ href }: { href?: string }) => { if (href) window.open(href, "_blank", "noopener,noreferrer"); }}
+                />
+              )}
+            </Suspense>
+          </ClientOnly>
+          <div className="absolute bottom-3 left-0 right-0 text-center text-[11px] text-[#8b93a1] pointer-events-none">
+            Drag to rotate · tap a tile to open
+          </div>
+        </div>
+      </Reveal>
+    </section>
+  );
+}
 
 function HeroOrb() {
   const [mounted, setMounted] = useState(false);
@@ -202,54 +322,62 @@ function Home() {
           </div>
         </section>
 
-        {/* Demo */}
-        <section id="demo" className="max-w-6xl mx-auto px-6 py-16">
+        {/* Live Demos — dome gallery */}
+        <LiveDemosSection />
+
+        {/* Open the Builder — interactive prompt launcher */}
+        <section id="try" className="max-w-6xl mx-auto px-6 py-20">
           <Reveal>
-            <div className="text-center mb-10">
-              <h2 className="text-3xl md:text-4xl font-bold">Watch it build in real time</h2>
-              <p className="mt-3 text-[#B6BCC8]">From plain-English idea to working preview in seconds.</p>
-            </div>
-          </Reveal>
-          <Reveal delay={100}>
-            <div className="glass glass-hover relative aspect-video rounded-2xl overflow-hidden">
-              <div className="absolute inset-0 flex items-center justify-center text-center">
-                <div>
-                  <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-[#F4A125]/20 flex items-center justify-center float-y">
-                    <Code2 className="w-8 h-8 text-[#F4A125]" />
+            <div className="grid md:grid-cols-[1.1fr_1fr] gap-8 items-stretch">
+              <div className="glass glass-hover rounded-3xl p-8 md:p-10 relative overflow-hidden">
+                <div aria-hidden className="absolute -top-24 -right-24 w-72 h-72 rounded-full opacity-40 blur-3xl"
+                     style={{ background: "radial-gradient(circle, #F4A125 0%, transparent 65%)" }} />
+                <div className="relative">
+                  <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#F4A125]/30 bg-[#F4A125]/10 text-xs text-[#F4A125] mb-5 backdrop-blur">
+                    <Play className="w-3 h-3" /> Open the Builder
                   </div>
-                  <p className="text-[#B6BCC8]">Live demo — try it yourself</p>
-                  <Link
-                    to="/build"
-                    search={{ q: undefined }}
-                    onClick={onBuildFree("demo")}
-                    className="mt-4 inline-flex items-center gap-2 px-5 py-2.5 rounded-lg bg-white/10 hover:bg-white/20 text-sm transition"
-                  >
-                    Open the builder <ArrowRight className="w-4 h-4" />
-                  </Link>
+                  <h2 className="text-3xl md:text-4xl font-bold leading-tight">
+                    One prompt away from a <span className="gold-text">working product.</span>
+                  </h2>
+                  <p className="mt-4 text-[#B6BCC8]">
+                    Type an idea. Obsidian streams the code, renders a live preview, and gives you a real
+                    React + TypeScript project you can share, export, or deploy.
+                  </p>
+                  <PromptLauncher />
+                  <p className="mt-3 text-xs text-[#8b93a1]">Free · No credit card · 7-day retention on the free tier</p>
                 </div>
+              </div>
+
+              <div className="grid gap-3">
+                {[
+                  "A landing page for my coffee subscription",
+                  "A budget tracker with charts",
+                  "A tic-tac-toe game with sound",
+                  "A dashboard for tracking client invoices",
+                  "A portfolio site with a dark cinematic hero",
+                ].map((ex, i) => (
+                  <Reveal key={ex} delay={i * 60}>
+                    <Link
+                      to="/build"
+                      search={{ q: ex }}
+                      onClick={() => track("build_free_click", { source: "example", prompt: ex })}
+                      className="glass glass-hover group flex items-center justify-between px-5 py-4 rounded-2xl text-sm text-[#f2eee7]"
+                    >
+                      <span className="flex items-center gap-3">
+                        <span className="w-8 h-8 rounded-lg bg-[#F4A125]/10 border border-[#F4A125]/30 flex items-center justify-center text-[#F4A125] text-xs font-bold">
+                          {String(i + 1).padStart(2, "0")}
+                        </span>
+                        {ex}
+                      </span>
+                      <ArrowRight className="w-4 h-4 text-[#F4A125] opacity-0 -translate-x-1 group-hover:opacity-100 group-hover:translate-x-0 transition-all" />
+                    </Link>
+                  </Reveal>
+                ))}
               </div>
             </div>
           </Reveal>
-
-          <div className="mt-8 grid md:grid-cols-3 gap-3">
-            {[
-              "A landing page for my coffee subscription",
-              "A budget tracker with charts",
-              "A tic-tac-toe game with sound",
-            ].map((ex, i) => (
-              <Reveal key={ex} delay={i * 80}>
-                <Link
-                  to="/build"
-                  search={{ q: ex }}
-                  onClick={() => track("build_free_click", { source: "example", prompt: ex })}
-                  className="glass glass-hover block text-left px-4 py-3 rounded-xl text-sm text-[#f2eee7]"
-                >
-                  <span className="text-[#F4A125] mr-2">›</span>{ex}
-                </Link>
-              </Reveal>
-            ))}
-          </div>
         </section>
+
 
         {/* Features */}
         <section id="features" className="max-w-6xl mx-auto px-6 py-16">
@@ -441,5 +569,35 @@ function PriceList({ items }: { items: string[] }) {
         </li>
       ))}
     </ul>
+  );
+}
+
+function PromptLauncher() {
+  const [q, setQ] = useState("");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        track("build_free_click", { source: "prompt_launcher", prompt: q || undefined });
+        const url = q.trim() ? `/build?q=${encodeURIComponent(q.trim())}` : "/build";
+        window.location.href = url;
+      }}
+      className="mt-7 glass rounded-2xl p-2 flex items-center gap-2 focus-within:border-[#F4A125]/50 transition"
+    >
+      <span className="pl-3 text-[#F4A125]">›</span>
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Describe what you want to build…"
+        className="flex-1 bg-transparent outline-none py-3 text-sm placeholder:text-[#8b93a1] text-[#f2eee7]"
+        aria-label="What do you want to build?"
+      />
+      <button
+        type="submit"
+        className="cta-glow px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#F4A125] to-[#DD9324] text-black text-sm font-semibold flex items-center gap-2 hover:opacity-95 transition"
+      >
+        Build <ArrowRight className="w-4 h-4" />
+      </button>
+    </form>
   );
 }
