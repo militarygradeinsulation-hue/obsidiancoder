@@ -266,10 +266,14 @@ function Home() {
       <div className="relative z-10">
         <header className="sticky top-0 z-40 backdrop-blur-xl bg-black/40 border-b border-white/5">
           <div className="max-w-6xl mx-auto flex items-center justify-between px-6 py-4">
-            <div className="flex items-center gap-2">
-              <div className="w-7 h-7 rounded bg-gradient-to-br from-[#F4A125] to-[#DD9324] shadow-[0_0_20px_rgba(244,161,37,0.5)]" aria-hidden />
-              <span className="font-semibold tracking-tight">Obsidian</span>
-            </div>
+            <a href="#" className="flex items-center gap-2" aria-label="Obsidian Vibe">
+              <img
+                src={obsidianLogo.url}
+                alt="Obsidian Vibe"
+                className="h-8 w-auto object-contain select-none"
+                draggable={false}
+              />
+            </a>
             <nav className="hidden md:flex items-center gap-6 text-sm text-[#B6BCC8]">
               <a href="#demo" className="hover:text-white transition-colors">Demo</a>
               <a href="#features" className="hover:text-white transition-colors">Features</a>
