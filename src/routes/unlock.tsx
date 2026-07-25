@@ -329,6 +329,7 @@ function Unlock() {
           <span className="unlock-topbar-name">OBSIDIAN</span>
         </a>
         <div className="unlock-topbar-links">
+          <a href="https://businessforensics.tech/aetheris-universe" target="_blank" rel="noopener noreferrer" className="unlock-topbar-link">Aetheris Universe</a>
           <button type="button" className="unlock-topbar-link" onClick={() => { openPanel("buy"); setPlansOpen(true); requestAnimationFrame(() => document.getElementById("plans-heading")?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>Pricing</button>
           <button type="button" className="unlock-topbar-link" onClick={() => { setDemosOpen(true); requestAnimationFrame(() => document.getElementById("demos-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Live Demos</button>
           <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Access Code</button>
