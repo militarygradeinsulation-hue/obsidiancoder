@@ -120,6 +120,7 @@ export default function DomeGallery({
   openedImageBorderRadius = "30px",
   grayscale = true,
   onImageClick,
+  autoRotateSpeed = 0,
 }: DomeGalleryProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const mainRef = useRef<HTMLDivElement>(null);
