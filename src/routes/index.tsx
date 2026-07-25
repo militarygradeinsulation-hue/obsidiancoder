@@ -229,17 +229,14 @@ function Home() {
 
   return (
     <div className="min-h-screen bg-[#030405] text-[#f2eee7] overflow-x-hidden relative">
-      {/* Ambient background — gradient mesh + orbs */}
-      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
-        <div className="absolute -top-40 -left-32 w-[42rem] h-[42rem] rounded-full opacity-[0.35] blur-3xl"
-             style={{ background: "radial-gradient(circle at 30% 30%, #F4A125 0%, transparent 60%)", animation: "orbFloat 18s ease-in-out infinite" }} />
-        <div className="absolute top-1/3 -right-40 w-[38rem] h-[38rem] rounded-full opacity-[0.25] blur-3xl"
-             style={{ background: "radial-gradient(circle at 50% 50%, #DD9324 0%, transparent 65%)", animation: "orbFloat 22s ease-in-out infinite reverse" }} />
-        <div className="absolute bottom-0 left-1/4 w-[30rem] h-[30rem] rounded-full opacity-[0.18] blur-3xl"
-             style={{ background: "radial-gradient(circle at 50% 50%, #7c5cff 0%, transparent 65%)", animation: "orbFloat 26s ease-in-out infinite" }} />
-        <div className="absolute inset-0 opacity-[0.04]"
-             style={{ backgroundImage: "radial-gradient(#f2eee7 1px, transparent 1px)", backgroundSize: "28px 28px" }} />
-      </div>
+      {/* Animated dithering shader background */}
+      <DitheringBackground
+        colorBack="#030405"
+        colorFront="#F4A125"
+        shape="warp"
+        type="4x4"
+        size={3.2}
+      />
 
       <style>{`
         @keyframes orbFloat { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(30px,-20px) scale(1.06); } }
