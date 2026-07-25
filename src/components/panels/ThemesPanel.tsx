@@ -136,49 +136,101 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
           <div className="themes-grid">
             {loading && !themes.length
               ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="theme-card skeleton" />)
-              : themes.map((t) => {
-                  const cols = t.colors?.slice(0, 6) ?? [];
-                  return (
-                    <div key={t.identifier} className="theme-card">
-                      <div className="theme-preview" style={t.previewUrl ? { backgroundImage: `url(${t.previewUrl})` } : undefined}>
-                        {!t.previewUrl && cols.length ? (
-                          <div className="theme-swatches">
-                            {cols.map((c, i) => (
-                              <span key={i} style={{ background: c }} />
-                            ))}
-                          </div>
-                        ) : null}
-                      </div>
-                      <div className="theme-meta">
-                        <div className="theme-name" title={t.name}>{t.name}</div>
-                        {t.author ? <div className="theme-author">by {t.author}</div> : null}
-                        {t.description ? <div className="theme-desc">{t.description}</div> : null}
-                      </div>
-                      <div className="theme-actions">
-                        <button
-                          type="button"
-                          className="themes-btn primary sm"
-                          onClick={() => applyTheme(t)}
-                          disabled={applyingId === t.identifier}
-                        >
-                          {applyingId === t.identifier ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
-                          Apply
-                        </button>
-                        <button
-                          type="button"
-                          className="themes-btn ghost sm"
-                          onClick={() => downloadTheme(t)}
-                          title="Download CSS"
-                          disabled={applyingId === t.identifier}
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })}
+              : themes.map((t) => (
+                  <ThemeCard
+                    key={t.identifier}
+                    theme={t}
+                    applying={applyingId === t.identifier}
+                    onApply={() => applyTheme(t)}
+                    onDownload={() => downloadTheme(t)}
+                  />
+                ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/** Deterministic palette derived from a theme's identifier so tiles are never
+ * visually blank when the 21st.dev search response omits colors/preview. */
+function fallbackPalette(seed: string): string[] {
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+  const base = h % 360;
+  return [0, 40, 200, 320, 80].map((off, i) => {
+    const hue = (base + off) % 360;
+    const sat = 55 + (i * 7) % 25;
+    const light = 30 + (i * 11) % 30;
+    return `hsl(${hue} ${sat}% ${light}%)`;
+  });
+}
+
+function ThemeCard({
+  theme: t,
+  applying,
+  onApply,
+  onDownload,
+}: {
+  theme: UiThemeHit;
+  applying: boolean;
+  onApply: () => void;
+  onDownload: () => void;
+}) {
+  const [imgFailed, setImgFailed] = useState(false);
+  const cols = (t.colors?.length ? t.colors : fallbackPalette(t.identifier || t.name)).slice(0, 6);
+  const showImage = !!t.previewUrl && !imgFailed;
+  const gradient = `linear-gradient(135deg, ${cols[0] ?? "#1a1d24"} 0%, ${cols[1] ?? "#0a0b0e"} 55%, ${cols[2] ?? "#000"} 100%)`;
+
+  return (
+    <div className="theme-card">
+      <div className="theme-preview" style={{ background: gradient }}>
+        {showImage ? (
+          <img
+            src={t.previewUrl}
+            alt={`${t.name} preview`}
+            loading="lazy"
+            decoding="async"
+            referrerPolicy="no-referrer"
+            crossOrigin="anonymous"
+            onError={() => setImgFailed(true)}
+            className="theme-preview-img"
+          />
+        ) : null}
+        <div className="theme-swatches">
+          {cols.map((c, i) => (
+            <span key={i} style={{ background: c }} title={c} />
+          ))}
+        </div>
+      </div>
+      <div className="theme-meta">
+        <div className="theme-name" title={t.name}>{t.name}</div>
+        {t.author ? <div className="theme-author">by {t.author}</div> : null}
+        {t.description ? <div className="theme-desc">{t.description}</div> : null}
+      </div>
+      <div className="theme-actions">
+        <button
+          type="button"
+          className="themes-btn primary sm"
+          onClick={onApply}
+          disabled={applying}
+        >
+          {applying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+          Apply
+        </button>
+        <button
+          type="button"
+          className="themes-btn ghost sm"
+          onClick={onDownload}
+          title="Download CSS"
+          disabled={applying}
+        >
+          <Download className="h-3.5 w-3.5" />
+        </button>
+      </div>
+    </div>
+  );
+}
       </div>
     </div>
   );
