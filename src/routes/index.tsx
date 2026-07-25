@@ -522,7 +522,13 @@ function Home() {
         {/* Founder */}
         <section id="founder" className="max-w-4xl mx-auto px-6 py-20 text-center">
           <Reveal>
-            <div className="inline-block w-20 h-20 rounded-full bg-gradient-to-br from-[#F4A125] to-[#DD9324] mb-6 shadow-[0_0_60px_rgba(244,161,37,0.4)] float-y" aria-hidden />
+            <img
+              src={obsidianLogo.url}
+              alt="Obsidian Vibe"
+              className="mx-auto mb-6 h-16 w-auto object-contain float-y select-none"
+              style={{ filter: "drop-shadow(0 0 40px rgba(244,161,37,0.4))" }}
+              draggable={false}
+            />
             <h2 className="text-2xl md:text-3xl font-bold">Built by an independent architect</h2>
             <p className="mt-4 text-[#B6BCC8] max-w-2xl mx-auto">
               Obsidian is built by a single operator focused on making real software creation
