@@ -56,12 +56,18 @@ const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory
 type Intent = "buy" | "code";
 
 export const Route = createFileRoute("/unlock")({
-  validateSearch: (s: Record<string, unknown>) => ({
-    password: typeof s.password === "string" ? s.password : undefined,
-    intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
-    checkout: s.checkout === "1" ? "1" : undefined,
-    priceId: typeof s.priceId === "string" && /^[a-zA-Z0-9_-]+$/.test(s.priceId) ? s.priceId : undefined,
-  }),
+  validateSearch: (s: Record<string, unknown>) => {
+    const rawAmount = typeof s.amount === "string" ? parseInt(s.amount, 10)
+      : typeof s.amount === "number" ? s.amount : NaN;
+    const amount = Number.isInteger(rawAmount) && rawAmount >= 5 && rawAmount <= 499 ? rawAmount : undefined;
+    return {
+      password: typeof s.password === "string" ? s.password : undefined,
+      intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
+      checkout: s.checkout === "1" ? "1" : undefined,
+      priceId: typeof s.priceId === "string" && /^[a-zA-Z0-9_-]+$/.test(s.priceId) ? s.priceId : undefined,
+      amount,
+    };
+  },
   beforeLoad: async ({ search }) => {
     const pwd = (search as { password?: string }).password;
     if (!pwd) return;
@@ -119,6 +125,9 @@ function Unlock() {
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
   const [selectedPriceId, setSelectedPriceId] = useState<string>(
     search.priceId && typeof search.priceId === "string" ? search.priceId : CREATOR_PRICE_ID,
+  );
+  const [customAmount, setCustomAmount] = useState<number | null>(
+    typeof search.amount === "number" ? search.amount : null,
   );
   const [expandDetails, setExpandDetails] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
@@ -200,15 +209,21 @@ function Unlock() {
   }, [session?.userId, proUnlock, router]);
 
   // If the user arrived from the pricing configurator with checkout intent
-  // but has no session, forward them into auth (preserving priceId) instead
-  // of showing the legacy pitch page.
+  // but has no session, forward them into auth (preserving priceId or
+  // custom amount) instead of showing the pitch page.
   useEffect(() => {
     if (sessionLoading || session) return;
     if (search.checkout !== "1" && search.intent !== "buy") return;
-    const priceId = selectedPriceId || CREATOR_PRICE_ID;
-    const q = `intent=buy&checkout=1&priceId=${encodeURIComponent(priceId)}`;
-    window.location.assign(buildAuthUrl("signup", `/unlock?${q}`));
-  }, [sessionLoading, session, search.checkout, search.intent, selectedPriceId]);
+    const params: string[] = ["intent=buy", "checkout=1"];
+    if (customAmount && customAmount >= 5 && customAmount <= 499) {
+      params.push(`amount=${customAmount}`);
+    } else {
+      const priceId = selectedPriceId || CREATOR_PRICE_ID;
+      params.push(`priceId=${encodeURIComponent(priceId)}`);
+    }
+    window.location.assign(buildAuthUrl("signup", `/unlock?${params.join("&")}`));
+  }, [sessionLoading, session, search.checkout, search.intent, selectedPriceId, customAmount]);
+
 
 
 
@@ -554,7 +569,9 @@ function Unlock() {
                 <div className="checkout-header">
                   <div>
                     <div className="checkout-title">
-                      {PLAN_TIERS.find((t) => t.priceId === selectedPriceId)?.name ?? "Obsidian"}
+                      {customAmount
+                        ? `Obsidian Custom · $${customAmount}/mo`
+                        : (PLAN_TIERS.find((t) => t.priceId === selectedPriceId)?.name ?? "Obsidian")}
                     </div>
                     <div className="checkout-sub">
                       Signed in as {session.email ?? "your account"}
@@ -566,9 +583,11 @@ function Unlock() {
                   <button type="button" onClick={() => setShowCheckout(false)} className="checkout-back">← Back</button>
                 </div>
                 <CheckoutSurface
-                  priceId={selectedPriceId}
+                  priceId={customAmount ? undefined : selectedPriceId}
+                  amountCents={customAmount ? customAmount * 100 : undefined}
                   onCancel={() => setShowCheckout(false)}
                 />
+
 
                 <p className="checkout-legal">
                   Secure billing through Stripe. Cancel anytime. By continuing you accept our{" "}

@@ -55,7 +55,6 @@ const MAX_AMOUNT = 500;
 const DEFAULT_AMOUNT = 79;
 const PENDING_PRICE_KEY = "obs:pending_priceId";
 const PENDING_AMOUNT_KEY = "obs:pending_amount";
-const SNAP_DISTANCE = 12; // px pull toward nearest anchor while dragging
 
 function reducedMotion(): boolean {
   if (typeof window === "undefined") return false;
@@ -113,54 +112,45 @@ export function PricingConfigurator() {
     });
   }, []);
 
-  // Convert a clientX on the track → amount, applying a subtle magnetic pull
-  // to nearest anchor so the drag feels weighted toward real plans.
-  const setFromClientX = useCallback((clientX: number, snap: boolean) => {
+  // Convert a clientX on the track → exact whole-dollar amount. No snap;
+  // the slider stops on any integer dollar between MIN and MAX.
+  const setFromClientX = useCallback((clientX: number) => {
     const el = trackRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
     const rawPct = ((clientX - rect.left) / rect.width) * 100;
-    let value = pctToAmount(rawPct);
-    const near = nearestAnchor(value);
-    const nearPct = amountToPct(near.amount);
-    const dxPct = nearPct - rawPct;
-    const dxPx = (dxPct / 100) * rect.width;
-    if (snap) {
-      value = near.amount;
-    } else if (Math.abs(dxPx) < SNAP_DISTANCE) {
-      // Magnetic pull — bias 45% toward anchor within snap distance.
-      const biasedPct = rawPct + dxPct * 0.45;
-      value = pctToAmount(biasedPct);
-    }
-    applyAmount(value);
+    applyAmount(pctToAmount(rawPct));
   }, [applyAmount]);
 
   // Pointer events
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     (e.currentTarget as Element).setPointerCapture?.(e.pointerId);
     setDragging(true);
-    setFromClientX(e.clientX, false);
+    setFromClientX(e.clientX);
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragging) return;
-    setFromClientX(e.clientX, false);
+    setFromClientX(e.clientX);
   };
-  const endDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+  const endDrag = (_e: React.PointerEvent<HTMLDivElement>) => {
     if (!dragging) return;
     setDragging(false);
-    setFromClientX(e.clientX, true); // snap on release
   };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
-    const idx = ANCHORS.findIndex((a) => a.amount === anchor.amount);
+    const step = e.shiftKey ? 10 : 1;
     if (e.key === "ArrowRight" || e.key === "ArrowUp") {
       e.preventDefault();
-      const next = ANCHORS[Math.min(ANCHORS.length - 1, idx + 1)];
-      applyAmount(next.amount);
+      applyAmount(amount + step);
     } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
       e.preventDefault();
-      const next = ANCHORS[Math.max(0, idx - 1)];
-      applyAmount(next.amount);
+      applyAmount(amount - step);
+    } else if (e.key === "PageUp") {
+      e.preventDefault();
+      applyAmount(amount + 10);
+    } else if (e.key === "PageDown") {
+      e.preventDefault();
+      applyAmount(amount - 10);
     } else if (e.key === "Home") {
       e.preventDefault();
       applyAmount(MIN_AMOUNT);
@@ -176,25 +166,35 @@ export function PricingConfigurator() {
   const persistSelection = useCallback(() => {
     if (typeof window === "undefined") return;
     try {
-      if (anchor.priceId) {
+      localStorage.setItem(PENDING_AMOUNT_KEY, String(amount));
+      if (amount === anchor.amount && anchor.priceId) {
         localStorage.setItem(PENDING_PRICE_KEY, anchor.priceId);
-        localStorage.setItem(PENDING_AMOUNT_KEY, String(anchor.amount));
+      } else {
+        localStorage.removeItem(PENDING_PRICE_KEY);
       }
     } catch { /* noop */ }
-  }, [anchor]);
+  }, [amount, anchor]);
 
   const handleContinue = useCallback(() => {
     persistSelection();
-    track("checkout_started", { amount: anchor.amount, tier: anchor.tierId, source: "configurator" });
-    if (anchor.tierId === "try_pro") track("try_pro_5_clicked", { source: "configurator" });
-    if (anchor.cta === "contact" && anchor.href) {
-      window.location.href = anchor.href;
+    track("checkout_started", { amount, tier: anchor.tierId, source: "configurator" });
+    if (amount === 5 && anchor.tierId === "try_pro") {
+      track("try_pro_5_clicked", { source: "configurator" });
+    }
+    // Enterprise contact: any amount >= 500 routes to sales.
+    if (amount >= 500) {
+      window.location.href = "mailto:sales@obsidianvibe.live?subject=Enterprise%20inquiry";
       return;
     }
-    if (anchor.priceId) {
+    // Exact tier match → use the fixed Stripe price for cleaner billing.
+    if (amount === anchor.amount && anchor.priceId) {
       window.location.href = `/unlock?intent=buy&priceId=${encodeURIComponent(anchor.priceId)}&checkout=1`;
+      return;
     }
-  }, [anchor, persistSelection]);
+    // Custom dollar amount → subscribe at that exact amount / month.
+    window.location.href = `/unlock?intent=buy&amount=${amount}&checkout=1`;
+  }, [amount, anchor, persistSelection]);
+
 
   const reduced = reducedMotion();
   const transition = reduced || dragging ? "none" : "left 320ms cubic-bezier(.2,.9,.2,1)";

@@ -168,6 +168,74 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
   });
 
 
+// ─── Custom-amount monthly subscription (pay-what-you-want slider) ──────────
+// Charges an arbitrary whole-dollar amount ($5–$499) as a Stripe recurring
+// monthly subscription using inline `price_data`, so no pre-created Stripe
+// price is required. Same auth + Customer resolution as the fixed-tier path.
+export const createCustomAmountSubscription = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: { amountCents: number; returnUrl: string; environment: StripeEnv }) => {
+    const n = Math.round(Number(data.amountCents));
+    if (!Number.isFinite(n)) throw new Error("Invalid amount");
+    if (n < 500 || n > 49900) throw new Error("Amount must be between $5 and $499");
+    if (n % 100 !== 0) throw new Error("Amount must be a whole dollar value");
+    if (typeof data.returnUrl !== "string" || !/^https?:\/\//.test(data.returnUrl)) {
+      throw new Error("Invalid returnUrl");
+    }
+    return { ...data, amountCents: n };
+  })
+  .handler(async ({ data, context }): Promise<CheckoutSessionResult> => {
+    try {
+      const { supabase, userId } = context;
+      const { data: userData } = await supabase.auth.getUser();
+      const email = userData.user?.email ?? undefined;
+
+      const stripe = createStripeClient(data.environment);
+      const customerId = await resolveOrCreateCustomer(stripe, { email, userId });
+
+      const dollars = Math.round(data.amountCents / 100);
+      const session = await stripe.checkout.sessions.create({
+        mode: "subscription",
+        ui_mode: "embedded_page",
+        return_url: data.returnUrl,
+        customer: customerId,
+        line_items: [{
+          quantity: 1,
+          price_data: {
+            currency: "usd",
+            recurring: { interval: "month" },
+            unit_amount: data.amountCents,
+            product_data: {
+              name: `Obsidian — Custom Plan ($${dollars}/mo)`,
+              metadata: { obsidian_custom: "1", amount_cents: String(data.amountCents) },
+            },
+          },
+        }],
+        metadata: {
+          userId,
+          priceId: "obsidian_custom_monthly",
+          planTier: "custom",
+          custom_amount_cents: String(data.amountCents),
+        },
+        subscription_data: {
+          metadata: {
+            userId,
+            priceId: "obsidian_custom_monthly",
+            planTier: "custom",
+            custom_amount_cents: String(data.amountCents),
+          },
+          proration_behavior: "create_prorations",
+        },
+      } as any);
+
+      return { clientSecret: session.client_secret ?? "" };
+    } catch (error) {
+      return { error: getStripeErrorMessage(error) };
+    }
+  });
+
+
+
 export const createPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { returnUrl?: string; environment: StripeEnv }) => data)
