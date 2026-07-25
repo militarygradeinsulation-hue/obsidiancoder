@@ -199,6 +199,18 @@ function Unlock() {
     return () => { cancelled = true; };
   }, [session?.userId, proUnlock, router]);
 
+  // If the user arrived from the pricing configurator with checkout intent
+  // but has no session, forward them into auth (preserving priceId) instead
+  // of showing the legacy pitch page.
+  useEffect(() => {
+    if (sessionLoading || session) return;
+    if (search.checkout !== "1" && search.intent !== "buy") return;
+    const priceId = selectedPriceId || CREATOR_PRICE_ID;
+    const q = `intent=buy&checkout=1&priceId=${encodeURIComponent(priceId)}`;
+    window.location.assign(buildAuthUrl("signup", `/unlock?${q}`));
+  }, [sessionLoading, session, search.checkout, search.intent, selectedPriceId]);
+
+
 
   async function onCodeSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -383,30 +395,39 @@ function Unlock() {
           <section id="panel-buy" role="tabpanel" aria-labelledby="tab-buy">
             {!showCheckout && (
               <>
-                <h2 className="unlock-headline">Think it, Type it, See it.</h2>
-                <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
+                {(() => {
+                  const selectedTier = PLAN_TIERS.find((t) => t.priceId === selectedPriceId)
+                    ?? PLAN_TIERS.find((t) => t.priceId === CREATOR_PRICE_ID)!;
+                  const cadence = selectedTier.cadence || "/month";
+                  return (
+                    <>
+                      <h2 className="unlock-headline">Think it, Type it, See it.</h2>
+                      <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
 
-                <div className="unlock-price">
-                  <span className="price-amount">$49</span>
-                  <span className="price-cadence">/month</span>
-                  <span className="price-strike">$79</span>
-                </div>
-                <p className="unlock-allowance">
-                  <strong style={{ color: "#F4A125" }}>Founding Member Pricing</strong> — first 100 Creator members lock in $49/month for life.
-                  Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period.
-                </p>
+                      <div className="unlock-price">
+                        <span className="price-amount">{selectedTier.price}</span>
+                        <span className="price-cadence">{cadence}</span>
+                      </div>
+                      <p className="unlock-allowance">
+                        <strong style={{ color: "#F4A125" }}>{selectedTier.name}</strong> — {selectedTier.headline}
+                        {" "}Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period.
+                      </p>
 
-                {status && <div className="unlock-status" role="status">{status}</div>}
-                {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
+                      {status && <div className="unlock-status" role="status">{status}</div>}
+                      {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
 
-                <button
-                  type="button"
-                  className="unlock-btn unlock-btn-primary"
-                  onClick={() => startPurchase(CREATOR_PRICE_ID)}
-                  disabled={sessionLoading}
-                >
-                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $49/month"}
-                </button>
+                      <button
+                        type="button"
+                        className="unlock-btn unlock-btn-primary"
+                        onClick={() => startPurchase(selectedTier.priceId!)}
+                        disabled={sessionLoading}
+                      >
+                        {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : `Start ${selectedTier.name} — ${selectedTier.price}${cadence}`}
+                      </button>
+                    </>
+                  );
+                })()}
+
 
                 {plansOpen && (
                 <div className="plans-block" aria-labelledby="plans-heading">
