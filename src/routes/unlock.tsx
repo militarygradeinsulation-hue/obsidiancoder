@@ -680,6 +680,7 @@ function Unlock() {
                 minRadius={340}
                 segments={Math.max(20, Math.min(35, domeImages.length))}
                 overlayBlurColor="transparent"
+                autoRotateSpeed={4}
                 onImageClick={({ href }) => { if (href) window.open(href, "_blank", "noopener,noreferrer"); }}
               />
               <p className="demos-sphere-hint">Drag to rotate · tap a tile to open</p>
