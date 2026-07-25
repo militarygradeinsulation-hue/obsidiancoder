@@ -182,21 +182,30 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
 
         {error ? <div className="themes-error">{error}</div> : null}
 
-        {!enabled ? null : (
-          <div className="themes-grid">
-            {loading && !themes.length
-              ? Array.from({ length: 6 }).map((_, i) => <div key={i} className="theme-card skeleton" />)
-              : themes.map((t) => (
-                  <ThemeCard
-                    key={t.identifier}
-                    theme={t}
-                    applying={applyingId === t.identifier}
-                    onApply={() => applyTheme(t)}
-                    onDownload={() => downloadTheme(t)}
-                  />
-                ))}
-          </div>
-        )}
+        <div className="themes-grid">
+          {loading && themes.length === presetHits.length
+            ? [...themes.map((t) => (
+                <ThemeCard
+                  key={t.identifier}
+                  theme={t}
+                  applying={applyingId === t.identifier}
+                  onApply={() => applyTheme(t)}
+                  onDownload={() => downloadTheme(t)}
+                />
+              )), ...Array.from({ length: 3 }).map((_, i) => <div key={`sk-${i}`} className="theme-card skeleton" />)]
+            : themes.map((t) => (
+                <ThemeCard
+                  key={t.identifier}
+                  theme={t}
+                  applying={applyingId === t.identifier}
+                  onApply={() => applyTheme(t)}
+                  onDownload={() => downloadTheme(t)}
+                />
+              ))}
+        </div>
+        {!remoteEnabled && !themes.length ? (
+          <div className="themes-error">No themes matched — try a different keyword.</div>
+        ) : null}
       </div>
     </div>
   );
