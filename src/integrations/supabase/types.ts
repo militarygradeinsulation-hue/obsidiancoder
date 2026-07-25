@@ -233,6 +233,27 @@ export type Database = {
         }
         Relationships: []
       }
+      free_build_ledger: {
+        Row: {
+          environment: string
+          fingerprint: string
+          ip_prefix: string | null
+          used_at: string
+        }
+        Insert: {
+          environment: string
+          fingerprint: string
+          ip_prefix?: string | null
+          used_at?: string
+        }
+        Update: {
+          environment?: string
+          fingerprint?: string
+          ip_prefix?: string | null
+          used_at?: string
+        }
+        Relationships: []
+      }
       one_time_purchases: {
         Row: {
           amount_paid: number
