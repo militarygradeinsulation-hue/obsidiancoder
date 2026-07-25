@@ -1680,3 +1680,99 @@ const unlockCss = `
 }
 `;
 
+function FeedbackSection() {
+  const send = useServerFn(submitFeedback);
+  const [message, setMessage] = useState("");
+  const [contact, setContact] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const disabled = status === "sending" || message.trim().length < 3;
+
+  async function onSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (disabled) return;
+    setStatus("sending");
+    setError(null);
+    try {
+      const path = typeof window !== "undefined" ? window.location.pathname + window.location.search : null;
+      const res = await send({ data: { message: message.trim(), contact: contact.trim() || null, path } });
+      if (res.ok) { setStatus("sent"); setMessage(""); setContact(""); }
+      else { setStatus("error"); setError(res.error || "Something went wrong."); }
+    } catch (err) {
+      setStatus("error");
+      setError(err instanceof Error ? err.message : "Something went wrong.");
+    }
+  }
+
+  return (
+    <section aria-labelledby="feedback-heading" style={{
+      position: "relative", zIndex: 2, maxWidth: 720, margin: "56px auto 24px",
+      padding: "24px 28px", borderRadius: 20,
+      background: "linear-gradient(180deg, rgba(17,19,23,0.72), rgba(11,13,16,0.72))",
+      border: "1px solid rgba(244,161,37,0.22)",
+      boxShadow: "0 24px 60px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.06) inset",
+      backdropFilter: "blur(14px)",
+    }}>
+      <h2 id="feedback-heading" style={{
+        fontFamily: "Fraunces, Georgia, serif", margin: 0, color: "#F4A125",
+        fontSize: 22, letterSpacing: "0.01em",
+      }}>
+        What do you want in a coder that you wish this had?
+      </h2>
+      <p style={{ color: "#B6BCC8", margin: "6px 0 16px", fontSize: 13 }}>
+        Drop a feature request, a friction point, or an idea. Read by the architect — replies are optional.
+      </p>
+      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
+        <textarea
+          value={message}
+          onChange={(e) => setMessage(e.target.value)}
+          placeholder="I wish this coder could…"
+          rows={4}
+          maxLength={2000}
+          required
+          style={{
+            width: "100%", resize: "vertical", padding: "12px 14px",
+            background: "rgba(6,8,11,0.7)", color: "#f2eee7",
+            border: "1px solid rgba(244,161,37,0.25)", borderRadius: 12,
+            fontFamily: "Inter, system-ui, sans-serif", fontSize: 14, lineHeight: 1.5,
+          }}
+        />
+        <input
+          type="text"
+          value={contact}
+          onChange={(e) => setContact(e.target.value)}
+          placeholder="Email or handle (optional)"
+          maxLength={200}
+          style={{
+            width: "100%", padding: "10px 14px",
+            background: "rgba(6,8,11,0.7)", color: "#f2eee7",
+            border: "1px solid rgba(244,161,37,0.18)", borderRadius: 12,
+            fontFamily: "Inter, system-ui, sans-serif", fontSize: 13,
+          }}
+        />
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
+          <span style={{ fontSize: 12, color: status === "error" ? "#ff8a8a" : status === "sent" ? "#7bd88f" : "#8a919b" }}>
+            {status === "sent" && "Thanks — sent to Joseph."}
+            {status === "error" && (error || "Send failed.")}
+            {status === "idle" && `${message.length}/2000`}
+            {status === "sending" && "Sending…"}
+          </span>
+          <button
+            type="submit"
+            disabled={disabled}
+            style={{
+              padding: "9px 20px", borderRadius: 999, border: 0, cursor: disabled ? "not-allowed" : "pointer",
+              background: disabled ? "rgba(244,161,37,0.35)" : "linear-gradient(180deg, #f4a125, #c9761f)",
+              color: "#111317", fontWeight: 700, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase",
+              boxShadow: disabled ? "none" : "0 6px 24px rgba(244,161,37,0.28), 0 1px 0 rgba(255,255,255,0.25) inset",
+            }}
+          >
+            Send Feedback
+          </button>
+        </div>
+      </form>
+    </section>
+  );
+}
+
+
