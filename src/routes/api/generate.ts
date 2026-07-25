@@ -523,8 +523,9 @@ export const Route = createFileRoute("/api/generate")({
           opForSettle = op;
           entitlement = await requirePaidOperation(request, op, requestId);
           if (entitlement.kind === "denied" && entitlement.denial) {
-            return denialResponse(entitlement.denial, requestId);
+            return denialResponse(entitlement.denial, requestId, entitlement.setCookieHeader);
           }
+
 
 
           // TEST HOOK — honoured only outside production so it can't be abused
