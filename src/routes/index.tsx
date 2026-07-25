@@ -1,8 +1,48 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ArrowRight, Sparkles, Zap, Shield, Code2, Rocket, Check, Brain, Layers, Lock, Plug, HelpCircle, Cpu } from "lucide-react";
 import { trackHomeVisit, track } from "@/lib/analytics";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+// Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
+const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
+
+function HeroOrb() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 flex items-center justify-center"
+      style={{ zIndex: 0 }}
+    >
+      <div
+        className="relative"
+        style={{
+          width: "min(92vw, 780px)",
+          height: "min(92vw, 780px)",
+          maxHeight: "78vh",
+          filter: "drop-shadow(0 0 60px rgba(244,161,37,0.35)) drop-shadow(0 0 140px rgba(244,161,37,0.18))",
+        }}
+      >
+        {/* Amber bloom halo */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 50%, rgba(244,161,37,0.28) 0%, rgba(244,161,37,0.10) 30%, transparent 65%)",
+            animation: "orbPulse 8s ease-in-out infinite",
+          }}
+        />
+        {mounted && (
+          <Suspense fallback={null}>
+            <AnomalousMatterScene color="#F4A125" className="absolute inset-0 w-full h-full" />
+          </Suspense>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -81,6 +121,7 @@ function Home() {
 
       <style>{`
         @keyframes orbFloat { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(30px,-20px) scale(1.06); } }
+        @keyframes orbPulse { 0%,100% { transform: scale(1); opacity: 0.85; } 50% { transform: scale(1.05); opacity: 1; } }
         @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
         @keyframes heroFadeIn { from { opacity: 0; transform: translateY(24px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
@@ -126,8 +167,9 @@ function Home() {
         </header>
 
         {/* Hero */}
-        <section className="relative">
-          <div className="max-w-5xl mx-auto px-6 pt-24 pb-20 text-center">
+        <section className="relative overflow-hidden">
+          <HeroOrb />
+          <div className="max-w-5xl mx-auto px-6 pt-24 pb-20 text-center relative z-10">
             <div className="hero-title inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#F4A125]/30 bg-[#F4A125]/10 text-xs text-[#F4A125] mb-6 backdrop-blur">
               <Sparkles className="w-3 h-3" /> No credit card required
             </div>
