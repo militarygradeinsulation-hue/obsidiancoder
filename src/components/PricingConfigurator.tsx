@@ -55,7 +55,6 @@ const MAX_AMOUNT = 500;
 const DEFAULT_AMOUNT = 79;
 const PENDING_PRICE_KEY = "obs:pending_priceId";
 const PENDING_AMOUNT_KEY = "obs:pending_amount";
-const SNAP_DISTANCE = 12; // px pull toward nearest anchor while dragging
 
 function reducedMotion(): boolean {
   if (typeof window === "undefined") return false;
