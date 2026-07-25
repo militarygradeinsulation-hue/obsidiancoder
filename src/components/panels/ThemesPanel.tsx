@@ -48,7 +48,7 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
   const applyTheme = useCallback(async (t: UiThemeHit) => {
     setApplyingId(t.identifier); setError(null);
     try {
-      const res = await getCss({ data: { identifier: t.identifier } });
+      const res = await getCss({ data: { identifier: t.identifier, name: t.name, colors: t.colors ?? [] } });
       if (!res?.css) { setError("Theme has no CSS available."); return; }
       onApply(res.css, res.name ?? t.name);
       onClose();
@@ -62,7 +62,7 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
   const downloadTheme = useCallback(async (t: UiThemeHit) => {
     setApplyingId(t.identifier);
     try {
-      const res = await getCss({ data: { identifier: t.identifier } });
+      const res = await getCss({ data: { identifier: t.identifier, name: t.name, colors: t.colors ?? [] } });
       if (!res?.css) return;
       const blob = new Blob([res.css], { type: "text/css" });
       const url = URL.createObjectURL(blob);
@@ -72,6 +72,7 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     } finally { setApplyingId(null); }
   }, [getCss]);
+
 
   if (!open) return null;
 
