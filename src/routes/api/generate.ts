@@ -614,6 +614,17 @@ export const Route = createFileRoute("/api/generate")({
             const { STYLE_LIBRARY } = await import("@/lib/style-library");
             messages.push({ role: "system", content: STYLE_LIBRARY });
           }
+          // Design Contract injection — applies to both fresh builds and edits
+          // so follow-up prompts preserve the chosen direction.
+          if (!data.advisory && data.designContract && typeof data.designContract === "object") {
+            try {
+              const { contractToSystemPrompt } = await import("@/lib/design-library");
+              const dc = data.designContract as Parameters<typeof contractToSystemPrompt>[0];
+              if (dc?.palette && dc?.fontPairingId) {
+                messages.push({ role: "system", content: contractToSystemPrompt(dc) });
+              }
+            } catch { /* ignore contract injection errors — non-fatal */ }
+          }
 
           if (!data.advisory && contextHtml) {
             messages.push({
