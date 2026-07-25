@@ -1,23 +1,21 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { getStripe, getStripeEnvironment } from "@/lib/stripe";
-import { createCheckoutSession, createCustomAmountSubscription } from "@/utils/payments.functions";
+import { createOfferCheckout } from "@/utils/payments.functions";
 import { nextCheckoutState, checkoutErrorFromThrow, type CheckoutState } from "@/lib/checkout-state";
+import { resolveOfferForAmount } from "@/lib/pricing-resolver";
 
 /**
- * Wrapper around Stripe Embedded Checkout that surfaces explicit
- * loading / error / retry / cancel states. Accepts either a fixed
- * `priceId` (tier checkout) or an `amountCents` value (custom-amount
- * monthly subscription via inline price_data).
+ * Wrapper around Stripe Embedded Checkout. The ONLY input is `amountCents` —
+ * every self-serve purchase resolves through `resolveOfferForAmount` so tier
+ * lookup, capabilities, and billing come from a single source of truth.
  */
 export function CheckoutSurface({
-  priceId,
   amountCents,
   returnUrl,
   onCancel,
 }: {
-  priceId?: string;
-  amountCents?: number;
+  amountCents: number;
   returnUrl?: string;
   onCancel?: () => void;
 }) {
@@ -28,29 +26,29 @@ export function CheckoutSurface({
   const load = useCallback(async () => {
     setState({ kind: "loading" });
     try {
+      const offer = resolveOfferForAmount(amountCents);
+      if (offer.kind === "invalid") {
+        setState({ kind: "error", message: offer.reason });
+        return;
+      }
+      if (offer.kind === "enterprise") {
+        setState({ kind: "error", message: "$500+ plans are Enterprise — contact sales@obsidianvibe.live." });
+        return;
+      }
       const resolvedReturn = returnUrl
         || `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`;
       const environment = getStripeEnvironment();
-
-      const result = amountCents && amountCents > 0
-        ? await createCustomAmountSubscription({
-            data: { amountCents, returnUrl: resolvedReturn, environment },
-          })
-        : priceId
-          ? await createCheckoutSession({
-              data: { priceId, returnUrl: resolvedReturn, environment },
-            })
-          : { error: "No plan selected." };
-
+      const result = await createOfferCheckout({
+        data: { amountCents: offer.amountCents, returnUrl: resolvedReturn, environment },
+      });
       setState(nextCheckoutState(result));
     } catch (err) {
       setState(checkoutErrorFromThrow(err));
     }
-  }, [priceId, amountCents, returnUrl]);
+  }, [amountCents, returnUrl]);
 
   useEffect(() => { load(); }, [load, attempt]);
 
-  // Move focus to the live region when state changes so screen readers announce.
   useEffect(() => {
     if (state.kind !== "loading") focusRef.current?.focus();
   }, [state.kind]);
