@@ -111,10 +111,14 @@ import { restoreAndVerify } from "@/lib/context-compactor";
 
 
 export const Route = createFileRoute("/build")({
+  validateSearch: (s: Record<string, unknown>) => ({
+    q: typeof s.q === "string" ? s.q.slice(0, 500) : undefined,
+  }),
   head: () => ({
     meta: [
       { title: "Build with Obsidian — Free AI System Builder" },
       { name: "description", content: "Start your free build. One high-quality project, best-in-class AI, no credit card. Upgrade only to save permanently, deploy, or continue editing." },
+
       { property: "og:title", content: "Build with Obsidian — Free AI System Builder" },
       { property: "og:description", content: "Think it, type it, see it. Build your first project free — no credit card required." },
       { property: "og:url", content: "https://obsidianvibe.live/build" },
@@ -257,7 +261,21 @@ function Index() {
   const [sessions, setSessions] = useState<Session[]>(() => [initialSession]);
   const [activeId, setActiveId] = useState<string>(() => initialSession.id);
   const [hydrated, setHydrated] = useState(false);
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(() => {
+    if (typeof window === "undefined") return "";
+    try {
+      const q = new URLSearchParams(window.location.search).get("q");
+      return q ?? "";
+    } catch { return ""; }
+  });
+  // Fire analytics on mount and when the user first submits a prompt.
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      void import("@/lib/analytics").then((m) => m.track("build_start"));
+    } catch { /* noop */ }
+  }, []);
+
   const [buildChatOpen, setBuildChatOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
   const [designLibraryOpen, setDesignLibraryOpen] = useState(false);
