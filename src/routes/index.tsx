@@ -571,3 +571,33 @@ function PriceList({ items }: { items: string[] }) {
     </ul>
   );
 }
+
+function PromptLauncher() {
+  const [q, setQ] = useState("");
+  return (
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        track("build_free_click", { source: "prompt_launcher", prompt: q || undefined });
+        const url = q.trim() ? `/build?q=${encodeURIComponent(q.trim())}` : "/build";
+        window.location.href = url;
+      }}
+      className="mt-7 glass rounded-2xl p-2 flex items-center gap-2 focus-within:border-[#F4A125]/50 transition"
+    >
+      <span className="pl-3 text-[#F4A125]">›</span>
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder="Describe what you want to build…"
+        className="flex-1 bg-transparent outline-none py-3 text-sm placeholder:text-[#8b93a1] text-[#f2eee7]"
+        aria-label="What do you want to build?"
+      />
+      <button
+        type="submit"
+        className="cta-glow px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#F4A125] to-[#DD9324] text-black text-sm font-semibold flex items-center gap-2 hover:opacity-95 transition"
+      >
+        Build <ArrowRight className="w-4 h-4" />
+      </button>
+    </form>
+  );
+}
