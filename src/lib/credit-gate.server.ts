@@ -217,13 +217,20 @@ export interface Reservation {
 }
 
 export interface EntitlementResult {
-  kind: "owner" | "pro" | "denied";
+  // "free_trial" = homepage promise honoured for one lifetime generate_html
+  // per browser+IP fingerprint. No reservation, no billing, no charge.
+  kind: "owner" | "pro" | "denied" | "free_trial";
   user?: AuthedUser;
   reservation?: Reservation;
   denial?: CreditsRequiredEnvelope;
   env: Environment;
   requestId: string;
+  // Populated when a free-build fingerprint cookie was newly issued this
+  // request. The endpoint MUST attach this as a Set-Cookie response header
+  // so subsequent visits from the same browser hit the same ledger row.
+  setCookieHeader?: string;
 }
+
 
 /**
  * Atomic, idempotent reservation via `usage_reserve`. The same
