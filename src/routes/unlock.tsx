@@ -234,7 +234,7 @@ function Unlock() {
     try {
       const { ok } = await unlock({ data: { password } });
       if (ok) {
-        await router.navigate({ to: "/" });
+        await router.navigate({ to: "/build" });
         router.invalidate();
       } else setError("Access denied.");
     } catch { setError("Something went wrong. Try again."); }
