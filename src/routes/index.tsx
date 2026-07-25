@@ -3918,6 +3918,13 @@ function Index() {
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
+      <ThemesPanel
+        open={themesOpen}
+        onClose={() => setThemesOpen(false)}
+        currentThemeName={current.themeName}
+        onApply={(css, name) => updateCurrent({ themeCss: css, themeName: name })}
+        onClear={() => updateCurrent({ themeCss: undefined, themeName: undefined })}
+      />
       <BuildChatPanel
         open={buildChatOpen}
         onClose={() => setBuildChatOpen(false)}
