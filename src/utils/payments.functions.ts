@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
-import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
+import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS, TRY_PRO_PRICE_ID, TRIAL_CREDIT_COUPON_ID } from "@/lib/plans";
 
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
@@ -64,6 +64,24 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const email = userData.user?.email ?? undefined;
 
       const stripe = createStripeClient(data.environment);
+
+      // ── Try Pro $5 trial guard: one paid trial per user/email/customer ──
+      const isTrial = data.priceId === TRY_PRO_PRICE_ID;
+      if (isTrial) {
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const { data: existing } = await supabaseAdmin
+          .from("trial_claims" as never)
+          .select("id, paid")
+          .eq("user_id", userId)
+          .eq("environment", data.environment)
+          .eq("paid", true)
+          .limit(1)
+          .maybeSingle();
+        if (existing) {
+          return { error: "You've already used your $5 Try Pro trial. Upgrade to Creator to continue." };
+        }
+      }
+
       const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
       if (!prices.data.length) throw new Error("Price not found");
       const stripePrice = prices.data[0];
@@ -80,6 +98,41 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         productDescription = product.name;
       }
 
+      // ── Apply $5 trial credit toward Creator if unused ──
+      let discounts: Array<{ coupon: string }> | undefined;
+      const tier = tierForPriceId(data.priceId)?.id;
+      if (isRecurring && tier === "creator") {
+        try {
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data: claim } = await supabaseAdmin
+            .from("trial_claims" as never)
+            .select("id, paid, credit_applied")
+            .eq("user_id", userId)
+            .eq("environment", data.environment)
+            .eq("paid", true)
+            .eq("credit_applied", false)
+            .limit(1)
+            .maybeSingle();
+          if (claim) {
+            // Ensure the coupon exists (best-effort; ignore if already present)
+            try {
+              await stripe.coupons.retrieve(TRIAL_CREDIT_COUPON_ID);
+            } catch {
+              try {
+                await stripe.coupons.create({
+                  id: TRIAL_CREDIT_COUPON_ID,
+                  amount_off: 500,
+                  currency: "usd",
+                  duration: "once",
+                  name: "Try Pro $5 credit",
+                });
+              } catch { /* concurrent create OK */ }
+            }
+            discounts = [{ coupon: TRIAL_CREDIT_COUPON_ID }];
+          }
+        } catch { /* best-effort — never block checkout */ }
+      }
+
       const session = await stripe.checkout.sessions.create({
         line_items: [{ price: stripePrice.id, quantity: 1 }],
         mode: isRecurring ? "subscription" : "payment",
@@ -87,10 +140,22 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
         return_url: data.returnUrl,
         customer: customerId,
         ...(!isRecurring && { payment_intent_data: { description: productDescription } }),
-        metadata: { userId, priceId: data.priceId, planTier: tierForPriceId(data.priceId)?.id ?? "" },
+        ...(discounts && { discounts }),
+        metadata: {
+          userId,
+          priceId: data.priceId,
+          planTier: tier ?? "",
+          ...(isTrial && { trial_claim: "1" }),
+          ...(discounts && { trial_credit_applied: "1" }),
+        },
         ...(isRecurring && {
           subscription_data: {
-            metadata: { userId, priceId: data.priceId, planTier: tierForPriceId(data.priceId)?.id ?? "" },
+            metadata: {
+              userId,
+              priceId: data.priceId,
+              planTier: tier ?? "",
+              ...(discounts && { trial_credit_applied: "1" }),
+            },
             proration_behavior: "create_prorations",
           },
         }),
@@ -101,6 +166,7 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       return { error: getStripeErrorMessage(error) };
     }
   });
+
 
 export const createPortalSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
