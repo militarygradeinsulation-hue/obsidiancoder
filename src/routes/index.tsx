@@ -10,7 +10,7 @@ import obsidianLogo from "@/assets/obsidian-vibe-logo.png.asset.json";
 // Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 const GLSLHills = lazy(() => import("@/components/GLSLHills"));
-const DomeGallery = lazy(() => import("@/components/ui/dome-gallery"));
+const CircularGallery = lazy(() => import("@/components/ui/circular-gallery"));
 
 type DemoCategory = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
 const DEMO_CATEGORIES: readonly DemoCategory[] = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
