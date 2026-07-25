@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
-import { MessageSquare, ZoomIn, ZoomOut, Maximize2, ClipboardList } from "lucide-react";
+import { MessageSquare, ZoomIn, ZoomOut, Maximize2, ClipboardList, Palette } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
@@ -41,6 +41,7 @@ import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId, type M
 import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
 import { AccountModal } from "@/components/AccountModal";
+import { ThemesPanel } from "@/components/panels/ThemesPanel";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
 import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
@@ -191,6 +192,9 @@ type Session = {
   components?: ComponentEntry[];
   templates?: Template[];
   lastRequest?: string;
+  // 21st.dev theme applied to the preview (injected as a <style> tag).
+  themeCss?: string;
+  themeName?: string;
 };
 
 const WORKSPACE_NAV = [
@@ -257,6 +261,7 @@ function Index() {
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
   const [buildChatOpen, setBuildChatOpen] = useState(false);
+  const [themesOpen, setThemesOpen] = useState(false);
   const [ideaOffset, setIdeaOffset] = useState(0);
   const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
   const [aiIdeas, setAiIdeas] = useState<Addon[]>([]);
@@ -1007,10 +1012,16 @@ function Index() {
   }, [current.messages, loading, activeId]);
 
   const previewSrcDoc = useMemo(
-    () =>
-      injectRuntimeBridge(current.html ||
-        `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`),
-    [current.html],
+    () => {
+      const base = injectRuntimeBridge(current.html ||
+        `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`);
+      if (!current.themeCss) return base;
+      const styleTag = `<style data-obsidian-theme="${(current.themeName ?? "").replace(/"/g, "&quot;")}">\n${current.themeCss}\n</style>`;
+      if (/<\/head>/i.test(base)) return base.replace(/<\/head>/i, `${styleTag}</head>`);
+      if (/<body[^>]*>/i.test(base)) return base.replace(/<body([^>]*)>/i, `<body$1>${styleTag}`);
+      return styleTag + base;
+    },
+    [current.html, current.themeCss, current.themeName],
   );
 
   // Runtime bridge — listen for sanitized preview events, bounded to 100 per session.
@@ -2750,6 +2761,14 @@ function Index() {
                 </select>
                 <button
                   type="button"
+                  className={"obs-chip " + (current.themeName ? "is-on" : "")}
+                  onClick={() => setThemesOpen(true)}
+                  title={current.themeName ? `Theme: ${current.themeName}` : "Browse visual themes from 21st.dev"}
+                >
+                  <Palette className="h-3.5 w-3.5" /> {current.themeName ? current.themeName.slice(0, 18) : "Themes"}
+                </button>
+                <button
+                  type="button"
                   className="obs-chip"
                   onClick={clearAll}
                   disabled={loading}
@@ -3899,6 +3918,13 @@ function Index() {
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
+      <ThemesPanel
+        open={themesOpen}
+        onClose={() => setThemesOpen(false)}
+        currentThemeName={current.themeName}
+        onApply={(css, name) => updateCurrent({ themeCss: css, themeName: name })}
+        onClear={() => updateCurrent({ themeCss: undefined, themeName: undefined })}
+      />
       <BuildChatPanel
         open={buildChatOpen}
         onClose={() => setBuildChatOpen(false)}
