@@ -403,6 +403,8 @@ export default function DomeGallery({
     .item__image--reference { position: absolute; inset: 10px; pointer-events: none; }
   `;
 
+  const [hover, setHover] = useState<{ src: string; alt: string; x: number; y: number } | null>(null);
+
   return (
     <>
       <style dangerouslySetInnerHTML={{ __html: cssStyles }} />
