@@ -200,7 +200,7 @@ function Unlock() {
   }, [session?.userId, proUnlock, router]);
 
 
-  async function onCodeSubmit(e: React.FormEvent<HTMLFormElement>) {
+  async function onCodeSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true); setError(null);
     const password = String(new FormData(e.currentTarget).get("password") ?? "");
@@ -772,7 +772,7 @@ function WaitlistModal({ tier, onClose }: { tier: string; onClose: () => void })
 
   const full = remaining !== null && remaining <= 0;
 
-  async function goToPayment(e: React.FormEvent<HTMLFormElement>) {
+  async function goToPayment(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setBusy(true); setErr(null);
     // Basic client-side sanity — server re-validates.
@@ -1688,7 +1688,7 @@ function FeedbackSection() {
   const [error, setError] = useState<string | null>(null);
   const disabled = status === "sending" || message.trim().length < 3;
 
-  async function onSubmit(e: React.FormEvent) {
+  async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (disabled) return;
     setStatus("sending");
