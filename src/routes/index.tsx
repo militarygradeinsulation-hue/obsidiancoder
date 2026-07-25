@@ -4,6 +4,7 @@ import { ArrowRight, Sparkles, Zap, Shield, Rocket, Check, Brain, Layers, Lock, 
 import { trackHomeVisit, track } from "@/lib/analytics";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import { supabase } from "@/integrations/supabase/client";
+import obsidianLogo from "@/assets/obsidian-vibe-logo.png.asset.json";
 
 // Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
