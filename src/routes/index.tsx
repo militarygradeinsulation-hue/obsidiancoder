@@ -223,15 +223,15 @@ function HeroOrb() {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Obsidian — Build production software with AI, free to start" },
-      { name: "description", content: "Type your idea, watch it build. One high-quality project free — no credit card required. Upgrade only when you're ready to save, deploy, or keep editing." },
-      { property: "og:title", content: "Obsidian — Build production software with AI" },
-      { property: "og:description", content: "Free AI system builder. One project free, no credit card. Save & deploy on paid plans." },
+      { title: "Obsidian — AI system builder for people who don't code" },
+      { name: "description", content: "Obsidian is an AI system builder for people who don't code. Not like Base 44, Lovable, or Bolt. A starter tool for vibe coding that builds something that works the first time, without confusing options. One high-quality project free." },
+      { property: "og:title", content: "Obsidian — AI system builder for people who don't code" },
+      { property: "og:description", content: "A starter tool for vibe coding. Build something that works the first time, without confusing options. One project free." },
       { property: "og:url", content: "https://obsidianvibe.live/" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Obsidian — Build production software with AI" },
-      { name: "twitter:description", content: "Free AI system builder. One project free, no credit card." },
+      { name: "twitter:title", content: "Obsidian — AI system builder for people who don't code" },
+      { name: "twitter:description", content: "A starter tool for vibe coding. Build something that works the first time, without confusing options. One project free." },
     ],
     links: [{ rel: "canonical", href: "https://obsidianvibe.live/" }],
   }),
