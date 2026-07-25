@@ -9,6 +9,7 @@ import obsidianLogo from "@/assets/obsidian-vibe-logo.png.asset.json";
 
 // Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
+const GLSLHills = lazy(() => import("@/components/GLSLHills"));
 const DomeGallery = lazy(() => import("@/components/ui/dome-gallery"));
 
 type DemoCategory = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
@@ -291,17 +292,41 @@ function Home() {
 
         {/* Hero */}
         <section className="relative overflow-hidden bg-black">
+          {/* GLSL hills terrain — sits behind the orb */}
+          <ClientOnly fallback={null}>
+            <Suspense fallback={null}>
+              <div className="pointer-events-none absolute inset-0" style={{ zIndex: 0 }} aria-hidden>
+                <GLSLHills className="absolute inset-0 w-full h-full" />
+              </div>
+            </Suspense>
+          </ClientOnly>
           <HeroOrb />
+          {/* Readability veil under the copy */}
+          <div
+            aria-hidden
+            className="pointer-events-none absolute inset-x-0 bottom-0 top-0"
+            style={{
+              zIndex: 5,
+              background:
+                "radial-gradient(ellipse at 50% 55%, rgba(0,0,0,0.55) 0%, rgba(0,0,0,0.35) 40%, rgba(0,0,0,0.75) 100%)",
+            }}
+          />
           <div className="max-w-5xl mx-auto px-6 pt-24 pb-20 text-center relative z-10">
-            <div className="hero-title inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#F4A125]/30 bg-[#F4A125]/10 text-xs text-[#F4A125] mb-6 backdrop-blur">
+            <div className="hero-title inline-flex items-center gap-2 px-3 py-1 rounded-full border border-[#F4A125]/40 bg-black/60 text-xs text-[#F4A125] mb-6 backdrop-blur">
               <Sparkles className="w-3 h-3" /> No credit card required
             </div>
-            <h1 className="hero-title text-5xl md:text-7xl font-bold tracking-tight leading-[1.05]">
+            <h1
+              className="hero-title text-5xl md:text-7xl font-bold tracking-tight leading-[1.05] text-white"
+              style={{ textShadow: "0 2px 24px rgba(0,0,0,0.85), 0 0 60px rgba(0,0,0,0.6)" }}
+            >
               Think it. Type it.
               <br />
               <span className="gold-text">See it built.</span>
             </h1>
-            <p className="hero-sub mt-6 text-lg md:text-xl text-[#B6BCC8] max-w-2xl mx-auto">
+            <p
+              className="hero-sub mt-6 text-lg md:text-xl text-white/90 max-w-2xl mx-auto"
+              style={{ textShadow: "0 2px 16px rgba(0,0,0,0.8)" }}
+            >
               Obsidian is an AI system builder for people who don't code. Get one high-quality
               project built free using our best default model. Upgrade only when you're ready.
             </p>
@@ -315,15 +340,16 @@ function Home() {
                 Build Free – No Credit Card Required
                 <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
               </Link>
-              <a href="#pricing" className="px-6 py-3.5 rounded-xl border border-white/10 text-sm text-[#B6BCC8] hover:text-white hover:border-white/25 transition backdrop-blur">
+              <a href="#pricing" className="px-6 py-3.5 rounded-xl border border-white/20 bg-black/40 text-sm text-white hover:text-white hover:border-white/40 transition backdrop-blur">
                 See pricing
               </a>
             </div>
-            <p className="hero-cta mt-4 text-xs text-[#8b93a1]">
+            <p className="hero-cta mt-4 text-xs text-white/70" style={{ textShadow: "0 1px 8px rgba(0,0,0,0.8)" }}>
               Free build stays available for 7 days. Upgrade any time to save it permanently.
             </p>
           </div>
         </section>
+
 
         {/* Live Demos — dome gallery */}
         <LiveDemosSection />
