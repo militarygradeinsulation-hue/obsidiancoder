@@ -459,6 +459,9 @@ export default function DomeGallery({
                       if (performance.now() - lastDragEndAt.current < 80) return;
                       openItemFromElement(e.currentTarget as unknown as HTMLElement);
                     }}
+                    onMouseEnter={(e) => setHover({ src: it.src, alt: it.alt, x: e.clientX, y: e.clientY })}
+                    onMouseMove={(e) => setHover((h) => (h ? { ...h, x: e.clientX, y: e.clientY } : h))}
+                    onMouseLeave={() => setHover(null)}
                     style={{ inset: "10px", borderRadius: `var(--tile-radius, ${imageBorderRadius})`, backfaceVisibility: "hidden" }}
                   >
                     {it.src ? (
