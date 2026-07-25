@@ -45,9 +45,9 @@ export type FeedbackRow = {
 export const submitFeedback = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => submitInput.parse(d))
   .handler(async ({ data }): Promise<{ ok: true } | { ok: false; error: string }> => {
-    const { getRequestHeader } = await import("@tanstack/react-start/server");
+    const { getRequest } = await import("@tanstack/react-start/server");
     let ua: string | null = null;
-    try { ua = getRequestHeader("user-agent") ?? null; } catch { ua = null; }
+    try { ua = getRequest().headers.get("user-agent"); } catch { ua = null; }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { error } = await supabaseAdmin.from("feedback").insert({
       message: data.message.trim(),
