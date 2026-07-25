@@ -251,3 +251,144 @@ export async function searchComponents(
 
 // Best-effort marker so telemetry can distinguish "never called" from "auth ok".
 export function twentyfirstAuthProbed(): boolean { return AUTH_PROBED_OK; }
+
+// ---- Themes ---------------------------------------------------------------
+// Search + fetch 21st.dev themes (color palettes + typography extracted from
+// real sites). Free tier: `search` with `type:"theme"`. Metered: `get_theme`.
+
+export interface ThemeHit {
+  id: string;
+  name: string;
+  description?: string;
+  previewUrl?: string;
+  colors?: string[];
+  identifier: string; // `<username>/<slug>` or id — used by getTheme
+  author?: string;
+}
+
+interface ThemeSearchRaw {
+  id?: string | number;
+  slug?: string;
+  name?: string;
+  title?: string;
+  description?: string;
+  preview_url?: string;
+  previewUrl?: string;
+  thumbnail_url?: string;
+  colors?: string[];
+  palette?: string[];
+  author?: { username?: string; name?: string };
+  username?: string;
+}
+
+function pickThemeIdentifier(hit: ThemeSearchRaw): string | null {
+  const user = hit.author?.username ?? hit.username;
+  if (user && hit.slug) return `${user}/${hit.slug}`;
+  if (hit.slug) return hit.slug;
+  if (hit.id != null) return String(hit.id);
+  return null;
+}
+
+export async function searchThemes(
+  query: string,
+  opts: { limit?: number; requestId: string; signal: AbortSignal },
+): Promise<ThemeHit[]> {
+  const key = process.env.TWENTYFIRST_API_KEY;
+  if (!key) return [];
+  if (Date.now() < AUTH_BAD_UNTIL) return [];
+  const q = (query || "").trim();
+  const cacheKey = `th:${q.toLowerCase()}:${opts.limit ?? 12}`;
+  const cachedRaw = CACHE.get(cacheKey);
+  if (cachedRaw && Date.now() - cachedRaw.at <= CACHE_TTL_MS) {
+    return cachedRaw.hits as unknown as ThemeHit[];
+  }
+  const raw = await mcpCall<McpToolResult>(
+    key,
+    "tools/call",
+    { name: "search", arguments: { query: q || "theme", type: "theme", limit: Math.max(1, Math.min(24, opts.limit ?? 12)) } },
+    opts.requestId,
+    opts.signal,
+    5000,
+  );
+  const parsed = readToolResult(raw);
+  if (!parsed || typeof parsed !== "object") return [];
+  const list: ThemeSearchRaw[] = Array.isArray(parsed)
+    ? (parsed as ThemeSearchRaw[])
+    : Array.isArray((parsed as { results?: unknown }).results)
+      ? ((parsed as { results: ThemeSearchRaw[] }).results)
+      : Array.isArray((parsed as { themes?: unknown }).themes)
+        ? ((parsed as { themes: ThemeSearchRaw[] }).themes)
+        : [];
+  const hits: ThemeHit[] = [];
+  for (const t of list) {
+    const id = pickThemeIdentifier(t);
+    if (!id) continue;
+    hits.push({
+      id: String(t.id ?? id),
+      name: t.name || t.title || id,
+      description: t.description,
+      previewUrl: t.preview_url ?? t.previewUrl ?? t.thumbnail_url,
+      colors: t.colors ?? t.palette,
+      identifier: id,
+      author: t.author?.username ?? t.author?.name ?? t.username,
+    });
+  }
+  CACHE.set(cacheKey, { at: Date.now(), hits: hits as unknown as ComponentHit[] });
+  return hits;
+}
+
+interface ThemeCodeRaw {
+  css?: string;
+  code?: string;
+  variables?: Record<string, string>;
+  colors?: Record<string, string>;
+  fonts?: Record<string, string> | { sans?: string; serif?: string; mono?: string };
+  radius?: string;
+  name?: string;
+}
+
+export interface ThemeCss {
+  name?: string;
+  css: string;
+}
+
+// Build a shadcn-compatible :root { --var: value; } block from a variables map,
+// used as a fallback when the tool returns structured data instead of raw CSS.
+function cssFromVars(raw: ThemeCodeRaw): string {
+  const lines: string[] = [];
+  const push = (k: string, v: string) => lines.push(`  --${k}: ${v};`);
+  if (raw.variables) for (const [k, v] of Object.entries(raw.variables)) push(k.replace(/^--/, ""), v);
+  if (raw.colors) for (const [k, v] of Object.entries(raw.colors)) push(k.replace(/^--/, ""), v);
+  if (raw.fonts && typeof raw.fonts === "object") {
+    const f = raw.fonts as { sans?: string; serif?: string; mono?: string };
+    if (f.sans) push("font-sans", f.sans);
+    if (f.serif) push("font-serif", f.serif);
+    if (f.mono) push("font-mono", f.mono);
+  }
+  if (raw.radius) push("radius", raw.radius);
+  if (!lines.length) return "";
+  return `:root {\n${lines.join("\n")}\n}\n`;
+}
+
+export async function getTheme(
+  identifier: string,
+  opts: { requestId: string; signal: AbortSignal },
+): Promise<ThemeCss | null> {
+  const key = process.env.TWENTYFIRST_API_KEY;
+  if (!key) return null;
+  if (Date.now() < AUTH_BAD_UNTIL) return null;
+  const raw = await mcpCall<McpToolResult>(
+    key,
+    "tools/call",
+    { name: "get_theme", arguments: { theme: identifier } },
+    opts.requestId,
+    opts.signal,
+    6000,
+  );
+  const parsed = readToolResult(raw) as ThemeCodeRaw | string | null;
+  if (!parsed) return null;
+  if (typeof parsed === "string") return { css: parsed };
+  const css = parsed.css || parsed.code || cssFromVars(parsed);
+  if (!css) return null;
+  return { name: parsed.name, css };
+}
