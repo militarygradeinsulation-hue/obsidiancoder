@@ -223,15 +223,15 @@ function HeroOrb() {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Obsidian — Build production software with AI, free to start" },
-      { name: "description", content: "Type your idea, watch it build. One high-quality project free — no credit card required. Upgrade only when you're ready to save, deploy, or keep editing." },
-      { property: "og:title", content: "Obsidian — Build production software with AI" },
-      { property: "og:description", content: "Free AI system builder. One project free, no credit card. Save & deploy on paid plans." },
+      { title: "Obsidian — AI system builder for people who don't code" },
+      { name: "description", content: "Obsidian is an AI system builder for people who don't code. Not like Base 44, Lovable, or Bolt. A starter tool for vibe coding that builds something that works the first time, without confusing options. One high-quality project free." },
+      { property: "og:title", content: "Obsidian — AI system builder for people who don't code" },
+      { property: "og:description", content: "A starter tool for vibe coding. Build something that works the first time, without confusing options. One project free." },
       { property: "og:url", content: "https://obsidianvibe.live/" },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:title", content: "Obsidian — Build production software with AI" },
-      { name: "twitter:description", content: "Free AI system builder. One project free, no credit card." },
+      { name: "twitter:title", content: "Obsidian — AI system builder for people who don't code" },
+      { name: "twitter:description", content: "A starter tool for vibe coding. Build something that works the first time, without confusing options. One project free." },
     ],
     links: [{ rel: "canonical", href: "https://obsidianvibe.live/" }],
   }),
@@ -380,8 +380,10 @@ function Home() {
               className="hero-sub mt-6 text-lg md:text-xl text-white/90 max-w-2xl mx-auto"
               style={{ textShadow: "0 2px 16px rgba(0,0,0,0.8)" }}
             >
-              Obsidian is an AI system builder for people who don't code. Get one high-quality
-              project built free using our best default model. Upgrade only when you're ready.
+              Obsidian is an AI system builder for people who don't code. This isn't like Base 44,
+              Lovable, or Bolt. This is a starter tool for vibe coding. Build something that works the
+              first time without confusing options. Get one high-quality project built free using our
+              best default model. Upgrade only when you're ready.
             </p>
             <div className="hero-cta mt-10 flex flex-col sm:flex-row items-center justify-center gap-3">
               <Link
@@ -419,11 +421,12 @@ function Home() {
                     <Play className="w-3 h-3" /> Open the Builder
                   </div>
                   <h2 className="text-3xl md:text-4xl font-bold leading-tight">
-                    One prompt away from a <span className="gold-text">working product.</span>
+                    One prompt. A real thing <span className="gold-text">that just works.</span>
                   </h2>
                   <p className="mt-4 text-[#B6BCC8]">
-                    Type an idea. Obsidian streams the code, renders a live preview, and gives you a real
-                    React + TypeScript project you can share, export, or deploy.
+                    No templates to hunt through, no settings to tune. Type what you want, and Obsidian
+                    builds a working React + TypeScript project with a live preview. Built for people
+                    who don't code — but powerful enough to ship.
                   </p>
                   <PromptLauncher />
                   <p className="mt-3 text-xs text-[#8b93a1]">Free · No credit card · 7-day retention on the free tier</p>
@@ -471,8 +474,8 @@ function Home() {
           </Reveal>
           <div className="grid md:grid-cols-3 gap-5">
             {[
-              { icon: Zap, title: "Best default model", body: "We pick the strongest model for each task so your first build is quality — not a demo toy." },
-              { icon: Shield, title: "Honest limits", body: "Free = one project, limited revisions, 7-day retention. You know before you start." },
+              { icon: Zap, title: "Built for non-coders", body: "No confusing options or technical jargon. Just describe what you want and get a working product on the first try." },
+              { icon: Shield, title: "Honest limits", body: "Free = one project, limited revisions, 7-day retention. You know before you start. No gotchas." },
               { icon: Rocket, title: "Upgrade only when needed", body: "Deploy, permanent save, exports, auth, databases, and premium models on paid plans." },
             ].map(({ icon: Icon, title, body }, i) => (
               <Reveal key={title} delay={i * 100}>
