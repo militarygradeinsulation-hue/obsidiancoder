@@ -8,6 +8,7 @@ import {
   resolveUserFromRequest,
   serverStripeEnv,
   hasActivePro,
+  capForUser,
 } from "@/lib/credit-gate.server";
 
 export type EntitlementMode = "owner" | "pro" | "free";
