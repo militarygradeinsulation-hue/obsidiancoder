@@ -1,8 +1,48 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { ArrowRight, Sparkles, Zap, Shield, Code2, Rocket, Check, Brain, Layers, Lock, Plug, HelpCircle, Cpu } from "lucide-react";
 import { trackHomeVisit, track } from "@/lib/analytics";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
+// Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
+const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
+
+function HeroOrb() {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => { setMounted(true); }, []);
+  return (
+    <div
+      aria-hidden
+      className="pointer-events-none absolute inset-0 flex items-center justify-center"
+      style={{ zIndex: 0 }}
+    >
+      <div
+        className="relative"
+        style={{
+          width: "min(92vw, 780px)",
+          height: "min(92vw, 780px)",
+          maxHeight: "78vh",
+          filter: "drop-shadow(0 0 60px rgba(244,161,37,0.35)) drop-shadow(0 0 140px rgba(244,161,37,0.18))",
+        }}
+      >
+        {/* Amber bloom halo */}
+        <div
+          className="absolute inset-0 rounded-full"
+          style={{
+            background:
+              "radial-gradient(circle at 50% 50%, rgba(244,161,37,0.28) 0%, rgba(244,161,37,0.10) 30%, transparent 65%)",
+            animation: "orbPulse 8s ease-in-out infinite",
+          }}
+        />
+        {mounted && (
+          <Suspense fallback={null}>
+            <AnomalousMatterScene color="#F4A125" className="absolute inset-0 w-full h-full" />
+          </Suspense>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
