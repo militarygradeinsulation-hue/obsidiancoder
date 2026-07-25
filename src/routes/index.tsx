@@ -270,7 +270,7 @@ function Home() {
               <img
                 src={obsidianLogo.url}
                 alt="Obsidian Vibe"
-                className="h-12 w-auto object-contain select-none"
+                className="h-36 w-auto object-contain select-none"
                 draggable={false}
               />
             </a>
@@ -525,7 +525,7 @@ function Home() {
             <img
               src={obsidianLogo.url}
               alt="Obsidian Vibe"
-              className="mx-auto mb-6 h-24 w-auto object-contain float-y select-none"
+              className="mx-auto mb-6 h-72 w-auto object-contain float-y select-none"
               style={{ filter: "drop-shadow(0 0 40px rgba(244,161,37,0.4))" }}
               draggable={false}
             />
