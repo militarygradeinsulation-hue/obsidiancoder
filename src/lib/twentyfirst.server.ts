@@ -197,7 +197,7 @@ export async function searchComponents(
   query: string,
   opts: { limit?: number; requestId: string; signal: AbortSignal } = { requestId: "no-req", signal: new AbortController().signal },
 ): Promise<ComponentHit[]> {
-  const key = process.env.TWENTYFIRST_API_KEY;
+  const key = (process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
   if (!key) return [];
   if (Date.now() < AUTH_BAD_UNTIL) return [];
   const q = query.trim().toLowerCase();
@@ -293,7 +293,7 @@ export async function searchThemes(
   query: string,
   opts: { limit?: number; requestId: string; signal: AbortSignal },
 ): Promise<ThemeHit[]> {
-  const key = process.env.TWENTYFIRST_API_KEY;
+  const key = (process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
   if (!key) return [];
   if (Date.now() < AUTH_BAD_UNTIL) return [];
   const q = (query || "").trim();
@@ -374,7 +374,7 @@ export async function getTheme(
   identifier: string,
   opts: { requestId: string; signal: AbortSignal },
 ): Promise<ThemeCss | null> {
-  const key = process.env.TWENTYFIRST_API_KEY;
+  const key = (process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
   if (!key) return null;
   if (Date.now() < AUTH_BAD_UNTIL) return null;
   const raw = await mcpCall<McpToolResult>(

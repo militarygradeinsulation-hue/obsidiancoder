@@ -19,7 +19,7 @@ export const searchThemesFn = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }): Promise<{ themes: UiThemeHit[]; enabled: boolean }> => {
     const { searchThemes } = await import("./twentyfirst.server");
-    const enabled = !!process.env.TWENTYFIRST_API_KEY;
+    const enabled = !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
     if (!enabled) return { themes: [], enabled: false };
     const requestId = `themes-${Date.now().toString(36)}`;
     const ac = new AbortController();
@@ -51,7 +51,7 @@ export const getThemeCssFn = createServerFn({ method: "POST" })
     const ac = new AbortController();
     const t = setTimeout(() => ac.abort(), 10000);
     try {
-      if (process.env.TWENTYFIRST_API_KEY) {
+      if ((process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST)) {
         const res = await getTheme(data.identifier, { requestId, signal: ac.signal });
         if (res?.css) return { css: res.css, name: res.name ?? data.name, source: "api" };
       }

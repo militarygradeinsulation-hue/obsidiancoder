@@ -44,7 +44,7 @@ export type TwentyfirstHealth = {
 };
 
 export function getTwentyfirstHealth(): TwentyfirstHealth {
-  const hasKey = !!process.env.TWENTYFIRST_API_KEY;
+  const hasKey = !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
   const rounds = RING.length;
   const totalHits = RING.reduce((s, e) => s + e.hitCount, 0);
   const withAny = RING.filter((e) => e.hitCount > 0).length;

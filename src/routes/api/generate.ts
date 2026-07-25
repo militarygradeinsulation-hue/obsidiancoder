@@ -346,7 +346,7 @@ async function planAndFetchComponents(
   const t0 = performance.now();
   // Only useful for fresh builds — skip micro-edits on an existing document.
   if (currentHtml && EDIT_KEYWORDS.test(prompt)) return { components: [], planUsage: null };
-  if (!process.env.TWENTYFIRST_API_KEY) return { components: [], planUsage: null };
+  if (!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST)) return { components: [], planUsage: null };
   let planUsage: UsageRecord | null = null;
   let queries: string[] = [];
   let components: ComponentHit[] = [];
@@ -433,7 +433,7 @@ async function planAndFetchComponents(
         hitCount: components.length,
         componentNames: components.map((c) => c.name),
         injectedBytes: 0,
-        authOk: !!process.env.TWENTYFIRST_API_KEY,
+        authOk: !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST),
         durationMs: Math.round(performance.now() - t0),
       });
     } catch { /* telemetry never blocks */ }
@@ -568,7 +568,7 @@ export const Route = createFileRoute("/api/generate")({
           //    asked for imagery or opted in via wantImages. This is what was
           //    silently adding 12-17s to every non-visual build.
           const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
-          const wantComponents = !data.advisory && !!apiKey && !!process.env.TWENTYFIRST_API_KEY;
+          const wantComponents = !data.advisory && !!apiKey && !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
           const emptyImagePhase: ImagePhaseResult = { images: [], usages: [], planUsage: null };
           const emptyComponentPhase: ComponentPhaseResult = { components: [], planUsage: null };
           const enrichmentBudget = Math.max(
