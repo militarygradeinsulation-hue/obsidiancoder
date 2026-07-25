@@ -191,6 +191,9 @@ type Session = {
   components?: ComponentEntry[];
   templates?: Template[];
   lastRequest?: string;
+  // 21st.dev theme applied to the preview (injected as a <style> tag).
+  themeCss?: string;
+  themeName?: string;
 };
 
 const WORKSPACE_NAV = [
