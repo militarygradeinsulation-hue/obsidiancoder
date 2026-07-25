@@ -14,6 +14,7 @@ import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as DemosRouteImport } from './routes/demos'
 import { Route as DashboardRouteImport } from './routes/dashboard'
@@ -25,10 +26,13 @@ import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiGithubRouteImport } from './routes/api/github'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
 import { Route as AdminWaitlistRouteImport } from './routes/admin.waitlist'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as ApiPublicWaitlistRouteImport } from './routes/api/public/waitlist'
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
@@ -62,6 +66,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryRoute = GalleryRouteImport.update({
@@ -119,6 +128,18 @@ const AdminWaitlistRoute = AdminWaitlistRouteImport.update({
   path: '/admin/waitlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicWaitlistRoute = ApiPublicWaitlistRouteImport.update({
   id: '/api/public/waitlist',
   path: '/api/public/waitlist',
@@ -139,6 +160,12 @@ const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
   path: '/api/public/builds',
   getParentRoute: () => rootRouteImport,
 } as any)
+const Char91DotmcpChar93InvokeToolToolRoute =
+  Char91DotmcpChar93InvokeToolToolRouteImport.update({
+    id: '/.mcp/invoke-tool/$tool',
+    path: '/.mcp/invoke-tool/$tool',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const LovableEmailTransactionalPreviewRoute =
   LovableEmailTransactionalPreviewRouteImport.update({
     id: '/lovable/email/transactional/preview',
@@ -193,17 +220,21 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/gallery': typeof GalleryRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/unlock': typeof UnlockRoute
   '/waitlist': typeof WaitlistRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/waitlist': typeof AdminWaitlistRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -224,17 +255,21 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/gallery': typeof GalleryRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/unlock': typeof UnlockRoute
   '/waitlist': typeof WaitlistRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/waitlist': typeof AdminWaitlistRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -256,17 +291,21 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/gallery': typeof GalleryRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
   '/unlock': typeof UnlockRoute
   '/waitlist': typeof WaitlistRoute
+  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
+  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/admin/waitlist': typeof AdminWaitlistRoute
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -289,17 +328,21 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/demos'
     | '/gallery'
+    | '/mcp'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
     | '/unlock'
     | '/waitlist'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/admin/waitlist'
     | '/api/generate'
     | '/api/github'
     | '/api/health'
     | '/api/patch'
     | '/checkout/return'
+    | '/.mcp/invoke-tool/$tool'
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
@@ -320,17 +363,21 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/demos'
     | '/gallery'
+    | '/mcp'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
     | '/unlock'
     | '/waitlist'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/admin/waitlist'
     | '/api/generate'
     | '/api/github'
     | '/api/health'
     | '/api/patch'
     | '/checkout/return'
+    | '/.mcp/invoke-tool/$tool'
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
@@ -351,17 +398,21 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/demos'
     | '/gallery'
+    | '/mcp'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
     | '/unlock'
     | '/waitlist'
+    | '/.mcp/list-tools'
+    | '/.well-known/oauth-protected-resource'
     | '/admin/waitlist'
     | '/api/generate'
     | '/api/github'
     | '/api/health'
     | '/api/patch'
     | '/checkout/return'
+    | '/.mcp/invoke-tool/$tool'
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
@@ -383,17 +434,21 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DemosRoute: typeof DemosRoute
   GalleryRoute: typeof GalleryRoute
+  McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
   UnlockRoute: typeof UnlockRoute
   WaitlistRoute: typeof WaitlistRoute
+  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
+  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   AdminWaitlistRoute: typeof AdminWaitlistRoute
   ApiGenerateRoute: typeof ApiGenerateRoute
   ApiGithubRoute: typeof ApiGithubRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiPatchRoute: typeof ApiPatchRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
+  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
   ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
@@ -442,6 +497,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery': {
@@ -521,6 +583,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminWaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/list-tools': {
+      id: '/.mcp/list-tools'
+      path: '/.mcp/list-tools'
+      fullPath: '/.mcp/list-tools'
+      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/waitlist': {
       id: '/api/public/waitlist'
       path: '/api/public/waitlist'
@@ -547,6 +623,13 @@ declare module '@tanstack/react-router' {
       path: '/api/public/builds'
       fullPath: '/api/public/builds'
       preLoaderRoute: typeof ApiPublicBuildsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lovable/email/transactional/preview': {
@@ -644,17 +727,22 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DemosRoute: DemosRoute,
   GalleryRoute: GalleryRoute,
+  McpRoute: McpRoute,
   PrivacyRoute: PrivacyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
   UnlockRoute: UnlockRoute,
   WaitlistRoute: WaitlistRoute,
+  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
+  Char91DotwellKnownChar93OauthProtectedResourceRoute:
+    Char91DotwellKnownChar93OauthProtectedResourceRoute,
   AdminWaitlistRoute: AdminWaitlistRoute,
   ApiGenerateRoute: ApiGenerateRoute,
   ApiGithubRoute: ApiGithubRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiPatchRoute: ApiPatchRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
+  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
   ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
