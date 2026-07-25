@@ -247,7 +247,7 @@ function Home() {
         .hero-title { animation: heroFadeIn 900ms cubic-bezier(0.16,1,0.3,1) both; }
         .hero-sub { animation: heroFadeIn 900ms cubic-bezier(0.16,1,0.3,1) 150ms both; }
         .hero-cta { animation: heroFadeIn 900ms cubic-bezier(0.16,1,0.3,1) 300ms both; }
-        .glass { background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.02)); backdrop-filter: blur(14px) saturate(140%); border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 60px -20px rgba(0,0,0,0.6); }
+        .glass { background: #111317; border: 1px solid rgba(255,255,255,0.08); box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 20px 60px -20px rgba(0,0,0,0.6); }
         .glass-hover { transition: transform 400ms cubic-bezier(0.16,1,0.3,1), border-color 300ms, box-shadow 300ms; }
         .glass-hover:hover { transform: translateY(-4px); border-color: rgba(244,161,37,0.35); box-shadow: 0 1px 0 rgba(255,255,255,0.08) inset, 0 30px 80px -20px rgba(244,161,37,0.15); }
         .gold-text { background: linear-gradient(90deg, #F4A125, #DD9324, #F4A125); background-size: 200% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: shimmer 6s linear infinite; }
