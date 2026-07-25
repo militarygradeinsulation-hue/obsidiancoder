@@ -81,11 +81,11 @@ function LiveDemosSection() {
           <h2 className="text-4xl md:text-5xl font-bold">
             Real builds. <span className="gold-text">Real code.</span>
           </h2>
-          <p className="mt-3 text-[#B6BCC8]">Explore what people have shipped with Obsidian. Scroll to rotate — tap to open.</p>
+          <p className="mt-3 text-[#B6BCC8]">Explore what people have shipped with Obsidian.</p>
         </div>
       </Reveal>
       <Reveal delay={100}>
-        <div className="flex flex-wrap justify-center gap-2 mb-6">
+        <div className="flex flex-wrap justify-center gap-2 mb-8">
           {(["All", ...DEMO_CATEGORIES] as const).map((c) => {
             const active = cat === c;
             return (
@@ -106,23 +106,37 @@ function LiveDemosSection() {
         </div>
       </Reveal>
       <Reveal delay={150}>
-        <div className="glass rounded-3xl overflow-hidden relative" style={{ height: "min(78vh, 620px)" }}>
-          <ClientOnly fallback={<div className="absolute inset-0 flex items-center justify-center text-[#8b93a1] text-sm">Loading gallery…</div>}>
-            <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-[#8b93a1] text-sm">Loading gallery…</div>}>
-              {items.length > 0 && (
-                <CircularGallery
-                  items={items}
-                  radius={520}
-                  autoRotateSpeed={0.05}
-                  onItemClick={(it) => { if (it.href) window.open(it.href, "_blank", "noopener,noreferrer"); }}
-                />
-              )}
-            </Suspense>
-          </ClientOnly>
-          <div className="absolute bottom-3 left-0 right-0 text-center text-[11px] text-[#8b93a1] pointer-events-none">
-            Scroll to rotate · tap a tile to open
+        {items.length === 0 ? (
+          <div className="text-center text-[#8b93a1] text-sm py-16">No demos in this category yet.</div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {items.map((it) => (
+              <a
+                key={it.href}
+                href={it.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="group glass rounded-2xl overflow-hidden border border-white/10 hover:border-[#F4A125]/50 transition shadow-[0_10px_40px_rgba(0,0,0,0.4)] hover:shadow-[0_20px_60px_rgba(244,161,37,0.15)]"
+              >
+                <div className="relative aspect-[4/3] overflow-hidden bg-[#0b0d10]">
+                  <img
+                    src={it.src}
+                    alt={it.title}
+                    loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  />
+                  <div className="absolute top-3 left-3 text-[10px] uppercase tracking-wider px-2 py-1 rounded-full bg-black/70 text-[#F4A125] border border-[#F4A125]/30">
+                    {it.subtitle}
+                  </div>
+                </div>
+                <div className="p-4">
+                  <div className="text-white font-semibold text-sm line-clamp-1">{it.title}</div>
+                  <div className="text-[11px] text-[#B6BCC8] mt-1">Open demo →</div>
+                </div>
+              </a>
+            ))}
           </div>
-        </div>
+        )}
       </Reveal>
     </section>
   );
