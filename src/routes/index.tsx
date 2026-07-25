@@ -10,7 +10,7 @@ import obsidianLogo from "@/assets/obsidian-vibe-logo.png.asset.json";
 // Browser-only: three.js can't run during SSR. Lazy + mounted gate keeps SSR safe.
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 const GLSLHills = lazy(() => import("@/components/GLSLHills"));
-const DomeGallery = lazy(() => import("@/components/ui/dome-gallery"));
+const CircularGallery = lazy(() => import("@/components/ui/circular-gallery"));
 
 type DemoCategory = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
 const DEMO_CATEGORIES: readonly DemoCategory[] = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
@@ -57,14 +57,15 @@ function LiveDemosSection() {
     return [...map.values()].filter((d) => cat === "All" || d.category === cat);
   }, [featured, cat]);
 
-  const images = useMemo(() => {
+  const items = useMemo(() => {
     const origin = typeof window !== "undefined" ? window.location.origin : "";
     return merged.map((d) => {
       const abs = /^https?:\/\//i.test(d.demoUrl) ? d.demoUrl : `${origin}${d.demoUrl}`;
       const clean = d.title.replace(/^Demo\s*·\s*/, "");
       return {
         src: `https://image.thum.io/get/width/600/crop/600/noanimate/${abs}`,
-        alt: `${clean} — ${d.category}`,
+        title: clean,
+        subtitle: d.category,
         href: d.demoUrl,
       };
     });
@@ -80,7 +81,7 @@ function LiveDemosSection() {
           <h2 className="text-4xl md:text-5xl font-bold">
             Real builds. <span className="gold-text">Real code.</span>
           </h2>
-          <p className="mt-3 text-[#B6BCC8]">Explore what people have shipped with Obsidian. Drag to rotate — tap to open.</p>
+          <p className="mt-3 text-[#B6BCC8]">Explore what people have shipped with Obsidian. Scroll to rotate — tap to open.</p>
         </div>
       </Reveal>
       <Reveal delay={100}>
@@ -108,21 +109,18 @@ function LiveDemosSection() {
         <div className="glass rounded-3xl overflow-hidden relative" style={{ height: "min(78vh, 620px)" }}>
           <ClientOnly fallback={<div className="absolute inset-0 flex items-center justify-center text-[#8b93a1] text-sm">Loading gallery…</div>}>
             <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-[#8b93a1] text-sm">Loading gallery…</div>}>
-              {images.length > 0 && (
-                <DomeGallery
-                  images={images}
-                  grayscale={false}
-                  minRadius={340}
-                  segments={Math.max(20, Math.min(35, images.length))}
-                  overlayBlurColor="transparent"
-                  autoRotateSpeed={4}
-                  onImageClick={({ href }: { href?: string }) => { if (href) window.open(href, "_blank", "noopener,noreferrer"); }}
+              {items.length > 0 && (
+                <CircularGallery
+                  items={items}
+                  radius={520}
+                  autoRotateSpeed={0.05}
+                  onItemClick={(it) => { if (it.href) window.open(it.href, "_blank", "noopener,noreferrer"); }}
                 />
               )}
             </Suspense>
           </ClientOnly>
           <div className="absolute bottom-3 left-0 right-0 text-center text-[11px] text-[#8b93a1] pointer-events-none">
-            Drag to rotate · tap a tile to open
+            Scroll to rotate · tap a tile to open
           </div>
         </div>
       </Reveal>
