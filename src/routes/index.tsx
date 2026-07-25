@@ -104,21 +104,19 @@ function LiveDemosSection() {
       <Reveal delay={150}>
         <div className="glass rounded-3xl overflow-hidden relative" style={{ height: "min(78vh, 620px)" }}>
           <ClientOnly fallback={<div className="absolute inset-0 flex items-center justify-center text-[#8b93a1] text-sm">Loading gallery…</div>}>
-            {() => (
-              <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-[#8b93a1] text-sm">Loading gallery…</div>}>
-                {images.length > 0 && (
-                  <DomeGallery
-                    images={images}
-                    grayscale={false}
-                    minRadius={340}
-                    segments={Math.max(20, Math.min(35, images.length))}
-                    overlayBlurColor="transparent"
-                    autoRotateSpeed={4}
-                    onImageClick={({ href }: { href?: string }) => { if (href) window.open(href, "_blank", "noopener,noreferrer"); }}
-                  />
-                )}
-              </Suspense>
-            )}
+            <Suspense fallback={<div className="absolute inset-0 flex items-center justify-center text-[#8b93a1] text-sm">Loading gallery…</div>}>
+              {images.length > 0 && (
+                <DomeGallery
+                  images={images}
+                  grayscale={false}
+                  minRadius={340}
+                  segments={Math.max(20, Math.min(35, images.length))}
+                  overlayBlurColor="transparent"
+                  autoRotateSpeed={4}
+                  onImageClick={({ href }: { href?: string }) => { if (href) window.open(href, "_blank", "noopener,noreferrer"); }}
+                />
+              )}
+            </Suspense>
           </ClientOnly>
           <div className="absolute bottom-3 left-0 right-0 text-center text-[11px] text-[#8b93a1] pointer-events-none">
             Drag to rotate · tap a tile to open
