@@ -32,6 +32,7 @@ import { Route as ApiPublicWaitlistRouteImport } from './routes/api/public/waitl
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
+import { Route as ApiPublicAnalyticsRouteImport } from './routes/api/public/analytics'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
@@ -160,6 +161,11 @@ const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
   path: '/api/public/builds',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicAnalyticsRoute = ApiPublicAnalyticsRouteImport.update({
+  id: '/api/public/analytics',
+  path: '/api/public/analytics',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
     id: '/.mcp/invoke-tool/$tool',
@@ -235,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/api/patch': typeof ApiPatchRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/api/public/analytics': typeof ApiPublicAnalyticsRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/api/patch': typeof ApiPatchRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/api/public/analytics': typeof ApiPublicAnalyticsRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -306,6 +314,7 @@ export interface FileRoutesById {
   '/api/patch': typeof ApiPatchRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/api/public/analytics': typeof ApiPublicAnalyticsRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -343,6 +352,7 @@ export interface FileRouteTypes {
     | '/api/patch'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
+    | '/api/public/analytics'
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/api/patch'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
+    | '/api/public/analytics'
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
@@ -413,6 +424,7 @@ export interface FileRouteTypes {
     | '/api/patch'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
+    | '/api/public/analytics'
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
@@ -449,6 +461,7 @@ export interface RootRouteChildren {
   ApiPatchRoute: typeof ApiPatchRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  ApiPublicAnalyticsRoute: typeof ApiPublicAnalyticsRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
   ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
@@ -625,6 +638,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBuildsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/analytics': {
+      id: '/api/public/analytics'
+      path: '/api/public/analytics'
+      fullPath: '/api/public/analytics'
+      preLoaderRoute: typeof ApiPublicAnalyticsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.mcp/invoke-tool/$tool': {
       id: '/.mcp/invoke-tool/$tool'
       path: '/.mcp/invoke-tool/$tool'
@@ -743,6 +763,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPatchRoute: ApiPatchRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  ApiPublicAnalyticsRoute: ApiPublicAnalyticsRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
   ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
