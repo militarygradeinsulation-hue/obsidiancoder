@@ -690,7 +690,7 @@ function Unlock() {
         })()}
       </section>
 
-      <FeedbackSection />
+      <FeedbackWidget />
 
 
 
@@ -1680,24 +1680,37 @@ const unlockCss = `
 }
 `;
 
-function FeedbackSection() {
+function FeedbackWidget() {
   const send = useServerFn(submitFeedback);
+  const [open, setOpen] = useState(false);
   const [message, setMessage] = useState("");
   const [contact, setContact] = useState("");
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [thread, setThread] = useState<Array<{ role: "bot" | "user"; text: string }>>([
+    { role: "bot", text: "What do you want in a coder that you wish this had? Drop a feature request, friction point, or idea — read by the architect." },
+  ]);
   const disabled = status === "sending" || message.trim().length < 3;
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (disabled) return;
+    const userText = message.trim();
+    setThread((t) => [...t, { role: "user", text: userText }]);
     setStatus("sending");
     setError(null);
     try {
       const path = typeof window !== "undefined" ? window.location.pathname + window.location.search : null;
-      const res = await send({ data: { message: message.trim(), contact: contact.trim() || null, path } });
-      if (res.ok) { setStatus("sent"); setMessage(""); setContact(""); }
-      else { setStatus("error"); setError(res.error || "Something went wrong."); }
+      const res = await send({ data: { message: userText, contact: contact.trim() || null, path } });
+      if (res.ok) {
+        setStatus("sent");
+        setMessage("");
+        setContact("");
+        setThread((t) => [...t, { role: "bot", text: "Thanks — sent to Joseph. Add another if you want." }]);
+      } else {
+        setStatus("error");
+        setError(res.error || "Something went wrong.");
+      }
     } catch (err) {
       setStatus("error");
       setError(err instanceof Error ? err.message : "Something went wrong.");
@@ -1705,74 +1718,117 @@ function FeedbackSection() {
   }
 
   return (
-    <section aria-labelledby="feedback-heading" style={{
-      position: "relative", zIndex: 2, maxWidth: 720, margin: "56px auto 24px",
-      padding: "24px 28px", borderRadius: 20,
-      background: "linear-gradient(180deg, rgba(17,19,23,0.72), rgba(11,13,16,0.72))",
-      border: "1px solid rgba(244,161,37,0.22)",
-      boxShadow: "0 24px 60px rgba(0,0,0,0.45), 0 1px 0 rgba(255,255,255,0.06) inset",
-      backdropFilter: "blur(14px)",
-    }}>
-      <h2 id="feedback-heading" style={{
-        fontFamily: "Fraunces, Georgia, serif", margin: 0, color: "#F4A125",
-        fontSize: 22, letterSpacing: "0.01em",
-      }}>
-        What do you want in a coder that you wish this had?
-      </h2>
-      <p style={{ color: "#B6BCC8", margin: "6px 0 16px", fontSize: 13 }}>
-        Drop a feature request, a friction point, or an idea. Read by the architect — replies are optional.
-      </p>
-      <form onSubmit={onSubmit} style={{ display: "grid", gap: 10 }}>
-        <textarea
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="I wish this coder could…"
-          rows={4}
-          maxLength={2000}
-          required
+    <>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label={open ? "Close feedback chat" : "Open feedback chat"}
+        style={{
+          position: "fixed", right: 22, bottom: 22, zIndex: 90,
+          width: 58, height: 58, borderRadius: 999, border: 0, cursor: "pointer",
+          background: "linear-gradient(180deg, #f4a125, #c9761f)",
+          color: "#111317", fontSize: 24, fontWeight: 800,
+          boxShadow: "0 12px 40px rgba(244,161,37,0.45), 0 1px 0 rgba(255,255,255,0.35) inset",
+        }}
+      >
+        {open ? "×" : "💬"}
+      </button>
+
+      {open && (
+        <div
+          role="dialog"
+          aria-labelledby="feedback-heading"
           style={{
-            width: "100%", resize: "vertical", padding: "12px 14px",
-            background: "rgba(6,8,11,0.7)", color: "#f2eee7",
-            border: "1px solid rgba(244,161,37,0.25)", borderRadius: 12,
-            fontFamily: "Inter, system-ui, sans-serif", fontSize: 14, lineHeight: 1.5,
+            position: "fixed", right: 22, bottom: 92, zIndex: 91,
+            width: "min(380px, calc(100vw - 32px))", maxHeight: "min(560px, calc(100vh - 120px))",
+            display: "flex", flexDirection: "column",
+            borderRadius: 18, overflow: "hidden",
+            background: "linear-gradient(180deg, rgba(17,19,23,0.96), rgba(11,13,16,0.96))",
+            border: "1px solid rgba(244,161,37,0.28)",
+            boxShadow: "0 30px 80px rgba(0,0,0,0.6), 0 1px 0 rgba(255,255,255,0.06) inset",
+            backdropFilter: "blur(18px)",
           }}
-        />
-        <input
-          type="text"
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-          placeholder="Email or handle (optional)"
-          maxLength={200}
-          style={{
-            width: "100%", padding: "10px 14px",
-            background: "rgba(6,8,11,0.7)", color: "#f2eee7",
-            border: "1px solid rgba(244,161,37,0.18)", borderRadius: 12,
-            fontFamily: "Inter, system-ui, sans-serif", fontSize: 13,
-          }}
-        />
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <span style={{ fontSize: 12, color: status === "error" ? "#ff8a8a" : status === "sent" ? "#7bd88f" : "#8a919b" }}>
-            {status === "sent" && "Thanks — sent to Joseph."}
-            {status === "error" && (error || "Send failed.")}
-            {status === "idle" && `${message.length}/2000`}
-            {status === "sending" && "Sending…"}
-          </span>
-          <button
-            type="submit"
-            disabled={disabled}
-            style={{
-              padding: "9px 20px", borderRadius: 999, border: 0, cursor: disabled ? "not-allowed" : "pointer",
-              background: disabled ? "rgba(244,161,37,0.35)" : "linear-gradient(180deg, #f4a125, #c9761f)",
-              color: "#111317", fontWeight: 700, fontSize: 12, letterSpacing: "0.16em", textTransform: "uppercase",
-              boxShadow: disabled ? "none" : "0 6px 24px rgba(244,161,37,0.28), 0 1px 0 rgba(255,255,255,0.25) inset",
-            }}
-          >
-            Send Feedback
-          </button>
+        >
+          <header style={{ padding: "14px 16px", borderBottom: "1px solid rgba(244,161,37,0.18)" }}>
+            <h2 id="feedback-heading" style={{
+              fontFamily: "Fraunces, Georgia, serif", margin: 0, color: "#F4A125",
+              fontSize: 16, letterSpacing: "0.01em",
+            }}>
+              Talk to the architect
+            </h2>
+            <p style={{ color: "#B6BCC8", margin: "2px 0 0", fontSize: 11 }}>
+              Feature requests · friction · ideas
+            </p>
+          </header>
+
+          <div style={{ flex: 1, overflowY: "auto", padding: "14px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {thread.map((m, i) => (
+              <div key={i} style={{
+                alignSelf: m.role === "user" ? "flex-end" : "flex-start",
+                maxWidth: "88%",
+                padding: "8px 12px", borderRadius: 12, fontSize: 13, lineHeight: 1.45,
+                background: m.role === "user" ? "rgba(244,161,37,0.16)" : "rgba(255,255,255,0.04)",
+                color: m.role === "user" ? "#f6e6c8" : "#e6e9ef",
+                border: `1px solid ${m.role === "user" ? "rgba(244,161,37,0.32)" : "rgba(255,255,255,0.08)"}`,
+              }}>{m.text}</div>
+            ))}
+          </div>
+
+          <form onSubmit={onSubmit} style={{ padding: 12, borderTop: "1px solid rgba(244,161,37,0.18)", display: "grid", gap: 8 }}>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              onKeyDown={(e) => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); void onSubmit(e as unknown as FormEvent); } }}
+              placeholder="I wish this coder could…"
+              rows={2}
+              maxLength={2000}
+              required
+              style={{
+                width: "100%", resize: "none", padding: "10px 12px",
+                background: "rgba(6,8,11,0.7)", color: "#f2eee7",
+                border: "1px solid rgba(244,161,37,0.25)", borderRadius: 10,
+                fontFamily: "Inter, system-ui, sans-serif", fontSize: 13, lineHeight: 1.5,
+              }}
+            />
+            <input
+              type="text"
+              value={contact}
+              onChange={(e) => setContact(e.target.value)}
+              placeholder="Email or handle (optional)"
+              maxLength={200}
+              style={{
+                width: "100%", padding: "8px 12px",
+                background: "rgba(6,8,11,0.7)", color: "#f2eee7",
+                border: "1px solid rgba(244,161,37,0.18)", borderRadius: 10,
+                fontFamily: "Inter, system-ui, sans-serif", fontSize: 12,
+              }}
+            />
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+              <span style={{ fontSize: 11, color: status === "error" ? "#ff8a8a" : status === "sent" ? "#7bd88f" : "#8a919b" }}>
+                {status === "sent" && "Sent."}
+                {status === "error" && (error || "Send failed.")}
+                {status === "idle" && `${message.length}/2000`}
+                {status === "sending" && "Sending…"}
+              </span>
+              <button
+                type="submit"
+                disabled={disabled}
+                style={{
+                  padding: "8px 16px", borderRadius: 999, border: 0, cursor: disabled ? "not-allowed" : "pointer",
+                  background: disabled ? "rgba(244,161,37,0.35)" : "linear-gradient(180deg, #f4a125, #c9761f)",
+                  color: "#111317", fontWeight: 700, fontSize: 11, letterSpacing: "0.16em", textTransform: "uppercase",
+                  boxShadow: disabled ? "none" : "0 6px 24px rgba(244,161,37,0.28), 0 1px 0 rgba(255,255,255,0.25) inset",
+                }}
+              >
+                Send
+              </button>
+            </div>
+          </form>
         </div>
-      </form>
-    </section>
+      )}
+    </>
   );
 }
+
 
 
