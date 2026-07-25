@@ -3,7 +3,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent } from "react";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
-import SphereDemoGrid, { type SphereDemoItem } from "@/components/SphereDemoGrid";
 import DomeGallery from "@/components/ui/dome-gallery";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -128,14 +127,6 @@ function Unlock() {
   function openPanel(next: Intent) { setTab(next); setPanelOpen(true); }
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
-  const [demoView, setDemoView] = useState<"sphere" | "grid" | "dome">(() => {
-    if (typeof window === "undefined") return "sphere";
-    const v = window.localStorage.getItem("obsidian.demoView");
-    return v === "grid" || v === "dome" || v === "sphere" ? v : "sphere";
-  });
-  useEffect(() => {
-    if (typeof window !== "undefined") window.localStorage.setItem("obsidian.demoView", demoView);
-  }, [demoView]);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
   const [featuredDemos, setFeaturedDemos] = useState<{ slug: string; title: string; url?: string; category: DemoCategory }[]>([]);
 
@@ -653,26 +644,6 @@ function Unlock() {
               </button>
             );
           })}
-          <div className="demo-view-toggle" role="group" aria-label="Demo view style">
-            <button
-              type="button"
-              className={`demo-view-btn ${demoView === "sphere" ? "is-active" : ""}`}
-              aria-pressed={demoView === "sphere"}
-              onClick={() => setDemoView("sphere")}
-            >Sphere</button>
-            <button
-              type="button"
-              className={`demo-view-btn ${demoView === "grid" ? "is-active" : ""}`}
-              aria-pressed={demoView === "grid"}
-              onClick={() => setDemoView("grid")}
-            >Grid</button>
-            <button
-              type="button"
-              className={`demo-view-btn ${demoView === "dome" ? "is-active" : ""}`}
-              aria-pressed={demoView === "dome"}
-              onClick={() => setDemoView("dome")}
-            >Dome</button>
-          </div>
         </div>
         {(demosOpen || demoCategory !== "All") && (() => {
           const merged = Array.from(
@@ -684,94 +655,34 @@ function Unlock() {
             ).values(),
           ).filter(({ category }) => demoCategory === "All" || category === demoCategory);
 
-          if (demoView === "sphere") {
-            const sphereItems: SphereDemoItem[] = merged.map((d) => ({
-              id: d.slug,
-              title: d.title.replace(/^Demo\s*·\s*/, ""),
-              category: d.category,
-              url: d.demoUrl,
-              thumbnailUrl: (d as { thumbnail_url?: string; thumbnailUrl?: string }).thumbnail_url
-                ?? (d as { thumbnailUrl?: string }).thumbnailUrl,
-              previewUrl: d.demoUrl,
-            }));
-            return (
-              <div id="demos-grid" className="demos-sphere-wrap">
-                <SphereDemoGrid items={sphereItems} containerSize={600} sphereRadius={230} tileSize={104} />
-                <p className="demos-sphere-hint">Drag to rotate · click a tile to open</p>
-              </div>
-            );
-          }
-          if (demoView === "dome") {
-            const placeholder = (slug: string, label: string) => {
-              let hue = 0;
-              for (let i = 0; i < slug.length; i++) hue = (hue * 31 + slug.charCodeAt(i)) % 360;
-              const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(${hue},70%,28%)'/><stop offset='1' stop-color='hsl(${(hue+40)%360},80%,18%)'/></linearGradient></defs><rect width='600' height='600' fill='url(#g)'/><text x='50%' y='52%' text-anchor='middle' font-family='Inter,Arial' font-size='42' font-weight='700' fill='rgba(255,255,255,0.92)'>${label.replace(/[<&>]/g, "")}</text></svg>`;
-              return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-            };
-            const origin = typeof window !== "undefined" ? window.location.origin : "";
-            const shot = (url: string) => {
-              const abs = /^https?:\/\//i.test(url) ? url : `${origin}${url}`;
-              return `https://image.thum.io/get/width/600/crop/600/noanimate/${abs}`;
-            };
-            const domeImages = merged.map((d) => {
-              const clean = d.title.replace(/^Demo\s*·\s*/, "");
-              const thumb = (d as { thumbnail_url?: string; thumbnailUrl?: string }).thumbnail_url
-                ?? (d as { thumbnailUrl?: string }).thumbnailUrl;
-              return { src: thumb || shot(d.demoUrl) || placeholder(d.slug, clean), alt: `${clean} — ${d.category}`, href: d.demoUrl };
-            });
-            return (
-              <div id="demos-grid" className="demos-dome-wrap">
-                <DomeGallery
-                  images={domeImages}
-                  grayscale={false}
-                  minRadius={340}
-                  segments={Math.max(20, Math.min(35, domeImages.length))}
-                  overlayBlurColor="transparent"
-                  onImageClick={({ href }) => { if (href) window.open(href, "_blank", "noopener,noreferrer"); }}
-                />
-                <p className="demos-sphere-hint">Drag to rotate · tap a tile to open</p>
-              </div>
-            );
-          }
+          const placeholder = (slug: string, label: string) => {
+            let hue = 0;
+            for (let i = 0; i < slug.length; i++) hue = (hue * 31 + slug.charCodeAt(i)) % 360;
+            const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(${hue},70%,28%)'/><stop offset='1' stop-color='hsl(${(hue+40)%360},80%,18%)'/></linearGradient></defs><rect width='600' height='600' fill='url(#g)'/><text x='50%' y='52%' text-anchor='middle' font-family='Inter,Arial' font-size='42' font-weight='700' fill='rgba(255,255,255,0.92)'>${label.replace(/[<&>]/g, "")}</text></svg>`;
+            return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+          };
+          const origin = typeof window !== "undefined" ? window.location.origin : "";
+          const shot = (url: string) => {
+            const abs = /^https?:\/\//i.test(url) ? url : `${origin}${url}`;
+            return `https://image.thum.io/get/width/600/crop/600/noanimate/${abs}`;
+          };
+          const domeImages = merged.map((d) => {
+            const clean = d.title.replace(/^Demo\s*·\s*/, "");
+            const thumb = (d as { thumbnail_url?: string; thumbnailUrl?: string }).thumbnail_url
+              ?? (d as { thumbnailUrl?: string }).thumbnailUrl;
+            return { src: thumb || shot(d.demoUrl) || placeholder(d.slug, clean), alt: `${clean} — ${d.category}`, href: d.demoUrl };
+          });
           return (
-            <div id="demos-grid" className="demos-thumb-grid">
-              {merged.map(({ slug, title, demoUrl, category }) => {
-                const clean = title.replace(/^Demo\s*·\s*/, "");
-                // Deterministic hue per slug for varied placeholder tones
-                let hue = 0;
-                for (let i = 0; i < slug.length; i++) hue = (hue * 31 + slug.charCodeAt(i)) % 360;
-                return (
-                  <a
-                    key={slug}
-                    href={demoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="demo-thumb-card"
-                    title={`${clean} — ${category}`}
-                  >
-                    <div
-                      className="demo-thumb-preview"
-                      style={{
-                        background: `radial-gradient(140% 100% at 10% 0%, hsl(${hue} 70% 22% / 0.9), transparent 60%), radial-gradient(120% 100% at 90% 100%, hsl(${(hue + 40) % 360} 80% 30% / 0.7), transparent 55%), linear-gradient(160deg, #14161c, #0b0d12)`,
-                      }}
-                    >
-                      <iframe
-                        src={demoUrl}
-                        title={clean}
-                        loading="lazy"
-                        sandbox="allow-scripts allow-same-origin"
-                        className="demo-thumb-iframe"
-                        tabIndex={-1}
-                      />
-                      <div className="demo-thumb-shade" aria-hidden="true" />
-                    </div>
-                    <div className="demo-thumb-meta">
-                      <span className="demo-thumb-cat">{category}</span>
-                      <span className="demo-thumb-title">{clean}</span>
-                    </div>
-                  </a>
-                );
-              })}
+            <div id="demos-grid" className="demos-dome-wrap">
+              <DomeGallery
+                images={domeImages}
+                grayscale={false}
+                minRadius={340}
+                segments={Math.max(20, Math.min(35, domeImages.length))}
+                overlayBlurColor="transparent"
+                onImageClick={({ href }) => { if (href) window.open(href, "_blank", "noopener,noreferrer"); }}
+              />
+              <p className="demos-sphere-hint">Drag to rotate · tap a tile to open</p>
             </div>
           );
         })()}
