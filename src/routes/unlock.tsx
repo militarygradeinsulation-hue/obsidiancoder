@@ -128,9 +128,10 @@ function Unlock() {
   function openPanel(next: Intent) { setTab(next); setPanelOpen(true); }
   const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
   const [demosOpen, setDemosOpen] = useState(false);
-  const [demoView, setDemoView] = useState<"sphere" | "grid">(() => {
+  const [demoView, setDemoView] = useState<"sphere" | "grid" | "dome">(() => {
     if (typeof window === "undefined") return "sphere";
-    return (window.localStorage.getItem("obsidian.demoView") as "sphere" | "grid") || "sphere";
+    const v = window.localStorage.getItem("obsidian.demoView");
+    return v === "grid" || v === "dome" || v === "sphere" ? v : "sphere";
   });
   useEffect(() => {
     if (typeof window !== "undefined") window.localStorage.setItem("obsidian.demoView", demoView);
