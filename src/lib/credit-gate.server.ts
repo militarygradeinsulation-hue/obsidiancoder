@@ -203,13 +203,18 @@ export interface Reservation {
 }
 
 export interface EntitlementResult {
-  kind: "owner" | "pro" | "denied";
+  kind: "owner" | "pro" | "free_demo" | "denied";
   user?: AuthedUser;
   reservation?: Reservation;
   denial?: CreditsRequiredEnvelope;
   env: Environment;
   requestId: string;
+  /** Free-demo fingerprint — set only when kind === "free_demo". */
+  freeDemoFingerprint?: string;
+  /** Response cookie to attach when a fresh demo cookie was minted. */
+  setCookieHeader?: string;
 }
+
 
 /**
  * Atomic, idempotent reservation via `usage_reserve`. The same
