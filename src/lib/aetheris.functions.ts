@@ -364,7 +364,7 @@ export const generateHtml = createServerFn({ method: "POST" })
     let mainErrorCode: string | undefined;
     try {
       const apiKey = process.env.LOVABLE_API_KEY;
-      const routellmKey = process.env.ROUTELLM_API_KEY;
+      const routellmKey = process.env.ROUTELLM_API_KEY ?? process.env.ROUTELLM_API_KEY_FALLBACK;
       const usingRouteLLM = isRouteLLMModel(data.model);
       const activeKey = usingRouteLLM ? routellmKey : apiKey;
       if (!activeKey) {
