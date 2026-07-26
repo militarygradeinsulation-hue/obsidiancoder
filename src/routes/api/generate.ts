@@ -521,10 +521,51 @@ export const Route = createFileRoute("/api/generate")({
           // cheaper advisory op or full HTML generation.
           const op = data.advisory ? "enhance_prompt" : "generate_html";
           opForSettle = op;
-          entitlement = await requirePaidOperation(request, op, requestId);
+
+          // Free-demo path — one full generate_html per browser fingerprint.
+          // Only considered when the client explicitly opts in with the
+          // x-obs-demo header. Owner/Pro users always take their normal path.
+          const wantsDemo = op === "generate_html" && request.headers.get("x-obs-demo") === "1";
+          if (wantsDemo) {
+            const { isOwnerSession: _isOwner, resolveUserFromRequest: _resolveUser, hasActivePro: _hasPro, serverStripeEnv: _env } = await import("@/lib/credit-gate.server");
+            const isOwner = await _isOwner();
+            const envForDemo = _env();
+            const authed = isOwner ? null : await _resolveUser(request);
+            const isPaid = authed ? await _hasPro(authed, envForDemo) : false;
+            if (!isOwner && !isPaid) {
+              const { claimFreeDemo } = await import("@/lib/free-demo.server");
+              const claim = await claimFreeDemo(request, envForDemo);
+              if (claim.ok && claim.fingerprint) {
+                entitlement = {
+                  kind: "free_demo",
+                  env: envForDemo,
+                  requestId,
+                  freeDemoFingerprint: claim.fingerprint,
+                  setCookieHeader: claim.setCookieHeader,
+                };
+              } else if (claim.reason === "already_used") {
+                const { creditsRequiredEnvelope } = await import("@/lib/credit-gate");
+                return denialResponse(
+                  creditsRequiredEnvelope({
+                    code: "free_demo_used",
+                    operation: "generate_html",
+                    message: "Your free demo is complete. Sign in or upgrade to keep building.",
+                  }),
+                  requestId,
+                  claim.setCookieHeader ? { "Set-Cookie": claim.setCookieHeader } : undefined,
+                );
+              }
+              // reason === "unavailable" → fall through to normal paid gate.
+            }
+          }
+
+          if (!entitlement) {
+            entitlement = await requirePaidOperation(request, op, requestId);
+          }
           if (entitlement.kind === "denied" && entitlement.denial) {
             return denialResponse(entitlement.denial, requestId);
           }
+
 
 
           // TEST HOOK — honoured only outside production so it can't be abused
@@ -956,6 +997,8 @@ export const Route = createFileRoute("/api/generate")({
           const componentsSummary = components.length
             ? components.map((c) => c.name).join(",").slice(0, 200)
             : "none";
+          const demoSetCookie = entitlement?.setCookieHeader;
+          const demoMode = entitlement?.kind === "free_demo";
           return new Response(stream, {
             headers: {
               "Content-Type": "text/plain; charset=utf-8",
@@ -972,10 +1015,13 @@ export const Route = createFileRoute("/api/generate")({
               "X-Obs-First-Byte-Ms": String(timing.first_byte_ms),
               "X-Obs-Compact-In": String(compacted.originalBytes),
               "X-Obs-Compact-Out": String(compacted.bytes),
+              "X-Obs-Demo": demoMode ? "1" : "0",
+              ...(demoSetCookie ? { "Set-Cookie": demoSetCookie } : {}),
               "Access-Control-Expose-Headers":
-                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Components, X-Obs-Component-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out",
+                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Components, X-Obs-Component-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out, X-Obs-Demo",
             },
           });
+
 
         } catch (err) {
           // Settle failure — refund only if no provider work started,

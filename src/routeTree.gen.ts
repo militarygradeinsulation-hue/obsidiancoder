@@ -41,6 +41,7 @@ import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/shar
 import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public/saved-ideas.$code'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/library.$code'
+import { Route as ApiPublicFreeDemoStatusRouteImport } from './routes/api/public/free-demo.status'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
 import { Route as ApiPublicLibraryCodeIdRouteImport } from './routes/api/public/library.$code.$id'
 
@@ -209,6 +210,11 @@ const ApiPublicLibraryCodeRoute = ApiPublicLibraryCodeRouteImport.update({
   path: '/api/public/library/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicFreeDemoStatusRoute = ApiPublicFreeDemoStatusRouteImport.update({
+  id: '/api/public/free-demo/status',
+  path: '/api/public/free-demo/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBuildsIdRoute = ApiPublicBuildsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
+  '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
+  '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
@@ -320,6 +328,7 @@ export interface FileRoutesById {
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
+  '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
@@ -358,6 +367,7 @@ export interface FileRouteTypes {
     | '/api/public/self-test'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
+    | '/api/public/free-demo/status'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/api/public/self-test'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
+    | '/api/public/free-demo/status'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
@@ -430,6 +441,7 @@ export interface FileRouteTypes {
     | '/api/public/self-test'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
+    | '/api/public/free-demo/status'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
@@ -466,6 +478,7 @@ export interface RootRouteChildren {
   ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
   ApiPublicWaitlistRoute: typeof ApiPublicWaitlistRoute
+  ApiPublicFreeDemoStatusRoute: typeof ApiPublicFreeDemoStatusRoute
   ApiPublicLibraryCodeRoute: typeof ApiPublicLibraryCodeRouteWithChildren
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicSavedIdeasCodeRoute: typeof ApiPublicSavedIdeasCodeRoute
@@ -701,6 +714,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicLibraryCodeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/free-demo/status': {
+      id: '/api/public/free-demo/status'
+      path: '/api/public/free-demo/status'
+      fullPath: '/api/public/free-demo/status'
+      preLoaderRoute: typeof ApiPublicFreeDemoStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/builds/$id': {
       id: '/api/public/builds/$id'
       path: '/$id'
@@ -768,6 +788,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
   ApiPublicWaitlistRoute: ApiPublicWaitlistRoute,
+  ApiPublicFreeDemoStatusRoute: ApiPublicFreeDemoStatusRoute,
   ApiPublicLibraryCodeRoute: ApiPublicLibraryCodeRouteWithChildren,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicSavedIdeasCodeRoute: ApiPublicSavedIdeasCodeRoute,

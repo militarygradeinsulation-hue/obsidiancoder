@@ -523,6 +523,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_free_demo: {
+        Args: { _environment: string; _fingerprint: string; _ip_prefix: string }
+        Returns: boolean
+      }
       commit_credits: {
         Args: { _request_id?: string; _reservation_id: string }
         Returns: boolean
@@ -554,6 +558,10 @@ export type Database = {
         }
         Returns: boolean
       }
+      free_demo_used: {
+        Args: { _environment: string; _fingerprint: string }
+        Returns: boolean
+      }
       has_active_pro: {
         Args: { check_env?: string; user_uuid: string }
         Returns: boolean
@@ -563,6 +571,10 @@ export type Database = {
         Returns: undefined
       }
       refund_credits: { Args: { _reservation_id: string }; Returns: boolean }
+      release_free_demo: {
+        Args: { _environment: string; _fingerprint: string }
+        Returns: boolean
+      }
       reserve_credits: {
         Args: {
           _amount: number

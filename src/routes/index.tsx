@@ -1,5 +1,5 @@
 import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
-import { useMemo, useRef, useState, useEffect, lazy, Suspense } from "react";
+import { useCallback, useMemo, useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 import {
@@ -113,11 +113,18 @@ import { restoreAndVerify } from "@/lib/context-compactor";
 
 
 export const Route = createFileRoute("/")({
-  beforeLoad: async () => {
+  validateSearch: (s: Record<string, unknown>) => ({
+    demo: s.demo === "1" || s.demo === 1 || s.demo === true ? ("1" as const) : undefined,
+  }),
+  beforeLoad: async ({ search }) => {
+    // Free-demo entry bypasses the site unlock gate — one build per browser
+    // fingerprint is enforced server-side in /api/generate.
+    if (search.demo === "1") return;
     const { ensureUnlocked } = await import("@/lib/gate.functions");
     const { unlocked } = await ensureUnlocked();
     if (!unlocked) throw redirect({ to: "/unlock" });
   },
+
   head: () => ({
     meta: [
       { title: "Obsidian — System builder for people that can't code" },
@@ -262,11 +269,22 @@ function newSession(): Session {
 
 function Index() {
   // streaming via /api/generate
+  const routeSearch = Route.useSearch();
+  const demoMode = routeSearch.demo === "1";
+  const [demoUsed, setDemoUsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem("obs.demoUsed") === "1"; } catch { return false; }
+  });
+  const markDemoUsed = useCallback(() => {
+    setDemoUsed(true);
+    try { window.localStorage.setItem("obs.demoUsed", "1"); } catch { /* noop */ }
+  }, []);
   const initialSession = useMemo(() => newSession(), []);
   const [sessions, setSessions] = useState<Session[]>(() => [initialSession]);
   const [activeId, setActiveId] = useState<string>(() => initialSession.id);
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
+
   const [buildChatOpen, setBuildChatOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
   const [designLibraryOpen, setDesignLibraryOpen] = useState(false);
@@ -1489,8 +1507,14 @@ function Index() {
       return;
     }
     // Central guard — free/unresolved users never reach the network.
-    const gate = await requirePaidAction("generate_html");
-    if (!gate.allowed) return;
+    // Free-demo visitors get one full generate_html before hitting paywall.
+    if (demoMode) {
+      if (demoUsed) { setPricingOpen(true); return; }
+    } else {
+      const gate = await requirePaidAction("generate_html");
+      if (!gate.allowed) return;
+    }
+
     const activeMode = current.mode;
     // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
     const previewMode = activeMode !== "chat" && activeMode !== "plan";
@@ -1834,7 +1858,10 @@ function Index() {
     try {
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(demoMode ? { "x-obs-demo": "1" } : {}),
+        },
         body: JSON.stringify({
           prompt,
           currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
@@ -1847,7 +1874,12 @@ function Index() {
         signal: controller.signal,
       });
 
+      // Free-demo mode: the server confirms the claim via X-Obs-Demo header.
+      // Mark used the moment we see it so any follow-up AI action is blocked.
+      if (demoMode && res.headers.get("x-obs-demo") === "1") markDemoUsed();
+
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
+
       const imgProviders = res.headers.get("x-obs-image-providers");
       const imgCount = Number(res.headers.get("x-obs-image-count") || "0");
       const modelUsedHeader = res.headers.get("x-obs-model-used");
@@ -4048,6 +4080,44 @@ function Index() {
         onLog={(line) => setTerminal((t) => [...t, line])}
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
+      {demoMode && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed", left: 12, right: 12, bottom: 12, zIndex: 9000,
+            maxWidth: 720, margin: "0 auto",
+            padding: "10px 14px", borderRadius: 12,
+            background: "rgba(17,19,23,0.92)", color: "#f2eee7",
+            border: "1px solid rgba(244,161,37,0.35)",
+            backdropFilter: "blur(10px)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
+            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+            fontSize: 13,
+          }}
+        >
+          <span style={{ color: "#f4a125", fontWeight: 600, letterSpacing: 0.4 }}>
+            {demoUsed ? "Free demo complete" : "Free demo · 1 build, no card"}
+          </span>
+          <span style={{ opacity: 0.8, minWidth: 0, flex: 1 }}>
+            {demoUsed
+              ? "Sign in or upgrade to keep building. Your generated app stays in this browser."
+              : "Type your idea and press Build. You get one full generation on the house."}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPricingOpen(true)}
+            style={{
+              padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(244,161,37,0.5)",
+              background: "linear-gradient(180deg, #f4a125, #dd9324)", color: "#111317",
+              fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            Upgrade
+          </button>
+        </div>
+      )}
+
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
       <ThemesPanel
         open={themesOpen}

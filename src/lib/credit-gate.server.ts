@@ -203,13 +203,18 @@ export interface Reservation {
 }
 
 export interface EntitlementResult {
-  kind: "owner" | "pro" | "denied";
+  kind: "owner" | "pro" | "free_demo" | "denied";
   user?: AuthedUser;
   reservation?: Reservation;
   denial?: CreditsRequiredEnvelope;
   env: Environment;
   requestId: string;
+  /** Free-demo fingerprint — set only when kind === "free_demo". */
+  freeDemoFingerprint?: string;
+  /** Response cookie to attach when a fresh demo cookie was minted. */
+  setCookieHeader?: string;
 }
+
 
 /**
  * Atomic, idempotent reservation via `usage_reserve`. The same
@@ -429,7 +434,11 @@ export async function requirePaidOperation(
 }
 
 
-export function denialResponse(denial: CreditsRequiredEnvelope, requestId?: string): Response {
+export function denialResponse(
+  denial: CreditsRequiredEnvelope,
+  requestId?: string,
+  extraHeaders?: Record<string, string>,
+): Response {
   const status = denial.code === "auth_required" ? 401 : 402;
   return new Response(JSON.stringify(denial), {
     status,
@@ -437,9 +446,11 @@ export function denialResponse(denial: CreditsRequiredEnvelope, requestId?: stri
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
       ...(requestId ? { "X-Request-Id": requestId } : {}),
+      ...(extraHeaders ?? {}),
     },
   });
 }
+
 
 /** Outcome shapes accepted by settleOperation. */
 export type SettleOutcome =
@@ -482,6 +493,17 @@ export async function settleOperation(
     return;
   }
 
+  if (ent.kind === "free_demo") {
+    // Refund the ledger row only when we never invoked the provider so the
+    // visitor still gets their one free build. Success/failed-with-usage
+    // both mean the provider ran — the demo has been consumed.
+    if (outcome.kind === "no_provider" && ent.freeDemoFingerprint) {
+      const { releaseFreeDemo } = await import("@/lib/free-demo.server");
+      await releaseFreeDemo(ent.freeDemoFingerprint, ent.env);
+    }
+    return;
+  }
+
   // Pro path — must have a reservation.
   const res = ent.reservation;
   if (!res) return;
@@ -490,6 +512,7 @@ export async function settleOperation(
     await usageRefundReservation(res.reservationId);
     return;
   }
+
 
   const usage = outcome.usage;
   // Pass full actual credits — do NOT clamp to reservation. The DB performs

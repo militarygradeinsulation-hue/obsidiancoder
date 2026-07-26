@@ -172,7 +172,7 @@ export class ReservationLedger {
 /** Client-facing envelope for a 402 response. */
 export interface CreditsRequiredEnvelope {
   ok: false;
-  code: "credits_required" | "not_pro" | "auth_required";
+  code: "credits_required" | "not_pro" | "auth_required" | "free_demo_used";
   message: string;
   operation?: Operation;
   needed?: number;
@@ -181,6 +181,7 @@ export interface CreditsRequiredEnvelope {
   remaining?: number;
   suggestedPriceId?: string;
 }
+
 
 export function creditsRequiredEnvelope(args: {
   code: CreditsRequiredEnvelope["code"];
@@ -201,13 +202,15 @@ export function creditsRequiredEnvelope(args: {
         ? "Sign in to use this feature."
         : args.code === "not_pro"
           ? "This feature requires Obsidian Pro."
-          : `Monthly credit limit reached. Free local editing remains available.`),
+          : args.code === "free_demo_used"
+            ? "Your free demo is complete. Sign in or upgrade to keep building."
+            : `Monthly credit limit reached. Free local editing remains available.`),
     operation: args.operation,
     needed: args.needed,
     used: args.used,
     cap: args.cap,
     remaining,
-    suggestedPriceId: args.code === "not_pro" || args.code === "credits_required"
+    suggestedPriceId: args.code === "not_pro" || args.code === "credits_required" || args.code === "free_demo_used"
       ? "obsidian_creator_monthly"
       : undefined,
   };
@@ -216,5 +219,9 @@ export function creditsRequiredEnvelope(args: {
 export function isCreditsRequiredEnvelope(v: unknown): v is CreditsRequiredEnvelope {
   if (!v || typeof v !== "object") return false;
   const o = v as Record<string, unknown>;
-  return o.ok === false && (o.code === "credits_required" || o.code === "not_pro" || o.code === "auth_required");
+  return o.ok === false && (
+    o.code === "credits_required" || o.code === "not_pro" ||
+    o.code === "auth_required"    || o.code === "free_demo_used"
+  );
 }
+
