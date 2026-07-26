@@ -2207,7 +2207,18 @@ function Index() {
           }
         : s));
 
+      // Client demo complete — only after the generated result was committed
+      // to the local project. Emit once per lifecycle.
+      if (providerStarted) {
+        markDemoUsed();
+        if (!demoCompletedTrackedRef.current) {
+          demoCompletedTrackedRef.current = true;
+          trackDemoEvent("free_demo_completed");
+        }
+      }
+
       setTerminal((t) => [...t, `✓ Compiled in ${Math.round(durationMsGen)}ms`, `✓ Validation: ${validation.status}`]);
+
       setLastMetrics(metricsFromClassification(classification, {
         usedAi: true,
         model: modelForServer,
