@@ -1903,7 +1903,9 @@ function Index() {
     const modelForServer = adaptiveModel;
     const controller = new AbortController();
     abortRef.current = controller;
+    let providerStarted = false;
     try {
+
       const res = await authFetch("/api/generate", {
         method: "POST",
         headers: {
