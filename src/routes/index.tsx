@@ -1858,7 +1858,10 @@ function Index() {
     try {
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(demoMode ? { "x-obs-demo": "1" } : {}),
+        },
         body: JSON.stringify({
           prompt,
           currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
@@ -1871,7 +1874,12 @@ function Index() {
         signal: controller.signal,
       });
 
+      // Free-demo mode: the server confirms the claim via X-Obs-Demo header.
+      // Mark used the moment we see it so any follow-up AI action is blocked.
+      if (demoMode && res.headers.get("x-obs-demo") === "1") markDemoUsed();
+
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
+
       const imgProviders = res.headers.get("x-obs-image-providers");
       const imgCount = Number(res.headers.get("x-obs-image-count") || "0");
       const modelUsedHeader = res.headers.get("x-obs-model-used");
