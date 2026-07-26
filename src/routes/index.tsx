@@ -271,14 +271,52 @@ function Index() {
   // streaming via /api/generate
   const routeSearch = Route.useSearch();
   const demoMode = routeSearch.demo === "1";
+  // localStorage is a display cache; the server status endpoint is the
+  // source of truth for whether another free demo may be claimed.
   const [demoUsed, setDemoUsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try { return window.localStorage.getItem("obs.demoUsed") === "1"; } catch { return false; }
   });
+  // Server-authoritative availability. `null` = not yet resolved.
+  //   true  → visitor may claim one demo.
+  //   false → already used OR ledger unavailable; block network + show banner.
+  const [demoAvailable, setDemoAvailable] = useState<boolean | null>(null);
+  const [demoLedgerUnavailable, setDemoLedgerUnavailable] = useState(false);
+  const demoStartedTrackedRef = useRef(false);
+  const demoCompletedTrackedRef = useRef(false);
   const markDemoUsed = useCallback(() => {
     setDemoUsed(true);
+    setDemoAvailable(false);
     try { window.localStorage.setItem("obs.demoUsed", "1"); } catch { /* noop */ }
   }, []);
+  // Fetch server status ONCE at mount when in demo mode. Server wins.
+  useEffect(() => {
+    if (!demoMode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/public/free-demo/status", { method: "GET", credentials: "include" });
+        if (!r.ok) throw new Error(`status ${r.status}`);
+        const j = (await r.json()) as { available?: boolean; alreadyUsed?: boolean };
+        if (cancelled) return;
+        const used = !!j.alreadyUsed;
+        const available = j.available === true;
+        if (used) {
+          setDemoUsed(true);
+          try { window.localStorage.setItem("obs.demoUsed", "1"); } catch { /* noop */ }
+        }
+        setDemoAvailable(available);
+        setDemoLedgerUnavailable(!available && !used);
+      } catch {
+        if (cancelled) return;
+        // Ledger unreachable — fail closed: do NOT offer the demo.
+        setDemoAvailable(false);
+        setDemoLedgerUnavailable(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [demoMode]);
+
   const initialSession = useMemo(() => newSession(), []);
   const [sessions, setSessions] = useState<Session[]>(() => [initialSession]);
   const [activeId, setActiveId] = useState<string>(() => initialSession.id);
