@@ -325,6 +325,16 @@ function Unlock() {
           <button type="button" className="unlock-topbar-link" onClick={() => { openPanel("buy"); setPlansOpen(true); requestAnimationFrame(() => document.getElementById("plans-heading")?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>Pricing</button>
           <button type="button" className="unlock-topbar-link" onClick={() => { setDemosOpen(true); requestAnimationFrame(() => document.getElementById("demos-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Live Demos</button>
           <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Access Code</button>
+          <Link
+            to="/"
+            search={{ demo: "1" }}
+            className="unlock-topbar-link"
+            style={{ color: "#f4a125", border: "1px solid rgba(244,161,37,0.35)" }}
+            aria-label="Try a free demo — one build, no card required"
+          >
+            Try a Free Demo
+          </Link>
+
           {session ? (
             <>
               <span className="unlock-topbar-link" aria-live="polite" style={{ opacity: 0.75 }}>{session.email ?? "Signed in"}</span>
