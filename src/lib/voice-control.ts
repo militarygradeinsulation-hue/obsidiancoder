@@ -252,7 +252,10 @@ export function useVoiceControl(opts: VoiceControlOptions) {
   }, [cleanup, flush]);
 
   const toggle = useCallback(() => { if (sessionRef.current || listening) stop(); else void start(); }, [listening, start, stop]);
-  useEffect(() => () => { mountedRef.current = false; cleanup(true); }, [cleanup]);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; cleanup(true); };
+  }, [cleanup]);
 
   return { supported, listening, processing, interim, error, level, start, stop, toggle };
 }
