@@ -1921,8 +1921,15 @@ function Index() {
       });
 
       // Free-demo mode: the server confirms the claim via X-Obs-Demo header.
-      // Mark used the moment we see it so any follow-up AI action is blocked.
-      if (demoMode && res.headers.get("x-obs-demo") === "1") markDemoUsed();
+      // The server has already committed the ledger row at this point, so
+      // provider work is about to start. We record `started` here (once), but
+      // DO NOT mark the client demo complete until the generated result has
+      // been received and committed to the local project below.
+      const providerStarted = demoMode && res.headers.get("x-obs-demo") === "1";
+      if (providerStarted && !demoStartedTrackedRef.current) {
+        demoStartedTrackedRef.current = true;
+        trackDemoEvent("free_demo_started");
+      }
 
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
 
@@ -1946,12 +1953,25 @@ function Index() {
       if (ctype.includes("application/json")) {
         let envelope: unknown = null;
         try { envelope = await res.json(); } catch { envelope = null; }
+        // Demo-specific envelopes (used or unavailable) → sync UI state and
+        // open the pricing/sign-in surface. Do NOT keep offering the demo.
+        if (isCreditsRequiredEnvelope(envelope) &&
+            (envelope.code === "free_demo_used" || envelope.code === "free_demo_unavailable")) {
+          if (envelope.code === "free_demo_used") markDemoUsed();
+          if (envelope.code === "free_demo_unavailable") {
+            setDemoAvailable(false);
+            setDemoLedgerUnavailable(true);
+          }
+          setPricingOpen(true);
+          throw new Error(envelope.message);
+        }
         if (isAiErrorEnvelope(envelope)) {
           setLastAiError(envelope);
           throw new Error(envelope.message);
         }
         throw new Error(`AI request failed (${res.status})`);
       }
+
       // Only accept an actual streaming body. Never fall back to res.text() as HTML.
       if (!res.ok || !res.body) {
         throw new Error(`AI request failed (${res.status})`);
