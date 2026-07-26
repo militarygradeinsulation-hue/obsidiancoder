@@ -52,6 +52,8 @@ import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
 import { requirePaidAction } from "@/lib/action-guard";
 import { authFetch } from "@/lib/auth-fetch";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
+import { trackDemoEvent } from "@/lib/demo-analytics";
+
 import { lockSite } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -271,14 +273,52 @@ function Index() {
   // streaming via /api/generate
   const routeSearch = Route.useSearch();
   const demoMode = routeSearch.demo === "1";
+  // localStorage is a display cache; the server status endpoint is the
+  // source of truth for whether another free demo may be claimed.
   const [demoUsed, setDemoUsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
     try { return window.localStorage.getItem("obs.demoUsed") === "1"; } catch { return false; }
   });
+  // Server-authoritative availability. `null` = not yet resolved.
+  //   true  → visitor may claim one demo.
+  //   false → already used OR ledger unavailable; block network + show banner.
+  const [demoAvailable, setDemoAvailable] = useState<boolean | null>(null);
+  const [demoLedgerUnavailable, setDemoLedgerUnavailable] = useState(false);
+  const demoStartedTrackedRef = useRef(false);
+  const demoCompletedTrackedRef = useRef(false);
   const markDemoUsed = useCallback(() => {
     setDemoUsed(true);
+    setDemoAvailable(false);
     try { window.localStorage.setItem("obs.demoUsed", "1"); } catch { /* noop */ }
   }, []);
+  // Fetch server status ONCE at mount when in demo mode. Server wins.
+  useEffect(() => {
+    if (!demoMode) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/public/free-demo/status", { method: "GET", credentials: "include" });
+        if (!r.ok) throw new Error(`status ${r.status}`);
+        const j = (await r.json()) as { available?: boolean; alreadyUsed?: boolean };
+        if (cancelled) return;
+        const used = !!j.alreadyUsed;
+        const available = j.available === true;
+        if (used) {
+          setDemoUsed(true);
+          try { window.localStorage.setItem("obs.demoUsed", "1"); } catch { /* noop */ }
+        }
+        setDemoAvailable(available);
+        setDemoLedgerUnavailable(!available && !used);
+      } catch {
+        if (cancelled) return;
+        // Ledger unreachable — fail closed: do NOT offer the demo.
+        setDemoAvailable(false);
+        setDemoLedgerUnavailable(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [demoMode]);
+
   const initialSession = useMemo(() => newSession(), []);
   const [sessions, setSessions] = useState<Session[]>(() => [initialSession]);
   const [activeId, setActiveId] = useState<string>(() => initialSession.id);
@@ -1509,11 +1549,19 @@ function Index() {
     // Central guard — free/unresolved users never reach the network.
     // Free-demo visitors get one full generate_html before hitting paywall.
     if (demoMode) {
-      if (demoUsed) { setPricingOpen(true); return; }
+      // Server-authoritative: local storage alone can never grant a fresh
+      // demo (clearing it or opening a new tab won't help).
+      if (demoUsed || demoAvailable === false) { setPricingOpen(true); return; }
+      if (demoAvailable === null) {
+        // Status not yet resolved — refuse rather than pretending it's OK.
+        setError("Checking free demo availability… please try again in a moment.");
+        return;
+      }
     } else {
       const gate = await requirePaidAction("generate_html");
       if (!gate.allowed) return;
     }
+
 
     const activeMode = current.mode;
     // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
@@ -1855,7 +1903,9 @@ function Index() {
     const modelForServer = adaptiveModel;
     const controller = new AbortController();
     abortRef.current = controller;
+    let providerStarted = false;
     try {
+
       const res = await authFetch("/api/generate", {
         method: "POST",
         headers: {
@@ -1875,8 +1925,15 @@ function Index() {
       });
 
       // Free-demo mode: the server confirms the claim via X-Obs-Demo header.
-      // Mark used the moment we see it so any follow-up AI action is blocked.
-      if (demoMode && res.headers.get("x-obs-demo") === "1") markDemoUsed();
+      // The server has already committed the ledger row at this point, so
+      // provider work is about to start. We record `started` here (once), but
+      // DO NOT mark the client demo complete until the generated result has
+      // been received and committed to the local project below.
+      providerStarted = demoMode && res.headers.get("x-obs-demo") === "1";
+      if (providerStarted && !demoStartedTrackedRef.current) {
+        demoStartedTrackedRef.current = true;
+        trackDemoEvent("free_demo_started");
+      }
 
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
 
@@ -1900,12 +1957,25 @@ function Index() {
       if (ctype.includes("application/json")) {
         let envelope: unknown = null;
         try { envelope = await res.json(); } catch { envelope = null; }
+        // Demo-specific envelopes (used or unavailable) → sync UI state and
+        // open the pricing/sign-in surface. Do NOT keep offering the demo.
+        if (isCreditsRequiredEnvelope(envelope) &&
+            (envelope.code === "free_demo_used" || envelope.code === "free_demo_unavailable")) {
+          if (envelope.code === "free_demo_used") markDemoUsed();
+          if (envelope.code === "free_demo_unavailable") {
+            setDemoAvailable(false);
+            setDemoLedgerUnavailable(true);
+          }
+          setPricingOpen(true);
+          throw new Error(envelope.message);
+        }
         if (isAiErrorEnvelope(envelope)) {
           setLastAiError(envelope);
           throw new Error(envelope.message);
         }
         throw new Error(`AI request failed (${res.status})`);
       }
+
       // Only accept an actual streaming body. Never fall back to res.text() as HTML.
       if (!res.ok || !res.body) {
         throw new Error(`AI request failed (${res.status})`);
@@ -2139,7 +2209,18 @@ function Index() {
           }
         : s));
 
+      // Client demo complete — only after the generated result was committed
+      // to the local project. Emit once per lifecycle.
+      if (providerStarted) {
+        markDemoUsed();
+        if (!demoCompletedTrackedRef.current) {
+          demoCompletedTrackedRef.current = true;
+          trackDemoEvent("free_demo_completed");
+        }
+      }
+
       setTerminal((t) => [...t, `✓ Compiled in ${Math.round(durationMsGen)}ms`, `✓ Validation: ${validation.status}`]);
+
       setLastMetrics(metricsFromClassification(classification, {
         usedAi: true,
         model: modelForServer,
@@ -2225,7 +2306,18 @@ function Index() {
           : s));
         setTerminal((t) => [...t, `✗ ${msg}`]);
       }
+      // If the demo claim was already consumed on the server, resync UI
+      // state honestly rather than silently offering another attempt.
+      if (demoMode && providerStarted) {
+        fetch("/api/public/free-demo/status", { method: "GET", credentials: "include" })
+          .then((r) => r.ok ? r.json() : null)
+          .then((j: { alreadyUsed?: boolean } | null) => {
+            if (j?.alreadyUsed) markDemoUsed();
+          })
+          .catch(() => {});
+      }
     } finally {
+
       abortRef.current = null;
       setLoading(false); setStage(null); markBuildEnd(sessionId);
       setStage(null);
@@ -4097,16 +4189,39 @@ function Index() {
           }}
         >
           <span style={{ color: "#f4a125", fontWeight: 600, letterSpacing: 0.4 }}>
-            {demoUsed ? "Free demo complete" : "Free demo · 1 build, no card"}
+            {demoLedgerUnavailable
+              ? "Free demo temporarily unavailable"
+              : demoUsed
+                ? "Free demo complete"
+                : "Free demo · 1 build, no card"}
           </span>
           <span style={{ opacity: 0.8, minWidth: 0, flex: 1 }}>
-            {demoUsed
-              ? "Sign in or upgrade to keep building. Your generated app stays in this browser."
-              : "Type your idea and press Build. You get one full generation on the house."}
+            {demoLedgerUnavailable
+              ? "Sign in or upgrade to keep building. We'll re-enable the free demo shortly."
+              : demoUsed
+                ? "Sign in or upgrade to keep building. Your generated app stays in this browser."
+                : "Type your idea and press Build. You get one full generation on the house."}
           </span>
           <button
             type="button"
-            onClick={() => setPricingOpen(true)}
+            onClick={() => {
+              trackDemoEvent("free_demo_sign_in_clicked");
+              window.location.assign("/auth?mode=signin&next=%2Funlock");
+            }}
+            style={{
+              padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(242,238,231,0.3)",
+              background: "transparent", color: "#f2eee7",
+              fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            Sign in
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              trackDemoEvent("free_demo_upgrade_clicked");
+              setPricingOpen(true);
+            }}
             style={{
               padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(244,161,37,0.5)",
               background: "linear-gradient(180deg, #f4a125, #dd9324)", color: "#111317",
@@ -4115,6 +4230,7 @@ function Index() {
           >
             Upgrade
           </button>
+
         </div>
       )}
 
