@@ -4080,6 +4080,44 @@ function Index() {
         onLog={(line) => setTerminal((t) => [...t, line])}
       />
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
+      {demoMode && (
+        <div
+          role="status"
+          aria-live="polite"
+          style={{
+            position: "fixed", left: 12, right: 12, bottom: 12, zIndex: 9000,
+            maxWidth: 720, margin: "0 auto",
+            padding: "10px 14px", borderRadius: 12,
+            background: "rgba(17,19,23,0.92)", color: "#f2eee7",
+            border: "1px solid rgba(244,161,37,0.35)",
+            backdropFilter: "blur(10px)",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.4)",
+            display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+            fontSize: 13,
+          }}
+        >
+          <span style={{ color: "#f4a125", fontWeight: 600, letterSpacing: 0.4 }}>
+            {demoUsed ? "Free demo complete" : "Free demo · 1 build, no card"}
+          </span>
+          <span style={{ opacity: 0.8, minWidth: 0, flex: 1 }}>
+            {demoUsed
+              ? "Sign in or upgrade to keep building. Your generated app stays in this browser."
+              : "Type your idea and press Build. You get one full generation on the house."}
+          </span>
+          <button
+            type="button"
+            onClick={() => setPricingOpen(true)}
+            style={{
+              padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(244,161,37,0.5)",
+              background: "linear-gradient(180deg, #f4a125, #dd9324)", color: "#111317",
+              fontWeight: 700, cursor: "pointer",
+            }}
+          >
+            Upgrade
+          </button>
+        </div>
+      )}
+
       {accountOpen && <AccountModal onClose={() => setAccountOpen(false)} />}
       <ThemesPanel
         open={themesOpen}
