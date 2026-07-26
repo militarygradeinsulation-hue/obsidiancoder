@@ -3336,12 +3336,23 @@ function Index() {
                   borderRadius: 12,
                   background: "#111317",
                   padding: 8,
-                } : undefined}
+                } : { position: "relative" }}
                 onSubmit={(e) => {
                   e.preventDefault();
                   submit();
                 }}
               >
+                {voice.listening && (
+                  <div className="obs-voice-caption" role="status" aria-live="polite">
+                    <span className="obs-voice-dot" />
+                    <span className="obs-voice-text">
+                      {voice.interim || "Listening…"}
+                    </span>
+                    <span className="obs-voice-hint">
+                      say "send" · "expand" · "enhance" · "clear"
+                    </span>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="obs-composer-attach"
