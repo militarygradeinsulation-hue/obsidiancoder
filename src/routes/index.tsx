@@ -10,7 +10,9 @@ import {
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
   Trash2, Square, Wand2, GripVertical, Pin, Github, CreditCard, User as UserIcon,
   Camera, Scissors, RefreshCw, GitMerge, Bookmark, BookmarkCheck, LogOut,
+  Mic, MicOff,
 } from "lucide-react";
+import { useVoiceControl } from "@/lib/voice-control";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
 import { MessageSquare, ZoomIn, ZoomOut, Maximize2, ClipboardList, Palette } from "lucide-react";
