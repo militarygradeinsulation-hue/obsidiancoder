@@ -820,6 +820,52 @@ function Index() {
     }
   }
 
+  // Voice control — Web Speech API dictation with intent commands.
+  // Speak naturally; say "send" to build, "expand" to grow the idea,
+  // "enhance" to polish, "clear" to wipe, "stop listening" to disable.
+  const voice = useVoiceControl({
+    getDraft: () => (composerRef.current?.value ?? input),
+    onDictate: (append, full) => {
+      setInput(full);
+      // Keep the textarea caret at the end so the next chunk lands naturally.
+      requestAnimationFrame(() => {
+        const el = composerRef.current;
+        if (!el) return;
+        el.focus();
+        try { el.setSelectionRange(el.value.length, el.value.length); } catch {}
+      });
+      void append;
+    },
+    onCommand: (cmd) => {
+      switch (cmd) {
+        case "send":
+          if (!loading && (composerRef.current?.value ?? input).trim()) submit();
+          break;
+        case "expand":
+          if (!loading && !expandingDraft && (composerRef.current?.value ?? input).trim()) expandDraft();
+          break;
+        case "enhance":
+          if (!loading && !enhancing && (composerRef.current?.value ?? input).trim()) handleEnhance();
+          break;
+        case "clear":
+          setInput("");
+          requestAnimationFrame(() => composerRef.current?.focus());
+          break;
+        case "plan":
+          updateCurrent({ mode: current.mode === "plan" ? "agent" : "plan" });
+          break;
+        case "screenshot":
+          setCaptureMode("full");
+          break;
+        case "stop":
+          voice.stop();
+          break;
+      }
+    },
+  });
+
+
+
   useEffect(() => {
     if (typeof window === "undefined") return;
     try { window.sessionStorage.setItem("obs.library_code", libraryCode); } catch {}
