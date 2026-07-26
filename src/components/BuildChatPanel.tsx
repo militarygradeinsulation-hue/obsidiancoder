@@ -133,6 +133,15 @@ export function BuildChatPanel({
           preferredModel: provider,
         },
       });
+      if ("paywall" in res) {
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("obs:paywall", {
+            detail: { envelope: res.paywall, status: 402, url: "server-fn:discussBuild" },
+          }));
+        }
+        setError("This chat needs Obsidian Pro. Local editing remains free.");
+        return;
+      }
       const allowTrades = isExplicitTradesContext(`${q}\n${liveDraft}\n${liveHtml}`);
       if (!allowTrades && containsTradesOnlyLanguage(res.reply)) {
         throw new Error("domain_mismatch");
