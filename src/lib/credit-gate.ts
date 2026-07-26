@@ -172,7 +172,7 @@ export class ReservationLedger {
 /** Client-facing envelope for a 402 response. */
 export interface CreditsRequiredEnvelope {
   ok: false;
-  code: "credits_required" | "not_pro" | "auth_required";
+  code: "credits_required" | "not_pro" | "auth_required" | "free_demo_used";
   message: string;
   operation?: Operation;
   needed?: number;
@@ -181,6 +181,7 @@ export interface CreditsRequiredEnvelope {
   remaining?: number;
   suggestedPriceId?: string;
 }
+
 
 export function creditsRequiredEnvelope(args: {
   code: CreditsRequiredEnvelope["code"];
