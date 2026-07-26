@@ -238,6 +238,12 @@ export function useVoiceControl(opts: VoiceControlOptions) {
               if (formatted) optsRef.current.onDictate(formatted, draft + formatted);
             }
             optsRef.current.onCommand(detection.cmd);
+            if (detection.cmd === "stop") {
+              wantOnRef.current = false;
+              try { recRef.current?.stop(); } catch { /* noop */ }
+              setListening(false);
+              setInterim("");
+            }
           } else {
             const formatted = formatDictation(transcript, draft);
             if (formatted) optsRef.current.onDictate(formatted, draft + formatted);
