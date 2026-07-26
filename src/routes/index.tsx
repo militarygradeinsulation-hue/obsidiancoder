@@ -305,12 +305,18 @@ function Index() {
         if (cancelled) return;
         const used = !!j.alreadyUsed;
         const available = j.available === true;
-        if (used) {
-          setDemoUsed(true);
-          try { window.localStorage.setItem("obs.demoUsed", "1"); } catch { /* noop */ }
-        }
+        // Server wins. Mirror `alreadyUsed` exactly into local state and
+        // storage so a stale localStorage flag can never override an
+        // authorized fresh demo, and a cleared flag can never grant a
+        // second one.
+        setDemoUsed(used);
+        try {
+          if (used) window.localStorage.setItem("obs.demoUsed", "1");
+          else window.localStorage.removeItem("obs.demoUsed");
+        } catch { /* noop */ }
         setDemoAvailable(available);
         setDemoLedgerUnavailable(!available && !used);
+
       } catch {
         if (cancelled) return;
         // Ledger unreachable — fail closed: do NOT offer the demo.
