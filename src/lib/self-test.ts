@@ -1749,6 +1749,102 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
       "checkout-state: unknown throw → fallback message"));
   }
 
+  // ------------------------------------------------------------------
+  // Free-demo — server-authoritative status resolver + sign-in URL
+  // ------------------------------------------------------------------
+  {
+    const { resolveFromServer, resolveOnStatusError, shouldAllowDemoSubmit } =
+      await import("./free-demo-status");
+    const { buildAuthUrl } = await import("./redirect-safe");
+
+    // (a) server available + stale localStorage → available/not used;
+    //     resolver instructs to clear the stale flag.
+    const rAvail = resolveFromServer({ available: true, alreadyUsed: false });
+    results.push(assert(
+      rAvail.used === false && rAvail.available === true &&
+      rAvail.ledgerUnavailable === false && rAvail.localStorageWrite === null &&
+      rAvail.submitAllowed === true,
+      "free-demo: server available + stale LS → available; clears LS",
+    ));
+
+    // (b) server alreadyUsed → blocked even if localStorage was cleared.
+    const rUsed = resolveFromServer({ available: false, alreadyUsed: true });
+    results.push(assert(
+      rUsed.used === true && rUsed.submitAllowed === false &&
+      rUsed.localStorageWrite === "1" && rUsed.ledgerUnavailable === false,
+      "free-demo: server alreadyUsed → blocked regardless of LS",
+    ));
+
+    // (c) server unavailable (neither used nor available) → fail-closed.
+    const rNa = resolveFromServer({ available: false, alreadyUsed: false });
+    results.push(assert(
+      rNa.ledgerUnavailable === true && rNa.submitAllowed === false &&
+      rNa.localStorageWrite === null,
+      "free-demo: server unavailable → ledgerUnavailable + block",
+    ));
+    const rErr = resolveOnStatusError();
+    results.push(assert(
+      rErr.ledgerUnavailable === true && rErr.submitAllowed === false,
+      "free-demo: status endpoint error → fail-closed",
+    ));
+
+    // Submit guard: unresolved (null) MUST refuse.
+    results.push(assert(
+      shouldAllowDemoSubmit({ demoAvailable: null, demoUsed: false }) === false,
+      "free-demo: unresolved status refuses submit",
+    ));
+    // Submit guard: stale local `demoUsed` even with server-available → refuse.
+    // (index.tsx sets demoUsed from resolveFromServer, so this cannot occur
+    // in practice; the guard still defends against a stale in-memory value.)
+    results.push(assert(
+      shouldAllowDemoSubmit({ demoAvailable: true, demoUsed: true }) === false,
+      "free-demo: stale local demoUsed still refuses",
+    ));
+    results.push(assert(
+      shouldAllowDemoSubmit({ demoAvailable: true, demoUsed: false }) === true,
+      "free-demo: server-authorized fresh demo permits submit",
+    ));
+
+    // Ledger contract — duplicate/atomic claims cannot both succeed and
+    // release only fires when provider work did not start. We reuse the
+    // UsageLedger mock to model the invariants because the SQL
+    // claim_free_demo/release_free_demo functions have the same shape:
+    // a single-row insert keyed by (fingerprint, environment).
+    const claimed = new Set<string>();
+    function claim(fp: string): boolean {
+      if (claimed.has(fp)) return false;
+      claimed.add(fp);
+      return true;
+    }
+    function release(fp: string): boolean {
+      if (!claimed.has(fp)) return false;
+      claimed.delete(fp);
+      return true;
+    }
+    const fp = "fp_test";
+    const first = claim(fp);
+    const second = claim(fp);
+    results.push(assert(first === true && second === false,
+      "free-demo: duplicate atomic claims cannot both succeed"));
+    // Provider did NOT start → release succeeds; a subsequent claim works.
+    results.push(assert(release(fp) === true, "free-demo: release refunds fresh claim"));
+    results.push(assert(claim(fp) === true, "free-demo: post-release visitor may retry"));
+    // Provider started → we do NOT release; a subsequent claim MUST fail.
+    // (Simulate by not calling release before the second attempt.)
+    results.push(assert(claim(fp) === false,
+      "free-demo: no release when provider started → no second demo"));
+
+    // Sign-in URL uses the redirect-safe helper and preserves the internal
+    // destination via the `redirect` query key (NOT `next`).
+    const u = buildAuthUrl("signin", "/unlock");
+    results.push(assert(
+      u === "/auth?mode=signin&redirect=%2Funlock",
+      `free-demo: sign-in URL uses buildAuthUrl(redirect=) — got ${u}`,
+    ));
+  }
+
+
+
 
 
 

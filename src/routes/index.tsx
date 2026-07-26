@@ -53,6 +53,8 @@ import { requirePaidAction } from "@/lib/action-guard";
 import { authFetch } from "@/lib/auth-fetch";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
 import { trackDemoEvent } from "@/lib/demo-analytics";
+import { buildAuthUrl } from "@/lib/redirect-safe";
+
 
 import { lockSite } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -296,28 +298,28 @@ function Index() {
     if (!demoMode) return;
     let cancelled = false;
     (async () => {
+      const { resolveFromServer, resolveOnStatusError } = await import("@/lib/free-demo-status");
+      let resolved;
       try {
         const r = await fetch("/api/public/free-demo/status", { method: "GET", credentials: "include" });
         if (!r.ok) throw new Error(`status ${r.status}`);
         const j = (await r.json()) as { available?: boolean; alreadyUsed?: boolean };
-        if (cancelled) return;
-        const used = !!j.alreadyUsed;
-        const available = j.available === true;
-        if (used) {
-          setDemoUsed(true);
-          try { window.localStorage.setItem("obs.demoUsed", "1"); } catch { /* noop */ }
-        }
-        setDemoAvailable(available);
-        setDemoLedgerUnavailable(!available && !used);
+        resolved = resolveFromServer(j);
       } catch {
-        if (cancelled) return;
-        // Ledger unreachable — fail closed: do NOT offer the demo.
-        setDemoAvailable(false);
-        setDemoLedgerUnavailable(true);
+        resolved = resolveOnStatusError();
       }
+      if (cancelled) return;
+      setDemoUsed(resolved.used);
+      try {
+        if (resolved.localStorageWrite === "1") window.localStorage.setItem("obs.demoUsed", "1");
+        else window.localStorage.removeItem("obs.demoUsed");
+      } catch { /* noop */ }
+      setDemoAvailable(resolved.available);
+      setDemoLedgerUnavailable(resolved.ledgerUnavailable);
     })();
     return () => { cancelled = true; };
   }, [demoMode]);
+
 
   const initialSession = useMemo(() => newSession(), []);
   const [sessions, setSessions] = useState<Session[]>(() => [initialSession]);
@@ -4206,7 +4208,7 @@ function Index() {
             type="button"
             onClick={() => {
               trackDemoEvent("free_demo_sign_in_clicked");
-              window.location.assign("/auth?mode=signin&next=%2Funlock");
+              window.location.assign(buildAuthUrl("signin", "/unlock"));
             }}
             style={{
               padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(242,238,231,0.3)",
