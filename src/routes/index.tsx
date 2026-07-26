@@ -10,7 +10,9 @@ import {
   Smartphone, Calendar, Check, ArrowRight, FileCode, Paperclip,
   Trash2, Square, Wand2, GripVertical, Pin, Github, CreditCard, User as UserIcon,
   Camera, Scissors, RefreshCw, GitMerge, Bookmark, BookmarkCheck, LogOut,
+  Mic, MicOff,
 } from "lucide-react";
+import { useVoiceControl } from "@/lib/voice-control";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
 import { MessageSquare, ZoomIn, ZoomOut, Maximize2, ClipboardList, Palette } from "lucide-react";
@@ -817,6 +819,52 @@ function Index() {
       requestAnimationFrame(() => composerRef.current?.focus());
     }
   }
+
+  // Voice control — Web Speech API dictation with intent commands.
+  // Speak naturally; say "send" to build, "expand" to grow the idea,
+  // "enhance" to polish, "clear" to wipe, "stop listening" to disable.
+  const voice = useVoiceControl({
+    getDraft: () => (composerRef.current?.value ?? input),
+    onDictate: (append, full) => {
+      setInput(full);
+      // Keep the textarea caret at the end so the next chunk lands naturally.
+      requestAnimationFrame(() => {
+        const el = composerRef.current;
+        if (!el) return;
+        el.focus();
+        try { el.setSelectionRange(el.value.length, el.value.length); } catch {}
+      });
+      void append;
+    },
+    onCommand: (cmd) => {
+      switch (cmd) {
+        case "send":
+          if (!loading && (composerRef.current?.value ?? input).trim()) submit();
+          break;
+        case "expand":
+          if (!loading && !expandingDraft && (composerRef.current?.value ?? input).trim()) expandDraft();
+          break;
+        case "enhance":
+          if (!loading && !enhancing && (composerRef.current?.value ?? input).trim()) handleEnhance();
+          break;
+        case "clear":
+          setInput("");
+          requestAnimationFrame(() => composerRef.current?.focus());
+          break;
+        case "plan":
+          updateCurrent({ mode: current.mode === "plan" ? "agent" : "plan" });
+          break;
+        case "screenshot":
+          setCaptureMode("full");
+          break;
+        case "stop":
+          // Hook handles stopping itself for the "stop listening" phrase.
+          break;
+      }
+    },
+  });
+
+
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -3288,12 +3336,23 @@ function Index() {
                   borderRadius: 12,
                   background: "#111317",
                   padding: 8,
-                } : undefined}
+                } : { position: "relative" }}
                 onSubmit={(e) => {
                   e.preventDefault();
                   submit();
                 }}
               >
+                {voice.listening && (
+                  <div className="obs-voice-caption" role="status" aria-live="polite">
+                    <span className="obs-voice-dot" />
+                    <span className="obs-voice-text">
+                      {voice.interim || "Listening…"}
+                    </span>
+                    <span className="obs-voice-hint">
+                      say "send" · "expand" · "enhance" · "clear"
+                    </span>
+                  </div>
+                )}
                 <button
                   type="button"
                   className="obs-composer-attach"
@@ -3376,6 +3435,25 @@ function Index() {
                 >
                   {expandingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                 </button>
+                {voice.supported && (
+                  <button
+                    type="button"
+                    className="obs-composer-attach"
+                    aria-label={voice.listening ? "Voice control on — click to stop" : "Voice control — dictate and say 'send' to build"}
+                    title={voice.listening
+                      ? "Listening… say 'send' to build, 'expand' for more ideas, 'enhance' to polish, 'clear' to reset, 'stop listening' to turn off"
+                      : "Voice control — dictate your prompt hands-free. Say 'send' to build, 'expand' to grow the idea, 'enhance' to polish."}
+                    onClick={voice.toggle}
+                    style={voice.listening
+                      ? { background: "rgba(244,161,37,0.22)", color: "#f4a125", boxShadow: "0 0 0 1px rgba(244,161,37,0.55), 0 0 12px rgba(244,161,37,0.35)" }
+                      : undefined}
+                    data-testid="voice-toggle"
+                  >
+                    {voice.listening
+                      ? <Mic className="h-3.5 w-3.5 obs-voice-pulse" />
+                      : <MicOff className="h-3.5 w-3.5" />}
+                  </button>
+                )}
                 <div
                   className="obs-composer-input-wrap"
                   style={{

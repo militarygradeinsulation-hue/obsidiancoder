@@ -3206,3 +3206,47 @@ body.is-resizing-composer * { user-select: none !important; }
   .dl-grid { grid-template-columns: 1fr; }
   .dl-selected { flex-direction: column; align-items: flex-start; }
 }
+
+/* Voice control — mic pulse + live caption */
+.obs-voice-pulse { animation: obs-voice-pulse 1.4s ease-in-out infinite; }
+@keyframes obs-voice-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.55; transform: scale(1.12); }
+}
+.obs-voice-caption {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 8px);
+  transform: translateX(-50%);
+  max-width: min(560px, calc(100vw - 32px));
+  padding: 8px 14px;
+  border-radius: 999px;
+  background: rgba(17,19,23,0.92);
+  border: 1px solid rgba(244,161,37,0.45);
+  box-shadow: 0 8px 28px rgba(0,0,0,0.55), 0 0 22px rgba(244,161,37,0.18);
+  color: #f2eee7;
+  font-size: 12px;
+  line-height: 1.4;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  z-index: 20;
+  pointer-events: none;
+  animation: obs-voice-fade 180ms ease-out;
+}
+.obs-voice-caption .obs-voice-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: #f4a125;
+  box-shadow: 0 0 10px #f4a125;
+  animation: obs-voice-pulse 1.4s ease-in-out infinite;
+  flex-shrink: 0;
+}
+.obs-voice-caption .obs-voice-text { opacity: 0.92; overflow: hidden; text-overflow: ellipsis; }
+.obs-voice-caption .obs-voice-hint { opacity: 0.6; font-size: 11px; }
+@keyframes obs-voice-fade {
+  from { opacity: 0; transform: translate(-50%, 4px); }
+  to { opacity: 1; transform: translate(-50%, 0); }
+}
