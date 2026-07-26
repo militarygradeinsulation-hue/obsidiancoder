@@ -269,11 +269,22 @@ function newSession(): Session {
 
 function Index() {
   // streaming via /api/generate
+  const routeSearch = Route.useSearch();
+  const demoMode = routeSearch.demo === "1";
+  const [demoUsed, setDemoUsed] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    try { return window.localStorage.getItem("obs.demoUsed") === "1"; } catch { return false; }
+  });
+  const markDemoUsed = useCallback(() => {
+    setDemoUsed(true);
+    try { window.localStorage.setItem("obs.demoUsed", "1"); } catch { /* noop */ }
+  }, []);
   const initialSession = useMemo(() => newSession(), []);
   const [sessions, setSessions] = useState<Session[]>(() => [initialSession]);
   const [activeId, setActiveId] = useState<string>(() => initialSession.id);
   const [hydrated, setHydrated] = useState(false);
   const [input, setInput] = useState("");
+
   const [buildChatOpen, setBuildChatOpen] = useState(false);
   const [themesOpen, setThemesOpen] = useState(false);
   const [designLibraryOpen, setDesignLibraryOpen] = useState(false);
