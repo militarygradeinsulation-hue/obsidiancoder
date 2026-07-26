@@ -53,6 +53,8 @@ import { requirePaidAction } from "@/lib/action-guard";
 import { authFetch } from "@/lib/auth-fetch";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
 import { trackDemoEvent } from "@/lib/demo-analytics";
+import { buildAuthUrl } from "@/lib/redirect-safe";
+
 
 import { lockSite } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
