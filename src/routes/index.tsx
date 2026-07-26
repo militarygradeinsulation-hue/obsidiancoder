@@ -1507,8 +1507,14 @@ function Index() {
       return;
     }
     // Central guard — free/unresolved users never reach the network.
-    const gate = await requirePaidAction("generate_html");
-    if (!gate.allowed) return;
+    // Free-demo visitors get one full generate_html before hitting paywall.
+    if (demoMode) {
+      if (demoUsed) { setPricingOpen(true); return; }
+    } else {
+      const gate = await requirePaidAction("generate_html");
+      if (!gate.allowed) return;
+    }
+
     const activeMode = current.mode;
     // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
     const previewMode = activeMode !== "chat" && activeMode !== "plan";
