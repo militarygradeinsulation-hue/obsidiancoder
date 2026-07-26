@@ -3424,6 +3424,25 @@ function Index() {
                 >
                   {expandingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                 </button>
+                {voice.supported && (
+                  <button
+                    type="button"
+                    className="obs-composer-attach"
+                    aria-label={voice.listening ? "Voice control on — click to stop" : "Voice control — dictate and say 'send' to build"}
+                    title={voice.listening
+                      ? "Listening… say 'send' to build, 'expand' for more ideas, 'enhance' to polish, 'clear' to reset, 'stop listening' to turn off"
+                      : "Voice control — dictate your prompt hands-free. Say 'send' to build, 'expand' to grow the idea, 'enhance' to polish."}
+                    onClick={voice.toggle}
+                    style={voice.listening
+                      ? { background: "rgba(244,161,37,0.22)", color: "#f4a125", boxShadow: "0 0 0 1px rgba(244,161,37,0.55), 0 0 12px rgba(244,161,37,0.35)" }
+                      : undefined}
+                    data-testid="voice-toggle"
+                  >
+                    {voice.listening
+                      ? <Mic className="h-3.5 w-3.5 obs-voice-pulse" />
+                      : <MicOff className="h-3.5 w-3.5" />}
+                  </button>
+                )}
                 <div
                   className="obs-composer-input-wrap"
                   style={{
