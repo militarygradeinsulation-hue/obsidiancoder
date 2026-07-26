@@ -554,10 +554,28 @@ export const Route = createFileRoute("/api/generate")({
                   requestId,
                   claim.setCookieHeader ? { "Set-Cookie": claim.setCookieHeader } : undefined,
                 );
+              } else {
+                // reason === "unavailable" (or unknown) → FAIL CLOSED.
+                // The demo ledger is unreachable; do not silently drop through
+                // to the normal paid gate (which would surface as auth_required
+                // and imply "sign in to try again"). Return a dedicated
+                // friendly envelope so the client can render the correct copy.
+                const { creditsRequiredEnvelope } = await import("@/lib/credit-gate");
+                const envelope = creditsRequiredEnvelope({
+                  code: "free_demo_unavailable",
+                  operation: "generate_html",
+                });
+                const headers: Record<string, string> = {
+                  "Content-Type": "application/json; charset=utf-8",
+                  "Cache-Control": "no-store",
+                  "X-Request-Id": requestId,
+                };
+                if (claim.setCookieHeader) headers["Set-Cookie"] = claim.setCookieHeader;
+                return new Response(JSON.stringify(envelope), { status: 503, headers });
               }
-              // reason === "unavailable" → fall through to normal paid gate.
             }
           }
+
 
           if (!entitlement) {
             entitlement = await requirePaidOperation(request, op, requestId);
