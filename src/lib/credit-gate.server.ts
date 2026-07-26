@@ -434,7 +434,11 @@ export async function requirePaidOperation(
 }
 
 
-export function denialResponse(denial: CreditsRequiredEnvelope, requestId?: string): Response {
+export function denialResponse(
+  denial: CreditsRequiredEnvelope,
+  requestId?: string,
+  extraHeaders?: Record<string, string>,
+): Response {
   const status = denial.code === "auth_required" ? 401 : 402;
   return new Response(JSON.stringify(denial), {
     status,
@@ -442,9 +446,11 @@ export function denialResponse(denial: CreditsRequiredEnvelope, requestId?: stri
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
       ...(requestId ? { "X-Request-Id": requestId } : {}),
+      ...(extraHeaders ?? {}),
     },
   });
 }
+
 
 /** Outcome shapes accepted by settleOperation. */
 export type SettleOutcome =
