@@ -298,34 +298,28 @@ function Index() {
     if (!demoMode) return;
     let cancelled = false;
     (async () => {
+      const { resolveFromServer, resolveOnStatusError } = await import("@/lib/free-demo-status");
+      let resolved;
       try {
         const r = await fetch("/api/public/free-demo/status", { method: "GET", credentials: "include" });
         if (!r.ok) throw new Error(`status ${r.status}`);
         const j = (await r.json()) as { available?: boolean; alreadyUsed?: boolean };
-        if (cancelled) return;
-        const used = !!j.alreadyUsed;
-        const available = j.available === true;
-        // Server wins. Mirror `alreadyUsed` exactly into local state and
-        // storage so a stale localStorage flag can never override an
-        // authorized fresh demo, and a cleared flag can never grant a
-        // second one.
-        setDemoUsed(used);
-        try {
-          if (used) window.localStorage.setItem("obs.demoUsed", "1");
-          else window.localStorage.removeItem("obs.demoUsed");
-        } catch { /* noop */ }
-        setDemoAvailable(available);
-        setDemoLedgerUnavailable(!available && !used);
-
+        resolved = resolveFromServer(j);
       } catch {
-        if (cancelled) return;
-        // Ledger unreachable — fail closed: do NOT offer the demo.
-        setDemoAvailable(false);
-        setDemoLedgerUnavailable(true);
+        resolved = resolveOnStatusError();
       }
+      if (cancelled) return;
+      setDemoUsed(resolved.used);
+      try {
+        if (resolved.localStorageWrite === "1") window.localStorage.setItem("obs.demoUsed", "1");
+        else window.localStorage.removeItem("obs.demoUsed");
+      } catch { /* noop */ }
+      setDemoAvailable(resolved.available);
+      setDemoLedgerUnavailable(resolved.ledgerUnavailable);
     })();
     return () => { cancelled = true; };
   }, [demoMode]);
+
 
   const initialSession = useMemo(() => newSession(), []);
   const [sessions, setSessions] = useState<Session[]>(() => [initialSession]);
