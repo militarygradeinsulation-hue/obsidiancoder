@@ -1547,11 +1547,19 @@ function Index() {
     // Central guard — free/unresolved users never reach the network.
     // Free-demo visitors get one full generate_html before hitting paywall.
     if (demoMode) {
-      if (demoUsed) { setPricingOpen(true); return; }
+      // Server-authoritative: local storage alone can never grant a fresh
+      // demo (clearing it or opening a new tab won't help).
+      if (demoUsed || demoAvailable === false) { setPricingOpen(true); return; }
+      if (demoAvailable === null) {
+        // Status not yet resolved — refuse rather than pretending it's OK.
+        setError("Checking free demo availability… please try again in a moment.");
+        return;
+      }
     } else {
       const gate = await requirePaidAction("generate_html");
       if (!gate.allowed) return;
     }
+
 
     const activeMode = current.mode;
     // Chat and Plan modes must NEVER overwrite the live preview — they are advisory.
