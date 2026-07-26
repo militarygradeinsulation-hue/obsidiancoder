@@ -858,7 +858,7 @@ function Index() {
           setCaptureMode("full");
           break;
         case "stop":
-          voice.stop();
+          // Hook handles stopping itself for the "stop listening" phrase.
           break;
       }
     },
