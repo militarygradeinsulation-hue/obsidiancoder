@@ -487,6 +487,17 @@ export async function settleOperation(
     return;
   }
 
+  if (ent.kind === "free_demo") {
+    // Refund the ledger row only when we never invoked the provider so the
+    // visitor still gets their one free build. Success/failed-with-usage
+    // both mean the provider ran — the demo has been consumed.
+    if (outcome.kind === "no_provider" && ent.freeDemoFingerprint) {
+      const { releaseFreeDemo } = await import("@/lib/free-demo.server");
+      await releaseFreeDemo(ent.freeDemoFingerprint, ent.env);
+    }
+    return;
+  }
+
   // Pro path — must have a reservation.
   const res = ent.reservation;
   if (!res) return;
@@ -495,6 +506,7 @@ export async function settleOperation(
     await usageRefundReservation(res.reservationId);
     return;
   }
+
 
   const usage = outcome.usage;
   // Pass full actual credits — do NOT clamp to reservation. The DB performs
