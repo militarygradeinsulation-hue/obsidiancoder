@@ -113,11 +113,18 @@ import { restoreAndVerify } from "@/lib/context-compactor";
 
 
 export const Route = createFileRoute("/")({
-  beforeLoad: async () => {
+  validateSearch: (s: Record<string, unknown>) => ({
+    demo: s.demo === "1" || s.demo === 1 || s.demo === true ? ("1" as const) : undefined,
+  }),
+  beforeLoad: async ({ search }) => {
+    // Free-demo entry bypasses the site unlock gate — one build per browser
+    // fingerprint is enforced server-side in /api/generate.
+    if (search.demo === "1") return;
     const { ensureUnlocked } = await import("@/lib/gate.functions");
     const { unlocked } = await ensureUnlocked();
     if (!unlocked) throw redirect({ to: "/unlock" });
   },
+
   head: () => ({
     meta: [
       { title: "Obsidian — System builder for people that can't code" },
