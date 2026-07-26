@@ -1,166 +1,136 @@
-// Voice control for the Obsidian composer.
-//
-// Uses the Web Speech API (SpeechRecognition) — zero external deps, zero
-// server calls, zero cost. Runs entirely in the browser.
-//
-// Command vocabulary (case-insensitive, recognized on FINAL results):
-//   "send" / "send it" / "build it" / "go" / "ship it"  → submit
-//   "expand" / "expand idea" / "add more" / "keep going" → expandDraft
-//   "enhance" / "make it better" / "polish"              → enhancePrompt
-//   "clear" / "clear prompt" / "start over" / "wipe"     → setInput('')
-//   "new line" / "new paragraph"                          → append '\n'
-//   "period" / "full stop"                                → append '.'
-//   "comma" / "question mark" / "exclamation"             → punctuation
-//   "plan mode" / "plan first"                            → togglePlan
-//   "screenshot" / "take screenshot"                      → screenshot
-//   "stop listening" / "microphone off" / "mic off"       → stops the mic
-//
-// Any speech that is NOT a command is appended to the composer input as
-// normal dictation. Interim (in-progress) results are surfaced via the
-// `interim` state so the UI can show a live caption.
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+// Reliable voice control for the Obsidian composer.
+// Records complete PCM WAV windows and transcribes them server-side.
+import { useCallback, useEffect, useRef, useState } from "react";
 
-export type VoiceCommand =
-  | "send"
-  | "expand"
-  | "enhance"
-  | "clear"
-  | "plan"
-  | "screenshot"
-  | "stop";
+export type VoiceCommand = "send" | "expand" | "enhance" | "clear" | "plan" | "screenshot" | "stop";
 
-type SpeechRecognitionResultLike = {
-  isFinal: boolean;
-  0: { transcript: string; confidence: number };
-  length: number;
-};
-type SpeechRecognitionEventLike = {
-  resultIndex: number;
-  results: ArrayLike<SpeechRecognitionResultLike>;
-};
-type SpeechRecognitionErrorLike = { error: string; message?: string };
-type SpeechRecognitionLike = {
-  continuous: boolean;
-  interimResults: boolean;
-  lang: string;
-  maxAlternatives?: number;
-  start: () => void;
-  stop: () => void;
-  abort: () => void;
-  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
-  onerror: ((e: SpeechRecognitionErrorLike) => void) | null;
-  onend: (() => void) | null;
-  onstart: (() => void) | null;
-};
-
-function getRecognitionCtor(): (new () => SpeechRecognitionLike) | null {
-  if (typeof window === "undefined") return null;
-  const w = window as unknown as {
-    SpeechRecognition?: new () => SpeechRecognitionLike;
-    webkitSpeechRecognition?: new () => SpeechRecognitionLike;
-  };
-  return w.SpeechRecognition ?? w.webkitSpeechRecognition ?? null;
-}
-
-export function isVoiceControlSupported(): boolean {
-  return getRecognitionCtor() !== null;
-}
-
-// Normalize a phrase for command matching: strip trailing punctuation and
-// collapse whitespace. Keeps the raw text intact for dictation.
-function normalize(phrase: string): string {
-  return phrase
-    .toLowerCase()
-    .replace(/[.!?,;:]+\s*$/g, "")
-    .replace(/\s+/g, " ")
-    .trim();
-}
-
-// Command phrases → canonical command. Longest phrases are matched first
-// so "send it" wins over "send".
 const COMMAND_PHRASES: Array<{ phrase: string; cmd: VoiceCommand }> = [
-  // send
-  { phrase: "send it now", cmd: "send" },
-  { phrase: "send it", cmd: "send" },
-  { phrase: "ship it", cmd: "send" },
-  { phrase: "build it", cmd: "send" },
-  { phrase: "build this", cmd: "send" },
-  { phrase: "make it", cmd: "send" },
-  { phrase: "go build", cmd: "send" },
-  { phrase: "send", cmd: "send" },
-  { phrase: "go", cmd: "send" },
-  // expand
-  { phrase: "expand idea", cmd: "expand" },
-  { phrase: "expand more", cmd: "expand" },
-  { phrase: "expand it", cmd: "expand" },
-  { phrase: "keep going", cmd: "expand" },
-  { phrase: "add more", cmd: "expand" },
-  { phrase: "more ideas", cmd: "expand" },
-  { phrase: "expand", cmd: "expand" },
-  // enhance
-  { phrase: "make it better", cmd: "enhance" },
-  { phrase: "polish it", cmd: "enhance" },
-  { phrase: "enhance prompt", cmd: "enhance" },
-  { phrase: "enhance", cmd: "enhance" },
-  { phrase: "polish", cmd: "enhance" },
-  // clear
-  { phrase: "clear prompt", cmd: "clear" },
-  { phrase: "clear it", cmd: "clear" },
-  { phrase: "start over", cmd: "clear" },
-  { phrase: "wipe it", cmd: "clear" },
-  { phrase: "clear", cmd: "clear" },
-  // plan
-  { phrase: "plan mode", cmd: "plan" },
-  { phrase: "plan first", cmd: "plan" },
-  // screenshot
-  { phrase: "take screenshot", cmd: "screenshot" },
-  { phrase: "take a screenshot", cmd: "screenshot" },
-  { phrase: "screenshot", cmd: "screenshot" },
-  // stop
-  { phrase: "stop listening", cmd: "stop" },
-  { phrase: "microphone off", cmd: "stop" },
-  { phrase: "mic off", cmd: "stop" },
-  { phrase: "stop mic", cmd: "stop" },
+  { phrase: "send it now", cmd: "send" }, { phrase: "send it", cmd: "send" },
+  { phrase: "ship it", cmd: "send" }, { phrase: "build it", cmd: "send" },
+  { phrase: "build this", cmd: "send" }, { phrase: "make it", cmd: "send" },
+  { phrase: "go build", cmd: "send" }, { phrase: "send", cmd: "send" }, { phrase: "go", cmd: "send" },
+  { phrase: "expand idea", cmd: "expand" }, { phrase: "expand more", cmd: "expand" },
+  { phrase: "expand it", cmd: "expand" }, { phrase: "keep going", cmd: "expand" },
+  { phrase: "add more", cmd: "expand" }, { phrase: "more ideas", cmd: "expand" }, { phrase: "expand", cmd: "expand" },
+  { phrase: "make it better", cmd: "enhance" }, { phrase: "polish it", cmd: "enhance" },
+  { phrase: "enhance prompt", cmd: "enhance" }, { phrase: "enhance", cmd: "enhance" }, { phrase: "polish", cmd: "enhance" },
+  { phrase: "clear prompt", cmd: "clear" }, { phrase: "clear it", cmd: "clear" },
+  { phrase: "start over", cmd: "clear" }, { phrase: "wipe it", cmd: "clear" }, { phrase: "clear", cmd: "clear" },
+  { phrase: "plan mode", cmd: "plan" }, { phrase: "plan first", cmd: "plan" },
+  { phrase: "take screenshot", cmd: "screenshot" }, { phrase: "take a screenshot", cmd: "screenshot" },
+  { phrase: "screenshot", cmd: "screenshot" }, { phrase: "stop listening", cmd: "stop" },
+  { phrase: "microphone off", cmd: "stop" }, { phrase: "mic off", cmd: "stop" }, { phrase: "stop mic", cmd: "stop" },
 ];
 
-// Inline punctuation substitutions applied to dictated text.
 const PUNCT: Array<[RegExp, string]> = [
-  [/\bnew paragraph\b/gi, "\n\n"],
-  [/\bnew line\b/gi, "\n"],
-  [/\bfull stop\b/gi, "."],
-  [/\bperiod\b/gi, "."],
-  [/\bcomma\b/gi, ","],
-  [/\bquestion mark\b/gi, "?"],
-  [/\bexclamation( mark| point)?\b/gi, "!"],
+  [/\bnew paragraph\b/gi, "\n\n"], [/\bnew line\b/gi, "\n"],
+  [/\bfull stop\b/gi, "."], [/\bperiod\b/gi, "."], [/\bcomma\b/gi, ","],
+  [/\bquestion mark\b/gi, "?"], [/\bexclamation( mark| point)?\b/gi, "!"],
 ];
 
-// Detect a command at the END of an utterance. Returns { command, leading }
-// where `leading` is any dictation the user said BEFORE the command word
-// (e.g. "make a login page send" → leading "make a login page", cmd send).
+function normalize(text: string): string {
+  return text.toLowerCase().replace(/[.!?,;:]+\s*$/g, "").replace(/\s+/g, " ").trim();
+}
+
 export function detectCommand(text: string): { cmd: VoiceCommand; leading: string } | null {
-  const norm = normalize(text);
-  if (!norm) return null;
+  const normalized = normalize(text);
+  if (!normalized) return null;
   for (const { phrase, cmd } of COMMAND_PHRASES) {
-    if (norm === phrase) return { cmd, leading: "" };
-    if (norm.endsWith(" " + phrase)) {
-      const leading = norm.slice(0, norm.length - phrase.length - 1).trim();
-      return { cmd, leading };
+    if (normalized === phrase) return { cmd, leading: "" };
+    if (normalized.endsWith(` ${phrase}`)) {
+      return { cmd, leading: normalized.slice(0, normalized.length - phrase.length - 1).trim() };
     }
   }
   return null;
 }
 
-// Turn raw dictation into text ready to append: apply punctuation subs,
-// capitalize first letter when appending to an empty draft.
 export function formatDictation(raw: string, priorText: string): string {
-  let out = raw;
-  for (const [re, rep] of PUNCT) out = out.replace(re, rep);
-  out = out.replace(/\s+([.,?!])/g, "$1").replace(/\s{2,}/g, " ").trim();
-  if (!out) return "";
-  const needsSpace = priorText.length > 0 && !/[\s\n]$/.test(priorText);
-  const capitalize = priorText.length === 0 || /[.!?]\s*$/.test(priorText.trimEnd());
-  if (capitalize) out = out.charAt(0).toUpperCase() + out.slice(1);
-  return (needsSpace ? " " : "") + out;
+  let output = raw;
+  for (const [pattern, replacement] of PUNCT) output = output.replace(pattern, replacement);
+  output = output.replace(/\s+([.,?!])/g, "$1").replace(/\s{2,}/g, " ").trim();
+  if (!output) return "";
+  if (priorText.length === 0 || /[.!?]\s*$/.test(priorText.trimEnd())) {
+    output = output.charAt(0).toUpperCase() + output.slice(1);
+  }
+  return `${priorText.length > 0 && !/[\s\n]$/.test(priorText) ? " " : ""}${output}`;
+}
+
+type AudioSession = {
+  stream: MediaStream;
+  context: AudioContext;
+  source: MediaStreamAudioSourceNode;
+  processor: ScriptProcessorNode;
+  mute: GainNode;
+  timer: number;
+};
+
+function getAudioContextCtor(): typeof AudioContext | null {
+  if (typeof window === "undefined") return null;
+  const browserWindow = window as typeof window & { webkitAudioContext?: typeof AudioContext };
+  return window.AudioContext ?? browserWindow.webkitAudioContext ?? null;
+}
+
+export function isVoiceControlSupported(): boolean {
+  return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia && !!getAudioContextCtor();
+}
+
+function encodeWav(chunks: Float32Array[], sourceRate: number): Blob {
+  const sourceLength = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+  const source = new Float32Array(sourceLength);
+  let offset = 0;
+  for (const chunk of chunks) { source.set(chunk, offset); offset += chunk.length; }
+  const targetRate = 16_000;
+  const ratio = sourceRate / targetRate;
+  const targetLength = Math.max(1, Math.floor(source.length / ratio));
+  const pcm = new Int16Array(targetLength);
+  for (let i = 0; i < targetLength; i++) {
+    const start = Math.floor(i * ratio);
+    const end = Math.min(source.length, Math.floor((i + 1) * ratio));
+    let sum = 0;
+    for (let j = start; j < end; j++) sum += source[j] ?? 0;
+    const sample = Math.max(-1, Math.min(1, sum / Math.max(1, end - start)));
+    pcm[i] = sample < 0 ? sample * 0x8000 : sample * 0x7fff;
+  }
+  const buffer = new ArrayBuffer(44 + pcm.byteLength);
+  const view = new DataView(buffer);
+  const writeText = (at: number, value: string) => {
+    for (let i = 0; i < value.length; i++) view.setUint8(at + i, value.charCodeAt(i));
+  };
+  writeText(0, "RIFF"); view.setUint32(4, 36 + pcm.byteLength, true); writeText(8, "WAVE");
+  writeText(12, "fmt "); view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 1, true);
+  view.setUint32(24, targetRate, true); view.setUint32(28, targetRate * 2, true); view.setUint16(32, 2, true); view.setUint16(34, 16, true);
+  writeText(36, "data"); view.setUint32(40, pcm.byteLength, true);
+  for (let i = 0; i < pcm.length; i++) view.setInt16(44 + i * 2, pcm[i] ?? 0, true);
+  return new Blob([buffer], { type: "audio/wav" });
+}
+
+async function transcribe(audio: Blob, signal: AbortSignal): Promise<string> {
+  const body = new FormData();
+  body.append("file", audio, "recording.wav");
+  const response = await fetch("/api/transcribe", { method: "POST", body, signal });
+  if (!response.ok || !response.body) throw new Error(await response.text().catch(() => "Transcription failed."));
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let pending = "";
+  let transcript = "";
+  const consume = (line: string) => {
+    if (!line.startsWith("data:")) return;
+    try {
+      const event = JSON.parse(line.slice(5).trim()) as { type?: string; delta?: string; text?: string };
+      if (event.type === "transcript.text.delta" && event.delta) transcript += event.delta;
+      if (event.type === "transcript.text.done" && typeof event.text === "string") transcript = event.text;
+    } catch { /* SSE keepalive */ }
+  };
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    pending += decoder.decode(value, { stream: true });
+    const lines = pending.split(/\r?\n/);
+    pending = lines.pop() ?? "";
+    lines.forEach(consume);
+  }
+  if (pending) consume(pending);
+  return transcript.trim();
 }
 
 export type VoiceControlOptions = {
@@ -171,183 +141,121 @@ export type VoiceControlOptions = {
 };
 
 export function useVoiceControl(opts: VoiceControlOptions) {
+  const [supported, setSupported] = useState(false);
   const [listening, setListening] = useState(false);
+  const [processing, setProcessing] = useState(false);
   const [interim, setInterim] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const recRef = useRef<SpeechRecognitionLike | null>(null);
-  const wantOnRef = useRef(false);
-  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const restartCountRef = useRef(0);
-  const restartWindowStartRef = useRef(0);
+  const [level, setLevel] = useState(0);
   const optsRef = useRef(opts);
+  const sessionRef = useRef<AudioSession | null>(null);
+  const chunksRef = useRef<Float32Array[]>([]);
+  const energyRef = useRef({ sum: 0, count: 0 });
+  const queueRef = useRef<Promise<void>>(Promise.resolve());
+  const controllersRef = useRef(new Set<AbortController>());
+  const startingRef = useRef(false);
+  const mountedRef = useRef(true);
   optsRef.current = opts;
 
-  const supported = useMemo(isVoiceControlSupported, []);
-  const langRef = useRef(opts.lang);
-  langRef.current = opts.lang;
+  useEffect(() => setSupported(isVoiceControlSupported()), []);
 
-  const clearRestartTimer = () => {
-    if (restartTimerRef.current) {
-      clearTimeout(restartTimerRef.current);
-      restartTimerRef.current = null;
+  const cleanup = useCallback((abortRequests: boolean) => {
+    const session = sessionRef.current;
+    sessionRef.current = null;
+    if (session) {
+      window.clearInterval(session.timer);
+      session.processor.onaudioprocess = null;
+      session.processor.disconnect(); session.source.disconnect(); session.mute.disconnect();
+      session.stream.getTracks().forEach((track) => track.stop());
+      void session.context.close().catch(() => {});
     }
-  };
-
-  const teardown = useCallback(() => {
-    clearRestartTimer();
-    const rec = recRef.current;
-    if (rec) {
-      rec.onresult = null;
-      rec.onerror = null;
-      rec.onend = null;
-      rec.onstart = null;
-      try { rec.abort(); } catch { /* noop */ }
+    if (abortRequests) {
+      controllersRef.current.forEach((controller) => controller.abort());
+      controllersRef.current.clear();
     }
-    recRef.current = null;
+    chunksRef.current = []; energyRef.current = { sum: 0, count: 0 };
+    if (mountedRef.current) { setListening(false); setProcessing(false); setInterim(""); setLevel(0); }
   }, []);
 
-  const spawn = useCallback(() => {
-    const Ctor = getRecognitionCtor();
-    if (!Ctor) return null;
-    const rec = new Ctor();
-    rec.continuous = true;
-    rec.interimResults = true;
-    rec.lang = langRef.current ?? (typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US");
-    rec.maxAlternatives = 1;
-
-    rec.onstart = () => setListening(true);
-    rec.onend = () => {
-      setInterim("");
-      if (!wantOnRef.current) {
-        setListening(false);
-        return;
+  const handleTranscript = useCallback((raw: string) => {
+    if (!raw) return;
+    setInterim(raw);
+    const detection = detectCommand(raw);
+    const draft = optsRef.current.getDraft();
+    if (detection) {
+      if (detection.leading) {
+        const formatted = formatDictation(detection.leading, draft);
+        if (formatted) optsRef.current.onDictate(formatted, draft + formatted);
       }
-      // Rate-limit restarts to avoid tight loops if the browser keeps
-      // ending immediately (e.g. permission just revoked, no audio input).
-      const now = Date.now();
-      if (now - restartWindowStartRef.current > 10_000) {
-        restartWindowStartRef.current = now;
-        restartCountRef.current = 0;
-      }
-      restartCountRef.current += 1;
-      if (restartCountRef.current > 6) {
-        wantOnRef.current = false;
-        setListening(false);
-        setError("Voice control kept restarting. Turn it back on when you're ready.");
-        return;
-      }
-      clearRestartTimer();
-      restartTimerRef.current = setTimeout(() => {
-        if (!wantOnRef.current) return;
-        // Fresh instance — restarting the same object throws InvalidStateError
-        // on Chrome after certain error paths, which is what caused the glitch.
-        teardown();
-        const next = spawn();
-        if (!next) return;
-        recRef.current = next;
-        try { next.start(); } catch { /* browser may throttle */ }
-      }, 250);
-    };
-    rec.onerror = (e) => {
-      if (e.error === "no-speech" || e.error === "aborted") return;
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
-        setError("Microphone permission was denied. Enable it in your browser settings to use voice control.");
-        wantOnRef.current = false;
-        setListening(false);
-      } else if (e.error === "audio-capture") {
-        setError("No microphone was found. Plug one in or check your OS input settings.");
-        wantOnRef.current = false;
-        setListening(false);
-      } else if (e.error === "network") {
-        setError("Voice recognition needs an internet connection.");
-      } else {
-        setError(`Voice error: ${e.error}`);
-      }
-    };
-    rec.onresult = (event) => {
-      let interimText = "";
-      for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
-        const alt = result[0];
-        if (!alt) continue;
-        const transcript = alt.transcript;
-        if (result.isFinal) {
-          const detection = detectCommand(transcript);
-          const draft = optsRef.current.getDraft();
-          if (detection) {
-            if (detection.leading) {
-              const formatted = formatDictation(detection.leading, draft);
-              if (formatted) optsRef.current.onDictate(formatted, draft + formatted);
-            }
-            optsRef.current.onCommand(detection.cmd);
-            if (detection.cmd === "stop") {
-              wantOnRef.current = false;
-              teardown();
-              setListening(false);
-              setInterim("");
-            }
-          } else {
-            const formatted = formatDictation(transcript, draft);
-            if (formatted) optsRef.current.onDictate(formatted, draft + formatted);
-          }
-        } else {
-          interimText += transcript;
-        }
-      }
-      setInterim(interimText.trim());
-    };
-    return rec;
-  }, [teardown]);
-
-  const stop = useCallback(() => {
-    wantOnRef.current = false;
-    clearRestartTimer();
-    teardown();
-    setListening(false);
-    setInterim("");
-  }, [teardown]);
-
-  const start = useCallback(() => {
-    if (wantOnRef.current) return;
-    const Ctor = getRecognitionCtor();
-    if (!Ctor) {
-      setError("Voice control isn't supported in this browser. Try Chrome, Edge, or Safari.");
-      return;
+      window.setTimeout(() => optsRef.current.onCommand(detection.cmd), 0);
+      if (detection.cmd === "stop") cleanup(true);
+    } else {
+      const formatted = formatDictation(raw, draft);
+      if (formatted) optsRef.current.onDictate(formatted, draft + formatted);
     }
-    setError(null);
-    restartCountRef.current = 0;
-    restartWindowStartRef.current = Date.now();
-    wantOnRef.current = true;
-    teardown();
-    const rec = spawn();
-    if (!rec) return;
-    recRef.current = rec;
+    window.setTimeout(() => { if (mountedRef.current) setInterim(""); }, 1800);
+  }, [cleanup]);
+
+  const flush = useCallback(() => {
+    const session = sessionRef.current;
+    const chunks = chunksRef.current;
+    const energy = energyRef.current;
+    chunksRef.current = []; energyRef.current = { sum: 0, count: 0 };
+    if (!session || chunks.length === 0 || energy.count === 0) return;
+    const rms = Math.sqrt(energy.sum / energy.count);
+    const sampleCount = chunks.reduce((sum, chunk) => sum + chunk.length, 0);
+    if (rms < 0.004 || sampleCount < session.context.sampleRate * 0.3) return;
+    const wav = encodeWav(chunks, session.context.sampleRate);
+    queueRef.current = queueRef.current.then(async () => {
+      if (!mountedRef.current) return;
+      const controller = new AbortController();
+      controllersRef.current.add(controller); setProcessing(true);
+      try { handleTranscript(await transcribe(wav, controller.signal)); }
+      catch {
+        if (!controller.signal.aborted) setError("I couldn't transcribe that. Check your connection and try again.");
+      } finally {
+        controllersRef.current.delete(controller); if (mountedRef.current) setProcessing(false);
+      }
+    });
+  }, [handleTranscript]);
+
+  const stop = useCallback(() => { flush(); cleanup(false); }, [cleanup, flush]);
+
+  const start = useCallback(async () => {
+    if (startingRef.current || sessionRef.current) return;
+    const Ctor = getAudioContextCtor();
+    if (!Ctor || !navigator.mediaDevices?.getUserMedia) { setError("Voice control isn't supported in this browser."); return; }
+    startingRef.current = true; setError(null);
     try {
-      rec.start();
-    } catch {
-      // start() throws if invoked while a previous session is still winding
-      // down. Schedule a single retry rather than tearing everything down.
-      clearRestartTimer();
-      restartTimerRef.current = setTimeout(() => {
-        if (!wantOnRef.current) return;
-        try { recRef.current?.start(); } catch { wantOnRef.current = false; setListening(false); }
-      }, 300);
-    }
-  }, [spawn, teardown]);
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true } });
+      if (!mountedRef.current) { stream.getTracks().forEach((track) => track.stop()); return; }
+      const context = new Ctor(); await context.resume();
+      const source = context.createMediaStreamSource(stream);
+      const processor = context.createScriptProcessor(4096, 1, 1);
+      const mute = context.createGain(); mute.gain.value = 0;
+      source.connect(processor); processor.connect(mute); mute.connect(context.destination);
+      processor.onaudioprocess = (event) => {
+        const samples = new Float32Array(event.inputBuffer.getChannelData(0));
+        chunksRef.current.push(samples);
+        let energy = 0; for (let i = 0; i < samples.length; i++) energy += (samples[i] ?? 0) ** 2;
+        energyRef.current.sum += energy; energyRef.current.count += samples.length;
+        setLevel(Math.min(1, Math.sqrt(energy / Math.max(1, samples.length)) * 18));
+      };
+      const timer = window.setInterval(flush, 3000);
+      sessionRef.current = { stream, context, source, processor, mute, timer };
+      setListening(true);
+    } catch (captureError) {
+      const name = captureError instanceof DOMException ? captureError.name : "";
+      setError(name === "NotAllowedError" ? "Microphone access was blocked. Allow it for this site, then try again." : "No working microphone was found. Check your input device and try again.");
+      cleanup(true);
+    } finally { startingRef.current = false; }
+  }, [cleanup, flush]);
 
-  const toggle = useCallback(() => {
-    if (wantOnRef.current || listening) stop();
-    else start();
-  }, [listening, start, stop]);
-
+  const toggle = useCallback(() => { if (sessionRef.current || listening) stop(); else void start(); }, [listening, start, stop]);
   useEffect(() => {
-    return () => {
-      wantOnRef.current = false;
-      clearRestartTimer();
-      teardown();
-    };
-  }, [teardown]);
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; cleanup(true); };
+  }, [cleanup]);
 
-  return { supported, listening, interim, error, start, stop, toggle };
+  return { supported, listening, processing, interim, error, level, start, stop, toggle };
 }
-

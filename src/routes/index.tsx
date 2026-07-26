@@ -149,6 +149,9 @@ const MODES = [
 ] as const;
 type ModeId = (typeof MODES)[number]["id"];
 
+const COMPOSER_TOOL_DEFAULT = ["attach", "camera", "snip", "enhance", "plan", "expand", "voice"] as const;
+type ComposerToolId = (typeof COMPOSER_TOOL_DEFAULT)[number];
+
 const MODE_PREFIX: Record<ModeId, string> = {
   agent:  "",
   chat:   "PLANNING MODE. Do not modify the current build's structure. Reply with a concise strategic plan rendered as a clean HTML page (headings + checklist). Ask no questions.",
@@ -630,6 +633,44 @@ function Index() {
     const n = Number(localStorage.getItem("obs.composer_w"));
     return Number.isFinite(n) && n >= 240 ? Math.min(n, 1600) : null;
   });
+  const [composerToolOrder, setComposerToolOrder] = useState<ComposerToolId[]>(() => {
+    if (typeof window === "undefined") return [...COMPOSER_TOOL_DEFAULT];
+    const saved = safeGet<string[]>("obs.composer_tool_order");
+    const valid = (saved ?? []).filter((id): id is ComposerToolId => COMPOSER_TOOL_DEFAULT.includes(id as ComposerToolId));
+    return [...new Set([...valid, ...COMPOSER_TOOL_DEFAULT])];
+  });
+  const draggedComposerToolRef = useRef<ComposerToolId | null>(null);
+  useEffect(() => { safeSet("obs.composer_tool_order", composerToolOrder); }, [composerToolOrder]);
+  function composerToolProps(id: ComposerToolId) {
+    return {
+      draggable: true,
+      "data-composer-tool": id,
+      onDragStart: (event: React.DragEvent<HTMLButtonElement>) => {
+        draggedComposerToolRef.current = id;
+        event.dataTransfer.effectAllowed = "move";
+        event.currentTarget.classList.add("is-dragging");
+      },
+      onDragOver: (event: React.DragEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+      },
+      onDrop: (event: React.DragEvent<HTMLButtonElement>) => {
+        event.preventDefault();
+        const source = draggedComposerToolRef.current;
+        if (!source || source === id) return;
+        setComposerToolOrder((order) => {
+          const next = order.filter((tool) => tool !== source);
+          next.splice(Math.max(0, next.indexOf(id)), 0, source);
+          return next;
+        });
+      },
+      onDragEnd: (event: React.DragEvent<HTMLButtonElement>) => {
+        draggedComposerToolRef.current = null;
+        event.currentTarget.classList.remove("is-dragging");
+      },
+      style: { order: composerToolOrder.indexOf(id) },
+    };
+  }
   useEffect(() => {
     if (typeof window !== "undefined") localStorage.setItem("obs.composer_h", String(composerHeight));
   }, [composerHeight]);
@@ -820,7 +861,7 @@ function Index() {
     }
   }
 
-  // Voice control — Web Speech API dictation with intent commands.
+  // Voice control — complete WAV capture + server transcription with intent commands.
   // Speak naturally; say "send" to build, "expand" to grow the idea,
   // "enhance" to polish, "clear" to wipe, "stop listening" to disable.
   const voice = useVoiceControl({
@@ -3342,15 +3383,15 @@ function Index() {
                   submit();
                 }}
               >
-                {voice.listening && (
+                {(voice.listening || voice.processing || voice.error) && (
                   <div className="obs-voice-caption" role="status" aria-live="polite">
-                    <span className="obs-voice-dot" />
+                    <span className="obs-voice-dot" style={{ transform: `scale(${1 + voice.level * 1.3})` }} />
                     <span className="obs-voice-text">
-                      {voice.interim || "Listening…"}
+                      {voice.error || voice.interim || (voice.processing ? "Transcribing…" : voice.level > 0.08 ? "I hear you…" : "Listening… speak now")}
                     </span>
-                    <span className="obs-voice-hint">
+                    {!voice.error && <span className="obs-voice-hint">
                       say "send" · "expand" · "enhance" · "clear"
-                    </span>
+                    </span>}
                   </div>
                 )}
                 <button
@@ -3373,46 +3414,51 @@ function Index() {
                   onChange={handleFilesPick}
                 />
                 <button
+                  {...composerToolProps("attach")}
                   type="button"
                   className="obs-composer-attach"
                   aria-label="Attach style guide, image, or PDF"
-                  title="Attach style guide, image, or PDF"
+                  title="Attach style guide, image, or PDF · drag to reorder"
                   disabled={loading}
                   onClick={() => fileInputRef.current?.click()}
                 >
                   <Paperclip className="h-3.5 w-3.5" />
                 </button>
                 <button
+                  {...composerToolProps("camera")}
                   type="button"
                   className="obs-composer-attach"
                   aria-label="Screenshot"
-                  title="Screenshot — capture the screen and attach"
+                  title="Screenshot — capture the screen and attach · drag to reorder"
                   disabled={loading}
                   onClick={() => setCaptureMode("full")}
                 >
                   <Camera className="h-3.5 w-3.5" />
                 </button>
                 <button
+                  {...composerToolProps("snip")}
                   type="button"
                   className="obs-composer-attach"
                   aria-label="Snip a region"
-                  title="Snip — drag to select a region, copy or attach"
+                  title="Snip — drag to select a region, copy or attach · drag button to reorder"
                   disabled={loading}
                   onClick={() => setCaptureMode("snip")}
                 >
                   <Scissors className="h-3.5 w-3.5" />
                 </button>
                 <button
+                  {...composerToolProps("enhance")}
                   type="button"
                   className="obs-composer-attach"
                   aria-label="Enhance prompt"
-                  title="Enhance prompt — rewrite for clarity and specifics"
+                  title="Enhance prompt — rewrite for clarity and specifics · drag to reorder"
                   disabled={loading || enhancing || !input.trim()}
                   onClick={handleEnhance}
                 >
                   {enhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
                 </button>
                 <button
+                  {...composerToolProps("plan")}
                   type="button"
                   className="obs-composer-attach"
                   aria-label={current.mode === "plan" ? "Plan mode on — click to exit" : "Plan first"}
@@ -3421,15 +3467,16 @@ function Index() {
                     : "Plan first — dialogue the build with the AI (architecture outline, no code) before generating"}
                   disabled={loading}
                   onClick={() => updateCurrent({ mode: current.mode === "plan" ? "agent" : "plan" })}
-                  style={current.mode === "plan" ? { background: "rgba(244,161,37,0.18)", color: "#f4a125" } : undefined}
+                  style={{ ...composerToolProps("plan").style, ...(current.mode === "plan" ? { background: "rgba(244,161,37,0.18)", color: "#f4a125" } : {}) }}
                 >
                   <ClipboardList className="h-3.5 w-3.5" />
                 </button>
                 <button
+                  {...composerToolProps("expand")}
                   type="button"
                   className="obs-composer-attach"
                   aria-label="Expand idea"
-                  title="Expand idea — grow the current prompt with the next best addition (press again for more)"
+                  title="Expand idea — grow the current prompt with the next best addition · drag to reorder"
                   disabled={loading || expandingDraft || !input.trim()}
                   onClick={expandDraft}
                 >
@@ -3437,6 +3484,7 @@ function Index() {
                 </button>
                 {voice.supported && (
                   <button
+                    {...composerToolProps("voice")}
                     type="button"
                     className="obs-composer-attach"
                     aria-label={voice.listening ? "Voice control on — click to stop" : "Voice control — dictate and say 'send' to build"}
@@ -3444,9 +3492,10 @@ function Index() {
                       ? "Listening… say 'send' to build, 'expand' for more ideas, 'enhance' to polish, 'clear' to reset, 'stop listening' to turn off"
                       : "Voice control — dictate your prompt hands-free. Say 'send' to build, 'expand' to grow the idea, 'enhance' to polish."}
                     onClick={voice.toggle}
-                    style={voice.listening
-                      ? { background: "rgba(244,161,37,0.22)", color: "#f4a125", boxShadow: "0 0 0 1px rgba(244,161,37,0.55), 0 0 12px rgba(244,161,37,0.35)" }
-                      : undefined}
+                    style={{
+                      ...composerToolProps("voice").style,
+                      ...(voice.listening ? { background: "rgba(244,161,37,0.22)", color: "#f4a125", boxShadow: "0 0 0 1px rgba(244,161,37,0.55), 0 0 12px rgba(244,161,37,0.35)" } : {}),
+                    }}
                     data-testid="voice-toggle"
                   >
                     {voice.listening

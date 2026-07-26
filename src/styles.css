@@ -1537,9 +1537,12 @@ body.is-resizing-composer * { user-select: none !important; }
   border: 1px solid #141821;
   flex-shrink: 0;
   transition: color .2s, border-color .2s;
+  cursor: grab;
 }
 .obs-composer-attach:hover { color: #D9A84E; border-color: rgba(217,168,78,0.4); }
 .obs-composer-attach:disabled { opacity: 0.35; }
+.obs-composer-attach.is-dragging { opacity: 0.35; cursor: grabbing; border-color: rgba(217,168,78,0.65); }
+.obs-composer-attach[draggable="true"]:active { cursor: grabbing; }
 .obs-file-hidden { display: none !important; }
 .obs-attach-preview {
   display: flex; align-items: center; gap: 8px;
@@ -3241,7 +3244,7 @@ body.is-resizing-composer * { user-select: none !important; }
   width: 8px; height: 8px; border-radius: 50%;
   background: #f4a125;
   box-shadow: 0 0 10px #f4a125;
-  animation: obs-voice-pulse 1.4s ease-in-out infinite;
+  transition: transform 90ms ease-out, opacity 90ms ease-out;
   flex-shrink: 0;
 }
 .obs-voice-caption .obs-voice-text { opacity: 0.92; overflow: hidden; text-overflow: ellipsis; }

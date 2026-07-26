@@ -21,6 +21,7 @@ import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
+import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiPatchRouteImport } from './routes/api/patch'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiGithubRouteImport } from './routes/api/github'
@@ -101,6 +102,11 @@ const IndexRoute = IndexRouteImport.update({
 const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
   id: '/checkout/return',
   path: '/checkout/return',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
+  id: '/api/transcribe',
+  path: '/api/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPatchRoute = ApiPatchRouteImport.update({
@@ -233,6 +239,7 @@ export interface FileRoutesByFullPath {
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
@@ -268,6 +275,7 @@ export interface FileRoutesByTo {
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
@@ -304,6 +312,7 @@ export interface FileRoutesById {
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
   '/api/patch': typeof ApiPatchRoute
+  '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
@@ -341,6 +350,7 @@ export interface FileRouteTypes {
     | '/api/github'
     | '/api/health'
     | '/api/patch'
+    | '/api/transcribe'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/builds'
@@ -376,6 +386,7 @@ export interface FileRouteTypes {
     | '/api/github'
     | '/api/health'
     | '/api/patch'
+    | '/api/transcribe'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/builds'
@@ -411,6 +422,7 @@ export interface FileRouteTypes {
     | '/api/github'
     | '/api/health'
     | '/api/patch'
+    | '/api/transcribe'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/builds'
@@ -447,6 +459,7 @@ export interface RootRouteChildren {
   ApiGithubRoute: typeof ApiGithubRoute
   ApiHealthRoute: typeof ApiHealthRoute
   ApiPatchRoute: typeof ApiPatchRoute
+  ApiTranscribeRoute: typeof ApiTranscribeRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
@@ -546,6 +559,13 @@ declare module '@tanstack/react-router' {
       path: '/checkout/return'
       fullPath: '/checkout/return'
       preLoaderRoute: typeof CheckoutReturnRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/transcribe': {
+      id: '/api/transcribe'
+      path: '/api/transcribe'
+      fullPath: '/api/transcribe'
+      preLoaderRoute: typeof ApiTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/patch': {
@@ -741,6 +761,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGithubRoute: ApiGithubRoute,
   ApiHealthRoute: ApiHealthRoute,
   ApiPatchRoute: ApiPatchRoute,
+  ApiTranscribeRoute: ApiTranscribeRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
