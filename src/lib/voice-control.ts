@@ -176,46 +176,90 @@ export function useVoiceControl(opts: VoiceControlOptions) {
   const [error, setError] = useState<string | null>(null);
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const wantOnRef = useRef(false);
+  const restartTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const restartCountRef = useRef(0);
+  const restartWindowStartRef = useRef(0);
   const optsRef = useRef(opts);
   optsRef.current = opts;
 
   const supported = useMemo(isVoiceControlSupported, []);
+  const langRef = useRef(opts.lang);
+  langRef.current = opts.lang;
 
-  const stop = useCallback(() => {
-    wantOnRef.current = false;
-    try { recRef.current?.stop(); } catch { /* noop */ }
-    setListening(false);
-    setInterim("");
+  const clearRestartTimer = () => {
+    if (restartTimerRef.current) {
+      clearTimeout(restartTimerRef.current);
+      restartTimerRef.current = null;
+    }
+  };
+
+  const teardown = useCallback(() => {
+    clearRestartTimer();
+    const rec = recRef.current;
+    if (rec) {
+      rec.onresult = null;
+      rec.onerror = null;
+      rec.onend = null;
+      rec.onstart = null;
+      try { rec.abort(); } catch { /* noop */ }
+    }
+    recRef.current = null;
   }, []);
 
-  const start = useCallback(() => {
+  const spawn = useCallback(() => {
     const Ctor = getRecognitionCtor();
-    if (!Ctor) {
-      setError("Voice control isn't supported in this browser. Try Chrome, Edge, or Safari.");
-      return;
-    }
-    setError(null);
+    if (!Ctor) return null;
     const rec = new Ctor();
     rec.continuous = true;
     rec.interimResults = true;
-    rec.lang = opts.lang ?? (typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US");
+    rec.lang = langRef.current ?? (typeof navigator !== "undefined" ? navigator.language || "en-US" : "en-US");
     rec.maxAlternatives = 1;
 
     rec.onstart = () => setListening(true);
     rec.onend = () => {
-      setListening(false);
       setInterim("");
-      // Auto-restart while the user still wants the mic on (Chrome ends
-      // sessions periodically even in continuous mode).
-      if (wantOnRef.current) {
-        try { rec.start(); } catch { /* already started */ }
+      if (!wantOnRef.current) {
+        setListening(false);
+        return;
       }
+      // Rate-limit restarts to avoid tight loops if the browser keeps
+      // ending immediately (e.g. permission just revoked, no audio input).
+      const now = Date.now();
+      if (now - restartWindowStartRef.current > 10_000) {
+        restartWindowStartRef.current = now;
+        restartCountRef.current = 0;
+      }
+      restartCountRef.current += 1;
+      if (restartCountRef.current > 6) {
+        wantOnRef.current = false;
+        setListening(false);
+        setError("Voice control kept restarting. Turn it back on when you're ready.");
+        return;
+      }
+      clearRestartTimer();
+      restartTimerRef.current = setTimeout(() => {
+        if (!wantOnRef.current) return;
+        // Fresh instance — restarting the same object throws InvalidStateError
+        // on Chrome after certain error paths, which is what caused the glitch.
+        teardown();
+        const next = spawn();
+        if (!next) return;
+        recRef.current = next;
+        try { next.start(); } catch { /* browser may throttle */ }
+      }, 250);
     };
     rec.onerror = (e) => {
       if (e.error === "no-speech" || e.error === "aborted") return;
       if (e.error === "not-allowed" || e.error === "service-not-allowed") {
         setError("Microphone permission was denied. Enable it in your browser settings to use voice control.");
         wantOnRef.current = false;
+        setListening(false);
+      } else if (e.error === "audio-capture") {
+        setError("No microphone was found. Plug one in or check your OS input settings.");
+        wantOnRef.current = false;
+        setListening(false);
+      } else if (e.error === "network") {
+        setError("Voice recognition needs an internet connection.");
       } else {
         setError(`Voice error: ${e.error}`);
       }
@@ -231,8 +275,6 @@ export function useVoiceControl(opts: VoiceControlOptions) {
           const detection = detectCommand(transcript);
           const draft = optsRef.current.getDraft();
           if (detection) {
-            // If the user prefixed the command with dictation ("make a
-            // pricing page send") append that portion first, then fire.
             if (detection.leading) {
               const formatted = formatDictation(detection.leading, draft);
               if (formatted) optsRef.current.onDictate(formatted, draft + formatted);
@@ -240,7 +282,7 @@ export function useVoiceControl(opts: VoiceControlOptions) {
             optsRef.current.onCommand(detection.cmd);
             if (detection.cmd === "stop") {
               wantOnRef.current = false;
-              try { recRef.current?.stop(); } catch { /* noop */ }
+              teardown();
               setListening(false);
               setInterim("");
             }
@@ -254,28 +296,58 @@ export function useVoiceControl(opts: VoiceControlOptions) {
       }
       setInterim(interimText.trim());
     };
+    return rec;
+  }, [teardown]);
 
-    recRef.current = rec;
+  const stop = useCallback(() => {
+    wantOnRef.current = false;
+    clearRestartTimer();
+    teardown();
+    setListening(false);
+    setInterim("");
+  }, [teardown]);
+
+  const start = useCallback(() => {
+    if (wantOnRef.current) return;
+    const Ctor = getRecognitionCtor();
+    if (!Ctor) {
+      setError("Voice control isn't supported in this browser. Try Chrome, Edge, or Safari.");
+      return;
+    }
+    setError(null);
+    restartCountRef.current = 0;
+    restartWindowStartRef.current = Date.now();
     wantOnRef.current = true;
+    teardown();
+    const rec = spawn();
+    if (!rec) return;
+    recRef.current = rec;
     try {
       rec.start();
     } catch {
-      // Some browsers throw if start() is called back-to-back.
-      wantOnRef.current = false;
+      // start() throws if invoked while a previous session is still winding
+      // down. Schedule a single retry rather than tearing everything down.
+      clearRestartTimer();
+      restartTimerRef.current = setTimeout(() => {
+        if (!wantOnRef.current) return;
+        try { recRef.current?.start(); } catch { wantOnRef.current = false; setListening(false); }
+      }, 300);
     }
-  }, [opts.lang]);
+  }, [spawn, teardown]);
 
   const toggle = useCallback(() => {
-    if (listening) stop();
+    if (wantOnRef.current || listening) stop();
     else start();
   }, [listening, start, stop]);
 
   useEffect(() => {
     return () => {
       wantOnRef.current = false;
-      try { recRef.current?.abort(); } catch { /* noop */ }
+      clearRestartTimer();
+      teardown();
     };
-  }, []);
+  }, [teardown]);
 
   return { supported, listening, interim, error, start, stop, toggle };
 }
+
