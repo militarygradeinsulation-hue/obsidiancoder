@@ -997,6 +997,8 @@ export const Route = createFileRoute("/api/generate")({
           const componentsSummary = components.length
             ? components.map((c) => c.name).join(",").slice(0, 200)
             : "none";
+          const demoSetCookie = entitlement?.setCookieHeader;
+          const demoMode = entitlement?.kind === "free_demo";
           return new Response(stream, {
             headers: {
               "Content-Type": "text/plain; charset=utf-8",
@@ -1013,10 +1015,13 @@ export const Route = createFileRoute("/api/generate")({
               "X-Obs-First-Byte-Ms": String(timing.first_byte_ms),
               "X-Obs-Compact-In": String(compacted.originalBytes),
               "X-Obs-Compact-Out": String(compacted.bytes),
+              "X-Obs-Demo": demoMode ? "1" : "0",
+              ...(demoSetCookie ? { "Set-Cookie": demoSetCookie } : {}),
               "Access-Control-Expose-Headers":
-                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Components, X-Obs-Component-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out",
+                "X-Request-Id, X-Obs-Image-Providers, X-Obs-Image-Count, X-Obs-Components, X-Obs-Component-Count, X-Obs-Model-Used, X-Obs-Model-Requested, X-Obs-Fallback, X-Obs-First-Byte-Ms, X-Obs-Compact-In, X-Obs-Compact-Out, X-Obs-Demo",
             },
           });
+
 
         } catch (err) {
           // Settle failure — refund only if no provider work started,
