@@ -1929,7 +1929,7 @@ function Index() {
       // provider work is about to start. We record `started` here (once), but
       // DO NOT mark the client demo complete until the generated result has
       // been received and committed to the local project below.
-      const providerStarted = demoMode && res.headers.get("x-obs-demo") === "1";
+      providerStarted = demoMode && res.headers.get("x-obs-demo") === "1";
       if (providerStarted && !demoStartedTrackedRef.current) {
         demoStartedTrackedRef.current = true;
         trackDemoEvent("free_demo_started");
