@@ -4189,16 +4189,39 @@ function Index() {
           }}
         >
           <span style={{ color: "#f4a125", fontWeight: 600, letterSpacing: 0.4 }}>
-            {demoUsed ? "Free demo complete" : "Free demo · 1 build, no card"}
+            {demoLedgerUnavailable
+              ? "Free demo temporarily unavailable"
+              : demoUsed
+                ? "Free demo complete"
+                : "Free demo · 1 build, no card"}
           </span>
           <span style={{ opacity: 0.8, minWidth: 0, flex: 1 }}>
-            {demoUsed
-              ? "Sign in or upgrade to keep building. Your generated app stays in this browser."
-              : "Type your idea and press Build. You get one full generation on the house."}
+            {demoLedgerUnavailable
+              ? "Sign in or upgrade to keep building. We'll re-enable the free demo shortly."
+              : demoUsed
+                ? "Sign in or upgrade to keep building. Your generated app stays in this browser."
+                : "Type your idea and press Build. You get one full generation on the house."}
           </span>
           <button
             type="button"
-            onClick={() => setPricingOpen(true)}
+            onClick={() => {
+              trackDemoEvent("free_demo_sign_in_clicked");
+              window.location.assign("/auth?mode=signin&next=%2Funlock");
+            }}
+            style={{
+              padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(242,238,231,0.3)",
+              background: "transparent", color: "#f2eee7",
+              fontWeight: 600, cursor: "pointer",
+            }}
+          >
+            Sign in
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              trackDemoEvent("free_demo_upgrade_clicked");
+              setPricingOpen(true);
+            }}
             style={{
               padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(244,161,37,0.5)",
               background: "linear-gradient(180deg, #f4a125, #dd9324)", color: "#111317",
@@ -4207,6 +4230,7 @@ function Index() {
           >
             Upgrade
           </button>
+
         </div>
       )}
 
