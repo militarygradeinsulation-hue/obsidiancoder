@@ -2306,7 +2306,18 @@ function Index() {
           : s));
         setTerminal((t) => [...t, `✗ ${msg}`]);
       }
+      // If the demo claim was already consumed on the server, resync UI
+      // state honestly rather than silently offering another attempt.
+      if (demoMode && providerStarted) {
+        fetch("/api/public/free-demo/status", { method: "GET", credentials: "include" })
+          .then((r) => r.ok ? r.json() : null)
+          .then((j: { alreadyUsed?: boolean } | null) => {
+            if (j?.alreadyUsed) markDemoUsed();
+          })
+          .catch(() => {});
+      }
     } finally {
+
       abortRef.current = null;
       setLoading(false); setStage(null); markBuildEnd(sessionId);
       setStage(null);
