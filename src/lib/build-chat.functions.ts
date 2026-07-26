@@ -2,13 +2,22 @@
 // — before, during, or after generation. Powered by Claude Sonnet 4.5 via
 // RouteLLM (Abacus) by default, with Grok 4.3 and Lovable Gemini Pro as
 // fallbacks. Purely advisory — never writes back to the preview.
+//
+// Gated by the same Pro entitlement + credit reservation as every other AI
+// operation in the app. Anonymous callers get a paywall envelope back and
+// the server never touches a paid provider.
 import { createServerFn } from "@tanstack/react-start";
+import { getRequest } from "@tanstack/react-start/server";
 import { z } from "zod";
 import {
   containsTradesOnlyLanguage,
   isExplicitTradesContext,
   neutralEnhancementFallbacks,
 } from "./suggestion-safety";
+import { requirePaidOperation, settleOperation } from "@/lib/credit-gate.server";
+import { creditsRequiredEnvelope, type CreditsRequiredEnvelope } from "@/lib/credit-gate";
+import { makeUsage } from "@/lib/usage-record";
+import { newRequestId } from "@/lib/ai-errors";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -72,9 +81,23 @@ async function callProvider(p: Provider, messages: Array<{ role: string; content
   }
 }
 
+export type DiscussBuildResult =
+  | { reply: string; providerUsed: string }
+  | { paywall: CreditsRequiredEnvelope };
+
 export const discussBuild = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => inputSchema.parse(d))
-  .handler(async ({ data }): Promise<{ reply: string; providerUsed: string }> => {
+  .handler(async ({ data }): Promise<DiscussBuildResult> => {
+    const request = getRequest();
+    const requestId = newRequestId();
+    // Reuse the enhance_prompt reservation envelope — build chat is an
+    // advisory LLM call in the same weight class. Anonymous / non-Pro
+    // callers are denied here BEFORE any provider is contacted.
+    const entitlement = await requirePaidOperation(request, "enhance_prompt", requestId);
+    if (entitlement.kind === "denied" && entitlement.denial) {
+      return { paywall: entitlement.denial };
+    }
+
     const html = trimHtml(data.currentHtml);
     const allowTrades = isExplicitTradesContext(`${data.question}\n${data.draftPrompt}\n${html}`);
     const context: Array<{ role: string; content: string }> = [
@@ -90,19 +113,44 @@ export const discussBuild = createServerFn({ method: "POST" })
       data.preferredModel === "auto"   ? ["claude", "grok",   "gemini"] :
                                          ["claude", "grok",   "gemini"];
 
-    for (const key of order) {
-      const p = PROVIDERS[key];
-      const out = await callProvider(p, context);
-      if (out && (allowTrades || !containsTradesOnlyLanguage(out))) {
-        return { reply: out, providerUsed: p.label };
+    let providerUsed = false;
+    try {
+      for (const key of order) {
+        const p = PROVIDERS[key];
+        const out = await callProvider(p, context);
+        if (out && (allowTrades || !containsTradesOnlyLanguage(out))) {
+          providerUsed = true;
+          await settleOperation(entitlement, {
+            kind: "success",
+            usage: makeUsage({
+              provider: p.url === LOVABLE_URL ? "lovable" : "routellm",
+              model: p.model,
+              operation: "enhance_prompt",
+              providerUsed: true,
+              status: "committed",
+              actualCostUsd: null,
+              estimatedCostUsd: 0,
+              costBasis: "estimated",
+            }),
+          });
+          return { reply: out, providerUsed: p.label };
+        }
       }
+      if (!allowTrades) {
+        // No paid provider was called — refund the hold.
+        await settleOperation(entitlement, { kind: "no_provider", errorCode: "build_chat_fallback" });
+        const fallback = neutralEnhancementFallbacks(`${data.draftPrompt}\n${html}`, Boolean(html), 3);
+        return {
+          reply: fallback.map((idea) => `→ ${idea.snippet}`).join("\n"),
+          providerUsed: "Domain-aware fallback",
+        };
+      }
+      await settleOperation(entitlement, { kind: "no_provider", errorCode: "build_chat_unavailable" });
+      throw new Error("build_chat_unavailable");
+    } catch (err) {
+      if (!providerUsed) {
+        try { await settleOperation(entitlement, { kind: "no_provider", errorCode: "build_chat_internal" }); } catch { /* already settled */ }
+      }
+      throw err;
     }
-    if (!allowTrades) {
-      const fallback = neutralEnhancementFallbacks(`${data.draftPrompt}\n${html}`, Boolean(html), 3);
-      return {
-        reply: fallback.map((idea) => `→ ${idea.snippet}`).join("\n"),
-        providerUsed: "Domain-aware fallback",
-      };
-    }
-    throw new Error("build_chat_unavailable");
   });
