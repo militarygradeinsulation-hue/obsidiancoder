@@ -4214,7 +4214,7 @@ function Index() {
             type="button"
             onClick={() => {
               trackDemoEvent("free_demo_sign_in_clicked");
-              window.location.assign("/auth?mode=signin&next=%2Funlock");
+              window.location.assign(buildAuthUrl("signin", "/unlock"));
             }}
             style={{
               padding: "6px 12px", borderRadius: 8, border: "1px solid rgba(242,238,231,0.3)",
