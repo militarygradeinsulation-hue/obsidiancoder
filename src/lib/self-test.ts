@@ -2078,7 +2078,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     const hints = buildFailureHints(ledger, "full-generation");
     results.push(assert(hints.length >= 1 && hints[0].category === "nav-creator-route" && hints[0].count === 3,
       `learning: 3x defect surfaces as top hint (got ${hints.length})`));
-    const unrelated = buildFailureHints(ledger, "small-edit");
+    const unrelated = buildFailureHints(ledger, "text-edit");
     results.push(assert(unrelated.length === 0, "learning: hints scoped to task type"));
     const prompt = renderHintsPrompt(hints);
     results.push(assert(prompt.includes("do not repeat") && prompt.length < 800,
