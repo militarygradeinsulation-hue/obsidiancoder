@@ -243,6 +243,10 @@ export const Route = createFileRoute("/api/qa")({
                 stage: "patch",
                 requestId,
                 signal: request.signal,
+                // Cost invariant: at most ONE physical provider attempt per QA
+                // request. No auto-retry, no auto-escalation. Callers must not
+                // spin on transient failures — the finalizer caches the block.
+                maxAttempts: 1,
               },
             );
             const guarded = await readGuarded(response, { expected: "application/json" });
