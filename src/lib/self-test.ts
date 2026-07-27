@@ -1978,7 +1978,8 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     // publish artifact — theme applied once, bridge stripped, non-destructive sanitizer
     const themeCss = ".x{color:red}";
     const src = `<!doctype html><html><head><title>t</title></head><body>
-      <h1>Real content</h1>
+      <h1>Real content that is long enough to matter for parity purposes.</h1>
+      <p>Paragraph copy providing substantive body text so the publish artifact is not classified as empty by the parity gate.</p>
       <script>
         // mixed-purpose script: renders AND has creator nav
         document.body.dataset.ready = "1";
