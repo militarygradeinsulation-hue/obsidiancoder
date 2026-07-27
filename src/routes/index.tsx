@@ -1124,6 +1124,22 @@ function Index() {
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
+  // Mark QA status stale when raw html or theme drift from the last assessment.
+  useEffect(() => {
+    if (!current) return;
+    const next = markStaleIfChanged(current.qaStatus ?? undefined, {
+      html: current.html,
+      themeCss: current.themeCss ?? null,
+      themeName: current.themeName ?? null,
+      themeBlueprintId: current.themeBlueprintId ?? null,
+    });
+    if (next !== (current.qaStatus ?? undefined)) {
+      setSessions((all) => all.map((s) => s.id === current.id ? { ...s, qaStatus: next } : s));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, current?.html, current?.themeCss, current?.themeName, current?.themeBlueprintId]);
+
+
   useEffect(() => {
     // Session-scoped: every new browser session starts blank. To continue
     // prior work, the user enters their library code and opens a build.
