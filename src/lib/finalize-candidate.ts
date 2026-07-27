@@ -18,36 +18,22 @@
 
 import { assessCandidateForCommit, type AssessResult } from "./candidate-assess";
 import { publishHash } from "./publish-artifact";
-import { patchSchema, type Patch } from "./patch-protocol";
+import { patchSchema } from "./patch-protocol";
 import { applyPatch } from "./patch-engine";
 import { validateHtml, type ValidationReport } from "./validation";
 import type { ParityReport } from "./parity-check";
 import type { PreviewViolation } from "./preview-policy";
 import type { NavRepair } from "./navigation-repair";
-import type { QaRequestBody } from "@/routes/api/qa";
+import {
+  QA_POLICY_VERSION,
+  type QaRequestBody,
+  type QaRouteResponse,
+  type Patch,
+} from "./qa-contract";
+
+export type { QaRequestBody, QaRouteResponse } from "./qa-contract";
 
 // -- Public types ------------------------------------------------------------
-
-export type QaRouteResponse =
-  | {
-      ok: true;
-      verdict: "pass" | "repair" | "block";
-      confidence: number;
-      defectCategories: string[];
-      explanation: string;
-      patch: Patch | null;
-      expectedImprovement: string;
-      actualModel: string;
-      fallbackUsed: boolean;
-      requestId: string;
-    }
-  | {
-      ok: false;
-      code: string;
-      message: string;
-      actualModel: string | null;
-      requestId: string;
-    };
 
 export type QaProductionCall = (req: QaRequestBody) => Promise<QaRouteResponse | null>;
 
@@ -89,8 +75,10 @@ export interface FinalizeResult {
   deterministicRepairs: NavRepair[];
   /** Remaining violations on the final artifact (empty on ok). */
   remainingViolations: PreviewViolation[];
-  /** True iff /api/qa was actually invoked. */
+  /** True iff /api/qa was actually dispatched on this run (not on cache hit). */
   claudeInvoked: boolean;
+  /** True iff this run's claude decision came from an earlier cached call. */
+  claudeResultFromCache: boolean;
   claudeModel: string | null;
   claudeVerdict: "pass" | "repair" | "block" | null;
   claudeExplanation: string;
@@ -102,21 +90,50 @@ export interface FinalizeResult {
 }
 
 // -- Cache -------------------------------------------------------------------
+//
+// True LRU keyed by candidate content + inputs that change the decision.
+// stableHtml is INTENTIONALLY excluded from the key — it is session state,
+// not part of the QA decision, and caching it would leak one session's
+// rollback target into another session's cached "blocked" result. Blocked
+// cache hits reconstruct finalHtml from the CURRENT input.stableHtml.
 
 const CACHE = new Map<string, FinalizeResult>();
 const CACHE_MAX = 64;
+
+function cacheKey(input: FinalizeInput, contentHash: string): string {
+  return [
+    contentHash,
+    input.demoMode ? "d1" : "d0",
+    input.taskType ?? "-",
+    input.strategy ?? "-",
+    `pv${QA_POLICY_VERSION}`,
+  ].join("|");
+}
+
+function cacheGet(key: string): FinalizeResult | undefined {
+  const v = CACHE.get(key);
+  if (!v) return undefined;
+  // Re-insert to move to MRU position — Map iteration order is insertion order.
+  CACHE.delete(key);
+  CACHE.set(key, v);
+  return v;
+}
+
 function remember(key: string, r: FinalizeResult): void {
-  if (CACHE.size >= CACHE_MAX) {
+  if (CACHE.has(key)) CACHE.delete(key);
+  else if (CACHE.size >= CACHE_MAX) {
     const first = CACHE.keys().next().value as string | undefined;
     if (first) CACHE.delete(first);
   }
   CACHE.set(key, r);
 }
+
 export function invalidateFinalizeCache(): void { CACHE.clear(); }
 /** Test hook. */
 export function peekFinalizeCache(hash: string): FinalizeResult | undefined {
   return CACHE.get(hash);
 }
+
 
 // -- Public API --------------------------------------------------------------
 
@@ -130,9 +147,24 @@ export async function finalizeCandidate(
   input: FinalizeInput,
   call: QaProductionCall,
 ): Promise<FinalizeResult> {
-  const hash = publishHash(input.candidateHtml, input.themeCss ?? null, input.themeName ?? null);
-  const cached = CACHE.get(hash);
-  if (cached) return { ...cached, source: "cache" };
+  const contentHash = publishHash(input.candidateHtml, input.themeCss ?? null, input.themeName ?? null);
+  const key = cacheKey(input, contentHash);
+  const cached = cacheGet(key);
+  if (cached) {
+    // Reconstruct output using the CURRENT stableHtml. The cached blocked
+    // finalHtml belonged to whatever session filled the cache; do not leak
+    // it across sessions. Successful cached results already carry the
+    // patched artifact, which is stable across sessions.
+    const finalHtml = cached.ok ? cached.finalHtml : input.stableHtml;
+    return {
+      ...cached,
+      finalHtml,
+      source: "cache",
+      claudeInvoked: false,
+      claudeResultFromCache: cached.claudeInvoked || cached.claudeResultFromCache,
+    };
+  }
+  const hash = contentHash;
 
   const assessment = assessCandidateForCommit({
     html: input.candidateHtml,
@@ -157,11 +189,12 @@ export async function finalizeCandidate(
       claudeModel: null,
       claudeVerdict: null,
       claudeExplanation: "",
+      claudeResultFromCache: false,
       blockers: [],
       candidateHash: hash,
       source: assessment.repairs.length ? "deterministic-repair" : "clean",
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -179,13 +212,14 @@ export async function finalizeCandidate(
       claudeModel: null,
       claudeVerdict: null,
       claudeExplanation: "",
+      claudeResultFromCache: false,
       blockers: assessment.blockers.length
         ? assessment.blockers
         : ["free-demo QA blocked"],
       candidateHash: hash,
       source: "skipped-free-demo",
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -231,7 +265,10 @@ export async function finalizeCandidate(
       finalParity: assessment.parity,
       deterministicRepairs: assessment.repairs,
       remainingViolations: assessment.remainingViolations,
-      claudeInvoked: qa != null, // true only if the route returned something we could read
+      // We always dispatched to the metered route in this branch; the
+      // request was physically made even if we couldn't parse a response.
+      claudeInvoked: true,
+      claudeResultFromCache: false,
       claudeModel: (qa && "actualModel" in qa) ? qa.actualModel : null,
       claudeVerdict: null,
       claudeExplanation: qa && qa.ok === false ? qa.message : "",
@@ -241,12 +278,13 @@ export async function finalizeCandidate(
       candidateHash: hash,
       source: "blocked",
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
   const successBase = {
     claudeInvoked: true,
+    claudeResultFromCache: false,
     claudeModel: qa.actualModel,
     claudeVerdict: qa.verdict,
     claudeExplanation: qa.explanation,
@@ -267,7 +305,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -286,7 +324,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -306,7 +344,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -325,7 +363,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -344,7 +382,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -368,7 +406,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -385,6 +423,6 @@ export async function finalizeCandidate(
     source: "claude-repair",
     ...successBase,
   };
-  remember(hash, result);
+  remember(key, result);
   return result;
 }
