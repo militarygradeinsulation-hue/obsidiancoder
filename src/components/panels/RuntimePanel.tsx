@@ -14,6 +14,9 @@ const KIND_COLOR: Record<RuntimeEvent["kind"], string> = {
   "asset-failed": "text-amber-300",
   "fetch-failed": "text-amber-300",
   "navigation": "text-white/60",
+  "blocked-navigation": "text-amber-300",
+  "mobile-overflow": "text-amber-300",
+  "content-summary": "text-white/40",
 };
 
 const BLOCKER_KINDS = new Set<RuntimeEvent["kind"]>([
