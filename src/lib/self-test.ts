@@ -2173,6 +2173,64 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     }
   }
 
+  // ---------- js-lexical-mask ----------
+  {
+    const { jsLexicalMask } = await import("./js-lexical-mask");
+    const same = (a: string, b: string) => a.length === b.length;
+
+    const s1 = `var a="location.href=1"; b();`;
+    const m1 = jsLexicalMask(s1);
+    results.push(assert(same(s1, m1), "lex: length preserved (string)"));
+    results.push(assert(!/location\.href/.test(m1), "lex: string body masked"));
+    results.push(assert(/b\(\)/.test(m1), "lex: code preserved after string"));
+
+    const s2 = `// location.href = 'x'\nfoo();`;
+    const m2 = jsLexicalMask(s2);
+    results.push(assert(!/location\.href/.test(m2), "lex: line comment masked"));
+    results.push(assert(/foo\(\)/.test(m2), "lex: code after line comment preserved"));
+
+    const s3 = `/* window.open('x') */ bar();`;
+    const m3 = jsLexicalMask(s3);
+    results.push(assert(!/window\.open/.test(m3), "lex: block comment masked"));
+    results.push(assert(/bar\(\)/.test(m3), "lex: code after block comment preserved"));
+
+    const s4 = `const r=/location.href/g; baz();`;
+    const m4 = jsLexicalMask(s4);
+    results.push(assert(!/location\.href/.test(m4), "lex: regex literal body masked"));
+    results.push(assert(/baz\(\)/.test(m4), "lex: code after regex preserved"));
+
+    // Template literal with a nested harmless string AND a real nav call.
+    const s5 = "const t=`hello ${\"location.href\"} ${location.href = 1} end`;";
+    const m5 = jsLexicalMask(s5);
+    results.push(assert(same(s5, m5), "lex: length preserved (template)"));
+    // Harmless "location.href" string is masked out, but the real assignment
+    // in the second `${...}` remains visible to the scanner.
+    const navMatches = m5.match(/location\.href/g) ?? [];
+    results.push(assert(navMatches.length === 1,
+      `lex: real nav in \${} kept, string masked (found ${navMatches.length})`));
+
+    // Nested templates + strings in `${...}`.
+    const s6 = "`a ${ `b ${ 'c' } d` } e`";
+    const m6 = jsLexicalMask(s6);
+    results.push(assert(same(s6, m6), "lex: length preserved (nested template)"));
+    results.push(assert(!/c/.test(m6.slice(s6.indexOf("'"), s6.lastIndexOf("'") + 1)),
+      "lex: string inside nested template masked"));
+  }
+
+  // ---------- Claude QA policy ----------
+  {
+    const { runClaudeQA } = await import("./claude-qa");
+    // External nav should be BLOCKING even without a Claude call.
+    const html = `<a href="https://example.com/x">go</a>`;
+    let calls = 0;
+    const res = await runClaudeQA(
+      { editorHtml: html, publishHtml: html, themeCss: null, runtimeErrors: 0, freeDemo: true, userRequest: "" },
+      async () => { calls++; return null; },
+    );
+    results.push(assert(calls === 0, "claude-qa: free demo makes zero calls"));
+    results.push(assert(res.verdict === "block", "claude-qa: external nav is blocking"));
+  }
+
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };

@@ -102,7 +102,10 @@ export async function runClaudeQA(input: QaInput, call: QaCall): Promise<QaResul
   const violations = scanNavigationViolations(input.publishHtml);
   const editorViolations = scanNavigationViolations(input.editorHtml);
   const allViolations = [...violations, ...editorViolations];
-  const blockingViolations = allViolations.filter((v) => v.code !== "nav-external" && v.code !== "nav-deep-link");
+  // Under the strict navigation policy every scanner-reported violation
+  // is blocking — including nav-external, nav-deep-link, and
+  // nav-protocol-relative. There are no "warning" navigation codes.
+  const blockingViolations = allViolations;
 
   // Free demo path — deterministic only, never call Claude.
   if (input.freeDemo) {
