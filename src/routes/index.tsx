@@ -1893,32 +1893,54 @@ function Index() {
               abortRef.current = null;
               break patchAttempt;
             }
-            // QA gate — deterministic navigation repair + parity. Zero AI cost.
-            setStage("validate");
-            const qaP = assessCandidateForCommit({
-              html: patchedHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
-            });
-            if (!qaP.ok) {
-              setTerminal((t) => [...t, `✗ QA blocked patch: ${qaP.blockers[0].slice(0, 100)} — falling back to full AI generation.`]);
-              pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${qaP.blockers[0]}` });
+            // QA gate — deterministic + at-most-one metered Claude QA call.
+            setStage("validate"); setStageDetail("QA checks");
+            const finP = await finalizeCandidate({
+              candidateHtml: patchedHtml,
+              stableHtml,
+              themeCss: current.themeCss ?? null,
+              themeName: current.themeName ?? null,
+              themeId: current.themeBlueprintId ?? null,
+              demoMode,
+              userRequest: basePrompt,
+              taskType: classification.taskType,
+              strategy: "ai-patch",
+            }, productionQaCall);
+            if (finP.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
+            if (!finP.ok) {
+              setTerminal((t) => [...t, `✗ QA blocked patch: ${(finP.blockers[0] ?? "unresolved").slice(0, 100)} — falling back to full AI generation.`]);
+              pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: finP.finalValidation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${finP.blockers[0] ?? "unresolved"}` });
               abortRef.current = null;
               break patchAttempt;
             }
-            const postRepairGateP = checkCommitGate(stableHtml, qaP.repairedHtml, "ai-patch");
+            const postRepairGateP = checkCommitGate(stableHtml, finP.finalHtml, "ai-patch");
             if (postRepairGateP) {
               setTerminal((t) => [...t, `✗ Rule gate rejected repaired patch: ${postRepairGateP[0].slice(0, 100)} — falling back to full AI generation.`]);
               abortRef.current = null;
               break patchAttempt;
             }
-            const committedPatchHtml = qaP.repairedHtml;
-            if (qaP.repairs.length) setTerminal((t) => [...t, `✓ QA: ${qaP.repairs.length} deterministic navigation repair(s) applied`]);
+            const committedPatchHtml = finP.finalHtml;
+            if (finP.deterministicRepairs.length) setTerminal((t) => [...t, `✓ QA: ${finP.deterministicRepairs.length} deterministic navigation repair(s) applied`]);
+            if (finP.claudeInvoked) setTerminal((t) => [...t, `↺ Claude QA: 1 call via ${finP.claudeModel ?? "?"} — ${finP.claudeVerdict}`]);
+            // Recompute diff/validation from FINAL committed HTML — authoritative.
+            const finalPatchDiff = diffSummary(stableHtml, committedPatchHtml);
+            commitMeta.charsAdded = finalPatchDiff.charsAdded;
+            commitMeta.charsRemoved = finalPatchDiff.charsRemoved;
+            commitMeta.validation = {
+              status: finP.finalValidation.status,
+              summary: finP.finalValidation.summary,
+              blocking: blockingIssues(finP.finalValidation).length,
+              warnings: finP.finalValidation.issues.filter((i) => i.severity === "warning").length,
+              info: finP.finalValidation.issues.filter((i) => i.severity === "info").length,
+            };
+            validation = finP.finalValidation;
 
             const newVersion: Version = makeVersion(committedPatchHtml, versionLabel, commitMeta);
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
                   ...s,
                   html: committedPatchHtml,
-                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"}${patchRepairAttempts.length ? " · repaired" : ""}${qaP.repairs.length ? " · QA-repaired" : ""})_` }],
+                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"}${patchRepairAttempts.length ? " · repaired" : ""}${finP.deterministicRepairs.length ? " · QA-repaired" : ""}${finP.claudeInvoked ? " · Claude QA" : ""})_` }],
                   versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
                 }
               : s));
