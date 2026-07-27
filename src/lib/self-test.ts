@@ -2231,6 +2231,56 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(res.verdict === "block", "claude-qa: external nav is blocking"));
   }
 
+  // ---------- QA model resolver ----------
+  {
+    const { resolveCheapestClaudeModel, CLAUDE_MODEL_ORDER } = await import("./qa-model-resolver");
+    const r1 = resolveCheapestClaudeModel({ routellmAvailable: false, registryModelIds: [...CLAUDE_MODEL_ORDER] });
+    results.push(assert(r1.model === null && r1.reason === "no_routellm", "qa-resolver: no routellm → null"));
+    const r2 = resolveCheapestClaudeModel({ routellmAvailable: true, registryModelIds: [] });
+    results.push(assert(r2.model === null && r2.reason === "no_claude_in_registry", "qa-resolver: empty registry → null"));
+    const r3 = resolveCheapestClaudeModel({ routellmAvailable: true, registryModelIds: [...CLAUDE_MODEL_ORDER] });
+    results.push(assert(r3.model === CLAUDE_MODEL_ORDER[0], "qa-resolver: picks cheapest Claude"));
+    const r4 = resolveCheapestClaudeModel({ routellmAvailable: true, registryModelIds: [CLAUDE_MODEL_ORDER[2], CLAUDE_MODEL_ORDER[1]] });
+    results.push(assert(r4.model === CLAUDE_MODEL_ORDER[1], "qa-resolver: skips missing cheaper, picks next available"));
+  }
+
+  // ---------- finalizeCandidate ----------
+  {
+    const { finalizeCandidate, invalidateFinalizeCache } = await import("./finalize-candidate");
+    invalidateFinalizeCache();
+
+    const stable = `<!doctype html><html><body><h1>ok</h1></body></html>`;
+
+    // 1. Clean candidate → no Claude, source clean.
+    let calls = 0;
+    const clean = `<!doctype html><html><body><h1>hi</h1><p>content matches parity target</p></body></html>`;
+    const rClean = await finalizeCandidate(
+      { candidateHtml: clean, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
+      async (_req) => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "test" }; },
+    );
+    results.push(assert(calls === 0, "finalize: clean skips Claude"));
+    results.push(assert(rClean.ok && rClean.claudeInvoked === false, "finalize: clean returns ok"));
+
+    // 2. Free demo skips Claude even when deterministic assessment fails.
+    calls = 0;
+    const badNav = `<!doctype html><html><body><a href="https://evil.example.com/x">go</a></body></html>`;
+    const rDemo = await finalizeCandidate(
+      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: true, userRequest: "" },
+      async (_req) => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "test" }; },
+    );
+    results.push(assert(calls === 0, "finalize: free-demo never calls Claude"));
+    results.push(assert(rDemo.claudeInvoked === false, "finalize: free-demo claudeInvoked=false"));
+
+    // 3. Repeat identical input hits cache → still no Claude call.
+    calls = 0;
+    const rCache = await finalizeCandidate(
+      { candidateHtml: clean, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
+      async (_req) => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "test" }; },
+    );
+    results.push(assert(calls === 0 && rCache.source === "cache", "finalize: cached result reused, no Claude call"));
+  }
+
+
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };

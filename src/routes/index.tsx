@@ -100,6 +100,8 @@ import { evaluateCommit, type CommitSource } from "@/lib/commit-gate";
 import { buildArtifact } from "@/lib/publish-artifact";
 import { checkParity } from "@/lib/parity-check";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
+import { finalizeCandidate } from "@/lib/finalize-candidate";
+import { productionQaCall } from "@/lib/qa-client";
 
 
 import { FusionModal, type FusionCommit } from "@/components/FusionModal";
@@ -1686,23 +1688,30 @@ function Index() {
             setLoading(false); setStage(null); markBuildEnd(sessionId);
             return;
           }
-          // QA gate: deterministic navigation repair + parity. Zero AI cost.
-          setStage("validate");
-          const qa = assessCandidateForCommit({
-            html: det.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
-          });
-          if (!qa.ok) {
+          // QA gate: deterministic + at-most-one metered Claude QA call.
+          setStage("validate"); setStageDetail("QA checks");
+          const fin = await finalizeCandidate({
+            candidateHtml: det.html,
+            stableHtml,
+            themeCss: current.themeCss ?? null,
+            themeName: current.themeName ?? null,
+            themeId: current.themeBlueprintId ?? null,
+            demoMode,
+            userRequest: basePrompt,
+            taskType: classification.taskType,
+            strategy: "deterministic",
+          }, productionQaCall);
+          if (fin.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
+          if (!fin.ok) {
             setSessions((all) => all.map((s) => s.id === sessionId
-              ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ QA blocked deterministic edit — ${qa.blockers.slice(0, 2).join("; ").slice(0, 200)} — preview unchanged.` }] }
+              ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ QA blocked deterministic edit — ${fin.blockers.slice(0, 2).join("; ").slice(0, 200)} — preview unchanged.` }] }
               : s));
-            setTerminal((t) => [...t, `✗ QA blocked deterministic edit: ${qa.blockers[0].slice(0, 120)}`]);
-            pushFeedback(sessionId, { taskType: classification.taskType, strategy: "deterministic", model: null, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${qa.blockers[0]}` });
+            setTerminal((t) => [...t, `✗ QA blocked deterministic edit: ${(fin.blockers[0] ?? "unresolved").slice(0, 120)}`]);
+            pushFeedback(sessionId, { taskType: classification.taskType, strategy: "deterministic", model: null, validationStatus: fin.finalValidation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${fin.blockers[0] ?? "unresolved"}` });
             setLoading(false); setStage(null); markBuildEnd(sessionId);
             return;
           }
-          // Re-run rule gate on the repaired HTML — repair can alter attrs
-          // and remove links, which may change rule outcomes either way.
-          const postRepairGate = checkCommitGate(stableHtml, qa.repairedHtml, "deterministic");
+          const postRepairGate = checkCommitGate(stableHtml, fin.finalHtml, "deterministic");
           if (postRepairGate) {
             setSessions((all) => all.map((s) => s.id === sessionId
               ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Rule blocked repaired candidate: ${postRepairGate.join("; ").slice(0, 200)} — preview unchanged.` }] }
@@ -1711,8 +1720,20 @@ function Index() {
             setLoading(false); setStage(null); markBuildEnd(sessionId);
             return;
           }
-          const committedHtml = qa.repairedHtml;
-          if (qa.repairs.length) setTerminal((t) => [...t, `✓ QA: ${qa.repairs.length} deterministic navigation repair(s) applied`]);
+          // Recompute diff/validation from the FINAL repaired HTML.
+          const finalDetDiff = diffSummary(stableHtml, fin.finalHtml);
+          detMeta.charsAdded = finalDetDiff.charsAdded;
+          detMeta.charsRemoved = finalDetDiff.charsRemoved;
+          detMeta.validation = {
+            status: fin.finalValidation.status,
+            summary: fin.finalValidation.summary,
+            blocking: blockingIssues(fin.finalValidation).length,
+            warnings: fin.finalValidation.issues.filter((i) => i.severity === "warning").length,
+            info: fin.finalValidation.issues.filter((i) => i.severity === "info").length,
+          };
+          const committedHtml = fin.finalHtml;
+          if (fin.deterministicRepairs.length) setTerminal((t) => [...t, `✓ QA: ${fin.deterministicRepairs.length} deterministic navigation repair(s) applied`]);
+          if (fin.claudeInvoked) setTerminal((t) => [...t, `↺ Claude QA: 1 call via ${fin.claudeModel ?? "?"} — ${fin.claudeVerdict}`]);
           const newVersion: Version = makeVersion(committedHtml, versionLabel, detMeta);
           setSessions((all) => all.map((s) => s.id === sessionId
             ? {
@@ -1872,32 +1893,54 @@ function Index() {
               abortRef.current = null;
               break patchAttempt;
             }
-            // QA gate — deterministic navigation repair + parity. Zero AI cost.
-            setStage("validate");
-            const qaP = assessCandidateForCommit({
-              html: patchedHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
-            });
-            if (!qaP.ok) {
-              setTerminal((t) => [...t, `✗ QA blocked patch: ${qaP.blockers[0].slice(0, 100)} — falling back to full AI generation.`]);
-              pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${qaP.blockers[0]}` });
+            // QA gate — deterministic + at-most-one metered Claude QA call.
+            setStage("validate"); setStageDetail("QA checks");
+            const finP = await finalizeCandidate({
+              candidateHtml: patchedHtml,
+              stableHtml,
+              themeCss: current.themeCss ?? null,
+              themeName: current.themeName ?? null,
+              themeId: current.themeBlueprintId ?? null,
+              demoMode,
+              userRequest: basePrompt,
+              taskType: classification.taskType,
+              strategy: "ai-patch",
+            }, productionQaCall);
+            if (finP.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
+            if (!finP.ok) {
+              setTerminal((t) => [...t, `✗ QA blocked patch: ${(finP.blockers[0] ?? "unresolved").slice(0, 100)} — falling back to full AI generation.`]);
+              pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: finP.finalValidation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${finP.blockers[0] ?? "unresolved"}` });
               abortRef.current = null;
               break patchAttempt;
             }
-            const postRepairGateP = checkCommitGate(stableHtml, qaP.repairedHtml, "ai-patch");
+            const postRepairGateP = checkCommitGate(stableHtml, finP.finalHtml, "ai-patch");
             if (postRepairGateP) {
               setTerminal((t) => [...t, `✗ Rule gate rejected repaired patch: ${postRepairGateP[0].slice(0, 100)} — falling back to full AI generation.`]);
               abortRef.current = null;
               break patchAttempt;
             }
-            const committedPatchHtml = qaP.repairedHtml;
-            if (qaP.repairs.length) setTerminal((t) => [...t, `✓ QA: ${qaP.repairs.length} deterministic navigation repair(s) applied`]);
+            const committedPatchHtml = finP.finalHtml;
+            if (finP.deterministicRepairs.length) setTerminal((t) => [...t, `✓ QA: ${finP.deterministicRepairs.length} deterministic navigation repair(s) applied`]);
+            if (finP.claudeInvoked) setTerminal((t) => [...t, `↺ Claude QA: 1 call via ${finP.claudeModel ?? "?"} — ${finP.claudeVerdict}`]);
+            // Recompute diff/validation from FINAL committed HTML — authoritative.
+            const finalPatchDiff = diffSummary(stableHtml, committedPatchHtml);
+            commitMeta.charsAdded = finalPatchDiff.charsAdded;
+            commitMeta.charsRemoved = finalPatchDiff.charsRemoved;
+            commitMeta.validation = {
+              status: finP.finalValidation.status,
+              summary: finP.finalValidation.summary,
+              blocking: blockingIssues(finP.finalValidation).length,
+              warnings: finP.finalValidation.issues.filter((i) => i.severity === "warning").length,
+              info: finP.finalValidation.issues.filter((i) => i.severity === "info").length,
+            };
+            validation = finP.finalValidation;
 
             const newVersion: Version = makeVersion(committedPatchHtml, versionLabel, commitMeta);
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
                   ...s,
                   html: committedPatchHtml,
-                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"}${patchRepairAttempts.length ? " · repaired" : ""}${qaP.repairs.length ? " · QA-repaired" : ""})_` }],
+                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"}${patchRepairAttempts.length ? " · repaired" : ""}${finP.deterministicRepairs.length ? " · QA-repaired" : ""}${finP.claudeInvoked ? " · Claude QA" : ""})_` }],
                   versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
                 }
               : s));
@@ -2227,30 +2270,37 @@ function Index() {
         return;
       }
 
-      // QA gate — deterministic navigation repair + parity check on the
-      // generated candidate. Runs before Chief Engineer. Zero AI cost. When
-      // repair produces a safe artifact, we commit the *repaired* source;
-      // if it can't be made safe, we revert to stableHtml.
-      setStage("validate");
-      const qaG = assessCandidateForCommit({
-        html: finalHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
-      });
-      if (!qaG.ok) {
+      // QA gate — deterministic + at-most-one metered Claude QA call.
+      // Runs BEFORE Chief Engineer so it reviews the FINAL repaired artifact.
+      setStage("validate"); setStageDetail("QA checks");
+      const finG = await finalizeCandidate({
+        candidateHtml: finalHtml,
+        stableHtml,
+        themeCss: current.themeCss ?? null,
+        themeName: current.themeName ?? null,
+        themeId: current.themeBlueprintId ?? null,
+        demoMode,
+        userRequest: basePrompt,
+        taskType: classification.taskType,
+        strategy: "full-generation",
+      }, productionQaCall);
+      if (finG.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
+      if (!finG.ok) {
         setSessions((all) => all.map((s) => s.id === sessionId
-          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ QA blocked commit — ${qaG.blockers.slice(0, 2).join("; ").slice(0, 200)} — reverted to last stable version.` }] }
+          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ QA blocked commit — ${finG.blockers.slice(0, 2).join("; ").slice(0, 200)} — reverted to last stable version.` }] }
           : s));
-        setTerminal((t) => [...t, `✗ QA blocked generation: ${qaG.blockers[0].slice(0, 120)}`]);
-        pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${qaG.blockers[0]}` });
+        setTerminal((t) => [...t, `✗ QA blocked generation: ${(finG.blockers[0] ?? "unresolved").slice(0, 120)}`]);
+        pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: finG.finalValidation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${finG.blockers[0] ?? "unresolved"}` });
         setLastOperation((prev) => prev && prev.operationId === operationId ? {
           ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
-          validationStatus: validation.status, providerChain: genMeta.providerChain ?? [],
+          validationStatus: finG.finalValidation.status, providerChain: genMeta.providerChain ?? [],
           imageProviders: genMeta.imageProviders, imageCount: genMeta.imageCount,
-          outcome: "rejected", reason: `qa: ${qaG.blockers[0].slice(0, 120)}`,
+          outcome: "rejected", reason: `qa: ${(finG.blockers[0] ?? "unresolved").slice(0, 120)}`,
         } : prev);
         setIntelligenceTick((n) => n + 1);
         return;
       }
-      const postRepairGateG = checkCommitGate(stableHtml, qaG.repairedHtml, "full-generation");
+      const postRepairGateG = checkCommitGate(stableHtml, finG.finalHtml, "full-generation");
       if (postRepairGateG) {
         setSessions((all) => all.map((s) => s.id === sessionId
           ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Rule blocked repaired candidate: ${postRepairGateG.join("; ").slice(0, 200)} — reverted.` }] }
@@ -2259,8 +2309,23 @@ function Index() {
         setIntelligenceTick((n) => n + 1);
         return;
       }
-      const committedFinalHtml = qaG.repairedHtml;
-      if (qaG.repairs.length) setTerminal((t) => [...t, `✓ QA: ${qaG.repairs.length} deterministic navigation repair(s) applied`]);
+      const committedFinalHtml = finG.finalHtml;
+      if (finG.deterministicRepairs.length) setTerminal((t) => [...t, `✓ QA: ${finG.deterministicRepairs.length} deterministic navigation repair(s) applied`]);
+      if (finG.claudeInvoked) setTerminal((t) => [...t, `↺ Claude QA: 1 call via ${finG.claudeModel ?? "?"} — ${finG.claudeVerdict}`]);
+      // Recompute diff/validation from the FINAL committed HTML — authoritative
+      // for metadata, Chief Engineer, feedback, and last-operation records.
+      validation = finG.finalValidation;
+      const finalGenDiff = diffSummary(stableHtml, committedFinalHtml);
+      genMeta.charsAdded = finalGenDiff.charsAdded;
+      genMeta.charsRemoved = finalGenDiff.charsRemoved;
+      genMeta.validation = {
+        status: finG.finalValidation.status,
+        summary: finG.finalValidation.summary,
+        blocking: blockingIssues(finG.finalValidation).length,
+        warnings: finG.finalValidation.issues.filter((i) => i.severity === "warning").length,
+        info: finG.finalValidation.issues.filter((i) => i.severity === "info").length,
+      };
+
 
       // Chief Engineer — multi-agent review before commit.
       setEngineeringRunning(true);
@@ -2329,9 +2394,9 @@ function Index() {
         strategy: "full-generation",
         patchOperationCount: 1,
         patchOperationTypes: ["full-generation"],
-        patchOperationSummaries: [`Rewrote document (${finalHtml.length} chars)`],
-        charactersAdded: fullDiff.charsAdded,
-        charactersRemoved: fullDiff.charsRemoved,
+        patchOperationSummaries: [`Rewrote document (${committedFinalHtml.length} chars)`],
+        charactersAdded: genMeta.charsAdded,
+        charactersRemoved: genMeta.charsRemoved,
       }));
       setLastOperation((prev) => prev && prev.operationId === operationId ? {
         ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
@@ -2372,7 +2437,7 @@ function Index() {
           body: JSON.stringify({
             title: versionLabel,
             prompt: basePrompt,
-            html: finalHtml,
+            html: committedFinalHtml,
             model: modelForServer,
             session_id: sessionId,
             client_id: clientId,
