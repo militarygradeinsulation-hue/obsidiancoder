@@ -30,6 +30,8 @@ import { Route as AdminWaitlistRouteImport } from './routes/admin.waitlist'
 import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
 import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as ApiPublicWaitlistRouteImport } from './routes/api/public/waitlist'
+import { Route as ApiPublicThemeThumbnailsRouteImport } from './routes/api/public/theme-thumbnails'
+import { Route as ApiPublicThemeBlueprintsRouteImport } from './routes/api/public/theme-blueprints'
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
@@ -153,6 +155,18 @@ const ApiPublicWaitlistRoute = ApiPublicWaitlistRouteImport.update({
   path: '/api/public/waitlist',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicThemeThumbnailsRoute =
+  ApiPublicThemeThumbnailsRouteImport.update({
+    id: '/api/public/theme-thumbnails',
+    path: '/api/public/theme-thumbnails',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicThemeBlueprintsRoute =
+  ApiPublicThemeBlueprintsRouteImport.update({
+    id: '/api/public/theme-blueprints',
+    path: '/api/public/theme-blueprints',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicSelfTestRoute = ApiPublicSelfTestRouteImport.update({
   id: '/api/public/self-test',
   path: '/api/public/self-test',
@@ -258,6 +272,8 @@ export interface FileRoutesByFullPath {
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
+  '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
+  '/api/public/theme-thumbnails': typeof ApiPublicThemeThumbnailsRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
@@ -296,6 +312,8 @@ export interface FileRoutesByTo {
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
+  '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
+  '/api/public/theme-thumbnails': typeof ApiPublicThemeThumbnailsRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
@@ -335,6 +353,8 @@ export interface FileRoutesById {
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
+  '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
+  '/api/public/theme-thumbnails': typeof ApiPublicThemeThumbnailsRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
@@ -375,6 +395,8 @@ export interface FileRouteTypes {
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
+    | '/api/public/theme-blueprints'
+    | '/api/public/theme-thumbnails'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
     | '/api/public/free-demo/status'
@@ -413,6 +435,8 @@ export interface FileRouteTypes {
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
+    | '/api/public/theme-blueprints'
+    | '/api/public/theme-thumbnails'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
     | '/api/public/free-demo/status'
@@ -451,6 +475,8 @@ export interface FileRouteTypes {
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
+    | '/api/public/theme-blueprints'
+    | '/api/public/theme-thumbnails'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
     | '/api/public/free-demo/status'
@@ -490,6 +516,8 @@ export interface RootRouteChildren {
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
   ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
+  ApiPublicThemeBlueprintsRoute: typeof ApiPublicThemeBlueprintsRoute
+  ApiPublicThemeThumbnailsRoute: typeof ApiPublicThemeThumbnailsRoute
   ApiPublicWaitlistRoute: typeof ApiPublicWaitlistRoute
   ApiPublicFreeDemoStatusRoute: typeof ApiPublicFreeDemoStatusRoute
   ApiPublicLibraryCodeRoute: typeof ApiPublicLibraryCodeRouteWithChildren
@@ -650,6 +678,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/theme-thumbnails': {
+      id: '/api/public/theme-thumbnails'
+      path: '/api/public/theme-thumbnails'
+      fullPath: '/api/public/theme-thumbnails'
+      preLoaderRoute: typeof ApiPublicThemeThumbnailsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/theme-blueprints': {
+      id: '/api/public/theme-blueprints'
+      path: '/api/public/theme-blueprints'
+      fullPath: '/api/public/theme-blueprints'
+      preLoaderRoute: typeof ApiPublicThemeBlueprintsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/self-test': {
       id: '/api/public/self-test'
       path: '/api/public/self-test'
@@ -808,6 +850,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
   ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
+  ApiPublicThemeBlueprintsRoute: ApiPublicThemeBlueprintsRoute,
+  ApiPublicThemeThumbnailsRoute: ApiPublicThemeThumbnailsRoute,
   ApiPublicWaitlistRoute: ApiPublicWaitlistRoute,
   ApiPublicFreeDemoStatusRoute: ApiPublicFreeDemoStatusRoute,
   ApiPublicLibraryCodeRoute: ApiPublicLibraryCodeRouteWithChildren,
