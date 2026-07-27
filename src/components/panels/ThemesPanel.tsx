@@ -289,3 +289,53 @@ function ThemeCard({
   );
 }
 
+function BuiltInCard({ bp, active, onApply }: { bp: ThemeBlueprint; active: boolean; onApply: () => void }) {
+  const c = bp.color;
+  const cols = [c.bg, c.surface, c.surfaceAlt, c.accent, c.text, c.border];
+  const gradient = c.gradient ?? `linear-gradient(135deg, ${c.bg} 0%, ${c.surface} 60%, ${c.accent} 100%)`;
+  const previewStyle: React.CSSProperties = {
+    background: gradient,
+    color: c.text,
+    fontFamily: bp.typePairing.headingFamily,
+    textTransform: bp.typeRatio.headingCase === "uppercase" ? "uppercase" : "none",
+    letterSpacing: bp.typeRatio.headingTracking,
+    fontWeight: bp.typeRatio.headingWeight,
+    borderRadius: bp.radius.md,
+    border: `${bp.edges.borderWidthPx}px ${bp.edges.borderStyle} ${bp.color.border}`,
+    boxShadow: bp.elevation.card === "none" ? undefined : bp.elevation.card,
+  };
+  return (
+    <div className="theme-card" data-active={active ? "1" : "0"}>
+      <div className="theme-preview" style={previewStyle}>
+        <div style={{ padding: 14 }}>
+          <div style={{ fontSize: 15, lineHeight: 1.1 }}>{bp.name}</div>
+          <div style={{
+            marginTop: 8, display: "inline-block", padding: "6px 10px",
+            background: c.accent, color: c.accentContrast,
+            borderRadius: bp.radius.md, fontSize: 11, fontWeight: 700,
+          }}>Button</div>
+          <div style={{
+            marginTop: 10, background: c.surface, color: c.text, padding: 8,
+            borderRadius: bp.radius.sm, border: `1px solid ${c.border}`, fontSize: 11,
+            fontFamily: bp.typePairing.bodyFamily, fontWeight: 400,
+          }}>Card · {bp.layout}</div>
+        </div>
+        <div className="theme-swatches">
+          {cols.map((col, i) => <span key={i} style={{ background: col }} title={col} />)}
+        </div>
+      </div>
+      <div className="theme-meta">
+        <div className="theme-name" title={bp.name}>{bp.name}</div>
+        <div className="theme-author">{bp.color.mode} · {bp.layout}</div>
+        <div className="theme-desc">{bp.description}</div>
+      </div>
+      <div className="theme-actions">
+        <button type="button" className="themes-btn primary sm" onClick={onApply}>
+          <Sparkles className="h-3.5 w-3.5" /> {active ? "Re-apply" : "Apply"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
