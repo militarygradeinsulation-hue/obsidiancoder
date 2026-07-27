@@ -1913,6 +1913,10 @@ function Index() {
               taskType: classification.taskType,
               strategy: "ai-patch",
             }, productionQaCall);
+            {
+              const qa = statusFromFinalize(finP, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
+              setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
+            }
             if (finP.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
             if (!finP.ok) {
               setTerminal((t) => [...t, `✗ QA blocked patch: ${(finP.blockers[0] ?? "unresolved").slice(0, 100)} — falling back to full AI generation.`]);
