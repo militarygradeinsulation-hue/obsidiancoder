@@ -17,6 +17,7 @@ import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
 import exampleVideo1 from "@/assets/example-1.mp4.asset.json";
 import exampleVideo2 from "@/assets/example-2.mp4.asset.json";
+import exampleVideo3 from "@/assets/example-3.mp4.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
