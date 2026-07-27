@@ -767,6 +767,30 @@ function Unlock() {
               />
               <figcaption>Live build · electrician</figcaption>
             </figure>
+            <figure className="slogan-example">
+              <video
+                src={exampleVideo4.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Obsidian build example HVAC"
+              />
+              <figcaption>Live build · HVAC</figcaption>
+            </figure>
+            <figure className="slogan-example">
+              <video
+                src={exampleVideo5.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Obsidian build example five"
+              />
+              <figcaption>Live build · example 05</figcaption>
+            </figure>
           </div>
         </div>
       </section>
