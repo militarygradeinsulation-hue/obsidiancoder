@@ -18,6 +18,8 @@ import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
 import exampleVideo1 from "@/assets/example-1.mp4.asset.json";
 import exampleVideo2 from "@/assets/example-2.mp4.asset.json";
 import exampleVideo3 from "@/assets/example-3.mp4.asset.json";
+import exampleVideo4 from "@/assets/example-4.mp4.asset.json";
+import exampleVideo5 from "@/assets/example-5.mp4.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
@@ -765,6 +767,30 @@ function Unlock() {
               />
               <figcaption>Live build · electrician</figcaption>
             </figure>
+            <figure className="slogan-example">
+              <video
+                src={exampleVideo4.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Obsidian build example HVAC"
+              />
+              <figcaption>Live build · HVAC</figcaption>
+            </figure>
+            <figure className="slogan-example">
+              <video
+                src={exampleVideo5.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Obsidian build example five"
+              />
+              <figcaption>Live build · example 05</figcaption>
+            </figure>
           </div>
         </div>
       </section>
@@ -1332,9 +1358,10 @@ const unlockCss = `
 .unlock-slogan {
   position: relative;
   width: 100%;
-  margin-top: auto;
+  margin-top: 100vh;
   padding: 60px 16px 24px;
-  opacity: 0.9;
+  opacity: 0.95;
+  z-index: 3;
 }
 .unlock-slogan::before {
   content: "";
