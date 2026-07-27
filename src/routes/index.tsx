@@ -2857,17 +2857,18 @@ function Index() {
                   clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
                   localStorage.setItem("obs.client_id", clientId);
                 }
-                const art = buildArtifact({
-                  html: current.html,
+                const oa = assessOutbound(current.html, {
                   themeCss: current.themeCss ?? null,
                   themeName: current.themeName ?? null,
-                  surface: "publish",
+                  themeBlueprintId: current.themeBlueprintId ?? null,
+                  surface: "featured-demo",
                 });
-                if (!art.safeToPublish) {
-                  throw new Error("QA blocked: " + (art.violations[0]?.code ?? "empty"));
-                }
-                const parity = checkParity(current.html, art.html);
-                if (!parity.ok) throw new Error("parity blocked: " + parity.blockers[0]);
+                setSessions((all) => all.map((s) => s.id === current.id ? {
+                  ...s,
+                  qaStatus: statusFromPublish(oa.ok, oa.blockers[0] ?? "", { html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null }, s.qaStatus ?? undefined),
+                } : s));
+                if (!oa.ok) throw new Error("QA blocked: " + (oa.blockers[0] ?? "empty"));
+                const art = { html: oa.finalHtml };
                 const res = await authFetch("/api/public/builds", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
