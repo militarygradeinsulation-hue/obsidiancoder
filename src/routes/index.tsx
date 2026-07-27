@@ -4162,9 +4162,12 @@ function Index() {
                 { label: "Go Live (open current build)", run: () => {
                   setPaletteOpen(false);
                   if (!current.html) return;
-                  const blob = new Blob([current.html], { type: "text/html" });
+                  const art = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" });
+                  if (!art.safeToPublish) return;
+                  const blob = new Blob([art.html], { type: "text/html" });
                   window.open(URL.createObjectURL(blob), "_blank", "noopener,noreferrer");
                 } },
+
                 ...MODES.map((m) => ({
                   label: `Mode: ${m.label} — ${m.hint}`,
                   run: () => { setPaletteOpen(false); updateCurrent({ mode: m.id }); },
