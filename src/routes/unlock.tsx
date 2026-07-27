@@ -1358,9 +1358,10 @@ const unlockCss = `
 .unlock-slogan {
   position: relative;
   width: 100%;
-  margin-top: auto;
+  margin-top: 100vh;
   padding: 60px 16px 24px;
-  opacity: 0.9;
+  opacity: 0.95;
+  z-index: 3;
 }
 .unlock-slogan::before {
   content: "";
