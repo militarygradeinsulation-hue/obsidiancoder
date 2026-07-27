@@ -1996,8 +1996,16 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     // Non-destructive sanitizer: the mixed script's rendering code must survive.
     results.push(assert(/document\.body\.dataset\.ready/.test(pub.html),
       "sanitizer: mixed script rendering logic preserved"));
-    results.push(assert(!pub.html.includes(`"/dashboard"`) && pub.html.includes(`"#obsidian-blocked"`),
-      "sanitizer: creator URL literal precisely neutralized"));
+    // The assignment `location.href = target` is neutralized in place.
+    results.push(assert(pub.html.includes("obs-nav-blocked"),
+      "sanitizer: navigation expression replaced with inert marker"));
+    // A rescan of the repaired publish artifact reports zero nav violations.
+    {
+      const { scanNavigationViolations: rescan } = await import("./preview-policy");
+      const rem = rescan(pub.html).filter((v) => v.code === "nav-location-assign" || v.code === "nav-window-open");
+      results.push(assert(rem.length === 0,
+        `sanitizer: rescan finds no residual script nav violations (got ${rem.length})`));
+    }
 
     // Parity
     invalidateParityCache();
