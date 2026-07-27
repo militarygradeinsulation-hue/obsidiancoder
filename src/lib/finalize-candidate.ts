@@ -265,7 +265,10 @@ export async function finalizeCandidate(
       finalParity: assessment.parity,
       deterministicRepairs: assessment.repairs,
       remainingViolations: assessment.remainingViolations,
-      claudeInvoked: qa != null, // true only if the route returned something we could read
+      // We always dispatched to the metered route in this branch; the
+      // request was physically made even if we couldn't parse a response.
+      claudeInvoked: true,
+      claudeResultFromCache: false,
       claudeModel: (qa && "actualModel" in qa) ? qa.actualModel : null,
       claudeVerdict: null,
       claudeExplanation: qa && qa.ok === false ? qa.message : "",
@@ -275,7 +278,7 @@ export async function finalizeCandidate(
       candidateHash: hash,
       source: "blocked",
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
