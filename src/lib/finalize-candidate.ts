@@ -35,27 +35,6 @@ export type { QaRequestBody, QaRouteResponse } from "./qa-contract";
 
 // -- Public types ------------------------------------------------------------
 
-export type QaRouteResponse =
-  | {
-      ok: true;
-      verdict: "pass" | "repair" | "block";
-      confidence: number;
-      defectCategories: string[];
-      explanation: string;
-      patch: Patch | null;
-      expectedImprovement: string;
-      actualModel: string;
-      fallbackUsed: boolean;
-      requestId: string;
-    }
-  | {
-      ok: false;
-      code: string;
-      message: string;
-      actualModel: string | null;
-      requestId: string;
-    };
-
 export type QaProductionCall = (req: QaRequestBody) => Promise<QaRouteResponse | null>;
 
 export interface FinalizeInput {
