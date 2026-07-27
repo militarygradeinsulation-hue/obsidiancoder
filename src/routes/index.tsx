@@ -223,6 +223,7 @@ type Session = {
   themeCss?: string;
   themeName?: string;
   themeBlueprintId?: string;
+  qaStatus?: QaSessionStatus | null;
 
 };
 
