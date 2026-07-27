@@ -1924,7 +1924,9 @@ function Index() {
           pickerModel: current.model,
           advisory: !previewMode,
           designContract: loadDesignContract(current.id),
+          themeBlueprintId: current.themeBlueprintId,
         }),
+
         signal: controller.signal,
       });
 
