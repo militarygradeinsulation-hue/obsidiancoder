@@ -213,6 +213,8 @@ type Session = {
   // 21st.dev theme applied to the preview (injected as a <style> tag).
   themeCss?: string;
   themeName?: string;
+  themeBlueprintId?: string;
+
 };
 
 const WORKSPACE_NAV = [
