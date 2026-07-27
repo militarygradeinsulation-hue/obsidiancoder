@@ -14,7 +14,6 @@
 //   - No raw secrets, no full provider bodies logged.
 
 import { createFileRoute } from "@tanstack/react-router";
-import { z } from "zod";
 import { patchSchema } from "@/lib/patch-protocol";
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded } from "@/lib/upstream-guard";
@@ -37,83 +36,15 @@ import {
   currentQaRegistrySnapshot,
   resolveCheapestClaudeModel,
 } from "@/lib/qa-model-resolver";
+import {
+  qaInputSchema,
+  type QaRequestBody,
+  type QaRouteSuccess,
+  type QaRouteError,
+} from "@/lib/qa-contract";
+import type { z } from "zod";
 
-const strategyEnum = z.enum([
-  "deterministic", "ai-patch", "full-generation", "advisory",
-]).optional();
-
-const violationSchema = z.object({
-  code: z.string().max(80),
-  target: z.string().max(200).optional(),
-}).passthrough();
-
-const paritySummarySchema = z.object({
-  ok: z.boolean(),
-  blockers: z.array(z.string().max(200)).max(20).default([]),
-  warnings: z.array(z.string().max(200)).max(20).default([]),
-  deltas: z.record(z.string(), z.number()).optional(),
-}).partial();
-
-const runtimeSummarySchema = z.object({
-  errorCount: z.number().int().min(0).max(1000).default(0),
-  overflowCount: z.number().int().min(0).max(1000).optional(),
-  consoleBlockers: z.number().int().min(0).max(1000).optional(),
-}).partial();
-
-const pageManifestSchema = z.object({
-  chars: z.number().int().min(0).optional(),
-  headings: z.number().int().min(0).optional(),
-  sections: z.number().int().min(0).optional(),
-  buttons: z.number().int().min(0).optional(),
-  links: z.number().int().min(0).optional(),
-  forms: z.number().int().min(0).optional(),
-  inputs: z.number().int().min(0).optional(),
-  tables: z.number().int().min(0).optional(),
-  images: z.number().int().min(0).optional(),
-  ids: z.number().int().min(0).optional(),
-  scripts: z.number().int().min(0).optional(),
-}).partial();
-
-export const qaInputSchema = z.object({
-  userRequest: z.string().max(800).default(""),
-  taskType: z.string().max(64).optional(),
-  strategy: strategyEnum,
-  themeId: z.string().max(80).optional(),
-  themeName: z.string().max(80).optional(),
-  buildHash: z.string().max(64).optional(),
-  pageManifest: pageManifestSchema.optional(),
-  paritySummary: paritySummarySchema.optional(),
-  runtimeSummary: runtimeSummarySchema.optional(),
-  violations: z.array(violationSchema).max(40).default([]),
-  excerpt: z.string().max(6000).default(""),
-  failureHints: z.string().max(1000).optional(),
-});
-export type QaRequestBody = z.infer<typeof qaInputSchema>;
-
-/** Response shape for /api/qa. */
-export interface QaRouteSuccess {
-  ok: true;
-  verdict: "pass" | "repair" | "block";
-  confidence: number;
-  defectCategories: string[];
-  explanation: string;
-  patch: z.infer<typeof patchSchema> | null;
-  expectedImprovement: string;
-  actualModel: string;
-  fallbackUsed: false;
-  requestId: string;
-}
-
-export interface QaRouteError {
-  ok: false;
-  code:
-    | "qa_model_unavailable"
-    | "qa_bad_response"
-    | "qa_provider_error";
-  message: string;
-  actualModel: string | null;
-  requestId: string;
-}
+export { qaInputSchema, type QaRequestBody, type QaRouteSuccess, type QaRouteError };
 
 const SYSTEM_PROMPT = `You are Obsidian QA. Review a generated HTML build for user-visible defects. Produce a MINIMAL repair as a JSON Patch document (schema below). Never introduce off-page navigation. Same-document interactions only. Return STRICT JSON — no markdown, no prose.
 
