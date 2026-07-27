@@ -753,6 +753,18 @@ function Unlock() {
               />
               <figcaption>Live build · example 02</figcaption>
             </figure>
+            <figure className="slogan-example">
+              <video
+                src={exampleVideo3.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Obsidian build example three"
+              />
+              <figcaption>Live build · electrician</figcaption>
+            </figure>
           </div>
         </div>
       </section>
