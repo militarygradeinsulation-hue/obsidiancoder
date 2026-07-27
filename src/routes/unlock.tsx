@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type FormEvent } from "react";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
+const GLSLHills = lazy(() => import("@/components/ui/glsl-hills"));
 import DomeGallery from "@/components/ui/dome-gallery";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
