@@ -279,10 +279,12 @@ function Unlock() {
       <div aria-hidden className="unlock-scene">
         <ClientOnly fallback={null}>
           <Suspense fallback={null}>
+            <GLSLHills className="unlock-hills-canvas" />
             <AnomalousMatterScene className="unlock-scene-canvas" />
           </Suspense>
         </ClientOnly>
       </div>
+
 
 
       <div aria-hidden className="unlock-face">
