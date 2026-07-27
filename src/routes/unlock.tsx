@@ -135,6 +135,8 @@ function Unlock() {
   const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
   const [featuredDemos, setFeaturedDemos] = useState<{ slug: string; title: string; url?: string; category: DemoCategory }[]>([]);
+  const [activeVideo, setActiveVideo] = useState<{ url: string; label: string } | null>(null);
+  const activeVideoRef = useRef<HTMLVideoElement | null>(null);
 
   // Load admin-curated demos so newly promoted builds appear without a code edit.
   useEffect(() => {
