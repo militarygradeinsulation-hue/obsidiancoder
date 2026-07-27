@@ -74,16 +74,20 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, currentB
   const applyTheme = useCallback(async (t: UiThemeHit) => {
     setApplyingId(t.identifier); setError(null);
     try {
-      const res = await getCss({ data: { identifier: t.identifier, name: t.name, colors: t.colors ?? [] } });
-      if (!res?.css) { setError("Theme has no CSS available."); return; }
-      onApply(res.css, res.name ?? t.name);
+      // Normalize remote hit → full ThemeBlueprint (structural bundle + palette).
+      const bp = normalizeRemoteToBlueprint({
+        identifier: t.identifier, name: t.name, colors: t.colors ?? [], description: t.description,
+      });
+      const compiled = compileBlueprint(bp);
+      onApply(compiled.css, bp.name, bp.id);
       onClose();
     } catch {
-      setError("Could not fetch that theme's CSS.");
+      setError("Could not import that theme.");
     } finally {
       setApplyingId(null);
     }
-  }, [getCss, onApply, onClose]);
+  }, [onApply, onClose]);
+
 
   const downloadTheme = useCallback(async (t: UiThemeHit) => {
     setApplyingId(t.identifier);
