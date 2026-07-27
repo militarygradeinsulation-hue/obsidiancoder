@@ -2295,6 +2295,10 @@ function Index() {
         taskType: classification.taskType,
         strategy: "full-generation",
       }, productionQaCall);
+      {
+        const qa = statusFromFinalize(finG, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
+        setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
+      }
       if (finG.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
       if (!finG.ok) {
         setSessions((all) => all.map((s) => s.id === sessionId
