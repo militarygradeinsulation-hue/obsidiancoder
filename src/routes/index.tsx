@@ -2691,13 +2691,24 @@ function Index() {
                   clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
                   localStorage.setItem("obs.client_id", clientId);
                 }
+                const art = buildArtifact({
+                  html: current.html,
+                  themeCss: current.themeCss ?? null,
+                  themeName: current.themeName ?? null,
+                  surface: "publish",
+                });
+                if (!art.safeToPublish) {
+                  throw new Error("QA blocked: " + (art.violations[0]?.code ?? "empty"));
+                }
+                const parity = checkParity(current.html, art.html);
+                if (!parity.ok) throw new Error("parity blocked: " + parity.blockers[0]);
                 const res = await authFetch("/api/public/builds", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     title: current.title,
                     prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
-                    html: sanitizeForExport(current.html),
+                    html: art.html,
                     model: current.model,
                     session_id: current.id,
                     client_id: clientId,
@@ -2706,6 +2717,7 @@ function Index() {
                 });
                 if (!res.ok) throw new Error(await res.text());
                 const { share_slug } = (await res.json()) as { share_slug: string };
+
                 const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
                 const promoted = await pushFeaturedDemo({
                   data: {
