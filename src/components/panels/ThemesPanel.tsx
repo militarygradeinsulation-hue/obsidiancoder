@@ -1,15 +1,24 @@
-// Themes browser — searches 21st.dev themes and applies them to the sandbox
-// preview. Renders as a floating modal opened from the preview header.
-import { useEffect, useState, useCallback } from "react";
+// Themes browser — built-in ThemeBlueprints first, 21st.dev additional.
+// Renders a floating modal opened from the preview header.
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { X, Search, Sparkles, Download, Palette, Loader2 } from "lucide-react";
+import { X, Search, Sparkles, Download, Palette, Loader2, Shuffle } from "lucide-react";
 import { searchThemesFn, getThemeCssFn, type UiThemeHit } from "@/lib/themes-21st.functions";
+import {
+  BUILT_IN_BLUEPRINTS,
+  compileBlueprint,
+  getBuiltIn,
+  normalizeRemoteToBlueprint,
+  pickFarthest,
+  type ThemeBlueprint,
+} from "@/lib/theme-blueprints";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  onApply: (css: string, name?: string) => void;
+  onApply: (css: string, name?: string, blueprintId?: string) => void;
   currentThemeName?: string;
+  currentBlueprintId?: string;
   onClear?: () => void;
 };
 
@@ -18,10 +27,11 @@ const PRESET_QUERIES = [
   "editorial", "glassmorphism", "brutalist mono", "warm sunset", "corporate blue",
 ];
 
-export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear }: Props) {
+export function ThemesPanel({ open, onClose, onApply, currentThemeName, currentBlueprintId, onClear }: Props) {
   const search = useServerFn(searchThemesFn);
   const getCss = useServerFn(getThemeCssFn);
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<"built-in" | "21st">("built-in");
   const [themes, setThemes] = useState<UiThemeHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [enabled, setEnabled] = useState(true);
@@ -43,7 +53,23 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
     }
   }, [search]);
 
-  useEffect(() => { if (open && !themes.length && !loading) runSearch(""); }, [open, themes.length, loading, runSearch]);
+  useEffect(() => {
+    if (open && tab === "21st" && !themes.length && !loading) runSearch("");
+  }, [open, tab, themes.length, loading, runSearch]);
+
+  const applyBlueprint = useCallback((bp: ThemeBlueprint) => {
+    const compiled = compileBlueprint(bp);
+    onApply(compiled.css, bp.name, bp.id);
+    onClose();
+  }, [onApply, onClose]);
+
+  const surpriseMe = useCallback(() => {
+    const current = currentBlueprintId ? getBuiltIn(currentBlueprintId) ?? null : null;
+    const next = pickFarthest(BUILT_IN_BLUEPRINTS, current);
+    if (next) applyBlueprint(next);
+  }, [currentBlueprintId, applyBlueprint]);
+
+
 
   const applyTheme = useCallback(async (t: UiThemeHit) => {
     setApplyingId(t.identifier); setError(null);
