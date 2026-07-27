@@ -14,6 +14,7 @@ export type ArtifactSurface = "preview" | "parity" | "publish";
 export interface ArtifactInput {
   html: string;
   themeCss?: string | null;
+  themeName?: string | null;
   surface: ArtifactSurface;
 }
 
@@ -28,17 +29,20 @@ export interface Artifact {
   safeToPublish: boolean;
 }
 
-const THEME_MARKER_OPEN = '<style data-obsidian-theme="1">';
-const THEME_MARKER_CLOSE = "</style>";
+// Theme marker: value is opaque (may be "1", a theme name, or empty). Match
+// on presence of the data-obsidian-theme attribute so legacy marker forms
+// consolidate into exactly one theme layer in the final artifact.
+const THEME_MARKER_RX = /<style\s+data-obsidian-theme=(?:"[^"]*"|'[^']*'|[^\s>]+)[^>]*>[\s\S]*?<\/style>/gi;
 
 function stripExistingThemeBlocks(html: string): string {
-  return html.replace(/<style data-obsidian-theme="1">[\s\S]*?<\/style>/gi, "");
+  return html.replace(THEME_MARKER_RX, "");
 }
 
-function ensureThemeInHead(html: string, themeCss: string | null | undefined): string {
+function ensureThemeInHead(html: string, themeCss: string | null | undefined, themeName?: string | null): string {
   const cleaned = stripExistingThemeBlocks(html);
   if (!themeCss || !themeCss.trim()) return cleaned;
-  const block = `${THEME_MARKER_OPEN}${themeCss}${THEME_MARKER_CLOSE}`;
+  const nameAttr = (themeName ?? "1").replace(/"/g, "&quot;");
+  const block = `<style data-obsidian-theme="${nameAttr}">${themeCss}</style>`;
   if (/<\/head>/i.test(cleaned)) return cleaned.replace(/<\/head>/i, `${block}</head>`);
   if (/<head\b[^>]*>/i.test(cleaned)) return cleaned.replace(/<head\b[^>]*>/i, (m) => `${m}${block}`);
   return `${block}${cleaned}`;
@@ -68,27 +72,24 @@ function bodyLooksEmpty(html: string): boolean {
  * Build the exact HTML string for the requested surface.
  *
  * - preview  → theme applied once, runtime bridge injected, NO sanitizer.
- * - parity   → theme applied once, runtime bridge injected, sanitizer applied.
- *              Used for offscreen parity iframes so we compare like-for-like.
+ * - parity   → theme applied once, sanitizer applied, runtime bridge kept.
  * - publish  → theme applied once, sanitizer applied, runtime bridge stripped.
- *              This is the string that ships to Go Live / share / export.
  */
 export function buildArtifact(input: ArtifactInput): Artifact {
-  const themed = ensureThemeInHead(input.html || "", input.themeCss ?? null);
+  const themed = ensureThemeInHead(input.html || "", input.themeCss ?? null, input.themeName ?? null);
 
   let out: string;
   if (input.surface === "preview") {
     out = injectRuntimeBridge(themed);
   } else if (input.surface === "parity") {
-    // Sanitize first so parity reflects what publish will look like, but
-    // keep the runtime bridge so we can capture console/nav events.
     out = injectRuntimeBridge(sanitizeForExport(themed));
   } else {
     out = sanitizeForExport(themed);
   }
 
   const violations = scanNavigationViolations(out);
-  const blocking = violations.filter((v) => v.code !== "nav-external" && v.code !== "nav-deep-link").length;
+  // Per policy: every off-page navigation category is blocking. No exemptions.
+  const blocking = violations.length;
   const safeToPublish =
     input.surface === "publish" &&
     !bodyLooksEmpty(out) &&
@@ -97,7 +98,7 @@ export function buildArtifact(input: ArtifactInput): Artifact {
   return {
     surface: input.surface,
     html: out,
-    hash: hashString(`${input.surface}|${input.themeCss ?? ""}|${themed}`),
+    hash: hashString(`${input.surface}|${input.themeName ?? ""}|${input.themeCss ?? ""}|${themed}`),
     violations,
     safeToPublish: input.surface === "publish" ? safeToPublish : true,
   };
