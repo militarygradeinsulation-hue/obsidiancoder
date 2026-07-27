@@ -1368,6 +1368,44 @@ const unlockCss = `
   max-width: 620px;
 }
 
+.slogan-examples {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+.slogan-example {
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(244,161,37,0.22);
+  background: rgba(10,11,13,0.7);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.slogan-example video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: #000;
+}
+.slogan-example figcaption {
+  padding: 8px 12px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244,161,37,0.85);
+  border-top: 1px solid rgba(244,161,37,0.18);
+  background: rgba(0,0,0,0.4);
+}
+@media (max-width: 640px) {
+  .slogan-examples { grid-template-columns: 1fr; }
+}
+
+
+
 @media (max-width: 800px) {
   .unlock-slogan { padding: 40px 14px 20px; }
   .slogan-card { padding: 22px 24px; }
