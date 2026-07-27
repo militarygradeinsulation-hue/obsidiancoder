@@ -351,6 +351,12 @@ function Unlock() {
       {!panelOpen && (
         <div className="unlock-wordmark" id="top">
           <h1 className="unlock-title unlock-title-hero" data-text="OBSIDIAN VIBE">OBSIDIAN VIBE</h1>
+          <div className="unlock-hero-slogan" aria-labelledby="hero-slogan-heading">
+            <h2 id="hero-slogan-heading" className="hero-slogan-headline">AI built for the professionals big tech forgot</h2>
+            <p className="hero-slogan-body">
+              People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
+            </p>
+          </div>
         </div>
       )}
 
