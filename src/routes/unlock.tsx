@@ -1358,8 +1358,8 @@ const unlockCss = `
 .unlock-slogan {
   position: relative;
   width: 100%;
-  margin-top: 100vh;
-  padding: 60px 16px 24px;
+  margin-top: 58vh;
+  padding: 30px 16px 24px;
   opacity: 0.95;
   z-index: 3;
 }
