@@ -201,7 +201,10 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, currentB
                 ))}
           </div>
         )}
+          </>
+        )}
       </div>
+
     </div>
   );
 }
