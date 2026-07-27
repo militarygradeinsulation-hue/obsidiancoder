@@ -1996,8 +1996,16 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     // Non-destructive sanitizer: the mixed script's rendering code must survive.
     results.push(assert(/document\.body\.dataset\.ready/.test(pub.html),
       "sanitizer: mixed script rendering logic preserved"));
-    results.push(assert(!pub.html.includes(`"/dashboard"`) && pub.html.includes(`"#obsidian-blocked"`),
-      "sanitizer: creator URL literal precisely neutralized"));
+    // The assignment `location.href = target` is neutralized in place.
+    results.push(assert(pub.html.includes("obs-nav-blocked"),
+      "sanitizer: navigation expression replaced with inert marker"));
+    // A rescan of the repaired publish artifact reports zero nav violations.
+    {
+      const { scanNavigationViolations: rescan } = await import("./preview-policy");
+      const rem = rescan(pub.html).filter((v) => v.code === "nav-location-assign" || v.code === "nav-window-open");
+      results.push(assert(rem.length === 0,
+        `sanitizer: rescan finds no residual script nav violations (got ${rem.length})`));
+    }
 
     // Parity
     invalidateParityCache();
@@ -2099,6 +2107,70 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     const sanitized = sanitizeForExport(src);
     results.push(assert(/document\.body\.dataset\.ready/.test(sanitized),
       "sanitizeForExport: mixed script rendering preserved"));
+
+    // === Focused navigation-repair unit tests ===
+    {
+      const { repairNavigation, __neutralizeScriptNavigationForTest } =
+        await import("./navigation-repair");
+
+      // 1. String literals and comments are NOT neutralized.
+      const literalOnly = `var a = "location.href = target"; // location.href = 'x'\n/* location.href */`;
+      const rL = __neutralizeScriptNavigationForTest(literalOnly);
+      results.push(assert(rL.repairs.length === 0 && rL.body === literalOnly,
+        "nav-repair: string/comment nav tokens ignored"));
+
+      // 2. Real assignment is neutralized in place.
+      const assign = `document.body.dataset.ready = "1";\nvar target = "/dashboard";\nif (false) location.href = target;\nconsole.log("kept");`;
+      const rA = __neutralizeScriptNavigationForTest(assign);
+      results.push(assert(rA.body.includes("obs-nav-blocked"),
+        "nav-repair: assignment produces inert marker"));
+      results.push(assert(/document\.body\.dataset\.ready/.test(rA.body) && /console\.log\("kept"\)/.test(rA.body),
+        "nav-repair: surrounding statements survive"));
+      results.push(assert(!/location\s*\.\s*href\s*=(?!=)/.test(rA.body),
+        "nav-repair: no residual location.href assignment"));
+
+      // 3. window.open(...) call is neutralized while preserving prefix and semicolon.
+      const call = `foo();window.open("/admin", "_blank");bar();`;
+      const rC = __neutralizeScriptNavigationForTest(call);
+      results.push(assert(rC.body.includes("obs-nav-blocked") && /foo\(\)/.test(rC.body) && /bar\(\)/.test(rC.body),
+        "nav-repair: call neutralized in place, siblings preserved"));
+
+      // 4. Bare form is normalized, guard script injected exactly once, resources kept.
+      const formHtml = `<!doctype html><html><head><link rel="stylesheet" href="/style.css"><script src="/lib.js"></script></head><body>
+        <img src="/pic.png" alt="p">
+        <form><input name="x"><button>Submit</button></form>
+        <form action="/checkout"><input name="y"></form>
+        <button formaction="/dash">Bad</button>
+      </body></html>`;
+      const rF = repairNavigation(formHtml);
+      results.push(assert(/data-obsidian-local-form="1"/.test(rF.html),
+        "nav-repair: form marked local"));
+      const guardCount = (rF.html.match(/data-obsidian-form-guard="1"/g) ?? []).length;
+      results.push(assert(guardCount === 1, `nav-repair: exactly one form guard (got ${guardCount})`));
+      // Idempotent second pass.
+      const rF2 = repairNavigation(rF.html);
+      const guardCount2 = (rF2.html.match(/data-obsidian-form-guard="1"/g) ?? []).length;
+      results.push(assert(guardCount2 === 1, `nav-repair: guard injection idempotent (got ${guardCount2})`));
+      // formaction stripped, resources preserved byte-for-byte.
+      results.push(assert(!/\bformaction\s*=/.test(rF.html),
+        "nav-repair: formaction stripped"));
+      results.push(assert(/<link[^>]+href="\/style\.css"/.test(rF.html)
+        && /<script[^>]+src="\/lib\.js"/.test(rF.html)
+        && /<img[^>]+src="\/pic\.png"/.test(rF.html),
+        "nav-repair: resource attributes preserved"));
+
+      // 5. Post-repair scan is clean for the constructed doc.
+      const { scanNavigationViolations: rescan } = await import("./preview-policy");
+      const residual = rescan(rF.html).filter((v) => v.code === "nav-form-navigating" || v.code === "nav-window-open" || v.code === "nav-location-assign");
+      results.push(assert(residual.length === 0,
+        `nav-repair: repaired doc scans clean (got ${residual.length})`));
+
+      // 6. assessCandidateForCommit signature: no previousHtml, returns validation.
+      const { assessCandidateForCommit } = await import("./candidate-assess");
+      const assessed = assessCandidateForCommit({ html: src, themeCss: null, themeName: null });
+      results.push(assert(typeof assessed.validation?.status === "string",
+        "assess: exposes validation report"));
+    }
   }
 
   const passed = results.filter((r) => r.ok).length;

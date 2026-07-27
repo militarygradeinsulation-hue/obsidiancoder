@@ -1690,7 +1690,6 @@ function Index() {
           setStage("validate");
           const qa = assessCandidateForCommit({
             html: det.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
-            previousHtml: stableHtml,
           });
           if (!qa.ok) {
             setSessions((all) => all.map((s) => s.id === sessionId
@@ -1698,6 +1697,17 @@ function Index() {
               : s));
             setTerminal((t) => [...t, `✗ QA blocked deterministic edit: ${qa.blockers[0].slice(0, 120)}`]);
             pushFeedback(sessionId, { taskType: classification.taskType, strategy: "deterministic", model: null, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${qa.blockers[0]}` });
+            setLoading(false); setStage(null); markBuildEnd(sessionId);
+            return;
+          }
+          // Re-run rule gate on the repaired HTML — repair can alter attrs
+          // and remove links, which may change rule outcomes either way.
+          const postRepairGate = checkCommitGate(stableHtml, qa.repairedHtml, "deterministic");
+          if (postRepairGate) {
+            setSessions((all) => all.map((s) => s.id === sessionId
+              ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ Rule blocked repaired candidate: ${postRepairGate.join("; ").slice(0, 200)} — preview unchanged.` }] }
+              : s));
+            setTerminal((t) => [...t, `✗ Rule gate rejected repaired candidate: ${postRepairGate[0].slice(0, 120)}`]);
             setLoading(false); setStage(null); markBuildEnd(sessionId);
             return;
           }
@@ -1866,11 +1876,16 @@ function Index() {
             setStage("validate");
             const qaP = assessCandidateForCommit({
               html: patchedHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
-              previousHtml: stableHtml,
             });
             if (!qaP.ok) {
               setTerminal((t) => [...t, `✗ QA blocked patch: ${qaP.blockers[0].slice(0, 100)} — falling back to full AI generation.`]);
               pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${qaP.blockers[0]}` });
+              abortRef.current = null;
+              break patchAttempt;
+            }
+            const postRepairGateP = checkCommitGate(stableHtml, qaP.repairedHtml, "ai-patch");
+            if (postRepairGateP) {
+              setTerminal((t) => [...t, `✗ Rule gate rejected repaired patch: ${postRepairGateP[0].slice(0, 100)} — falling back to full AI generation.`]);
               abortRef.current = null;
               break patchAttempt;
             }
@@ -2219,7 +2234,6 @@ function Index() {
       setStage("validate");
       const qaG = assessCandidateForCommit({
         html: finalHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
-        previousHtml: stableHtml,
       });
       if (!qaG.ok) {
         setSessions((all) => all.map((s) => s.id === sessionId
@@ -2233,6 +2247,15 @@ function Index() {
           imageProviders: genMeta.imageProviders, imageCount: genMeta.imageCount,
           outcome: "rejected", reason: `qa: ${qaG.blockers[0].slice(0, 120)}`,
         } : prev);
+        setIntelligenceTick((n) => n + 1);
+        return;
+      }
+      const postRepairGateG = checkCommitGate(stableHtml, qaG.repairedHtml, "full-generation");
+      if (postRepairGateG) {
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Rule blocked repaired candidate: ${postRepairGateG.join("; ").slice(0, 200)} — reverted.` }] }
+          : s));
+        setTerminal((t) => [...t, `✗ Rule gate rejected repaired candidate: ${postRepairGateG[0].slice(0, 120)}`]);
         setIntelligenceTick((n) => n + 1);
         return;
       }
@@ -2979,7 +3002,13 @@ function Index() {
                     onClick={() => {
                       setOverflowOpen(false);
                       if (!current.html) return;
-                      const clean = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" }).html;
+                      const art = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" });
+                      if (!art.safeToPublish) {
+                        const reasons = art.violations.slice(0, 3).map((v) => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                        setTerminal((t) => [...t, `✗ Export blocked by QA: ${reasons}`]);
+                        return;
+                      }
+                      const clean = art.html;
                       const blob = new Blob([clean], { type: "text/html" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
@@ -4226,7 +4255,11 @@ function Index() {
                   setPaletteOpen(false);
                   if (!current.html) return;
                   const art = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" });
-                  if (!art.safeToPublish) return;
+                  if (!art.safeToPublish) {
+                    const reasons = art.violations.slice(0, 3).map((v) => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                    setTerminal((t) => [...t, `✗ Palette Go Live blocked by QA: ${reasons}`]);
+                    return;
+                  }
                   const blob = new Blob([art.html], { type: "text/html" });
                   window.open(URL.createObjectURL(blob), "_blank", "noopener,noreferrer");
                 } },

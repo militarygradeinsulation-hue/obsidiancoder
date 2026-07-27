@@ -2,16 +2,37 @@
 //
 // Turns an unsafe HTML candidate into a preview/publish-safe HTML string by
 // scoping every mutation to *navigation-eligible* controls and *navigation
-// expressions*. It never touches <link href>, <script src>, <img src>,
-// <source srcset>, media assets, CSS url() references, data URLs, or any
-// other resource loading. It never rewrites string literals inside scripts.
+// expressions* inside scripts. It never touches <link href>, <script src>,
+// <img src>, <source srcset>, media assets, CSS url() references, data
+// URLs, or any other resource loading.
 //
-// Contract: valid in-page `#existing-id` targets are preserved. Invalid or
-// off-page navigation is *disabled in place* (label, classes, content
-// preserved; href/target removed; data-obsidian-blocked, aria-disabled,
-// title added). If a script contains dynamic navigation that cannot be
-// safely isolated, the script body is left alone and a blocking violation
-// remains; callers must gate on remainingViolations.
+// Contract:
+//  - Valid in-page `#existing-id` anchor targets are preserved.
+//  - Off-page anchor targets (external, protocol-relative, root-relative,
+//    "#", "#missing-id", target=_blank) are disabled in place: label,
+//    classes, and inner content are preserved; href/target are removed;
+//    data-obsidian-blocked=1, aria-disabled=true, title are added.
+//  - Every generated <form> is normalised to local-only in both preview
+//    and publish: action/target attributes are removed and the tag is
+//    marked with data-obsidian-local-form="1". A single publish-safe form
+//    guard script (data-obsidian-form-guard="1") is injected once when
+//    any form exists — it installs a capture-phase submit listener and
+//    only calls preventDefault(). It does NOT stopPropagation(), so
+//    local submit listeners still execute.
+//  - <button formaction=…> and <input formaction=…> are stripped
+//    unconditionally (any value, including empty or "#").
+//  - Meta refresh is stripped.
+//  - Inline event handlers (on*) containing navigation expressions are
+//    neutralised in place.
+//  - Script bodies: navigation-only call expressions and navigation-only
+//    assignment expressions are replaced with `(void 0/*obs-nav-blocked*/)`
+//    using balanced-bracket extraction, without evaluating the RHS. The
+//    marker `obs-nav-blocked` contains no banned navigation tokens so a
+//    downstream rescan sees the script as clean. All unrelated statements,
+//    literals, arrays, templates, labels, and rendering logic are preserved
+//    byte-for-byte around the removed expression. If an expression cannot
+//    be safely isolated, the script body is left unchanged and a blocking
+//    violation remains for the caller.
 
 import {
   classifyTarget,
@@ -19,6 +40,7 @@ import {
   type PreviewViolation,
   type PreviewViolationCode,
 } from "./preview-policy";
+import { jsLexicalMask } from "./js-lexical-mask";
 
 export interface NavRepair {
   code:
@@ -26,7 +48,8 @@ export interface NavRepair {
     | "anchor-target-blank-stripped"
     | "placeholder-hash-disabled"
     | "missing-anchor-disabled"
-    | "form-action-stripped"
+    | "form-localized"
+    | "form-guard-injected"
     | "formaction-stripped"
     | "meta-refresh-stripped"
     | "script-window-open-neutralized"
@@ -46,7 +69,7 @@ export interface NavRepairResult {
 }
 
 // --------------------------------------------------------------------------
-// Tag-scoped attribute helpers
+// Attribute helpers
 // --------------------------------------------------------------------------
 
 function getAttr(attrs: string, name: string): string | null {
@@ -56,8 +79,12 @@ function getAttr(attrs: string, name: string): string | null {
   return m[2] ?? m[3] ?? m[4] ?? "";
 }
 
+function hasAttr(attrs: string, name: string): boolean {
+  return new RegExp(`\\b${name}\\b`, "i").test(attrs);
+}
+
 function removeAttr(attrs: string, name: string): string {
-  const rx = new RegExp(`\\s*\\b${name}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, "i");
+  const rx = new RegExp(`\\s*\\b${name}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, "gi");
   return attrs.replace(rx, "");
 }
 
@@ -84,7 +111,6 @@ function humanLabelFor(tag: string, attrs: string, inner: string): string {
   return text.slice(0, 80);
 }
 
-// True if href/action is an in-page anchor to an existing id.
 function isValidInternalAnchor(target: string, ids: Set<string>): boolean {
   if (!target || target[0] !== "#") return false;
   const id = target.slice(1);
@@ -93,11 +119,10 @@ function isValidInternalAnchor(target: string, ids: Set<string>): boolean {
 }
 
 // --------------------------------------------------------------------------
-// Anchor / area repair (never touches <link>, <script src>, images, etc.)
+// Anchor / area repair
 // --------------------------------------------------------------------------
 
 function repairAnchorTags(html: string, ids: Set<string>, repairs: NavRepair[]): string {
-  // Match opening <a ...> and <area ...> tags only.
   const rx = /<(a|area)\b([^>]*)>/gi;
   return html.replace(rx, (match, tag: string, rawAttrs: string) => {
     const attrs = rawAttrs;
@@ -107,22 +132,18 @@ function repairAnchorTags(html: string, ids: Set<string>, repairs: NavRepair[]):
 
     if (href == null && target !== "_blank") return match;
 
-    // target=_blank on a valid internal anchor: strip target, keep href.
     if (target === "_blank") {
       if (href && isValidInternalAnchor(href, ids)) {
         const next = removeAttr(attrs, "target");
         repairs.push({ code: "anchor-target-blank-stripped", label, from: href });
         return `<${tag}${next.trimEnd()}>`;
       }
-      // target=_blank on off-page/invalid href → fully disabled below.
     }
 
-    if (href == null) return match; // nothing to do; target already handled
+    if (href == null) return match;
 
-    // Valid internal anchor → keep as-is.
     if (isValidInternalAnchor(href, ids)) return match;
 
-    // Placeholder "#" or "#" with no id → disable.
     if (href === "#" || href.startsWith("#")) {
       const code: NavRepair["code"] = href === "#"
         ? "placeholder-hash-disabled"
@@ -138,7 +159,6 @@ function repairAnchorTags(html: string, ids: Set<string>, repairs: NavRepair[]):
       return `<${tag}${next.trimEnd()}>`;
     }
 
-    // Off-page / external / any other target → disable.
     let next = removeAttr(attrs, "href");
     next = removeAttr(next, "target");
     next = upsertAttr(next, "data-obsidian-blocked", "1");
@@ -150,43 +170,79 @@ function repairAnchorTags(html: string, ids: Set<string>, repairs: NavRepair[]):
 }
 
 // --------------------------------------------------------------------------
-// Form repair — strip off-page actions; bare forms lose their action so the
-// browser cannot default-navigate. Local submit listeners still fire; the
-// runtime bridge preventDefault()s all submits in the preview iframe too.
+// Form repair — every <form> becomes local-only. Bare forms, empty/"#"
+// action, off-page action are all normalised to no action + no target +
+// data-obsidian-local-form="1". Local submit listeners survive. The form
+// guard script (installed later) prevents default browser submission for
+// every form in the document (preview AND publish).
 // --------------------------------------------------------------------------
 
-function repairFormTags(html: string, ids: Set<string>, repairs: NavRepair[]): string {
-  return html.replace(/<form\b([^>]*)>/gi, (match, rawAttrs: string) => {
+function repairFormTags(html: string, _ids: Set<string>, repairs: NavRepair[]): string {
+  return html.replace(/<form\b([^>]*)>/gi, (_m, rawAttrs: string) => {
     const attrs = rawAttrs;
     const action = getAttr(attrs, "action");
-    if (action == null) return match;
-    if (isValidInternalAnchor(action, ids)) return match;
-    if (!action || action === "#") return match; // nothing to strip
-    if (!classifyTarget(action)) return match; // treated as safe (already hash)
-
+    const target = getAttr(attrs, "target");
+    const already = hasAttr(attrs, "data-obsidian-local-form");
+    if (already && action == null && target == null) {
+      // Idempotent no-op.
+      return `<form${attrs}>`;
+    }
     const label = humanLabelFor("form", attrs, "");
     let next = removeAttr(attrs, "action");
-    next = upsertAttr(next, "data-obsidian-blocked", "1");
-    repairs.push({ code: "form-action-stripped", label, from: action });
+    next = removeAttr(next, "target");
+    next = upsertAttr(next, "data-obsidian-local-form", "1");
+    repairs.push({ code: "form-localized", label, from: action ?? undefined });
     return `<form${next.trimEnd()}>`;
   });
 }
 
-function repairFormactionAttrs(html: string, ids: Set<string>, repairs: NavRepair[]): string {
-  // Only <button ...> and <input type=submit|image ...> may carry formaction.
-  return html.replace(/<(button|input)\b([^>]*)>/gi, (match, tag: string, rawAttrs: string) => {
+// Strip formaction unconditionally — any value can navigate.
+function repairFormactionAttrs(html: string, _ids: Set<string>, repairs: NavRepair[]): string {
+  return html.replace(/<(button|input)\b([^>]*)>/gi, (m, tag: string, rawAttrs: string) => {
     const attrs = rawAttrs;
+    if (!hasAttr(attrs, "formaction")) return m;
     const fa = getAttr(attrs, "formaction");
-    if (fa == null) return match;
-    if (isValidInternalAnchor(fa, ids)) return match;
-    if (!fa || fa === "#" || !classifyTarget(fa)) return match;
-
     const label = humanLabelFor(tag.toLowerCase(), attrs, "");
     let next = removeAttr(attrs, "formaction");
+    // Also drop formtarget for completeness.
+    next = removeAttr(next, "formtarget");
     next = upsertAttr(next, "data-obsidian-blocked", "1");
-    repairs.push({ code: "formaction-stripped", label, from: fa });
+    repairs.push({ code: "formaction-stripped", label, from: fa ?? undefined });
     return `<${tag}${next.trimEnd()}>`;
   });
+}
+
+// --------------------------------------------------------------------------
+// Form guard — injected exactly once when any <form> exists in the repaired
+// source. Uses a capture-phase submit listener that only calls
+// preventDefault(). NEVER stopPropagation() — local submit listeners must
+// still run so in-document state updates work.
+// --------------------------------------------------------------------------
+
+const FORM_GUARD_MARK = 'data-obsidian-form-guard="1"';
+const FORM_GUARD_SCRIPT =
+  `<script ${FORM_GUARD_MARK}>` +
+  `(function(){try{document.addEventListener("submit",function(e){` +
+  `if(e&&e.target&&e.target.tagName==="FORM"){e.preventDefault();}` +
+  `},true);}catch(_){}}())` +
+  `;</script>`;
+
+function ensureFormGuard(html: string, repairs: NavRepair[]): string {
+  if (!/<form\b/i.test(html)) {
+    // No forms → remove any stale guard so parity stays clean.
+    if (html.includes(FORM_GUARD_MARK)) {
+      return html.replace(
+        new RegExp(`<script\\s+${FORM_GUARD_MARK}[^>]*>[\\s\\S]*?</script>`, "gi"),
+        "",
+      );
+    }
+    return html;
+  }
+  if (html.includes(FORM_GUARD_MARK)) return html; // already present, dedupe.
+  const inject = FORM_GUARD_SCRIPT;
+  repairs.push({ code: "form-guard-injected" });
+  if (/<\/body>/i.test(html)) return html.replace(/<\/body>/i, `${inject}</body>`);
+  return `${html}${inject}`;
 }
 
 // --------------------------------------------------------------------------
@@ -194,7 +250,7 @@ function repairFormactionAttrs(html: string, ids: Set<string>, repairs: NavRepai
 // --------------------------------------------------------------------------
 
 function stripMetaRefresh(html: string, repairs: NavRepair[]): string {
-  return html.replace(/<meta\b[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, (m) => {
+  return html.replace(/<meta\b[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi, () => {
     repairs.push({ code: "meta-refresh-stripped" });
     return "";
   });
@@ -206,7 +262,7 @@ function stripMetaRefresh(html: string, repairs: NavRepair[]): string {
 
 function repairInlineHandlers(html: string, repairs: NavRepair[]): string {
   const rx = /(<(?:a|area|button|input|form|div|span|li|tr|td|th|section|nav|header|footer|main|article|aside|figure|figcaption|details|summary|label)\b[^>]*?)\s(on[a-z]+)\s*=\s*("([^"]*)"|'([^']*)')/gi;
-  return html.replace(rx, (m, prefix: string, handler: string, _quoted: string, dq: string | undefined, sq: string | undefined) => {
+  return html.replace(rx, (m, prefix: string, handler: string, _q: string, dq: string | undefined, sq: string | undefined) => {
     const body = dq ?? sq ?? "";
     if (!/(?:window\.open|location\.(?:assign|replace|href)|\btop\.location|\bparent\.location|\bwindow\.location)/i.test(body)) {
       return m;
@@ -217,81 +273,41 @@ function repairInlineHandlers(html: string, repairs: NavRepair[]): string {
 }
 
 // --------------------------------------------------------------------------
-// Script navigation neutralizer — targeted expression rewriting only.
-// Never rewrites unrelated string literals, rendering logic, JSON, class
-// names, or labels. If dynamic navigation cannot be isolated, the script
-// body is left unchanged and a blocking violation remains.
+// Script navigation neutraliser.
 // --------------------------------------------------------------------------
 
 interface ScriptRepairResult { body: string; repairs: NavRepair[] }
 
-function neutralizeScriptNavigation(body: string): ScriptRepairResult {
-  const repairs: NavRepair[] = [];
-  let out = body;
+// Neutralisation marker. Chosen so it contains NONE of the tokens the
+// scanner searches for (no `location`, no `window.open`, no `assign`,
+// `replace`, or `href`).
+const NEUTRAL = "(void 0/*obs-nav-blocked*/)";
 
-  // 1. Call expressions with balanced-parens: window.open(...),
-  //    location.assign(...), location.replace(...).
-  const CALLS: { name: string; code: NavRepair["code"] }[] = [
-    { name: "window.open", code: "script-window-open-neutralized" },
-    { name: "location.assign", code: "script-location-assign-neutralized" },
-    { name: "location.replace", code: "script-location-replace-neutralized" },
-    { name: "window.location.assign", code: "script-location-assign-neutralized" },
-    { name: "window.location.replace", code: "script-location-replace-neutralized" },
-    { name: "top.location.assign", code: "script-location-assign-neutralized" },
-    { name: "top.location.replace", code: "script-location-replace-neutralized" },
-    { name: "parent.location.assign", code: "script-location-assign-neutralized" },
-    { name: "parent.location.replace", code: "script-location-replace-neutralized" },
-  ];
+const CALL_NAMES: { name: string; code: NavRepair["code"] }[] = [
+  { name: "window.open",              code: "script-window-open-neutralized" },
+  { name: "window.location.assign",   code: "script-location-assign-neutralized" },
+  { name: "window.location.replace",  code: "script-location-replace-neutralized" },
+  { name: "top.location.assign",      code: "script-location-assign-neutralized" },
+  { name: "top.location.replace",     code: "script-location-replace-neutralized" },
+  { name: "parent.location.assign",   code: "script-location-assign-neutralized" },
+  { name: "parent.location.replace",  code: "script-location-replace-neutralized" },
+  { name: "location.assign",          code: "script-location-assign-neutralized" },
+  { name: "location.replace",         code: "script-location-replace-neutralized" },
+];
 
-  for (const { name, code } of CALLS) {
-    const rx = new RegExp(`(^|[^\\w.])${name.replace(/\./g, "\\.")}\\s*\\(`, "g");
-    let rewritten = "";
-    let last = 0;
-    let m: RegExpExecArray | null;
-    while ((m = rx.exec(out)) !== null) {
-      const openIdx = m.index + m[0].length - 1; // position of '('
-      const closeIdx = findMatchingParen(out, openIdx);
-      if (closeIdx < 0) break; // unmatched — leave rest alone
-      rewritten += out.slice(last, m.index + m[1].length);
-      rewritten += `(void 0 /* obsidian blocked ${name} */)`;
-      last = closeIdx + 1;
-      repairs.push({ code, from: name });
-      rx.lastIndex = closeIdx + 1;
-    }
-    rewritten += out.slice(last);
-    out = rewritten;
-  }
-
-  // 2. Assignment expressions: LHS = RHS  →  LHS, undefined == RHS
-  //    Evaluates LHS (a getter → no side effect) and compares to RHS,
-  //    discarding the boolean. Cannot navigate.
-  //    Covers: location = ..., location.href = ..., window.location = ...,
-  //    window.location.href = ..., top.location[.href] = ..., parent.location[.href] = ....
-  //
-  //    Word-boundary guard prevents matching document.location property
-  //    dereferences that don't perform navigation (e.g., a read).
-  const ASSIGN_RXES: { rx: RegExp; code: NavRepair["code"] }[] = [
-    { rx: /(^|[^\w.])(window\s*\.\s*location\s*\.\s*href)\s*=(?!=)/g, code: "script-location-write-neutralized" },
-    { rx: /(^|[^\w.])(top\s*\.\s*location\s*\.\s*href)\s*=(?!=)/g, code: "script-location-write-neutralized" },
-    { rx: /(^|[^\w.])(parent\s*\.\s*location\s*\.\s*href)\s*=(?!=)/g, code: "script-location-write-neutralized" },
-    { rx: /(^|[^\w.])(window\s*\.\s*location)\s*=(?!=)/g, code: "script-location-write-neutralized" },
-    { rx: /(^|[^\w.])(top\s*\.\s*location)\s*=(?!=)/g, code: "script-location-write-neutralized" },
-    { rx: /(^|[^\w.])(parent\s*\.\s*location)\s*=(?!=)/g, code: "script-location-write-neutralized" },
-    { rx: /(^|[^\w.])(location\s*\.\s*href)\s*=(?!=)/g, code: "script-location-write-neutralized" },
-    { rx: /(^|[^\w.])(location)\s*=(?!=)/g, code: "script-location-write-neutralized" },
-  ];
-
-  for (const { rx, code } of ASSIGN_RXES) {
-    let touched = false;
-    out = out.replace(rx, (_m, pre: string, lhs: string) => {
-      touched = true;
-      return `${pre}${lhs}, undefined == `;
-    });
-    if (touched) repairs.push({ code });
-  }
-
-  return { body: out, repairs };
-}
+// Assignment LHS patterns, longest-first so `window.location.href` wins over `location`.
+const ASSIGN_LHS: { pattern: RegExp; code: NavRepair["code"] }[] = [
+  { pattern: /window\s*\.\s*location\s*\.\s*href/g, code: "script-location-write-neutralized" },
+  { pattern: /top\s*\.\s*location\s*\.\s*href/g,    code: "script-location-write-neutralized" },
+  { pattern: /parent\s*\.\s*location\s*\.\s*href/g, code: "script-location-write-neutralized" },
+  { pattern: /window\s*\.\s*location(?!\s*\.)/g,    code: "script-location-write-neutralized" },
+  { pattern: /top\s*\.\s*location(?!\s*\.)/g,       code: "script-location-write-neutralized" },
+  { pattern: /parent\s*\.\s*location(?!\s*\.)/g,    code: "script-location-write-neutralized" },
+  { pattern: /location\s*\.\s*href/g,               code: "script-location-write-neutralized" },
+  // Bare `location = expr` — must not be preceded by a name-continuation
+  // char and not by a `.`.
+  { pattern: /(?<![\w$.])location(?!\s*\.)/g,       code: "script-location-write-neutralized" },
+];
 
 function findMatchingParen(s: string, openIdx: number): number {
   let depth = 1;
@@ -309,16 +325,8 @@ function findMatchingParen(s: string, openIdx: number): number {
       i++;
       continue;
     }
-    if (c === "/" && s[i + 1] === "/") {
-      while (i < n && s[i] !== "\n") i++;
-      continue;
-    }
-    if (c === "/" && s[i + 1] === "*") {
-      i += 2;
-      while (i < n && !(s[i] === "*" && s[i + 1] === "/")) i++;
-      i += 2;
-      continue;
-    }
+    if (c === "/" && s[i + 1] === "/") { while (i < n && s[i] !== "\n") i++; continue; }
+    if (c === "/" && s[i + 1] === "*") { i += 2; while (i < n && !(s[i] === "*" && s[i + 1] === "/")) i++; i += 2; continue; }
     if (c === "(") depth++;
     else if (c === ")") depth--;
     i++;
@@ -326,10 +334,120 @@ function findMatchingParen(s: string, openIdx: number): number {
   return depth === 0 ? i - 1 : -1;
 }
 
+// Walk raw source starting at `from` and find the end of an expression
+// statement. Stops (exclusive) at the first `;`, `\n`, or unbalanced
+// closing `)`/`}`/`]` at depth 0. Returns -1 if the search runs off
+// the buffer without terminating, in which case the caller must NOT
+// rewrite (leave the source alone).
+function findExpressionEnd(s: string, from: number): number {
+  let depth = 0;
+  let i = from;
+  const n = s.length;
+  while (i < n) {
+    const c = s[i];
+    if (c === '"' || c === "'" || c === "`") {
+      const q = c;
+      i++;
+      while (i < n && s[i] !== q) {
+        if (s[i] === "\\") { i += 2; continue; }
+        if (q === "`" && s[i] === "$" && s[i + 1] === "{") {
+          i += 2; let dd = 1;
+          while (i < n && dd > 0) {
+            if (s[i] === "{") dd++;
+            else if (s[i] === "}") dd--;
+            if (dd > 0) i++;
+          }
+          if (i < n) i++;
+          continue;
+        }
+        i++;
+      }
+      if (i < n) i++;
+      continue;
+    }
+    if (c === "/" && s[i + 1] === "/") { while (i < n && s[i] !== "\n") i++; return i; }
+    if (c === "/" && s[i + 1] === "*") { i += 2; while (i < n && !(s[i] === "*" && s[i + 1] === "/")) i++; i += 2; continue; }
+    if (c === "(" || c === "[" || c === "{") { depth++; i++; continue; }
+    if (c === ")" || c === "]" || c === "}") {
+      if (depth === 0) return i;
+      depth--; i++; continue;
+    }
+    if (depth === 0 && (c === ";" || c === "\n")) return i;
+    i++;
+  }
+  return -1;
+}
+
+function neutralizeScriptNavigation(body: string): ScriptRepairResult {
+  const repairs: NavRepair[] = [];
+  const mask = jsLexicalMask(body);
+
+  // Collect all edits as [start, end, code] non-overlapping ranges.
+  type Edit = { start: number; end: number; code: NavRepair["code"]; from: string };
+  const edits: Edit[] = [];
+
+  // 1. Calls
+  for (const { name, code } of CALL_NAMES) {
+    const escaped = name.replace(/\./g, "\\.\\s*");
+    // Preceded by non-name-continuation character (or start of buffer).
+    const rx = new RegExp(`(?<![\\w$.])${escaped}\\s*\\(`, "g");
+    let m: RegExpExecArray | null;
+    while ((m = rx.exec(mask)) !== null) {
+      const nameStart = m.index;
+      const parenIdx = mask.indexOf("(", nameStart);
+      const close = findMatchingParen(body, parenIdx);
+      if (close < 0) continue;
+      // Skip if this range already covered by a longer name.
+      if (edits.some((e) => nameStart < e.end && close + 1 > e.start)) continue;
+      edits.push({ start: nameStart, end: close + 1, code, from: name });
+    }
+  }
+
+  // 2. Assignments — LHS pattern followed by `=` (not `==` or `===` or `=>`).
+  for (const { pattern, code } of ASSIGN_LHS) {
+    const rx = new RegExp(pattern.source, "g");
+    let m: RegExpExecArray | null;
+    while ((m = rx.exec(mask)) !== null) {
+      const lhsStart = m.index;
+      const lhsEnd = m.index + m[0].length;
+      // Look ahead: optional whitespace, then `=` not part of `==`/`===`/`=>`.
+      let k = lhsEnd;
+      while (k < mask.length && /\s/.test(mask[k])) k++;
+      if (mask[k] !== "=") continue;
+      if (mask[k + 1] === "=" || mask[k + 1] === ">") continue;
+      const rhsStart = k + 1;
+      const stmtEnd = findExpressionEnd(body, rhsStart);
+      if (stmtEnd < 0) continue; // cannot isolate — leave and let scan block.
+      // Skip if overlapping with an earlier edit (call inside RHS is fine
+      // — we replace the whole assignment so the call goes with it).
+      if (edits.some((e) => lhsStart < e.end && stmtEnd > e.start)) continue;
+      edits.push({ start: lhsStart, end: stmtEnd, code, from: m[0].replace(/\s+/g, "") });
+    }
+  }
+
+  if (edits.length === 0) return { body, repairs };
+
+  edits.sort((a, b) => a.start - b.start);
+  let out = "";
+  let cursor = 0;
+  for (const e of edits) {
+    if (e.start < cursor) continue; // overlapping — skip.
+    out += body.slice(cursor, e.start);
+    out += NEUTRAL;
+    cursor = e.end;
+    repairs.push({ code: e.code, from: e.from });
+  }
+  out += body.slice(cursor);
+
+  return { body: out, repairs };
+}
+
+// Export for focused unit testing.
+export const __neutralizeScriptNavigationForTest = neutralizeScriptNavigation;
+
 function repairScripts(html: string, repairs: NavRepair[]): string {
   return html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (m, attrs: string, body: string) => {
-    // External scripts have no inline body — nothing to neutralize.
-    if (/\bsrc\s*=/.test(attrs) && !body.trim()) return m;
+    if (/\bsrc\s*=/.test(attrs) && !body.trim()) return m; // external, empty body
     const { body: repaired, repairs: r } = neutralizeScriptNavigation(body);
     if (r.length === 0) return m;
     for (const rep of r) repairs.push(rep);
@@ -355,10 +473,9 @@ export function repairNavigation(html: string): NavRepairResult {
   out = repairFormTags(out, ids, repairs);
   out = repairFormactionAttrs(out, ids, repairs);
   out = repairScripts(out, repairs);
+  out = ensureFormGuard(out, repairs);
 
-  // Re-scan the repaired source. Anchors we disabled no longer carry href, so
-  // scanNavigationViolations must not flag them; disabled forms lose action.
-  const remainingViolations = scanNavigationViolations(out).filter((v) => !isBenignAfterRepair(v));
+  const remainingViolations = scanNavigationViolations(out);
 
   return {
     html: out,
@@ -368,12 +485,7 @@ export function repairNavigation(html: string): NavRepairResult {
   };
 }
 
-// Some scan codes describe conditions that repair converts into inert
-// disabled controls. If a downstream scan still reports them, they're
-// legitimate (repair could not neutralize the surface), so we don't filter.
-// Kept as a small helper in case we add lenient codes later.
-function isBenignAfterRepair(_v: PreviewViolation): boolean {
-  return false;
-}
+// Backwards compat: unused but preserved for callers that import it.
+export function classifyTargetForTest(t: string) { return classifyTarget(t); }
 
 export type { PreviewViolationCode };
