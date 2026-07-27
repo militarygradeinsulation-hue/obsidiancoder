@@ -147,9 +147,24 @@ export async function finalizeCandidate(
   input: FinalizeInput,
   call: QaProductionCall,
 ): Promise<FinalizeResult> {
-  const hash = publishHash(input.candidateHtml, input.themeCss ?? null, input.themeName ?? null);
-  const cached = CACHE.get(hash);
-  if (cached) return { ...cached, source: "cache" };
+  const contentHash = publishHash(input.candidateHtml, input.themeCss ?? null, input.themeName ?? null);
+  const key = cacheKey(input, contentHash);
+  const cached = cacheGet(key);
+  if (cached) {
+    // Reconstruct output using the CURRENT stableHtml. The cached blocked
+    // finalHtml belonged to whatever session filled the cache; do not leak
+    // it across sessions. Successful cached results already carry the
+    // patched artifact, which is stable across sessions.
+    const finalHtml = cached.ok ? cached.finalHtml : input.stableHtml;
+    return {
+      ...cached,
+      finalHtml,
+      source: "cache",
+      claudeInvoked: false,
+      claudeResultFromCache: cached.claudeInvoked || cached.claudeResultFromCache,
+    };
+  }
+  const hash = contentHash;
 
   const assessment = assessCandidateForCommit({
     html: input.candidateHtml,
