@@ -879,6 +879,7 @@ function Unlock() {
               playsInline
               controls
               preload="auto"
+              tabIndex={0}
               aria-label={activeVideo.label}
             />
             <p className="video-lightbox-caption">{activeVideo.label}</p>
