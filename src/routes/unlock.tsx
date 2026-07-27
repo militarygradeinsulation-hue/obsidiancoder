@@ -716,45 +716,15 @@ function Unlock() {
 
 
 
-      {/* SIGNATURE CARD — bottom of page, out of the way */}
-      <section className="unlock-architect" aria-labelledby="architect-heading">
-        <div className="architect-card">
-          <div className="architect-portrait">
-            <img
-              src={signatureCard.url}
-              alt="Joseph Toney — AI Architect signature card"
-              loading="lazy"
-              decoding="async"
-            />
-          </div>
-          <div className="architect-body">
-            <h2 id="architect-heading" className="architect-title">Meet the Architect</h2>
-            <p className="architect-name">Joseph Toney</p>
-            <p className="architect-tagline">
-              AI Architect · MS, BA · IBM AI Certified
-            </p>
-            <p className="architect-quote">
-              “I find the cause of chaos and remove it at the source.”
-            </p>
-            <div className="architect-links">
-              <a
-                href="https://Aetheris.Technology"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="architect-link"
-              >
-                Aetheris.Technology
-              </a>
-              <a
-                href="https://www.linkedin.com/in/thejosephtoney"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="architect-link"
-              >
-                LinkedIn
-              </a>
-            </div>
-          </div>
+      {/* SLOGAN — bottom of page, out of the way */}
+      <section className="unlock-slogan" aria-labelledby="slogan-heading">
+        <div className="slogan-card">
+          <h2 id="slogan-heading" className="slogan-headline">
+            AI built for the professionals big tech forgot
+          </h2>
+          <p className="slogan-body">
+            People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
+          </p>
         </div>
       </section>
 
