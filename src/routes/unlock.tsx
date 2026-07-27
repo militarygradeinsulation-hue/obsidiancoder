@@ -930,7 +930,16 @@ const unlockCss = `
   display: grid;
   place-items: center;
 }
+.unlock-hills-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
 .unlock-scene-canvas {
+  position: relative;
   width: min(920px, 92vmin);
   height: min(920px, 92vmin);
   filter: drop-shadow(0 0 60px rgba(244,161,37,0.25));
