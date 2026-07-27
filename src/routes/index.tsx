@@ -2916,7 +2916,7 @@ function Index() {
                     onClick={() => {
                       setOverflowOpen(false);
                       if (!current.html) return;
-                      const clean = sanitizeForExport(current.html);
+                      const clean = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" }).html;
                       const blob = new Blob([clean], { type: "text/html" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
