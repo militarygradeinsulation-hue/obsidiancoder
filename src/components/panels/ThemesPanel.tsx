@@ -114,7 +114,7 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, currentB
             <Palette className="h-4 w-4" style={{ color: "#F4A125" }} />
             <div>
               <h2>Visual Themes</h2>
-              <p>Palettes & typography from 21st.dev — apply to your sandbox in one click.</p>
+              <p>10 built-in blueprints (9-axis) plus 21st.dev imports — apply to your sandbox in one click.</p>
             </div>
           </div>
           <div className="themes-actions">
