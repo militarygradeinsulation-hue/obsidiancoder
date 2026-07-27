@@ -1933,6 +1933,12 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
       `blueprints: system prompt covers ≥8 axis mentions and stays <2KB (mentions=${mentions.length}, chars=${prompt.length})`));
   }
 
+  const passed = results.filter((r) => r.ok).length;
+  const failed = results.length - passed;
+  return { results, passed, failed };
+}
+
+
 
 
 
