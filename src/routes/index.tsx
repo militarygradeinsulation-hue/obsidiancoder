@@ -4002,6 +4002,7 @@ function Index() {
               bypass={engineeringBypass}
               onToggleBypass={setEngineeringBypass}
               currentStage={stage ?? undefined}
+              qaStatus={current.qaStatus ?? null}
             />
             <StrategyExplanation decision={lastDecision} lastOperation={lastOperation} />
             <LearningPanel onChange={() => setIntelligenceTick((n) => n + 1)} />
