@@ -1933,6 +1933,167 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
       `blueprints: system prompt covers ≥8 axis mentions and stays <2KB (mentions=${mentions.length}, chars=${prompt.length})`));
   }
 
+  // -------------------------------------------------------------------
+  // Obsidian QA gate — preview policy, publish artifact, parity, QA cost
+  // -------------------------------------------------------------------
+  {
+    const { scanNavigationViolations, classifyTarget } = await import("./preview-policy");
+    const { buildArtifact, publishHash } = await import("./publish-artifact");
+    const { checkParity, invalidateParityCache } = await import("./parity-check");
+    const { runClaudeQA, invalidateQaCache, peekQaCache } = await import("./claude-qa");
+    const { recordDefect, buildFailureHints, renderHintsPrompt } = await import("./failure-learning");
+    const { sanitizeForExport } = await import("./clean-export");
+
+    // classifyTarget — every category
+    results.push(assert(classifyTarget("#existing") === null, "policy: hash allowed"));
+    results.push(assert(classifyTarget("/") === "nav-creator-route", "policy: root is creator route"));
+    results.push(assert(classifyTarget("/dashboard") === "nav-creator-route", "policy: dashboard blocked"));
+    results.push(assert(classifyTarget("//evil.com/x") === "nav-protocol-relative", "policy: protocol-relative blocked"));
+    results.push(assert(classifyTarget("https://example.com") === "nav-external", "policy: external flagged"));
+    results.push(assert(classifyTarget("https://obsidianvibe.live/x") === "nav-creator-route", "policy: creator host blocked"));
+    results.push(assert(classifyTarget("mailto:a@b.co") === "nav-deep-link", "policy: mailto flagged"));
+    results.push(assert(classifyTarget("javascript:alert(1)") === "nav-deep-link", "policy: javascript: flagged"));
+
+    const navHtml = `<!doctype html><html><body>
+      <a href="#section-a">Ok</a>
+      <a href="#ghost">Missing</a>
+      <a href="/dashboard">Bad route</a>
+      <a href="https://example.com" target="_blank">External newtab</a>
+      <button onclick="return true">Local</button>
+      <form action="/checkout" method="post"><input name="x"/></form>
+      <form method="post"><input name="y"/></form>
+      <section id="section-a">Hi</section>
+      <script>window.open("/admin")</script>
+      <script>location.href = "/dashboard"</script>
+    </body></html>`;
+    const vs = scanNavigationViolations(navHtml);
+    const codes = new Set(vs.map((v) => v.code));
+    results.push(assert(!vs.some((v) => v.target === "#section-a"), "nav-scan: valid anchor passes"));
+    results.push(assert(codes.has("nav-missing-anchor"), "nav-scan: missing anchor caught"));
+    results.push(assert(codes.has("nav-creator-route"), "nav-scan: creator route caught"));
+    results.push(assert(codes.has("nav-target-blank"), "nav-scan: target=_blank caught"));
+    results.push(assert(codes.has("nav-window-open"), "nav-scan: window.open caught"));
+    results.push(assert(codes.has("nav-form-navigating"), "nav-scan: bare navigating form caught"));
+
+    // publish artifact — theme applied once, bridge stripped, non-destructive sanitizer
+    const themeCss = ".x{color:red}";
+    const src = `<!doctype html><html><head><title>t</title></head><body>
+      <h1>Real content</h1>
+      <script>
+        // mixed-purpose script: renders AND has creator nav
+        document.body.dataset.ready = "1";
+        var target = "/dashboard";
+        if (false) location.href = target;
+      </script>
+    </body></html>`;
+    const pub = buildArtifact({ html: src, themeCss, surface: "publish" });
+    const prev = buildArtifact({ html: src, themeCss, surface: "preview" });
+    const themeCount = (pub.html.match(/data-obsidian-theme="1"/g) || []).length;
+    results.push(assert(themeCount === 1, `artifact: theme injected exactly once (got ${themeCount})`));
+    results.push(assert(!/obsidian\.runtime/.test(pub.html), "artifact: preview bridge stripped from publish"));
+    results.push(assert(/obsidian\.runtime/.test(prev.html), "artifact: preview bridge present in preview"));
+    // Non-destructive sanitizer: the mixed script's rendering code must survive.
+    results.push(assert(/document\.body\.dataset\.ready/.test(pub.html),
+      "sanitizer: mixed script rendering logic preserved"));
+    results.push(assert(!pub.html.includes(`"/dashboard"`) && pub.html.includes(`"#obsidian-blocked"`),
+      "sanitizer: creator URL literal precisely neutralized"));
+
+    // Parity
+    invalidateParityCache();
+    const same = checkParity(pub.html, pub.html);
+    results.push(assert(same.ok, "parity: identical strings pass"));
+
+    const halfLost = `<!doctype html><html><body><h1>Only heading</h1></body></html>`;
+    const fullEditor = `<!doctype html><html><body>
+      <h1>Title</h1><h2>A</h2><h2>B</h2>
+      <p>${"x".repeat(1000)}</p>
+      <button>1</button><button>2</button><button>3</button>
+    </body></html>`;
+    const lostReport = checkParity(fullEditor, halfLost);
+    results.push(assert(!lostReport.ok && lostReport.blockers.length > 0,
+      "parity: massive content loss blocks publish"));
+
+    const emptyReport = checkParity(fullEditor, `<!doctype html><html><body></body></html>`);
+    results.push(assert(!emptyReport.ok && emptyReport.publishEmpty, "parity: empty publish blocks"));
+
+    // Parity cache invalidates when HTML changes (different key → different result).
+    const first = checkParity(fullEditor, fullEditor).cacheKey;
+    const second = checkParity(fullEditor, halfLost).cacheKey;
+    results.push(assert(first !== second, "parity: cache key differs when publish changes"));
+
+    // Claude QA cost control — clean build makes zero calls
+    invalidateQaCache();
+    let calls = 0;
+    const call = async () => { calls++; return `{"verdict":"pass","confidence":0.9,"defect_categories":[],"explanation":"ok"}`; };
+    const clean = await runClaudeQA({
+      editorHtml: pub.html, publishHtml: pub.html, themeCss, runtimeErrors: 0,
+      freeDemo: false, userRequest: "hello",
+    }, call);
+    results.push(assert(clean.verdict === "pass" && !clean.aiCallMade && calls === 0,
+      `qa: clean build → zero calls (calls=${calls}, aiCallMade=${clean.aiCallMade})`));
+
+    // Free demo never invokes Claude even when parity fails.
+    invalidateQaCache(); calls = 0;
+    const freeDemo = await runClaudeQA({
+      editorHtml: fullEditor, publishHtml: halfLost, themeCss: null, runtimeErrors: 2,
+      freeDemo: true, userRequest: "hello",
+    }, call);
+    results.push(assert(freeDemo.source === "skipped-free-demo" && calls === 0,
+      `qa: free-demo → never calls Claude (calls=${calls})`));
+
+    // Unresolved build → at most one call, then cached.
+    invalidateQaCache(); calls = 0;
+    const first1 = await runClaudeQA({
+      editorHtml: fullEditor, publishHtml: halfLost, themeCss: null, runtimeErrors: 1,
+      freeDemo: false, userRequest: "make it better",
+    }, call);
+    const second1 = await runClaudeQA({
+      editorHtml: fullEditor, publishHtml: halfLost, themeCss: null, runtimeErrors: 1,
+      freeDemo: false, userRequest: "make it better",
+    }, call);
+    results.push(assert(calls === 1 && first1.aiCallMade && second1.source === "cache",
+      `qa: unresolved → ≤1 call, then cached (calls=${calls}, first=${first1.source}, second=${second1.source})`));
+
+    // Cache key sanity
+    const h = publishHash(fullEditor);
+    results.push(assert(!!peekQaCache(publishHash(fullEditor, null)) && h.length === 8,
+      "qa: cache keyed by publish hash"));
+
+    // Defect learning
+    let ledger: import("./failure-learning").DefectEvent[] = [];
+    for (let i = 0; i < 3; i++) {
+      ledger = recordDefect(ledger, {
+        taskType: "full-generation", strategy: "ai-full", model: "m1",
+        buildHash: `b${i}`, category: "nav-creator-route", label: `Book Now #${i}`,
+        deterministicRepairFixed: false, claudeQaInvoked: true, claudeQaFixed: true,
+        outcome: "kept",
+      });
+    }
+    ledger = recordDefect(ledger, {
+      taskType: "full-generation", strategy: "ai-full", model: "m1",
+      buildHash: "b9", category: "publish-content-loss", charsLost: 800,
+      deterministicRepairFixed: false, claudeQaInvoked: true, claudeQaFixed: false,
+      outcome: "blocked",
+    });
+    const hints = buildFailureHints(ledger, "full-generation");
+    results.push(assert(hints.length >= 1 && hints[0].category === "nav-creator-route" && hints[0].count === 3,
+      `learning: 3x defect surfaces as top hint (got ${hints.length})`));
+    const unrelated = buildFailureHints(ledger, "small-edit");
+    results.push(assert(unrelated.length === 0, "learning: hints scoped to task type"));
+    const prompt = renderHintsPrompt(hints);
+    results.push(assert(prompt.includes("do not repeat") && prompt.length < 800,
+      "learning: prompt block is bounded"));
+    // No PII: label chars are safe.
+    const asJson = JSON.stringify(ledger);
+    results.push(assert(!/[<>{};]/.test(ledger[0].label ?? "") && !/@/.test(asJson.slice(0, 500)),
+      "learning: labels are sanitized"));
+
+    // sanitizeForExport() end-to-end: still calls into the fixed path.
+    const sanitized = sanitizeForExport(src);
+    results.push(assert(/document\.body\.dataset\.ready/.test(sanitized),
+      "sanitizeForExport: mixed script rendering preserved"));
+  }
+
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };
