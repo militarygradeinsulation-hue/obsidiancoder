@@ -1827,15 +1827,18 @@ const unlockCss = `
 
 /* Centered hero wordmark shown when the panel is closed */
 .unlock-wordmark {
-  position: fixed; inset: 0; display: grid; place-items: center;
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
   pointer-events: none; z-index: 2;
+  padding: 110px 16px 40px;
 }
 .unlock-title-hero {
-  font-size: clamp(48px, 10vw, 128px);
+  font-size: clamp(44px, 9vw, 116px);
   letter-spacing: clamp(6px, 1.4vw, 18px);
   color: #f2eee7;
   text-shadow: 0 0 30px rgba(244,161,37,0.25), 0 0 80px rgba(244,161,37,0.12);
-  margin: 0; padding: 0 16px; text-align: center;
+  margin: 0 0 4px; padding: 0 16px; text-align: center;
   font-family: Fraunces, Georgia, serif; font-weight: 500;
 }
 
