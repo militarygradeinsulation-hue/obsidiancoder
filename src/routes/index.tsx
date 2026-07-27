@@ -4335,13 +4335,14 @@ function Index() {
                 { label: "Go Live (open current build)", run: () => {
                   setPaletteOpen(false);
                   if (!current.html) return;
-                  const art = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" });
-                  if (!art.safeToPublish) {
-                    const reasons = art.violations.slice(0, 3).map((v) => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                  const oa = assessOutbound(current.html, { themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null, surface: "export" });
+                  setSessions((all) => all.map((s) => s.id === current.id ? { ...s, qaStatus: statusFromPublish(oa.ok, oa.blockers[0] ?? "", { html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null }, s.qaStatus ?? undefined) } : s));
+                  if (!oa.ok) {
+                    const reasons = oa.blockers.slice(0, 3).join("; ") || "empty artifact";
                     setTerminal((t) => [...t, `✗ Palette Go Live blocked by QA: ${reasons}`]);
                     return;
                   }
-                  const blob = new Blob([art.html], { type: "text/html" });
+                  const blob = new Blob([oa.finalHtml], { type: "text/html" });
                   window.open(URL.createObjectURL(blob), "_blank", "noopener,noreferrer");
                 } },
 
