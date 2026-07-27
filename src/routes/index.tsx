@@ -2793,23 +2793,23 @@ function Index() {
                   return;
                 }
                 setTerminal((t) => [...t, "→ QA checks…"]);
-                // Build ONE verified publish artifact. Ship exactly this string.
-                const art = buildArtifact({
-                  html: current.html,
+                // Single authoritative outbound assessment. Ship EXACTLY finalHtml.
+                const oa = assessOutbound(current.html, {
                   themeCss: current.themeCss ?? null,
                   themeName: current.themeName ?? null,
-                  surface: "publish",
+                  themeBlueprintId: current.themeBlueprintId ?? null,
+                  surface: "go-live",
                 });
-                if (!art.safeToPublish) {
-                  const reasons = art.violations.slice(0, 4).map(v => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                setSessions((all) => all.map((s) => s.id === current.id ? {
+                  ...s,
+                  qaStatus: statusFromPublish(oa.ok, oa.blockers[0] ?? "", { html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null }, s.qaStatus ?? undefined),
+                } : s));
+                if (!oa.ok) {
+                  const reasons = oa.blockers.slice(0, 4).join("; ") || "empty artifact";
                   setTerminal((t) => [...t, `✗ Go Live blocked by QA: ${reasons}`]);
                   return;
                 }
-                const parity = checkParity(current.html, art.html);
-                if (!parity.ok) {
-                  setTerminal((t) => [...t, `✗ Go Live blocked (parity): ${parity.blockers.slice(0, 2).join("; ")}`]);
-                  return;
-                }
+                const art = { html: oa.finalHtml };
                 setTerminal((t) => [...t, "→ Publishing shareable link…"]);
                 try {
                   let clientId = localStorage.getItem("obs.client_id");
