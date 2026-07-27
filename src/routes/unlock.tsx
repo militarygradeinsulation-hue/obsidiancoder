@@ -160,6 +160,27 @@ function Unlock() {
     return () => { alive = false; };
   }, []);
 
+  // Lightbox: close on Escape, focus video when opened, restore focus on close.
+  useEffect(() => {
+    if (!activeVideo) return;
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    requestAnimationFrame(() => {
+      activeVideoRef.current?.focus();
+      activeVideoRef.current?.play().catch(() => {});
+    });
+    function onKeyDown(e: globalThis.KeyboardEvent) {
+      if (e.key === "Escape") {
+        e.stopPropagation();
+        setActiveVideo(null);
+      }
+    }
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      previouslyFocused?.focus?.();
+    };
+  }, [activeVideo]);
+
 
   // Track auth session
   useEffect(() => {
