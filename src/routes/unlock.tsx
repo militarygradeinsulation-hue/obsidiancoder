@@ -1617,15 +1617,19 @@ const unlockCss = `
 
 
 @media (max-width: 800px) {
-  .unlock-slogan { padding: 40px 14px 20px; }
-  .slogan-card { padding: 22px 24px; }
-  .slogan-headline { font-size: 22px; }
-  .slogan-body { font-size: 13px; }
+  .unlock-hero-slogan { padding: 18px 22px; margin-top: 14px; }
+  .hero-slogan-headline { font-size: 19px; }
+  .hero-slogan-body { font-size: 12.5px; }
+  .unlock-examples { padding: 40px 14px 20px; }
+  .unlock-examples-title { font-size: 20px; }
 }
 @media (max-width: 520px) {
-  .slogan-card { padding: 18px 20px; }
-  .slogan-headline { font-size: 19px; }
-  .slogan-body { font-size: 12px; line-height: 1.6; }
+  .unlock-wordmark { padding: 100px 14px 30px; }
+  .unlock-title-hero { font-size: clamp(34px, 11vw, 64px); letter-spacing: 4px; }
+  .unlock-hero-slogan { padding: 14px 18px; }
+  .hero-slogan-headline { font-size: 16px; }
+  .hero-slogan-body { font-size: 11.5px; line-height: 1.55; }
+  .unlock-examples-title { font-size: 18px; }
 }
 .plans-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(244,161,37,0.15); }
 .plans-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
