@@ -11,13 +11,21 @@ export type RuntimeEventKind =
   | "unhandled-rejection"
   | "asset-failed"
   | "fetch-failed"
-  | "navigation";
+  | "navigation"
+  | "blocked-navigation"
+  | "mobile-overflow"
+  | "content-summary";
 
 export type RuntimeEvent = {
   kind: RuntimeEventKind;
   message: string;
   url?: string;
   status?: number;
+  /** Build hash the guest was rendered for. Host uses this to decide whether
+   *  this event belongs to the CURRENT committed build. */
+  buildHash?: string;
+  /** Optional numeric payload (overflowPx for mobile-overflow, chars/nodes for content-summary). */
+  n?: number;
   ts: number;
 };
 
@@ -40,24 +48,54 @@ export function parseRuntimeMessage(evt: MessageEvent, expectedSource?: Window |
   if (!data || typeof data !== "object") return null;
   if ((data as { ns?: unknown }).ns !== NS) return null;
   const kind = (data as { kind?: unknown }).kind;
-  const KINDS: RuntimeEventKind[] = ["ready", "console-error", "console-warn", "unhandled-error", "unhandled-rejection", "asset-failed", "fetch-failed", "navigation"];
+  const KINDS: RuntimeEventKind[] = [
+    "ready", "console-error", "console-warn", "unhandled-error", "unhandled-rejection",
+    "asset-failed", "fetch-failed", "navigation",
+    "blocked-navigation", "mobile-overflow", "content-summary",
+  ];
   if (typeof kind !== "string" || !KINDS.includes(kind as RuntimeEventKind)) return null;
+  const rawN = (data as { n?: unknown }).n;
+  const rawHash = (data as { buildHash?: unknown }).buildHash;
   return {
     kind: kind as RuntimeEventKind,
     message: safeStr((data as { message?: unknown }).message, MAX_MSG),
     url: safeStr((data as { url?: unknown }).url, MAX_URL) || undefined,
     status: typeof (data as { status?: unknown }).status === "number" ? (data as { status: number }).status : undefined,
+    buildHash: typeof rawHash === "string" ? rawHash.slice(0, 32) : undefined,
+    n: typeof rawN === "number" && Number.isFinite(rawN) ? rawN : undefined,
     ts: Date.now(),
   };
 }
 
-/** Guest-side: JS blob to inject at the top of the previewed HTML. */
-export const RUNTIME_BRIDGE_SCRIPT = `
+/** Dedup key for a runtime event — collapse repeated identical events per build. */
+export function runtimeEventDedupKey(e: RuntimeEvent): string {
+  return [e.buildHash ?? "-", e.kind, e.message, e.url ?? "", e.status ?? "", e.n ?? ""].join("|");
+}
+
+/**
+ * Filter events belonging to the CURRENT build hash. Events without a hash
+ * are treated as legacy/unattributed and included (backward compatible).
+ */
+export function eventsForBuild(events: RuntimeEvent[], buildHash: string): RuntimeEvent[] {
+  if (!buildHash) return events;
+  return events.filter((e) => !e.buildHash || e.buildHash === buildHash);
+}
+
+
+/** Guest-side: JS blob to inject at the top of the previewed HTML.
+ *  Callers should use `buildRuntimeBridgeScript({ buildHash })` so events
+ *  emitted by the guest carry the build fingerprint. The exported
+ *  `RUNTIME_BRIDGE_SCRIPT` constant is kept for backward compatibility
+ *  and uses an empty buildHash. */
+export function buildRuntimeBridgeScript(opts: { buildHash?: string } = {}): string {
+  const bh = (opts.buildHash ?? "").replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 32);
+  return `
 (function(){
   var NS = "${NS}";
+  var BUILD_HASH = ${JSON.stringify(bh)};
   function send(kind, message, extra){
     try {
-      var payload = Object.assign({ ns: NS, kind: kind, message: String(message).slice(0, ${MAX_MSG}) }, extra || {});
+      var payload = Object.assign({ ns: NS, kind: kind, buildHash: BUILD_HASH, message: String(message).slice(0, ${MAX_MSG}) }, extra || {});
       parent.postMessage(payload, "*");
     } catch (_){}
   }
@@ -88,17 +126,10 @@ export const RUNTIME_BRIDGE_SCRIPT = `
   }
 
   // ---- Navigation firewall (defect #1) --------------------------------
-  // Policy: generated controls may ONLY target in-document behavior. The
-  // sole allowed URL-like target is '#existing-id'. Everything else — root
-  // paths, relative paths, http(s), protocol-relative, mailto/tel/sms/data/
-  // javascript/custom schemes, target=_blank, window.open, location writes
-  // — is blocked. Forms always have their default browser navigation
-  // cancelled (propagation is preserved so local submit listeners run).
   function isBlockedTarget(raw){
     if (!raw) return false;
     var s = String(raw).trim();
     if (!s) return false;
-    // Only in-page fragments are allowed.
     if (s.charAt(0) === "#") return false;
     return true;
   }
@@ -122,7 +153,7 @@ export const RUNTIME_BRIDGE_SCRIPT = `
     if (el.getAttribute && el.getAttribute("target") === "_blank") {
       ev.preventDefault(); ev.stopPropagation();
       markBlocked(el, "target=_blank");
-      send("navigation", "blocked target=_blank: " + labelFor(el), { url: el.getAttribute("href") || "" });
+      send("blocked-navigation", "blocked target=_blank: " + labelFor(el), { url: el.getAttribute("href") || "" });
       return;
     }
     var href = el.getAttribute && el.getAttribute("href");
@@ -131,42 +162,32 @@ export const RUNTIME_BRIDGE_SCRIPT = `
     if (!target) return;
     if (target.charAt(0) === "#") {
       var id = target.slice(1);
-      if (!id) {
-        // "#" placeholder — allow through but do not navigate.
-        ev.preventDefault();
-        return;
-      }
+      if (!id) { ev.preventDefault(); return; }
       if (!document.getElementById(id) && !document.querySelector('[name="'+id.replace(/"/g,'\\\\"')+'"]')) {
         ev.preventDefault(); ev.stopPropagation();
         markBlocked(el, "missing anchor #" + id);
-        send("navigation", "blocked missing anchor: " + labelFor(el), { url: target });
+        send("blocked-navigation", "blocked missing anchor: " + labelFor(el), { url: target });
       }
       return;
     }
     if (isBlockedTarget(target)) {
       ev.preventDefault(); ev.stopPropagation();
       markBlocked(el, "off-page link");
-      send("navigation", "blocked link: " + labelFor(el), { url: target });
+      send("blocked-navigation", "blocked link: " + labelFor(el), { url: target });
     }
   }, true);
   document.addEventListener("submit", function(ev){
     var f = ev.target;
     if (!f || f.tagName !== "FORM") return;
-    // Always cancel the default browser navigation. Do NOT stopPropagation
-    // — local submit listeners on the same form must still be able to
-    // update in-document state.
     ev.preventDefault();
     var action = f.getAttribute("action") || "";
     if (action && isBlockedTarget(action)) {
-      send("navigation", "blocked form action: " + labelFor(f), { url: action });
+      send("blocked-navigation", "blocked form action: " + labelFor(f), { url: action });
     }
   }, true);
   try {
-    window.open = function(){ send("navigation", "blocked window.open", { url: String(arguments[0]||"") }); return null; };
+    window.open = function(){ send("blocked-navigation", "blocked window.open", { url: String(arguments[0]||"") }); return null; };
   } catch(_){}
-  // Location writes: Location methods are not always writable. We install
-  // best-effort interceptors AND rely on pre-render sanitization by the
-  // publish-artifact builder for authoritative safety.
   try {
     ["assign","replace"].forEach(function(k){
       var orig = location[k] && location[k].bind(location);
@@ -174,21 +195,57 @@ export const RUNTIME_BRIDGE_SCRIPT = `
       try {
         Object.defineProperty(location, k, {
           configurable: true,
-          value: function(u){ if (isBlockedTarget(u)) { send("navigation", "blocked location."+k, { url: String(u||"") }); return; } return orig(u); },
+          value: function(u){ if (isBlockedTarget(u)) { send("blocked-navigation", "blocked location."+k, { url: String(u||"") }); return; } return orig(u); },
         });
       } catch(_){}
     });
   } catch(_){}
 
+  // ---- Content summary (free telemetry) --------------------------------
+  function contentSummary(){
+    try {
+      var body = document.body || document.documentElement;
+      var chars = (body && body.innerText ? body.innerText.length : 0) | 0;
+      var nodes = document.querySelectorAll("*").length | 0;
+      send("content-summary", "chars=" + chars + " nodes=" + nodes, { n: chars });
+    } catch(_){}
+  }
+  // ---- Mobile overflow monitor (free telemetry) ------------------------
+  var overflowTimer = null;
+  function checkOverflow(){
+    try {
+      var vw = Math.max(document.documentElement.clientWidth || 0, window.innerWidth || 0);
+      var sw = document.documentElement.scrollWidth || 0;
+      if (vw > 0 && sw > vw + 1) {
+        send("mobile-overflow", "content overflows viewport by " + (sw - vw) + "px", { n: sw - vw });
+      }
+    } catch(_){}
+  }
+  function scheduleOverflow(){
+    if (overflowTimer) return;
+    overflowTimer = setTimeout(function(){ overflowTimer = null; checkOverflow(); }, 250);
+  }
+  window.addEventListener("resize", scheduleOverflow, { passive: true });
+  if (document.readyState === "complete" || document.readyState === "interactive") {
+    setTimeout(function(){ contentSummary(); checkOverflow(); }, 0);
+  } else {
+    window.addEventListener("DOMContentLoaded", function(){ contentSummary(); checkOverflow(); });
+  }
 
   send("ready", "preview ready");
 })();
 `;
+}
 
-/** Inject the bridge before the closing </head> (or prepend if absent). */
-export function injectRuntimeBridge(html: string): string {
+/** Backward-compatible constant script (no buildHash). Prefer buildRuntimeBridgeScript. */
+export const RUNTIME_BRIDGE_SCRIPT = buildRuntimeBridgeScript();
+
+/** Inject the bridge before the closing </head> (or prepend if absent).
+ *  Pass `buildHash` so guest-emitted events carry the current build fingerprint. */
+export function injectRuntimeBridge(html: string, opts: { buildHash?: string } = {}): string {
   if (!html) return html;
-  const tag = `<script>${RUNTIME_BRIDGE_SCRIPT}</script>`;
+  const body = buildRuntimeBridgeScript(opts);
+  const tag = `<script>${body}</script>`;
   if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${tag}</head>`);
   if (/<head\b[^>]*>/i.test(html)) return html.replace(/<head\b[^>]*>/i, (m) => `${m}${tag}`);
   return `${tag}${html}`;

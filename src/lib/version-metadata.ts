@@ -57,6 +57,19 @@ export type VersionMetadata = {
   rollbackId?: string;          // the version id this build can be rolled back TO
   learningSignals?: string[];   // signalsUsed from the RoutingDecision
   engineering?: EngineeringSummary;  // Chief Engineer multi-agent review
+  // ---- Phase B: QA provenance (all optional; older versions omit) ----
+  /** Deterministic assessedHash of the FINAL committed artifact. */
+  qaAssessedHash?: string;
+  /** State from QaSessionStatus after commit. */
+  qaState?: "stale" | "checking" | "clean" | "repaired" | "claude-repaired" | "blocked";
+  qaSource?: "deterministic" | "claude" | "cache" | "publish" | "runtime" | "-";
+  qaDeterministicRepairCount?: number;
+  qaClaudeInvoked?: boolean;
+  qaClaudeFromCache?: boolean;
+  qaModel?: string | null;
+  qaParityOk?: boolean;
+  qaBlockers?: string[];
+  qaPolicyVersion?: string;
 };
 
 export function summarizeMetadata(m: VersionMetadata): string {

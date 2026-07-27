@@ -4,6 +4,8 @@
 import { useState } from "react";
 import { Users, ChevronDown, ChevronRight, ShieldCheck, ShieldAlert, ShieldX, Loader2 } from "lucide-react";
 import type { AgentReview, EngineeringReport, AgentApproval } from "@/lib/chief-engineer";
+import type { QaSessionStatus } from "@/lib/qa-status";
+import { QaStatusRow } from "./QaStatusRow";
 
 function approvalIcon(a: AgentApproval) {
   if (a === "approve") return <ShieldCheck className="h-3.5 w-3.5 text-emerald-400" />;
@@ -22,6 +24,7 @@ export function EngineeringConsolePanel(props: {
   bypass: boolean;
   onToggleBypass: (v: boolean) => void;
   currentStage?: string;
+  qaStatus?: QaSessionStatus | null;
 }) {
   const [open, setOpen] = useState(true);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
@@ -47,6 +50,8 @@ export function EngineeringConsolePanel(props: {
 
       {open && (
         <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 8 }}>
+          <QaStatusRow status={props.qaStatus ?? null} />
+
           <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer">
             <input type="checkbox" checked={props.bypass} onChange={(e) => props.onToggleBypass(e.target.checked)} />
             Bypass QA / Security / Performance review

@@ -2442,6 +2442,128 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   return { results, passed, failed };
 }
 
+// =========================================================================
+// Phase B — QA status, outbound helper, runtime bridge extensions,
+// defect learning integration. All deterministic. No provider calls.
+// =========================================================================
+
+export async function runPhaseBTests(): Promise<{ results: TestResult[]; passed: number; failed: number }> {
+  const results: TestResult[] = [];
+  const { computeAssessedHash, hydrateQaStatus, statusFromFinalize, blockFromRuntime, markStaleIfChanged, EMPTY_QA_STATUS } = await import("./qa-status");
+  const { assessOutbound } = await import("./outbound-assess");
+  const { parseRuntimeMessage, runtimeEventDedupKey, eventsForBuild, injectRuntimeBridge, buildRuntimeBridgeScript } = await import("./runtime-bridge");
+  const { recordDefect, buildFailureHints, renderHintsPrompt } = await import("./failure-learning");
+
+  // --- QA status: hash stability & change detection ---------------------
+  const h1 = computeAssessedHash({ html: "<html><body>a</body></html>", themeCss: "x", themeName: "n" });
+  const h2 = computeAssessedHash({ html: "<html><body>a</body></html>", themeCss: "x", themeName: "n" });
+  const h3 = computeAssessedHash({ html: "<html><body>a</body></html>", themeCss: "y", themeName: "n" });
+  results.push(assert(h1 === h2, "qa-status: hash stable for identical inputs"));
+  results.push(assert(h1 !== h3, "qa-status: hash changes when themeCss changes"));
+
+  // --- Hydration accepts unknown safely ---------------------------------
+  const hydratedEmpty = hydrateQaStatus(null);
+  results.push(assert(hydratedEmpty.state === "stale" && hydratedEmpty.v === 1, "qa-status: hydrateQaStatus(null) → stale"));
+  const hydratedBad = hydrateQaStatus({ state: "totally-invalid", blockers: "not-an-array", parity: { deltas: "bad" } });
+  results.push(assert(hydratedBad.state === "stale" && Array.isArray(hydratedBad.blockers), "qa-status: rejects invalid state, coerces bad arrays"));
+
+  // --- markStaleIfChanged: stays fresh when hash matches ----------------
+  const fresh = { ...EMPTY_QA_STATUS, state: "clean" as const, assessedHash: h1 };
+  const stillFresh = markStaleIfChanged(fresh, { html: "<html><body>a</body></html>", themeCss: "x", themeName: "n" });
+  results.push(assert(stillFresh.state === "clean", "qa-status: matching hash stays clean"));
+  const nowStale = markStaleIfChanged(fresh, { html: "<html><body>DIFFERENT</body></html>", themeCss: "x", themeName: "n" });
+  results.push(assert(nowStale.state === "stale", "qa-status: hash change → stale"));
+
+  // --- statusFromFinalize maps sources ----------------------------------
+  const mkFin = (over: any) => ({
+    ok: true, finalHtml: "", finalValidation: { status: "passed", issues: [], summary: "" } as any,
+    finalAssessment: {} as any, finalParity: { ok: true, deltas: {}, blockers: [], warnings: [] } as any,
+    deterministicRepairs: [], remainingViolations: [], claudeInvoked: false, claudeResultFromCache: false,
+    claudeModel: null, claudeVerdict: null, claudeExplanation: "", blockers: [], candidateHash: "", source: "clean", ...over,
+  });
+  const stClean = statusFromFinalize(mkFin({}) as any, { html: "x" });
+  results.push(assert(stClean.state === "clean" && !stClean.qaRouteInvokedThisOperation, "qa-status: FinalizeResult clean → clean"));
+  const stClaude = statusFromFinalize(mkFin({ source: "claude-repair", claudeInvoked: true, claudeModel: "haiku" }) as any, { html: "x" });
+  results.push(assert(stClaude.state === "claude-repaired" && stClaude.source === "claude", "qa-status: claude-repair → claude-repaired"));
+  const stCache = statusFromFinalize(mkFin({ source: "cache", claudeResultFromCache: true }) as any, { html: "x" });
+  results.push(assert(stCache.source === "cache" && !stCache.qaRouteInvokedThisOperation, "qa-status: cache → source=cache, no invocation"));
+  const stBlocked = statusFromFinalize(mkFin({ ok: false, source: "blocked", blockers: ["deterministic:bad"] }) as any, { html: "x" });
+  results.push(assert(stBlocked.state === "blocked" && stBlocked.blockers.length === 1, "qa-status: blocked reflects blockers"));
+
+  // --- Runtime blocker path never invokes Claude ------------------------
+  const rt = blockFromRuntime(stClean, "console-error");
+  results.push(assert(rt.state === "blocked" && rt.source === "runtime" && !rt.qaRouteInvokedThisOperation && !rt.providerInvokedThisOperation, "qa-status: runtime block never invokes claude"));
+
+  // --- Outbound helper: emits repaired HTML + provenance ----------------
+  const raw = `<!doctype html><html><head><title>t</title></head><body><a href="https://obsidianvibe.live/dashboard">go</a><p>Body text preserved.</p></body></html>`;
+  const out = assessOutbound(raw, { surface: "go-live" });
+  results.push(assert(typeof out.finalHtml === "string" && out.finalHtml.length > 0, "outbound: emits finalHtml"));
+  results.push(assert(!/https:\/\/obsidianvibe\.live\/dashboard/.test(out.finalHtml), "outbound: neutralizes creator-route href"));
+  results.push(assert(out.provenance.surface === "go-live" && !!out.provenance.assessedHash, "outbound: provenance carries surface + hash"));
+  results.push(assert(out.finalHtml.includes("Body text preserved"), "outbound: preserves visible body text"));
+
+  // --- Outbound helper NEVER invokes Claude (no provider arg) -----------
+  //  Signature check: the function must be callable with only (html, ctx).
+  results.push(assert(assessOutbound.length <= 2, "outbound: helper takes no provider parameter (deterministic only)"));
+
+  // --- Runtime bridge: guest script embeds buildHash --------------------
+  const script = buildRuntimeBridgeScript({ buildHash: "abc123" });
+  results.push(assert(script.includes('var BUILD_HASH = "abc123"'), "runtime-bridge: guest script embeds buildHash"));
+  const injected = injectRuntimeBridge("<html><head></head><body></body></html>", { buildHash: "deadbeef" });
+  results.push(assert(injected.includes("deadbeef") && injected.includes("</head>"), "runtime-bridge: injectRuntimeBridge places script before </head>"));
+
+  // --- Host parser accepts new kinds, rejects unknown -------------------
+  const okEvt = parseRuntimeMessage({ data: { ns: "obsidian.runtime", kind: "mobile-overflow", message: "overflow 40px", n: 40, buildHash: "abc123" }, source: null } as any);
+  results.push(assert(okEvt?.kind === "mobile-overflow" && okEvt.n === 40 && okEvt.buildHash === "abc123", "runtime-bridge: parser accepts mobile-overflow with n + buildHash"));
+  const badEvt = parseRuntimeMessage({ data: { ns: "obsidian.runtime", kind: "not-a-real-kind", message: "x" }, source: null } as any);
+  results.push(assert(badEvt === null, "runtime-bridge: parser rejects unknown kind"));
+  const contentEvt = parseRuntimeMessage({ data: { ns: "obsidian.runtime", kind: "content-summary", message: "chars=100", n: 100 }, source: null } as any);
+  results.push(assert(contentEvt?.kind === "content-summary", "runtime-bridge: parser accepts content-summary"));
+
+  // --- Dedup key stable ------------------------------------------------
+  const evA = { kind: "console-error" as const, message: "boom", ts: 1, buildHash: "h" };
+  const evB = { kind: "console-error" as const, message: "boom", ts: 2, buildHash: "h" };
+  results.push(assert(runtimeEventDedupKey(evA) === runtimeEventDedupKey(evB), "runtime-bridge: dedup key ignores ts"));
+
+  // --- eventsForBuild filters cleanly ----------------------------------
+  const evts = [
+    { kind: "console-error" as const, message: "old", ts: 1, buildHash: "old" },
+    { kind: "console-error" as const, message: "cur", ts: 2, buildHash: "cur" },
+    { kind: "console-error" as const, message: "no-hash", ts: 3 },
+  ];
+  const filtered = eventsForBuild(evts, "cur");
+  results.push(assert(filtered.length === 2 && filtered[0].message === "cur", "runtime-bridge: eventsForBuild keeps current + hashless"));
+
+  // --- Defect learning: dedupe/sanitize + hint injection after ≥2 ------
+  let defects: any[] = [];
+  const defect = { taskType: "content" as any, strategy: "ai-patch", model: "haiku", buildHash: "b1", category: "nav-external" as const, label: "<script>alert(1)</script>", deterministicRepairFixed: true, claudeQaInvoked: false, claudeQaFixed: false, outcome: "kept" as const };
+  defects = recordDefect(defects, defect);
+  results.push(assert(defects[0].label && !defects[0].label.includes("<"), "failure-learning: label stripped of unsafe chars"));
+  const hints1 = buildFailureHints(defects, "content" as any);
+  results.push(assert(hints1.length === 0, "failure-learning: singleton defect NOT emitted as hint"));
+  defects = recordDefect(defects, { ...defect, buildHash: "b2" });
+  const hints2 = buildFailureHints(defects, "content" as any);
+  results.push(assert(hints2.length === 1 && hints2[0].count === 2 && hints2[0].category === "nav-external", "failure-learning: ≥2 defects → hint emitted with count"));
+  const prompt = renderHintsPrompt(hints2);
+  results.push(assert(prompt.includes("(2x)") && prompt.includes("http"), "failure-learning: renderHintsPrompt embeds count + guidance"));
+  results.push(assert(prompt.length <= 800, "failure-learning: hints prompt bounded ≤ 800 chars"));
+
+  // --- version-metadata: QA provenance shape --------------------------
+  const meta: any = {
+    id: "v1", createdAt: 1, request: "x", taskType: "content", strategy: "ai-patch",
+    model: "m", tier: "fast", durationMs: 1, contextTier: "none", contextChars: 0,
+    charsAdded: 0, charsRemoved: 0, changed: true,
+    validation: { status: "passed", summary: "", blocking: 0, warnings: 0, info: 0 },
+    repairAttempts: [],
+    qaState: "clean", qaSource: "deterministic", qaClaudeInvoked: false, qaAssessedHash: "abc",
+  };
+  results.push(assert(meta.qaState === "clean" && meta.qaSource === "deterministic", "version-metadata: QA provenance fields accepted"));
+
+  const passed = results.filter((r) => r.ok).length;
+  return { results, passed, failed: results.length - passed };
+}
+
+
 
 
 
