@@ -3002,7 +3002,13 @@ function Index() {
                     onClick={() => {
                       setOverflowOpen(false);
                       if (!current.html) return;
-                      const clean = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" }).html;
+                      const art = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" });
+                      if (!art.safeToPublish) {
+                        const reasons = art.violations.slice(0, 3).map((v) => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                        setTerminal((t) => [...t, `✗ Export blocked by QA: ${reasons}`]);
+                        return;
+                      }
+                      const clean = art.html;
                       const blob = new Blob([clean], { type: "text/html" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
@@ -4249,7 +4255,11 @@ function Index() {
                   setPaletteOpen(false);
                   if (!current.html) return;
                   const art = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" });
-                  if (!art.safeToPublish) return;
+                  if (!art.safeToPublish) {
+                    const reasons = art.violations.slice(0, 3).map((v) => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                    setTerminal((t) => [...t, `✗ Palette Go Live blocked by QA: ${reasons}`]);
+                    return;
+                  }
                   const blob = new Blob([art.html], { type: "text/html" });
                   window.open(URL.createObjectURL(blob), "_blank", "noopener,noreferrer");
                 } },
