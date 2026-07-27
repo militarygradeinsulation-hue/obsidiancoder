@@ -65,50 +65,22 @@ function pathIsBlocked(pathname: string): boolean {
 
 /**
  * True if `target` (the value of an href/action/formaction attribute or a
- * navigation URL inside a script) points back into the Obsidian creator app.
+ * navigation URL inside a script) is anything OTHER than an allowed
+ * in-page anchor. Per policy, only `#fragment` targets are allowed in
+ * exported artifacts; every other URL-like value (http(s), mailto, tel,
+ * sms, custom schemes, protocol-relative, root-relative, bare relative)
+ * is treated as off-page and neutralized.
  */
 export function isCreatorTarget(target: string): boolean {
   if (!target) return false;
   const raw = target.trim();
   if (!raw) return false;
-  // In-page anchors, mailto/tel, javascript:void — leave alone.
+  // Only in-page hash anchors are allowed.
   if (raw.startsWith("#")) return false;
-  if (/^(mailto:|tel:|sms:|data:)/i.test(raw)) return false;
-  if (/^javascript:\s*(void\(0\)|;?)\s*$/i.test(raw)) return false;
-
-  // Protocol-relative "//host/..."
-  if (raw.startsWith("//")) {
-    try {
-      const u = new URL("https:" + raw);
-      return hostIsBlocked(u.host) || pathIsBlocked(u.pathname);
-    } catch { return true; }
-  }
-
-  // Absolute URL
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(raw)) {
-    try {
-      const u = new URL(raw);
-      if (hostIsBlocked(u.host)) return true;
-      // Non-blocked hosts (stripe.com, etc.) are fine regardless of path.
-      return false;
-    } catch { return false; }
-  }
-
-  // Root-relative
-  if (raw.startsWith("/")) {
-    try {
-      const u = new URL(raw, "https://placeholder.local");
-      return pathIsBlocked(u.pathname);
-    } catch { return true; }
-  }
-
-  // Bare/relative link like "dashboard" or "unlock?x=1" — treat conservatively.
-  const firstSeg = raw.split(/[/?#]/)[0].toLowerCase();
-  if (["dashboard", "gallery", "demos", "unlock", "auth", "checkout", "admin"].includes(firstSeg)) {
-    return true;
-  }
-  return false;
+  // Everything else is off-page; block it.
+  return true;
 }
+
 
 // Match an href/action/formaction attribute. Value may be quoted or unquoted.
 function replaceNavAttrs(html: string, attr: "href" | "action" | "formaction"): string {
