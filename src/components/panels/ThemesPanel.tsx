@@ -132,6 +132,29 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, currentB
           </div>
         </div>
 
+        <div className="themes-tabs" style={{ display: "flex", gap: 8, padding: "0 16px 8px" }}>
+          <button type="button" className={"themes-chip" + (tab === "built-in" ? " is-on" : "")} onClick={() => setTab("built-in")}>Built-ins ({BUILT_IN_BLUEPRINTS.length})</button>
+          <button type="button" className={"themes-chip" + (tab === "21st" ? " is-on" : "")} onClick={() => setTab("21st")}>21st.dev</button>
+          <button type="button" className="themes-chip" onClick={surpriseMe} title="Pick the blueprint whose style-signature is farthest from your current one">
+            <Shuffle className="h-3.5 w-3.5" style={{ marginRight: 4, verticalAlign: "-2px" }} /> Surprise Me
+          </button>
+        </div>
+
+        {tab === "built-in" ? (
+          <div className="themes-grid">
+            {BUILT_IN_BLUEPRINTS.map((bp) => (
+              <BuiltInCard
+                key={bp.id}
+                bp={bp}
+                active={currentBlueprintId === bp.id}
+                onApply={() => applyBlueprint(bp)}
+              />
+            ))}
+          </div>
+        ) : (
+          <>
+
+
         <form className="themes-search" onSubmit={(e) => { e.preventDefault(); runSearch(query); }}>
           <Search className="h-4 w-4" style={{ opacity: 0.6 }} />
           <input
