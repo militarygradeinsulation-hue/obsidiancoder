@@ -96,7 +96,7 @@ import { TemplatePanel, type Template } from "@/components/panels/TemplatePanel"
 import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/lib/runtime-bridge";
 import { EMPTY_COST, foldMetrics, recordRestore, type CostSnapshot } from "@/lib/cost-metrics";
 import { evaluateCommit, type CommitSource } from "@/lib/commit-gate";
-import { sanitizeForExport } from "@/lib/clean-export";
+// sanitizeForExport is now consumed indirectly via buildArtifact({ surface: "publish" }).
 import { buildArtifact } from "@/lib/publish-artifact";
 import { checkParity } from "@/lib/parity-check";
 
