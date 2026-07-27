@@ -88,23 +88,19 @@ export const RUNTIME_BRIDGE_SCRIPT = `
   }
 
   // ---- Navigation firewall (defect #1) --------------------------------
-  // Same-document allowed: hash anchors whose target actually exists,
-  // clicks that fire local handlers, form submits that fire local
-  // listeners (we cancel only the default browser navigation).
-  var CREATOR_HOSTS = /(?:^|\\.)(?:obsidianvibe\\.live|lovable\\.app)$/i;
-  var BLOCKED_PATHS = /^\\/(?:$|dashboard|gallery|demos|unlock|auth|checkout|admin|index(?:\\.html)?$)/i;
+  // Policy: generated controls may ONLY target in-document behavior. The
+  // sole allowed URL-like target is '#existing-id'. Everything else — root
+  // paths, relative paths, http(s), protocol-relative, mailto/tel/sms/data/
+  // javascript/custom schemes, target=_blank, window.open, location writes
+  // — is blocked. Forms always have their default browser navigation
+  // cancelled (propagation is preserved so local submit listeners run).
   function isBlockedTarget(raw){
     if (!raw) return false;
     var s = String(raw).trim();
     if (!s) return false;
+    // Only in-page fragments are allowed.
     if (s.charAt(0) === "#") return false;
-    if (/^(mailto:|tel:|sms:|data:|javascript:)/i.test(s)) return true;
-    if (s.slice(0,2) === "//") { try { var u1 = new URL("https:" + s); return CREATOR_HOSTS.test(u1.host) || BLOCKED_PATHS.test(u1.pathname) || true; } catch(_){ return true; } }
-    if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\\/\\//.test(s)) { try { var u2 = new URL(s); if (CREATOR_HOSTS.test(u2.host)) return true; return true; } catch(_){ return true; } }
-    if (s.charAt(0) === "/") { try { var u3 = new URL(s, location.origin); return BLOCKED_PATHS.test(u3.pathname); } catch(_){ return true; } }
-    var head = s.split(/[\\/?#]/)[0].toLowerCase();
-    if (["dashboard","gallery","demos","unlock","auth","checkout","admin"].indexOf(head) >= 0) return true;
-    return false;
+    return true;
   }
   function labelFor(el){
     try {
@@ -135,7 +131,12 @@ export const RUNTIME_BRIDGE_SCRIPT = `
     if (!target) return;
     if (target.charAt(0) === "#") {
       var id = target.slice(1);
-      if (id && !document.getElementById(id) && !document.querySelector('[name="'+id.replace(/"/g,'\\\\"')+'"]')) {
+      if (!id) {
+        // "#" placeholder — allow through but do not navigate.
+        ev.preventDefault();
+        return;
+      }
+      if (!document.getElementById(id) && !document.querySelector('[name="'+id.replace(/"/g,'\\\\"')+'"]')) {
         ev.preventDefault(); ev.stopPropagation();
         markBlocked(el, "missing anchor #" + id);
         send("navigation", "blocked missing anchor: " + labelFor(el), { url: target });
@@ -144,33 +145,41 @@ export const RUNTIME_BRIDGE_SCRIPT = `
     }
     if (isBlockedTarget(target)) {
       ev.preventDefault(); ev.stopPropagation();
-      markBlocked(el, "external/creator link");
+      markBlocked(el, "off-page link");
       send("navigation", "blocked link: " + labelFor(el), { url: target });
     }
   }, true);
   document.addEventListener("submit", function(ev){
     var f = ev.target;
     if (!f || f.tagName !== "FORM") return;
+    // Always cancel the default browser navigation. Do NOT stopPropagation
+    // — local submit listeners on the same form must still be able to
+    // update in-document state.
+    ev.preventDefault();
     var action = f.getAttribute("action") || "";
-    if (isBlockedTarget(action) || (!action && f.method && f.method.toLowerCase() !== "get")) {
-      // Cancel only the default browser navigation; user's own submit
-      // listener (added on the same element) still runs.
-      ev.preventDefault();
-      send("navigation", "blocked form submit: " + labelFor(f), { url: action });
+    if (action && isBlockedTarget(action)) {
+      send("navigation", "blocked form action: " + labelFor(f), { url: action });
     }
   }, true);
   try {
-    var _open = window.open;
     window.open = function(){ send("navigation", "blocked window.open", { url: String(arguments[0]||"") }); return null; };
-    void _open;
   } catch(_){}
+  // Location writes: Location methods are not always writable. We install
+  // best-effort interceptors AND rely on pre-render sanitization by the
+  // publish-artifact builder for authoritative safety.
   try {
     ["assign","replace"].forEach(function(k){
       var orig = location[k] && location[k].bind(location);
       if (!orig) return;
-      location[k] = function(u){ if (isBlockedTarget(u)) { send("navigation", "blocked location."+k, { url: String(u||"") }); return; } return orig(u); };
+      try {
+        Object.defineProperty(location, k, {
+          configurable: true,
+          value: function(u){ if (isBlockedTarget(u)) { send("navigation", "blocked location."+k, { url: String(u||"") }); return; } return orig(u); },
+        });
+      } catch(_){}
     });
   } catch(_){}
+
 
   send("ready", "preview ready");
 })();

@@ -96,7 +96,10 @@ import { TemplatePanel, type Template } from "@/components/panels/TemplatePanel"
 import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/lib/runtime-bridge";
 import { EMPTY_COST, foldMetrics, recordRestore, type CostSnapshot } from "@/lib/cost-metrics";
 import { evaluateCommit, type CommitSource } from "@/lib/commit-gate";
-import { sanitizeForExport } from "@/lib/clean-export";
+// sanitizeForExport is now consumed indirectly via buildArtifact({ surface: "publish" }).
+import { buildArtifact } from "@/lib/publish-artifact";
+import { checkParity } from "@/lib/parity-check";
+
 import { FusionModal, type FusionCommit } from "@/components/FusionModal";
 import { migrateFromHtml, type Project } from "@/lib/project-model";
 import { record as recordFeedback, type FeedbackEvent } from "@/lib/failure-learning";
@@ -1167,16 +1170,19 @@ function Index() {
 
   const previewSrcDoc = useMemo(
     () => {
-      const base = injectRuntimeBridge(current.html ||
-        `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`);
-      if (!current.themeCss) return base;
-      const styleTag = `<style data-obsidian-theme="${(current.themeName ?? "").replace(/"/g, "&quot;")}">\n${current.themeCss}\n</style>`;
-      if (/<\/head>/i.test(base)) return base.replace(/<\/head>/i, `${styleTag}</head>`);
-      if (/<body[^>]*>/i.test(base)) return base.replace(/<body([^>]*)>/i, `<body$1>${styleTag}`);
-      return styleTag + base;
+      const rawHtml = current.html ||
+        `<!doctype html><html><body style="margin:0;display:grid;place-items:center;height:100vh;background:#0a0a0a;color:#666;font-family:Inter,system-ui;font-size:13px;letter-spacing:.02em">Nothing built yet.</body></html>`;
+      // Single central builder: theme injected exactly once + runtime bridge.
+      return buildArtifact({
+        html: rawHtml,
+        themeCss: current.themeCss ?? null,
+        themeName: current.themeName ?? null,
+        surface: "preview",
+      }).html;
     },
     [current.html, current.themeCss, current.themeName],
   );
+
 
   // Runtime bridge — listen for sanitized preview events, bounded to 100 per session.
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -2620,6 +2626,24 @@ function Index() {
                   setTerminal((t) => [...t, "→ Go Live requires Obsidian Pro. Local export remains free."]);
                   return;
                 }
+                setTerminal((t) => [...t, "→ QA checks…"]);
+                // Build ONE verified publish artifact. Ship exactly this string.
+                const art = buildArtifact({
+                  html: current.html,
+                  themeCss: current.themeCss ?? null,
+                  themeName: current.themeName ?? null,
+                  surface: "publish",
+                });
+                if (!art.safeToPublish) {
+                  const reasons = art.violations.slice(0, 4).map(v => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                  setTerminal((t) => [...t, `✗ Go Live blocked by QA: ${reasons}`]);
+                  return;
+                }
+                const parity = checkParity(current.html, art.html);
+                if (!parity.ok) {
+                  setTerminal((t) => [...t, `✗ Go Live blocked (parity): ${parity.blockers.slice(0, 2).join("; ")}`]);
+                  return;
+                }
                 setTerminal((t) => [...t, "→ Publishing shareable link…"]);
                 try {
                   let clientId = localStorage.getItem("obs.client_id");
@@ -2633,7 +2657,7 @@ function Index() {
                     body: JSON.stringify({
                       title: current.title,
                       prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
-                      html: sanitizeForExport(current.html),
+                      html: art.html,
                       model: current.model,
                       session_id: current.id,
                       client_id: clientId,
@@ -2648,11 +2672,6 @@ function Index() {
                   setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
                   if (libraryCode.trim()) refreshLibrary();
                   recordLiveIdea(activeIdeaLabelRef.current);
-                  // Note: Go Live only publishes the shareable link. To feature
-                  // this build on the public login-page gallery, use the
-                  // separate "Push to Demos" button (admin only).
-
-
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : "publish failed";
                   setTerminal((t) => [...t, `✗ Go Live failed: ${msg}`]);
@@ -2662,6 +2681,7 @@ function Index() {
             >
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
+
             {(libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (() => {
               const existing = demoBySession[current.id];
               const isLive = pushedDemoIds.has(current.id) || !!existing;
@@ -2671,13 +2691,24 @@ function Index() {
                   clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
                   localStorage.setItem("obs.client_id", clientId);
                 }
+                const art = buildArtifact({
+                  html: current.html,
+                  themeCss: current.themeCss ?? null,
+                  themeName: current.themeName ?? null,
+                  surface: "publish",
+                });
+                if (!art.safeToPublish) {
+                  throw new Error("QA blocked: " + (art.violations[0]?.code ?? "empty"));
+                }
+                const parity = checkParity(current.html, art.html);
+                if (!parity.ok) throw new Error("parity blocked: " + parity.blockers[0]);
                 const res = await authFetch("/api/public/builds", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
                   body: JSON.stringify({
                     title: current.title,
                     prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
-                    html: sanitizeForExport(current.html),
+                    html: art.html,
                     model: current.model,
                     session_id: current.id,
                     client_id: clientId,
@@ -2686,6 +2717,7 @@ function Index() {
                 });
                 if (!res.ok) throw new Error(await res.text());
                 const { share_slug } = (await res.json()) as { share_slug: string };
+
                 const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
                 const promoted = await pushFeaturedDemo({
                   data: {
@@ -2884,7 +2916,7 @@ function Index() {
                     onClick={() => {
                       setOverflowOpen(false);
                       if (!current.html) return;
-                      const clean = sanitizeForExport(current.html);
+                      const clean = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" }).html;
                       const blob = new Blob([clean], { type: "text/html" });
                       const url = URL.createObjectURL(blob);
                       const a = document.createElement("a");
@@ -4130,9 +4162,12 @@ function Index() {
                 { label: "Go Live (open current build)", run: () => {
                   setPaletteOpen(false);
                   if (!current.html) return;
-                  const blob = new Blob([current.html], { type: "text/html" });
+                  const art = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" });
+                  if (!art.safeToPublish) return;
+                  const blob = new Blob([art.html], { type: "text/html" });
                   window.open(URL.createObjectURL(blob), "_blank", "noopener,noreferrer");
                 } },
+
                 ...MODES.map((m) => ({
                   label: `Mode: ${m.label} — ${m.hint}`,
                   run: () => { setPaletteOpen(false); updateCurrent({ mode: m.id }); },

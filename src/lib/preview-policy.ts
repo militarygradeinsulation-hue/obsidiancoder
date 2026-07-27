@@ -51,9 +51,11 @@ export function classifyTarget(raw: string): PreviewViolationCode | null {
   if (!s) return null;
   if (s === "#") return "nav-placeholder-hash";
   if (s.startsWith("#")) return null;
+  // Any non-hash scheme is a violation. Only in-page anchors are allowed.
   if (/^(mailto:|tel:|sms:)/i.test(s)) return "nav-deep-link";
   if (/^javascript:/i.test(s)) return "nav-deep-link";
-  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:\/\//.test(s)) {
+  if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(s)) {
+    // http(s), custom schemes, etc. Try to parse for creator-host detection.
     try {
       const u = new URL(s);
       if (CREATOR_HOSTS.test(u.host)) return "nav-creator-route";
@@ -62,14 +64,18 @@ export function classifyTarget(raw: string): PreviewViolationCode | null {
   }
   if (s.startsWith("//")) return "nav-protocol-relative";
   if (s.startsWith("/")) {
+    // Any root-relative path is off-page. Creator paths still get their
+    // specific label so failure-learning can accumulate targeted hints.
     try {
       const u = new URL(s, "https://placeholder.local");
-      return isCreatorPath(u.pathname) ? "nav-creator-route" : null;
-    } catch { return "nav-creator-route"; }
+      return isCreatorPath(u.pathname) ? "nav-creator-route" : "nav-external";
+    } catch { return "nav-external"; }
   }
+  // Bare/relative like "pricing", "next.html", "sub/page?x". Off-page unless
+  // it is an in-page fragment (handled above).
   const head = s.split(/[/?#]/)[0].toLowerCase();
   if (CREATOR_PATH_SEGMENTS.has(head) && head !== "") return "nav-creator-route";
-  return null;
+  return "nav-external";
 }
 
 function collectIds(html: string): Set<string> {
