@@ -1,7 +1,18 @@
-// Clean-export sanitizer. Anything user-visible saved outside the preview
-// (versions, gallery, downloads, project JSON, template payloads, Go Live
-// shares, featured demos) must not contain preview-only instrumentation
-// AND must not link back into the Obsidian creator app. Pure string ops.
+// Clean-export sanitizer.
+//
+// Historical scope: neutralize preview-only instrumentation and navigation
+// that would leak back into the Obsidian creator surface (or leave the
+// document). This module now delegates navigation policy to
+// `navigation-repair.ts`, which is resource-safe: it only touches
+// navigation-eligible tags (<a>, <area>, <form>, <button>, <input>) and
+// navigation *expressions* inside <script> bodies. Resource-loading
+// attributes (<link href>, <script src>, <img src/srcset>, <source
+// srcset>, media assets, CSS url()) are never rewritten.
+//
+// Exports remain backward compatible: callers of stripCreatorLinks /
+// containsCreatorLinks / sanitizeForExport still work.
+
+import { repairNavigation } from "./navigation-repair";
 
 const PREVIEW_MARKERS = [
   /<script>\s*\(function\(\)\{[\s\S]*?obsidian\.runtime[\s\S]*?\}\)\(\);\s*<\/script>/g,
@@ -20,163 +31,39 @@ export function containsPreviewOnly(html: string): boolean {
   return PREVIEW_MARKERS.some((rx) => { rx.lastIndex = 0; return rx.test(html); });
 }
 
-// ---------------------------------------------------------------------------
-// Creator-link sanitizer
-// ---------------------------------------------------------------------------
-// Any published build (Go Live share, featured demo, downloaded HTML, saved
-// project) that contains an <a>, <form>, <button formaction>, inline handler,
-// <meta refresh>, or <script>-driven navigation targeting the Obsidian
-// creator surface (/, /dashboard, /gallery, /demos, /unlock, /auth,
-// /checkout*, /admin*, obsidianvibe.live root, *.lovable.app) must have
-// that navigation neutralized. In-page anchors (#foo), mailto:, tel:, and
-// third-party URLs are left alone.
-
-const BLOCKED_PATH_PREFIXES = [
-  "/dashboard",
-  "/gallery",
-  "/demos",
-  "/unlock",
-  "/auth",
-  "/checkout",
-  "/admin",
-];
-
-const BLOCKED_HOSTS = new Set([
-  "obsidianvibe.live",
-  "www.obsidianvibe.live",
-]);
-
-function hostIsBlocked(host: string): boolean {
-  const h = host.toLowerCase();
-  if (BLOCKED_HOSTS.has(h)) return true;
-  if (h.endsWith(".lovable.app")) return true;
-  return false;
-}
-
-function pathIsBlocked(pathname: string): boolean {
-  if (!pathname || pathname === "/" || pathname === "/index" || pathname === "/index.html") return true;
-  for (const p of BLOCKED_PATH_PREFIXES) {
-    if (pathname === p || pathname.startsWith(p + "/") || pathname.startsWith(p + "?") || pathname.startsWith(p + "#")) {
-      return true;
-    }
-  }
-  return false;
-}
-
 /**
- * True if `target` (the value of an href/action/formaction attribute or a
- * navigation URL inside a script) is anything OTHER than an allowed
- * in-page anchor. Per policy, only `#fragment` targets are allowed in
- * exported artifacts; every other URL-like value (http(s), mailto, tel,
- * sms, custom schemes, protocol-relative, root-relative, bare relative)
- * is treated as off-page and neutralized.
+ * True if `target` is anything other than an allowed in-page anchor.
+ * Kept for backward compatibility — the semantic is "target that violates
+ * the internal-only navigation policy". Resource URLs are NOT navigation
+ * targets, so this function must never be applied to <link href>,
+ * <script src>, <img src>, etc.
  */
 export function isCreatorTarget(target: string): boolean {
   if (!target) return false;
   const raw = target.trim();
   if (!raw) return false;
-  // Only in-page hash anchors are allowed.
   if (raw.startsWith("#")) return false;
-  // Everything else is off-page; block it.
   return true;
 }
 
-
-// Match an href/action/formaction attribute. Value may be quoted or unquoted.
-function replaceNavAttrs(html: string, attr: "href" | "action" | "formaction"): string {
-  const rx = new RegExp(`\\b${attr}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "gi");
-  return html.replace(rx, (_m, _all, dq, sq, uq) => {
-    const val = dq ?? sq ?? uq ?? "";
-    if (!isCreatorTarget(val)) return `${attr}="${val}"`;
-    return `${attr}="#" data-obsidian-blocked="1"`;
-  });
-}
-
-// Neutralize inline event handlers that navigate to a blocked target.
-function neutralizeInlineHandlers(html: string): string {
-  const rx = /\son[a-z]+\s*=\s*("([^"]*)"|'([^']*)')/gi;
-  return html.replace(rx, (m, _all, dq, sq) => {
-    const val = dq ?? sq ?? "";
-    if (!/(location|window\.open|top\.location|parent\.location)/i.test(val)) return m;
-    // Extract quoted string arguments and test them.
-    const strings = val.match(/"([^"]*)"|'([^']*)'/g) ?? [];
-    for (const s of strings) {
-      const inner = s.slice(1, -1);
-      if (isCreatorTarget(inner)) return ' data-obsidian-blocked="1"';
-    }
-    return m;
-  });
-}
-
-// Remove <meta http-equiv="refresh" ... url=/dashboard">
-function stripMetaRefresh(html: string): string {
-  return html.replace(
-    /<meta\b[^>]*http-equiv\s*=\s*["']?refresh["']?[^>]*>/gi,
-    (m) => {
-      const content = m.match(/content\s*=\s*("([^"]*)"|'([^']*)')/i);
-      const val = content?.[2] ?? content?.[3] ?? "";
-      const urlMatch = val.match(/url\s*=\s*([^;]+)/i);
-      const target = (urlMatch?.[1] ?? "").trim().replace(/^["']|["']$/g, "");
-      if (!target) return m;
-      return isCreatorTarget(target) ? "" : m;
-    },
-  );
-}
-
-// Neutralize <script> blocks that assign a blocked URL to a location target.
-// PRECISE mode: never delete a mixed-purpose script. We only replace the
-// offending string literal ("/", "/dashboard", https://foo.lovable.app, …)
-// with the safe placeholder "#obsidian-blocked", preserving all surrounding
-// rendering logic. If a body appears to be a pure standalone redirect
-// (single expression like `location.href = "/"`) it is emptied.
-function stripCreatorNavScripts(html: string): string {
-  return html.replace(/<script\b[^>]*>([\s\S]*?)<\/script>/gi, (m, body: string) => {
-    if (!/(location\.(assign|replace|href)|window\.open|top\.location|parent\.location)/.test(body)) {
-      return m;
-    }
-    let touched = false;
-    const rewritten = body.replace(/("([^"\n]*)"|'([^'\n]*)')/g, (lit, _all, dq, sq) => {
-      const inner = dq ?? sq ?? "";
-      if (!isCreatorTarget(inner)) return lit;
-      touched = true;
-      const q = lit.startsWith('"') ? '"' : "'";
-      return `${q}#obsidian-blocked${q}`;
-    });
-    if (!touched) return m;
-    // If the entire body was a single trivial redirect, empty it. Otherwise
-    // keep the rewritten (safe) source so unrelated rendering logic survives.
-    const trivial = /^\s*(?:location\.(?:href|assign|replace)\s*(?:=|\()\s*['"]#obsidian-blocked['"]\s*\)?\s*;?\s*|window\.open\s*\(\s*['"]#obsidian-blocked['"][^)]*\)\s*;?\s*)+$/;
-    if (trivial.test(rewritten)) {
-      return `<script data-obsidian-blocked="1">/* creator-nav removed */</script>`;
-    }
-    return m.replace(body, rewritten).replace(/<script\b([^>]*)>/i, (mo, attrs) =>
-      /data-obsidian-blocked/.test(attrs) ? mo : `<script${attrs} data-obsidian-blocked="1">`);
-  });
-}
-
+/**
+ * Backward-compatible navigation neutralizer. Delegates to the resource-
+ * safe deterministic repair pass.
+ */
 export function stripCreatorLinks(html: string): string {
   if (!html) return html;
-  let out = html;
-  // Neutralize inline handlers first so their quoted URL literals don't get
-  // rewritten as if they were real href/action attributes.
-  out = neutralizeInlineHandlers(out);
-  out = replaceNavAttrs(out, "href");
-  out = replaceNavAttrs(out, "action");
-  out = replaceNavAttrs(out, "formaction");
-  out = stripMetaRefresh(out);
-  out = stripCreatorNavScripts(out);
-  return out;
+  return repairNavigation(html).html;
 }
 
+/**
+ * True if the document contains a navigational control (anchor, form,
+ * formaction, script navigation expression) pointing off-page. This
+ * mirrors what stripCreatorLinks would repair. Resource tags are ignored.
+ */
 export function containsCreatorLinks(html: string): boolean {
   if (!html) return false;
-  const attrRx = /\b(href|action|formaction)\s*=\s*("([^"]*)"|'([^']*)'|([^\s>]+))/gi;
-  let m: RegExpExecArray | null;
-  while ((m = attrRx.exec(html))) {
-    const val = m[3] ?? m[4] ?? m[5] ?? "";
-    if (isCreatorTarget(val)) return true;
-  }
-  return false;
+  const rep = repairNavigation(html);
+  return rep.changed || rep.remainingViolations.length > 0;
 }
 
 /** Single entry point for anything leaving the sandbox. */
