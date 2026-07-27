@@ -1403,29 +1403,15 @@ const unlockCss = `
 .demo-name { font-size: 12px; color: #f2eee7; letter-spacing: 0.3px; }
 .demo-open { font-size: 11px; color: #F4A125; font-weight: 600; }
 
-.unlock-slogan {
-  position: relative;
-  width: 100%;
-  margin-top: 58vh;
-  padding: 30px 16px 24px;
-  opacity: 0.95;
-  z-index: 3;
-}
-.unlock-slogan::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 50%; transform: translateX(-50%);
-  width: min(600px, 70vw); height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(244,161,37,0.25), transparent);
-}
-.slogan-card {
-  max-width: 720px;
-  margin: 0 auto;
+.unlock-hero-slogan {
+  pointer-events: auto;
+  max-width: 680px;
+  margin: 18px auto 0;
+  padding: 22px 28px;
   text-align: center;
   background: rgba(8,8,10,0.55);
   border: 1px solid rgba(244,161,37,0.18);
   border-radius: 18px;
-  padding: 28px 32px;
   backdrop-filter: blur(12px);
   box-shadow:
     0 18px 50px rgba(0,0,0,0.55),
@@ -1433,27 +1419,60 @@ const unlockCss = `
     0 0 0 1px rgba(244,161,37,0.05);
   transition: border-color .25s ease, box-shadow .25s ease;
 }
-.slogan-card:hover {
+.unlock-hero-slogan:hover {
   border-color: rgba(244,161,37,0.45);
   box-shadow:
     0 22px 60px rgba(0,0,0,0.65),
     0 0 0 1px rgba(244,161,37,0.12),
     0 0 30px rgba(244,161,37,0.08);
 }
-.slogan-headline {
+.hero-slogan-headline {
   font-family: Fraunces, Georgia, serif;
-  font-size: 26px;
-  line-height: 1.25;
+  font-size: 22px;
+  line-height: 1.3;
   color: #f2eee7;
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   text-shadow: 0 0 18px rgba(244,161,37,0.18);
 }
-.slogan-body {
-  font-size: 14px;
-  line-height: 1.65;
+.hero-slogan-body {
+  font-size: 13.5px;
+  line-height: 1.6;
   color: rgba(182,188,200,0.85);
+  margin: 0 auto;
+  max-width: 560px;
+}
+
+.unlock-examples {
+  position: relative;
+  width: 100%;
+  margin-top: 100vh;
+  padding: 30px 16px 24px;
+  opacity: 0.95;
+  z-index: 3;
+}
+.unlock-examples::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  width: min(600px, 70vw); height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(244,161,37,0.25), transparent);
+}
+.unlock-examples-header {
+  max-width: 720px;
+  margin: 0 auto 18px;
+  text-align: center;
+}
+.unlock-examples-title {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 22px;
+  color: #f2eee7;
+  margin: 0 0 6px;
+  text-shadow: 0 0 18px rgba(244,161,37,0.18);
+}
+.unlock-examples-sub {
+  font-size: 13px;
+  color: rgba(182,188,200,0.7);
   margin: 0;
-  max-width: 620px;
 }
 
 .slogan-examples {
