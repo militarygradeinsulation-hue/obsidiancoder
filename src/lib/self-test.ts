@@ -2026,12 +2026,18 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     invalidateQaCache();
     let calls = 0;
     const call = async () => { calls++; return `{"verdict":"pass","confidence":0.9,"defect_categories":[],"explanation":"ok"}`; };
+    const cleanSrc = `<!doctype html><html><head><title>t</title></head><body>
+      <h1>Fully clean build with substantive body text and no navigation</h1>
+      <p>${"clean ".repeat(60)}</p>
+      <a href="#top">Top</a><section id="top">top</section>
+    </body></html>`;
+    const cleanPub = buildArtifact({ html: cleanSrc, themeCss: null, surface: "publish" }).html;
     const clean = await runClaudeQA({
-      editorHtml: pub.html, publishHtml: pub.html, themeCss, runtimeErrors: 0,
+      editorHtml: cleanPub, publishHtml: cleanPub, themeCss: null, runtimeErrors: 0,
       freeDemo: false, userRequest: "hello",
     }, call);
     results.push(assert(clean.verdict === "pass" && !clean.aiCallMade && calls === 0,
-      `qa: clean build → zero calls (calls=${calls}, aiCallMade=${clean.aiCallMade})`));
+      `qa: clean build → zero calls (calls=${calls}, aiCallMade=${clean.aiCallMade}, source=${clean.source})`));
 
     // Free demo never invokes Claude even when parity fails.
     invalidateQaCache(); calls = 0;
