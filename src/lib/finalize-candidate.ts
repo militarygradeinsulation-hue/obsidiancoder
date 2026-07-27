@@ -18,13 +18,20 @@
 
 import { assessCandidateForCommit, type AssessResult } from "./candidate-assess";
 import { publishHash } from "./publish-artifact";
-import { patchSchema, type Patch } from "./patch-protocol";
+import { patchSchema } from "./patch-protocol";
 import { applyPatch } from "./patch-engine";
 import { validateHtml, type ValidationReport } from "./validation";
 import type { ParityReport } from "./parity-check";
 import type { PreviewViolation } from "./preview-policy";
 import type { NavRepair } from "./navigation-repair";
-import type { QaRequestBody } from "@/routes/api/qa";
+import {
+  QA_POLICY_VERSION,
+  type QaRequestBody,
+  type QaRouteResponse,
+  type Patch,
+} from "./qa-contract";
+
+export type { QaRequestBody, QaRouteResponse } from "./qa-contract";
 
 // -- Public types ------------------------------------------------------------
 
