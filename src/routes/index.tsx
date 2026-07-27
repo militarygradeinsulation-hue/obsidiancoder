@@ -102,6 +102,8 @@ import { checkParity } from "@/lib/parity-check";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
 import { productionQaCall } from "@/lib/qa-client";
+import { statusFromFinalize, statusFromPublish, markStaleIfChanged, type QaSessionStatus } from "@/lib/qa-status";
+import { assessOutbound } from "@/lib/outbound-assess";
 
 
 import { FusionModal, type FusionCommit } from "@/components/FusionModal";
