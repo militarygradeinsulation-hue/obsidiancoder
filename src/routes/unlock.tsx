@@ -15,6 +15,8 @@ import { PLAN_TIERS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
+import exampleVideo1 from "@/assets/example-1.mp4.asset.json";
+import exampleVideo2 from "@/assets/example-2.mp4.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
@@ -725,8 +727,35 @@ function Unlock() {
           <p className="slogan-body">
             People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
           </p>
+          <div className="slogan-examples" aria-label="Example builds">
+            <figure className="slogan-example">
+              <video
+                src={exampleVideo1.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Obsidian build example one"
+              />
+              <figcaption>Live build · example 01</figcaption>
+            </figure>
+            <figure className="slogan-example">
+              <video
+                src={exampleVideo2.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Obsidian build example two"
+              />
+              <figcaption>Live build · example 02</figcaption>
+            </figure>
+          </div>
         </div>
       </section>
+
 
       {waitlistTier && (
 
@@ -1338,6 +1367,44 @@ const unlockCss = `
   margin: 0;
   max-width: 620px;
 }
+
+.slogan-examples {
+  margin-top: 22px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  width: 100%;
+}
+.slogan-example {
+  margin: 0;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 1px solid rgba(244,161,37,0.22);
+  background: rgba(10,11,13,0.7);
+  box-shadow: 0 10px 40px rgba(0,0,0,0.45), inset 0 1px 0 rgba(255,255,255,0.04);
+}
+.slogan-example video {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 10;
+  object-fit: cover;
+  background: #000;
+}
+.slogan-example figcaption {
+  padding: 8px 12px;
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: rgba(244,161,37,0.85);
+  border-top: 1px solid rgba(244,161,37,0.18);
+  background: rgba(0,0,0,0.4);
+}
+@media (max-width: 640px) {
+  .slogan-examples { grid-template-columns: 1fr; }
+}
+
+
 
 @media (max-width: 800px) {
   .unlock-slogan { padding: 40px 14px 20px; }
