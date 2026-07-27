@@ -93,12 +93,14 @@ import { ComponentLibraryPanel } from "@/components/panels/ComponentLibraryPanel
 import { DeploymentReadinessPanel } from "@/components/panels/DeploymentReadinessPanel";
 import { GitReadyPanel } from "@/components/panels/GitReadyPanel";
 import { TemplatePanel, type Template } from "@/components/panels/TemplatePanel";
-import { injectRuntimeBridge, parseRuntimeMessage, type RuntimeEvent } from "@/lib/runtime-bridge";
+import { parseRuntimeMessage, type RuntimeEvent } from "@/lib/runtime-bridge";
 import { EMPTY_COST, foldMetrics, recordRestore, type CostSnapshot } from "@/lib/cost-metrics";
 import { evaluateCommit, type CommitSource } from "@/lib/commit-gate";
-// sanitizeForExport is now consumed indirectly via buildArtifact({ surface: "publish" }).
+// clean-export.sanitizeForExport is consumed indirectly via buildArtifact({ surface: "publish" }).
 import { buildArtifact } from "@/lib/publish-artifact";
 import { checkParity } from "@/lib/parity-check";
+import { assessCandidateForCommit } from "@/lib/candidate-assess";
+
 
 import { FusionModal, type FusionCommit } from "@/components/FusionModal";
 import { migrateFromHtml, type Project } from "@/lib/project-model";
@@ -1684,15 +1686,33 @@ function Index() {
             setLoading(false); setStage(null); markBuildEnd(sessionId);
             return;
           }
-          const newVersion: Version = makeVersion(det.html, versionLabel, detMeta);
+          // QA gate: deterministic navigation repair + parity. Zero AI cost.
+          setStage("validate");
+          const qa = assessCandidateForCommit({
+            html: det.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
+            previousHtml: stableHtml,
+          });
+          if (!qa.ok) {
+            setSessions((all) => all.map((s) => s.id === sessionId
+              ? { ...s, messages: [...s.messages, { role: "assistant", content: `⚠ QA blocked deterministic edit — ${qa.blockers.slice(0, 2).join("; ").slice(0, 200)} — preview unchanged.` }] }
+              : s));
+            setTerminal((t) => [...t, `✗ QA blocked deterministic edit: ${qa.blockers[0].slice(0, 120)}`]);
+            pushFeedback(sessionId, { taskType: classification.taskType, strategy: "deterministic", model: null, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${qa.blockers[0]}` });
+            setLoading(false); setStage(null); markBuildEnd(sessionId);
+            return;
+          }
+          const committedHtml = qa.repairedHtml;
+          if (qa.repairs.length) setTerminal((t) => [...t, `✓ QA: ${qa.repairs.length} deterministic navigation repair(s) applied`]);
+          const newVersion: Version = makeVersion(committedHtml, versionLabel, detMeta);
           setSessions((all) => all.map((s) => s.id === sessionId
             ? {
                 ...s,
-                html: det.html,
+                html: committedHtml,
                 messages: [...s.messages, { role: "assistant", content: `✓ ${det.summary}  _(No AI credits used.)_` }],
                 versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
               }
             : s));
+
 
           const durationMs = performance.now() - t0;
           setTerminal((t) => [...t, `✓ Deterministic edit in ${Math.round(durationMs)}ms`, `✓ Validation: ${validation.status}`]);
@@ -1842,16 +1862,31 @@ function Index() {
               abortRef.current = null;
               break patchAttempt;
             }
+            // QA gate — deterministic navigation repair + parity. Zero AI cost.
+            setStage("validate");
+            const qaP = assessCandidateForCommit({
+              html: patchedHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
+              previousHtml: stableHtml,
+            });
+            if (!qaP.ok) {
+              setTerminal((t) => [...t, `✗ QA blocked patch: ${qaP.blockers[0].slice(0, 100)} — falling back to full AI generation.`]);
+              pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${qaP.blockers[0]}` });
+              abortRef.current = null;
+              break patchAttempt;
+            }
+            const committedPatchHtml = qaP.repairedHtml;
+            if (qaP.repairs.length) setTerminal((t) => [...t, `✓ QA: ${qaP.repairs.length} deterministic navigation repair(s) applied`]);
 
-            const newVersion: Version = makeVersion(patchedHtml, versionLabel, commitMeta);
+            const newVersion: Version = makeVersion(committedPatchHtml, versionLabel, commitMeta);
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
                   ...s,
-                  html: patchedHtml,
-                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"}${patchRepairAttempts.length ? " · repaired" : ""})_` }],
+                  html: committedPatchHtml,
+                  messages: [...s.messages, { role: "assistant", content: `✓ ${patchParsed.data.summary}  _(patch · ${applied.applied.length} op${applied.applied.length === 1 ? "" : "s"}${patchRepairAttempts.length ? " · repaired" : ""}${qaP.repairs.length ? " · QA-repaired" : ""})_` }],
                   versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
                 }
               : s));
+
 
             const durationMs = performance.now() - t0;
             setTerminal((t) => [
