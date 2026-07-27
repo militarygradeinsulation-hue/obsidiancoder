@@ -2394,9 +2394,9 @@ function Index() {
         strategy: "full-generation",
         patchOperationCount: 1,
         patchOperationTypes: ["full-generation"],
-        patchOperationSummaries: [`Rewrote document (${finalHtml.length} chars)`],
-        charactersAdded: fullDiff.charsAdded,
-        charactersRemoved: fullDiff.charsRemoved,
+        patchOperationSummaries: [`Rewrote document (${committedFinalHtml.length} chars)`],
+        charactersAdded: genMeta.charsAdded,
+        charactersRemoved: genMeta.charsRemoved,
       }));
       setLastOperation((prev) => prev && prev.operationId === operationId ? {
         ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
