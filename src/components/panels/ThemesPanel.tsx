@@ -1,15 +1,24 @@
-// Themes browser — searches 21st.dev themes and applies them to the sandbox
-// preview. Renders as a floating modal opened from the preview header.
-import { useEffect, useState, useCallback } from "react";
+// Themes browser — built-in ThemeBlueprints first, 21st.dev additional.
+// Renders a floating modal opened from the preview header.
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { X, Search, Sparkles, Download, Palette, Loader2 } from "lucide-react";
+import { X, Search, Sparkles, Download, Palette, Loader2, Shuffle } from "lucide-react";
 import { searchThemesFn, getThemeCssFn, type UiThemeHit } from "@/lib/themes-21st.functions";
+import {
+  BUILT_IN_BLUEPRINTS,
+  compileBlueprint,
+  getBuiltIn,
+  normalizeRemoteToBlueprint,
+  pickFarthest,
+  type ThemeBlueprint,
+} from "@/lib/theme-blueprints";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  onApply: (css: string, name?: string) => void;
+  onApply: (css: string, name?: string, blueprintId?: string) => void;
   currentThemeName?: string;
+  currentBlueprintId?: string;
   onClear?: () => void;
 };
 
@@ -18,10 +27,11 @@ const PRESET_QUERIES = [
   "editorial", "glassmorphism", "brutalist mono", "warm sunset", "corporate blue",
 ];
 
-export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear }: Props) {
+export function ThemesPanel({ open, onClose, onApply, currentThemeName, currentBlueprintId, onClear }: Props) {
   const search = useServerFn(searchThemesFn);
   const getCss = useServerFn(getThemeCssFn);
   const [query, setQuery] = useState("");
+  const [tab, setTab] = useState<"built-in" | "21st">("built-in");
   const [themes, setThemes] = useState<UiThemeHit[]>([]);
   const [loading, setLoading] = useState(false);
   const [enabled, setEnabled] = useState(true);
@@ -43,21 +53,41 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
     }
   }, [search]);
 
-  useEffect(() => { if (open && !themes.length && !loading) runSearch(""); }, [open, themes.length, loading, runSearch]);
+  useEffect(() => {
+    if (open && tab === "21st" && !themes.length && !loading) runSearch("");
+  }, [open, tab, themes.length, loading, runSearch]);
+
+  const applyBlueprint = useCallback((bp: ThemeBlueprint) => {
+    const compiled = compileBlueprint(bp);
+    onApply(compiled.css, bp.name, bp.id);
+    onClose();
+  }, [onApply, onClose]);
+
+  const surpriseMe = useCallback(() => {
+    const current = currentBlueprintId ? getBuiltIn(currentBlueprintId) ?? null : null;
+    const next = pickFarthest(BUILT_IN_BLUEPRINTS, current);
+    if (next) applyBlueprint(next);
+  }, [currentBlueprintId, applyBlueprint]);
+
+
 
   const applyTheme = useCallback(async (t: UiThemeHit) => {
     setApplyingId(t.identifier); setError(null);
     try {
-      const res = await getCss({ data: { identifier: t.identifier, name: t.name, colors: t.colors ?? [] } });
-      if (!res?.css) { setError("Theme has no CSS available."); return; }
-      onApply(res.css, res.name ?? t.name);
+      // Normalize remote hit → full ThemeBlueprint (structural bundle + palette).
+      const bp = normalizeRemoteToBlueprint({
+        identifier: t.identifier, name: t.name, colors: t.colors ?? [], description: t.description,
+      });
+      const compiled = compileBlueprint(bp);
+      onApply(compiled.css, bp.name, bp.id);
       onClose();
     } catch {
-      setError("Could not fetch that theme's CSS.");
+      setError("Could not import that theme.");
     } finally {
       setApplyingId(null);
     }
-  }, [getCss, onApply, onClose]);
+  }, [onApply, onClose]);
+
 
   const downloadTheme = useCallback(async (t: UiThemeHit) => {
     setApplyingId(t.identifier);
@@ -84,7 +114,7 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
             <Palette className="h-4 w-4" style={{ color: "#F4A125" }} />
             <div>
               <h2>Visual Themes</h2>
-              <p>Palettes & typography from 21st.dev — apply to your sandbox in one click.</p>
+              <p>10 built-in blueprints (9-axis) plus 21st.dev imports — apply to your sandbox in one click.</p>
             </div>
           </div>
           <div className="themes-actions">
@@ -101,6 +131,29 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
             </button>
           </div>
         </div>
+
+        <div className="themes-tabs" style={{ display: "flex", gap: 8, padding: "0 16px 8px" }}>
+          <button type="button" className={"themes-chip" + (tab === "built-in" ? " is-on" : "")} onClick={() => setTab("built-in")}>Built-ins ({BUILT_IN_BLUEPRINTS.length})</button>
+          <button type="button" className={"themes-chip" + (tab === "21st" ? " is-on" : "")} onClick={() => setTab("21st")}>21st.dev</button>
+          <button type="button" className="themes-chip" onClick={surpriseMe} title="Pick the blueprint whose style-signature is farthest from your current one">
+            <Shuffle className="h-3.5 w-3.5" style={{ marginRight: 4, verticalAlign: "-2px" }} /> Surprise Me
+          </button>
+        </div>
+
+        {tab === "built-in" ? (
+          <div className="themes-grid">
+            {BUILT_IN_BLUEPRINTS.map((bp) => (
+              <BuiltInCard
+                key={bp.id}
+                bp={bp}
+                active={currentBlueprintId === bp.id}
+                onApply={() => applyBlueprint(bp)}
+              />
+            ))}
+          </div>
+        ) : (
+          <>
+
 
         <form className="themes-search" onSubmit={(e) => { e.preventDefault(); runSearch(query); }}>
           <Search className="h-4 w-4" style={{ opacity: 0.6 }} />
@@ -148,7 +201,10 @@ export function ThemesPanel({ open, onClose, onApply, currentThemeName, onClear 
                 ))}
           </div>
         )}
+          </>
+        )}
       </div>
+
     </div>
   );
 }
@@ -232,4 +288,54 @@ function ThemeCard({
     </div>
   );
 }
+
+function BuiltInCard({ bp, active, onApply }: { bp: ThemeBlueprint; active: boolean; onApply: () => void }) {
+  const c = bp.color;
+  const cols = [c.bg, c.surface, c.surfaceAlt, c.accent, c.text, c.border];
+  const gradient = c.gradient ?? `linear-gradient(135deg, ${c.bg} 0%, ${c.surface} 60%, ${c.accent} 100%)`;
+  const previewStyle: React.CSSProperties = {
+    background: gradient,
+    color: c.text,
+    fontFamily: bp.typePairing.headingFamily,
+    textTransform: bp.typeRatio.headingCase === "uppercase" ? "uppercase" : "none",
+    letterSpacing: bp.typeRatio.headingTracking,
+    fontWeight: bp.typeRatio.headingWeight,
+    borderRadius: bp.radius.md,
+    border: `${bp.edges.borderWidthPx}px ${bp.edges.borderStyle} ${bp.color.border}`,
+    boxShadow: bp.elevation.card === "none" ? undefined : bp.elevation.card,
+  };
+  return (
+    <div className="theme-card" data-active={active ? "1" : "0"}>
+      <div className="theme-preview" style={previewStyle}>
+        <div style={{ padding: 14 }}>
+          <div style={{ fontSize: 15, lineHeight: 1.1 }}>{bp.name}</div>
+          <div style={{
+            marginTop: 8, display: "inline-block", padding: "6px 10px",
+            background: c.accent, color: c.accentContrast,
+            borderRadius: bp.radius.md, fontSize: 11, fontWeight: 700,
+          }}>Button</div>
+          <div style={{
+            marginTop: 10, background: c.surface, color: c.text, padding: 8,
+            borderRadius: bp.radius.sm, border: `1px solid ${c.border}`, fontSize: 11,
+            fontFamily: bp.typePairing.bodyFamily, fontWeight: 400,
+          }}>Card · {bp.layout}</div>
+        </div>
+        <div className="theme-swatches">
+          {cols.map((col, i) => <span key={i} style={{ background: col }} title={col} />)}
+        </div>
+      </div>
+      <div className="theme-meta">
+        <div className="theme-name" title={bp.name}>{bp.name}</div>
+        <div className="theme-author">{bp.color.mode} · {bp.layout}</div>
+        <div className="theme-desc">{bp.description}</div>
+      </div>
+      <div className="theme-actions">
+        <button type="button" className="themes-btn primary sm" onClick={onApply}>
+          <Sparkles className="h-3.5 w-3.5" /> {active ? "Re-apply" : "Apply"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 

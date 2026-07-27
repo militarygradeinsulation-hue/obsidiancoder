@@ -1858,17 +1858,88 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
       "baseline: detects at least one external-navigation defect across fixtures"));
   }
 
+  // ----- Phase 1 ThemeBlueprint suite -----
+  {
+    const {
+      BUILT_IN_BLUEPRINTS, compileBlueprint, applyBlueprintToHtml, stripAppliedBlueprint,
+      computeSignature, nonColorAxesDiffCount, pickFarthest, normalizeRemoteToBlueprint,
+      blueprintToSystemPrompt,
+    } = await import("./theme-blueprints");
 
+    results.push(assert(BUILT_IN_BLUEPRINTS.length >= 10,
+      `blueprints: at least 10 built-ins (got ${BUILT_IN_BLUEPRINTS.length})`));
 
+    // Every built-in has concrete non-empty values across all 9 axes.
+    const bad = BUILT_IN_BLUEPRINTS.filter((b) =>
+      !b.typePairing.headingFamily || !b.typePairing.bodyFamily
+      || !b.typeRatio.baseSizePx || !b.spacing.step || !b.radius.md
+      || !b.color.bg || !b.color.accent || !b.motion.durationMs || !b.layout);
+    results.push(assert(bad.length === 0, `blueprints: every axis populated (bad: ${bad.map((b) => b.id).join(", ") || "none"})`));
 
+    // Compile → applyBlueprintToHtml is idempotent and never stacks duplicates.
+    const bp = BUILT_IN_BLUEPRINTS[0];
+    const compiled = compileBlueprint(bp);
+    const seed = `<!doctype html><html><head></head><body><h1>hi</h1></body></html>`;
+    const once = applyBlueprintToHtml(seed, compiled);
+    const twice = applyBlueprintToHtml(once, compiled);
+    const count = (s: string) => (s.match(/data-obsidian-theme-block=/g) ?? []).length;
+    results.push(assert(count(once) === 1 && count(twice) === 1,
+      `blueprints: single marker after repeat apply (once=${count(once)} twice=${count(twice)})`));
+    const stripped = stripAppliedBlueprint(twice);
+    results.push(assert(count(stripped) === 0 && stripped.includes("<h1>hi</h1>"),
+      "blueprints: stripAppliedBlueprint removes marker + preserves body"));
 
+    // Applying different blueprints replaces (never stacks) the marker.
+    const swapped = applyBlueprintToHtml(once, compileBlueprint(BUILT_IN_BLUEPRINTS[1]));
+    results.push(assert(
+      count(swapped) === 1 && swapped.includes(`="${BUILT_IN_BLUEPRINTS[1].id}"`) && !swapped.includes(`="${bp.id}"`),
+      "blueprints: swap replaces prior block deterministically"));
 
+    // Style-signature uniqueness: every pair differs on ≥ 3 non-color axes.
+    let worstPair: [string, string, number] | null = null;
+    for (let i = 0; i < BUILT_IN_BLUEPRINTS.length; i++) {
+      for (let j = i + 1; j < BUILT_IN_BLUEPRINTS.length; j++) {
+        const a = BUILT_IN_BLUEPRINTS[i], b = BUILT_IN_BLUEPRINTS[j];
+        const diff = nonColorAxesDiffCount(computeSignature(a), computeSignature(b));
+        if (!worstPair || diff < worstPair[2]) worstPair = [a.id, b.id, diff];
+      }
+    }
+    results.push(assert(
+      worstPair !== null && worstPair[2] >= 3,
+      `blueprints: every pair differs on ≥3 non-color axes (worst: ${worstPair?.[0]} vs ${worstPair?.[1]} = ${worstPair?.[2]})`,
+    ));
 
+    // Surprise-Me always maximizes distance and never returns current.
+    const start = BUILT_IN_BLUEPRINTS[0];
+    const surprise = pickFarthest(BUILT_IN_BLUEPRINTS, start);
+    results.push(assert(!!surprise && surprise.id !== start.id,
+      `blueprints: Surprise Me picks a different blueprint (got ${surprise?.id})`));
+
+    // 21st.dev normalizer produces a full blueprint with all axes populated.
+    const norm = normalizeRemoteToBlueprint({
+      identifier: "acme/dark-cobalt", name: "Dark Cobalt", colors: ["#0b1a2c", "#4f8ef7"],
+    });
+    results.push(assert(
+      norm.source === "21st.dev" && norm.color.bg === "#0b1a2c" && norm.color.accent === "#4f8ef7"
+      && !!norm.typePairing.headingFamily && !!norm.layout && !!norm.spacing.step,
+      "blueprints: normalizeRemoteToBlueprint assigns full structural bundle",
+    ));
+
+    // Prompt helper stays compact and mentions all nine axis groups.
+    const prompt = blueprintToSystemPrompt(bp);
+    const mentions = ["Type", "Spacing", "Radius", "Edges", "Elevation", "Motion", "Color", "layout", "mode"]
+      .filter((k) => prompt.includes(k));
+    results.push(assert(mentions.length >= 8 && prompt.length < 2000,
+      `blueprints: system prompt covers ≥8 axis mentions and stays <2KB (mentions=${mentions.length}, chars=${prompt.length})`));
+  }
 
   const passed = results.filter((r) => r.ok).length;
   const failed = results.length - passed;
   return { results, passed, failed };
 }
+
+
+
 
 
 

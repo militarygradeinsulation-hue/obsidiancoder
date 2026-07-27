@@ -213,6 +213,8 @@ type Session = {
   // 21st.dev theme applied to the preview (injected as a <style> tag).
   themeCss?: string;
   themeName?: string;
+  themeBlueprintId?: string;
+
 };
 
 const WORKSPACE_NAV = [
@@ -1922,7 +1924,9 @@ function Index() {
           pickerModel: current.model,
           advisory: !previewMode,
           designContract: loadDesignContract(current.id),
+          themeBlueprintId: current.themeBlueprintId,
         }),
+
         signal: controller.signal,
       });
 
@@ -4241,8 +4245,10 @@ function Index() {
         open={themesOpen}
         onClose={() => setThemesOpen(false)}
         currentThemeName={current.themeName}
-        onApply={(css, name) => updateCurrent({ themeCss: css, themeName: name })}
-        onClear={() => updateCurrent({ themeCss: undefined, themeName: undefined })}
+        currentBlueprintId={current.themeBlueprintId}
+        onApply={(css, name, blueprintId) => updateCurrent({ themeCss: css, themeName: name, themeBlueprintId: blueprintId })}
+        onClear={() => updateCurrent({ themeCss: undefined, themeName: undefined, themeBlueprintId: undefined })}
+
       />
       <DesignLibraryPanel
         open={designLibraryOpen}

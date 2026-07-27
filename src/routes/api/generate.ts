@@ -38,6 +38,10 @@ const inputSchema = z.object({
   // Optional DesignContract from the Design Library panel. Passed through
   // opaquely and validated shallowly — we only read fields we know about.
   designContract: z.unknown().optional(),
+  // Optional built-in ThemeBlueprint id. When present the compiled prompt
+  // preserves the blueprint across generations/edits.
+  themeBlueprintId: z.string().max(120).optional(),
+
 });
 
 
@@ -684,6 +688,16 @@ export const Route = createFileRoute("/api/generate")({
               }
             } catch { /* ignore contract injection errors — non-fatal */ }
           }
+          // Active ThemeBlueprint injection — locks the 9-axis theme so AI
+          // preserves it on every generation/edit.
+          if (!data.advisory && data.themeBlueprintId) {
+            try {
+              const { getBuiltIn, blueprintToSystemPrompt } = await import("@/lib/theme-blueprints");
+              const bp = getBuiltIn(data.themeBlueprintId);
+              if (bp) messages.push({ role: "system", content: blueprintToSystemPrompt(bp) });
+            } catch { /* blueprint injection is non-fatal */ }
+          }
+
 
           if (!data.advisory && contextHtml) {
             messages.push({
