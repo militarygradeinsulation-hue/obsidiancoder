@@ -2256,7 +2256,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     const clean = `<!doctype html><html><body><h1>hi</h1><p>content matches parity target</p></body></html>`;
     const rClean = await finalizeCandidate(
       { candidateHtml: clean, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
-      async () => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", modelHint: "test", actualModel: "x" }; },
+      async (_req) => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", modelHint: "test", actualModel: "x" }; },
     );
     results.push(assert(calls === 0, "finalize: clean skips Claude"));
     results.push(assert(rClean.ok && rClean.claudeInvoked === false, "finalize: clean returns ok"));
@@ -2266,7 +2266,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     const badNav = `<!doctype html><html><body><a href="https://evil.example.com/x">go</a></body></html>`;
     const rDemo = await finalizeCandidate(
       { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: true, userRequest: "" },
-      async () => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", modelHint: "test", actualModel: "x" }; },
+      async (_req) => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", modelHint: "test", actualModel: "x" }; },
     );
     results.push(assert(calls === 0, "finalize: free-demo never calls Claude"));
     results.push(assert(rDemo.claudeInvoked === false, "finalize: free-demo claudeInvoked=false"));
@@ -2275,7 +2275,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     calls = 0;
     const rCache = await finalizeCandidate(
       { candidateHtml: clean, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
-      async () => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", modelHint: "test", actualModel: "x" }; },
+      async (_req) => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", modelHint: "test", actualModel: "x" }; },
     );
     results.push(assert(calls === 0 && rCache.source === "cache", "finalize: cached result reused, no Claude call"));
   }
