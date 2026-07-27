@@ -1704,6 +1704,10 @@ function Index() {
             taskType: classification.taskType,
             strategy: "deterministic",
           }, productionQaCall);
+          {
+            const qa = statusFromFinalize(fin, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
+            setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
+          }
           if (fin.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
           if (!fin.ok) {
             setSessions((all) => all.map((s) => s.id === sessionId
