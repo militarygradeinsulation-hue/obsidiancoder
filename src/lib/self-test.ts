@@ -1843,6 +1843,23 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     ));
   }
 
+  // ----- Phase 0 baseline: fixtures analyze deterministically -----
+  {
+    const { runBaseline } = await import("./baseline/report");
+    const rs = runBaseline();
+    results.push(assert(rs.length === 3, `baseline: 3 fixtures analyzed (got ${rs.length})`));
+    results.push(assert(rs.every((r) => r.graph.nodeCount > 0), "baseline: every fixture parses into a graph"));
+    results.push(assert(rs.every((r) => r.sections.signature.length > 0), "baseline: every fixture has a section signature"));
+    const habitual = rs.filter((r) => r.sections.hasHero && r.sections.hasFeatureTriad && r.sections.hasCtaBanner).length;
+    results.push(assert(habitual >= 2,
+      `baseline: detects habitual hero+triad+CTA pattern in majority of fixtures (found ${habitual}/3)`));
+    const externalDefects = rs.reduce((n, r) => n + r.interaction.externalLinks + r.interaction.targetBlank, 0);
+    results.push(assert(externalDefects >= 1,
+      "baseline: detects at least one external-navigation defect across fixtures"));
+  }
+
+
+
 
 
 
