@@ -38,6 +38,10 @@ const inputSchema = z.object({
   // Optional DesignContract from the Design Library panel. Passed through
   // opaquely and validated shallowly — we only read fields we know about.
   designContract: z.unknown().optional(),
+  // Optional built-in ThemeBlueprint id. When present the compiled prompt
+  // preserves the blueprint across generations/edits.
+  themeBlueprintId: z.string().max(120).optional(),
+
 });
 
 
