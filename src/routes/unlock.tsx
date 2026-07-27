@@ -15,7 +15,6 @@ import { PLAN_TIERS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
-import signatureCard from "@/assets/joseph-signature-card.jpeg.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
