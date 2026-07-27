@@ -5,16 +5,16 @@
 // standard paid-operation gate (auth + Pro + credit reservation).
 //
 // Design invariants:
-//   - POST only; strict JSON in/out.
-//   - Bounded payload (see qaInputSchema below); rejects oversized inputs.
+//   - POST only; strict JSON in/out (contract lives in qa-contract.ts).
+//   - Bounded payload (see qaInputSchema); rejects oversized inputs.
 //   - No provider call, no charge when no Claude model is available.
 //   - Exactly one provider attempt per request. No auto-escalation.
-//   - Malformed provider response ⇒ structured envelope, still charges the
-//     attempt so the caller can't spin the router.
-//   - No raw secrets, no full provider bodies logged.
+//   - Malformed provider response ⇒ structured envelope, still charges
+//     the attempt so the caller can't spin the router.
+//   - Every response carries providerInvoked honestly.
 
 import { createFileRoute } from "@tanstack/react-router";
-import { patchSchema } from "@/lib/patch-protocol";
+import { patchSchema, MAX_OPS } from "@/lib/patch-protocol";
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded } from "@/lib/upstream-guard";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
@@ -38,6 +38,7 @@ import {
 } from "@/lib/qa-model-resolver";
 import {
   qaInputSchema,
+  QA_MAX_PATCH_OPS,
   type QaRequestBody,
   type QaRouteSuccess,
   type QaRouteError,
@@ -46,7 +47,7 @@ import type { z } from "zod";
 
 export { qaInputSchema, type QaRequestBody, type QaRouteSuccess, type QaRouteError };
 
-const SYSTEM_PROMPT = `You are Obsidian QA. Review a generated HTML build for user-visible defects. Produce a MINIMAL repair as a JSON Patch document (schema below). Never introduce off-page navigation. Same-document interactions only. Return STRICT JSON — no markdown, no prose.
+const SYSTEM_PROMPT = `You are Obsidian QA. Review a generated HTML build for user-visible defects. Produce a MINIMAL repair using the Obsidian patch protocol (schema below). Never introduce off-page navigation. Same-document interactions only. Return STRICT JSON — no markdown, no prose.
 
 Response schema:
 {
@@ -58,54 +59,91 @@ Response schema:
   "patch": null | { "summary": "...", "operations": [ ...patch ops... ] }
 }
 
-Patch ops (subset): replace_text, delete_text, insert_before, insert_after, replace_element_by_id, set_attribute, append_css_rule, append_script, remove_element_by_id, remove_attribute, add_class, remove_class, insert_child, update_inline_style, replace_css_rule, replace_script_block, rename_id, update_json_block. Prefer replace_text/set_attribute/append_css_rule for minimal repairs. At most 8 operations.`;
+Rules:
+- verdict "pass" or "block" ⇒ patch MUST be null.
+- verdict "repair" ⇒ patch MUST be a valid Obsidian patch with 1..${QA_MAX_PATCH_OPS} operations.
 
-function parseQaJson(text: string): {
+Patch ops (subset): replace_text, delete_text, insert_before, insert_after, replace_element_by_id, set_attribute, append_css_rule, append_script, remove_element_by_id, remove_attribute, add_class, remove_class, insert_child, update_inline_style, replace_css_rule, replace_script_block, rename_id, update_json_block. Prefer replace_text/set_attribute/append_css_rule for minimal repairs. At most ${QA_MAX_PATCH_OPS} operations.`;
+
+type ParsedQa = {
   verdict: "pass" | "repair" | "block";
   confidence: number;
   defectCategories: string[];
   explanation: string;
   expectedImprovement: string;
   patch: z.infer<typeof patchSchema> | null;
-} | null {
+};
+
+/** Strict parser: returns null on ANY nonconformance. Callers must treat
+ *  null as qa_bad_response and never coerce. */
+function parseQaJson(text: string): ParsedQa | null {
+  let block: string;
   try {
     const t = text.trim();
     const fence = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-    const block = fence ? fence[1] : t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1);
-    const j = JSON.parse(block) as {
-      verdict?: string;
-      confidence?: number;
-      defect_categories?: unknown;
-      explanation?: string;
-      expected_improvement?: string;
-      patch?: unknown;
-    };
-    const verdict =
-      j.verdict === "pass" || j.verdict === "repair" || j.verdict === "block"
-        ? j.verdict
-        : "block";
-    const confidence =
-      typeof j.confidence === "number"
-        ? Math.max(0, Math.min(1, j.confidence))
-        : 0.4;
-    const defectCategories = Array.isArray(j.defect_categories)
-      ? j.defect_categories.slice(0, 10).map((x) => String(x).slice(0, 80))
-      : [];
-    const explanation =
-      typeof j.explanation === "string" ? j.explanation.slice(0, 400) : "";
-    const expectedImprovement =
-      typeof j.expected_improvement === "string" ? j.expected_improvement.slice(0, 400) : "";
-    let patch: z.infer<typeof patchSchema> | null = null;
-    if (j.patch && typeof j.patch === "object") {
-      const parsed = patchSchema.safeParse(j.patch);
-      if (parsed.success) patch = parsed.data;
-      // If patch schema failed, we keep patch=null; verdict stays as reported
-      // but the client will not receive a patch to apply.
-    }
-    return { verdict, confidence, defectCategories, explanation, expectedImprovement, patch };
-  } catch {
-    return null;
+    block = fence ? fence[1] : t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1);
+    if (!block) return null;
+  } catch { return null; }
+
+  let j: {
+    verdict?: unknown; confidence?: unknown; defect_categories?: unknown;
+    explanation?: unknown; expected_improvement?: unknown; patch?: unknown;
+  };
+  try { j = JSON.parse(block); } catch { return null; }
+
+  // Strict verdict — reject unknown, do not coerce.
+  if (j.verdict !== "pass" && j.verdict !== "repair" && j.verdict !== "block") return null;
+  const verdict = j.verdict;
+
+  const confidence =
+    typeof j.confidence === "number" && Number.isFinite(j.confidence)
+      ? Math.max(0, Math.min(1, j.confidence))
+      : 0.4;
+
+  const defectCategories = Array.isArray(j.defect_categories)
+    ? j.defect_categories.slice(0, 10).map((x) => String(x).slice(0, 80))
+    : [];
+  const explanation =
+    typeof j.explanation === "string" ? j.explanation.slice(0, 400) : "";
+  const expectedImprovement =
+    typeof j.expected_improvement === "string" ? j.expected_improvement.slice(0, 400) : "";
+
+  let patch: z.infer<typeof patchSchema> | null = null;
+  if (j.patch !== null && j.patch !== undefined) {
+    if (typeof j.patch !== "object") return null;
+    const parsed = patchSchema.safeParse(j.patch);
+    if (!parsed.success) return null;
+    if (parsed.data.operations.length > QA_MAX_PATCH_OPS) return null;
+    if (parsed.data.operations.length > MAX_OPS) return null;
+    patch = parsed.data;
   }
+
+  // Enforce verdict / patch consistency here so downstream code
+  // does not need to double-check.
+  if ((verdict === "pass" || verdict === "block") && patch !== null) {
+    // Ignore any patch on pass/block per contract.
+    patch = null;
+  }
+  if (verdict === "repair" && patch === null) return null;
+
+  return { verdict, confidence, defectCategories, explanation, expectedImprovement, patch };
+}
+
+function errBody(
+  code: QaRouteError["code"],
+  message: string,
+  actualModel: string | null,
+  providerInvoked: boolean,
+  requestId: string,
+): QaRouteError {
+  return {
+    ok: false,
+    code,
+    message: message.slice(0, 400),
+    actualModel,
+    providerInvoked,
+    requestId,
+  };
 }
 
 export const Route = createFileRoute("/api/qa")({
@@ -155,15 +193,13 @@ export const Route = createFileRoute("/api/qa")({
           const snap = currentQaRegistrySnapshot();
           const resolution = resolveCheapestClaudeModel(snap);
           if (!resolution.model) {
-            const body: QaRouteError = {
-              ok: false,
-              code: "qa_model_unavailable",
-              message: resolution.reason === "no_routellm"
+            const body = errBody(
+              "qa_model_unavailable",
+              resolution.reason === "no_routellm"
                 ? "QA provider (RouteLLM) is not configured."
                 : "No Claude-family model available in the current registry.",
-              actualModel: null,
-              requestId,
-            };
+              null, false, requestId,
+            );
             return Response.json(body, {
               status: 200,
               headers: { "X-Request-Id": requestId },
@@ -175,30 +211,23 @@ export const Route = createFileRoute("/api/qa")({
           if (entitlement.kind === "denied" && entitlement.denial) {
             return denialResponse(entitlement.denial, requestId);
           }
-
-          // Free-demo callers can never reach QA. requirePaidOperation
-          // returns kind "free_demo" only when reservation happened via
-          // demo cookie; QA doesn't accept demo cookies (no demo header).
           if (entitlement.kind === "free_demo") {
-            const body: QaRouteError = {
-              ok: false,
-              code: "qa_model_unavailable",
-              message: "QA is not available on the free demo.",
-              actualModel: null,
-              requestId,
-            };
+            const body = errBody(
+              "qa_model_unavailable",
+              "QA is not available on the free demo.",
+              null, false, requestId,
+            );
             return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
           }
 
           const routellmKey = process.env.ROUTELLM_API_KEY;
           if (!routellmKey || !isRouteLLMModel(model)) {
-            // Redundant with resolver but preserves invariant.
             await settleFailure("qa_model_unavailable");
-            const body: QaRouteError = {
-              ok: false, code: "qa_model_unavailable",
-              message: "QA provider is not configured.",
-              actualModel: model, requestId,
-            };
+            const body = errBody(
+              "qa_model_unavailable",
+              "QA provider is not configured.",
+              model, false, requestId,
+            );
             return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
           }
 
@@ -220,6 +249,9 @@ export const Route = createFileRoute("/api/qa")({
           const body: Record<string, unknown> = {
             model: wireModel,
             stream: false,
+            // RouteLLM is OpenAI-compatible; request strict JSON so the
+            // model won't wrap in prose. Our parser is strict regardless.
+            response_format: { type: "json_object" },
             messages: [
               { role: "system", content: SYSTEM_PROMPT },
               { role: "user", content: JSON.stringify(userPayload) },
@@ -227,6 +259,7 @@ export const Route = createFileRoute("/api/qa")({
           };
 
           let providerText = "";
+          let actualModel: string = model;
           try {
             const { response } = await aiFetch(
               "https://routellm.abacus.ai/v1/chat/completions",
@@ -244,8 +277,7 @@ export const Route = createFileRoute("/api/qa")({
                 requestId,
                 signal: request.signal,
                 // Cost invariant: at most ONE physical provider attempt per QA
-                // request. No auto-retry, no auto-escalation. Callers must not
-                // spin on transient failures — the finalizer caches the block.
+                // request. No auto-retry, no auto-escalation.
                 maxAttempts: 1,
               },
             );
@@ -266,6 +298,10 @@ export const Route = createFileRoute("/api/qa")({
               });
             }
             const parsedUsage = parseUsageFromChatJson(j);
+            const modelFromProvider = parsedUsage?.model;
+            if (typeof modelFromProvider === "string" && modelFromProvider.length > 0) {
+              actualModel = modelFromProvider.slice(0, 120);
+            }
             const est = estimateUsdForCall({
               model: parsedUsage?.model ?? wireModel,
               inputTokens: parsedUsage?.inputTokens ?? 0,
@@ -296,17 +332,22 @@ export const Route = createFileRoute("/api/qa")({
                   message: (err as Error)?.message,
                 });
             await settleFailure(aiErr.code);
-            return aiErr.toResponse();
+            const body = errBody(
+              "qa_provider_error",
+              aiErr.message,
+              model, true, requestId,
+            );
+            return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
           }
 
           const parsed = parseQaJson(providerText);
           if (!parsed) {
             await settleFailure("qa_bad_response");
-            const body: QaRouteError = {
-              ok: false, code: "qa_bad_response",
-              message: "QA model returned a malformed response.",
-              actualModel: model, requestId,
-            };
+            const body = errBody(
+              "qa_bad_response",
+              "QA model returned a malformed response.",
+              actualModel, true, requestId,
+            );
             return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
           }
 
@@ -319,8 +360,9 @@ export const Route = createFileRoute("/api/qa")({
             explanation: parsed.explanation,
             patch: parsed.patch,
             expectedImprovement: parsed.expectedImprovement,
-            actualModel: model,
+            actualModel,
             fallbackUsed: false,
+            providerInvoked: true,
             requestId,
           };
           return Response.json(success, {

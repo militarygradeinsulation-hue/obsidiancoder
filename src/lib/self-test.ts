@@ -2231,138 +2231,209 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(res.verdict === "block", "claude-qa: external nav is blocking"));
   }
 
-  // ---------- QA model resolver ----------
+  // ---------- QA model resolver (dynamic; no exact IDs required) ----------
   {
-    const { resolveCheapestClaudeModel, CLAUDE_MODEL_ORDER } = await import("./qa-model-resolver");
-    const r1 = resolveCheapestClaudeModel({ routellmAvailable: false, registryModelIds: [...CLAUDE_MODEL_ORDER] });
+    const { resolveCheapestClaudeModel } = await import("./qa-model-resolver");
+    // 1. No routellm ⇒ null / no_routellm.
+    const r1 = resolveCheapestClaudeModel({
+      routellmAvailable: false,
+      registryModels: [{ id: "routellm/claude-haiku-x", label: "Claude Haiku X" }],
+    });
     results.push(assert(r1.model === null && r1.reason === "no_routellm", "qa-resolver: no routellm → null"));
-    const r2 = resolveCheapestClaudeModel({ routellmAvailable: true, registryModelIds: [] });
+
+    // 2. Empty registry ⇒ null / no_claude_in_registry.
+    const r2 = resolveCheapestClaudeModel({ routellmAvailable: true, registryModels: [] });
     results.push(assert(r2.model === null && r2.reason === "no_claude_in_registry", "qa-resolver: empty registry → null"));
-    const r3 = resolveCheapestClaudeModel({ routellmAvailable: true, registryModelIds: [...CLAUDE_MODEL_ORDER] });
-    results.push(assert(r3.model === CLAUDE_MODEL_ORDER[0], "qa-resolver: picks cheapest Claude"));
-    const r4 = resolveCheapestClaudeModel({ routellmAvailable: true, registryModelIds: [CLAUDE_MODEL_ORDER[2], CLAUDE_MODEL_ORDER[1]] });
-    results.push(assert(r4.model === CLAUDE_MODEL_ORDER[1], "qa-resolver: skips missing cheaper, picks next available"));
+
+    // 3. Synthetic future IDs — id contains family names, but no exact
+    //    production string is present. Haiku must win.
+    const r3 = resolveCheapestClaudeModel({
+      routellmAvailable: true,
+      registryModels: [
+        { id: "routellm/claude-opus-9-9",   label: "Claude Opus 9.9" },
+        { id: "routellm/claude-sonnet-7-2", label: "Claude Sonnet 7.2" },
+        { id: "routellm/claude-haiku-8-1",  label: "Claude Haiku 8.1" },
+      ],
+    });
+    results.push(assert(r3.model === "routellm/claude-haiku-8-1", "qa-resolver: synthetic IDs — haiku wins"));
+
+    // 4. Detection by LABEL only (id says vendor/something opaque).
+    const r4 = resolveCheapestClaudeModel({
+      routellmAvailable: true,
+      registryModels: [
+        { id: "routellm/vendor-opaque-2",   label: "Claude Sonnet (labelled)" },
+        { id: "routellm/vendor-opaque-1",   label: "Claude Haiku (labelled)" },
+      ],
+    });
+    results.push(assert(r4.model === "routellm/vendor-opaque-1", "qa-resolver: detects Claude via label"));
+
+    // 5. No Claude present at all.
+    const r5 = resolveCheapestClaudeModel({
+      routellmAvailable: true,
+      registryModels: [
+        { id: "routellm/gpt-4o", label: "GPT-4o" },
+        { id: "routellm/gemini-2.5-pro", label: "Gemini 2.5 Pro" },
+      ],
+    });
+    results.push(assert(r5.model === null && r5.reason === "no_claude_in_registry", "qa-resolver: no claude in registry"));
+
+    // 6. Current shared snapshot still contains at least one Claude entry.
+    const { currentQaRegistrySnapshot } = await import("./qa-model-resolver");
+    const snap = currentQaRegistrySnapshot();
+    const claudeInReal = snap.registryModels.filter((e) =>
+      e.id.toLowerCase().includes("claude") || (e.label ?? "").toLowerCase().includes("claude"),
+    );
+    results.push(assert(claudeInReal.length > 0, "qa-resolver: real snapshot exposes at least one Claude entry"));
   }
 
   // ---------- finalizeCandidate ----------
   {
-    const { finalizeCandidate, invalidateFinalizeCache } = await import("./finalize-candidate");
-    invalidateFinalizeCache();
+    const {
+      finalizeCandidate, invalidateFinalizeCache,
+      finalizeCacheSize, finalizeCacheKeys,
+    } = await import("./finalize-candidate");
+    const { QA_POLICY_VERSION } = await import("./qa-contract");
+    void QA_POLICY_VERSION;
+
+    // Helper: build a successful QA envelope with providerInvoked.
+    const okPass = () => ({
+      ok: true as const, verdict: "pass" as const, confidence: 1,
+      defectCategories: [], explanation: "", patch: null,
+      expectedImprovement: "", actualModel: "haiku",
+      fallbackUsed: false as const, providerInvoked: true, requestId: "t",
+    });
 
     const stable = `<!doctype html><html><body><h1>ok</h1></body></html>`;
-
-    // 1. Clean candidate → no Claude, source clean.
-    let calls = 0;
     const clean = `<!doctype html><html><body><h1>hi</h1><p>content matches parity target</p></body></html>`;
+    const badNav = `<!doctype html><html><body><a href="https://evil.example.com/x">go</a></body></html>`;
+
+    // 1. Clean → no Claude, no cache write.
+    invalidateFinalizeCache();
+    let calls = 0;
     const rClean = await finalizeCandidate(
       { candidateHtml: clean, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
-      async (_req) => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "test" }; },
+      async () => { calls++; return okPass(); },
     );
     results.push(assert(calls === 0, "finalize: clean skips Claude"));
     results.push(assert(rClean.ok && rClean.claudeInvoked === false, "finalize: clean returns ok"));
+    results.push(assert(finalizeCacheSize() === 0, "finalize: clean does NOT fill decision cache"));
 
-    // 2. Free demo skips Claude even when deterministic assessment fails.
+    // 2. Free demo skips Claude AND never touches the decision cache.
     calls = 0;
-    const badNav = `<!doctype html><html><body><a href="https://evil.example.com/x">go</a></body></html>`;
+    invalidateFinalizeCache();
     const rDemo = await finalizeCandidate(
       { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: true, userRequest: "" },
-      async (_req) => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "test" }; },
+      async () => { calls++; return okPass(); },
     );
     results.push(assert(calls === 0, "finalize: free-demo never calls Claude"));
     results.push(assert(rDemo.claudeInvoked === false, "finalize: free-demo claudeInvoked=false"));
+    results.push(assert(finalizeCacheSize() === 0, "finalize: free-demo does NOT fill decision cache"));
 
-    // 3. Repeat identical input hits cache → still no Claude call.
-    calls = 0;
-    const rCache = await finalizeCandidate(
-      { candidateHtml: clean, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
-      async (_req) => { calls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "test" }; },
-    );
-    results.push(assert(calls === 0 && rCache.source === "cache", "finalize: cached result reused, no Claude call"));
-
-    // 4. Cost cap: transport failure still counts as one dispatched call
-    //    and is cached — a second invocation does NOT re-hit the provider.
+    // 3. Fresh deterministic gates rerun on every call. If we mutate the
+    //    theme, a previously cached DECISION for the same raw candidate
+    //    with a different theme must not be reused.
     invalidateFinalizeCache();
     let dispatches = 0;
-    const badNav2 = `<!doctype html><html><body><a href="https://evil.example.com/x">go</a></body></html>`;
+    await finalizeCandidate(
+      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
+      async () => { dispatches++; return null; },
+    );
+    await finalizeCandidate(
+      { candidateHtml: badNav, stableHtml: stable, themeCss: "body{color:red}", themeName: null, demoMode: false, userRequest: "u" },
+      async () => { dispatches++; return null; },
+    );
+    results.push(assert(dispatches === 2, "finalize: changing themeCss changes the QA key"));
+
+    // 4. Cost cap — repeat with same key ⇒ cached decision, no second dispatch.
+    invalidateFinalizeCache();
+    dispatches = 0;
     const rFail1 = await finalizeCandidate(
-      { candidateHtml: badNav2, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async (_req) => { dispatches++; return null; },
+      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
+      async () => { dispatches++; return null; },
     );
     results.push(assert(dispatches === 1, "finalize: paid unresolved dispatches exactly one call"));
     results.push(assert(!rFail1.ok && rFail1.claudeInvoked === true && rFail1.claudeResultFromCache === false, "finalize: transport failure marks claudeInvoked=true"));
     const rFail2 = await finalizeCandidate(
-      { candidateHtml: badNav2, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async (_req) => { dispatches++; return null; },
+      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
+      async () => { dispatches++; return null; },
     );
-    results.push(assert(dispatches === 1, "finalize: second identical call reuses cache (no second dispatch)"));
-    results.push(assert(rFail2.source === "cache" && rFail2.claudeInvoked === false && rFail2.claudeResultFromCache === true, "finalize: cache hit reports claudeResultFromCache"));
+    results.push(assert(dispatches === 1, "finalize: second identical call reuses cached decision"));
+    results.push(assert(rFail2.claudeInvoked === false && rFail2.claudeResultFromCache === true, "finalize: cache hit reports claudeResultFromCache"));
 
-    // 5. stableHtml is NOT part of the cache key — a different stableHtml
-    //    must return the CURRENT stableHtml on a blocked cache hit, not
-    //    the one that filled the cache.
+    // 5. stableHtml is NOT part of the key — cached BLOCK returns CURRENT
+    //    stableHtml, never the previously-committed one.
     const rFail3 = await finalizeCandidate(
-      { candidateHtml: badNav2, stableHtml: "<!doctype html><html><body>NEWSTABLE</body></html>", themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async (_req) => { dispatches++; return null; },
+      { candidateHtml: badNav, stableHtml: "<!doctype html><html><body>NEWSTABLE</body></html>", themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
+      async () => { dispatches++; return null; },
     );
     results.push(assert(dispatches === 1, "finalize: stableHtml change does not spend a call"));
-    results.push(assert(rFail3.finalHtml.includes("NEWSTABLE"), "finalize: blocked cache hit uses CURRENT stableHtml, not the cached one"));
+    results.push(assert(rFail3.finalHtml.includes("NEWSTABLE"), "finalize: blocked cache hit uses CURRENT stableHtml"));
 
-    // 6. taskType is part of the cache key — different task → new dispatch.
+    // 6. taskType is part of the key.
     const rFail4 = await finalizeCandidate(
-      { candidateHtml: badNav2, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u", taskType: "edit-copy" },
-      async (_req) => { dispatches++; return null; },
+      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u", taskType: "edit-copy" },
+      async () => { dispatches++; return null; },
     );
     void rFail4;
     results.push(assert(dispatches === 2, "finalize: different taskType is a different cache entry"));
 
-    // 7. demoMode is part of the cache key — a demo request cannot hit a
-    //    paid session's cache (or vice-versa).
-    const rDemoAgain = await finalizeCandidate(
-      { candidateHtml: badNav2, stableHtml: stable, themeCss: null, themeName: null, demoMode: true, userRequest: "u" },
-      async (_req) => { dispatches++; return null; },
+    // 7. strategy is part of the key.
+    const rFail5 = await finalizeCandidate(
+      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u", taskType: "edit-copy", strategy: "ai-patch" },
+      async () => { dispatches++; return null; },
     );
-    results.push(assert(dispatches === 2 && rDemoAgain.claudeInvoked === false, "finalize: demoMode change routes to demo path without dispatching"));
+    void rFail5;
+    results.push(assert(dispatches === 3, "finalize: different strategy is a different cache entry"));
 
-    // 8. LRU eviction cap — filling past CACHE_MAX evicts oldest, not newest.
-    invalidateFinalizeCache();
-    // Warm one entry we'll poke later.
-    const marker = `<!doctype html><html><body><h1>marker</h1><p>content matches parity target</p></body></html>`;
-    await finalizeCandidate(
-      { candidateHtml: marker, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
-      async (_req) => ({ ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "t" }),
-    );
-    // Fill cache with 70 distinct entries (> CACHE_MAX = 64).
-    for (let i = 0; i < 70; i++) {
-      const html = `<!doctype html><html><body><h1>c${i}</h1><p>content matches parity target</p></body></html>`;
-      await finalizeCandidate(
-        { candidateHtml: html, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
-        async (_req) => ({ ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "t" }),
-      );
-    }
-    // Marker should have been evicted (it was oldest, not touched since).
-    let markerCalls = 0;
-    await finalizeCandidate(
-      { candidateHtml: marker, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
-      async (_req) => { markerCalls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "t" }; },
-    );
-    // Clean path never dispatches, but assessment ran fresh (not a cache hit).
-    // Assertion: the marker entry is no longer a cache hit — its finalize
-    // returns a non-"cache" source after eviction.
-    // (We can only observe source here because clean path skips the call.)
-    // Re-run once more to confirm it's back in cache.
-    const rMarker2 = await finalizeCandidate(
-      { candidateHtml: marker, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "" },
-      async (_req) => { markerCalls++; return { ok: true, verdict: "pass" as const, confidence: 1, defectCategories: [], explanation: "", patch: null, expectedImprovement: "", actualModel: "x", fallbackUsed: false, requestId: "t" }; },
-    );
-    results.push(assert(rMarker2.source === "cache", "finalize: cache LRU re-fills after eviction"));
-
-    // 9. Verdict PASS with deterministic blockers stays blocked (cannot waive).
+    // 8. Verdict PASS cannot waive deterministic blockers.
     invalidateFinalizeCache();
     const rPass = await finalizeCandidate(
-      { candidateHtml: badNav2, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async (_req) => ({ ok: true, verdict: "pass" as const, confidence: 0.9, defectCategories: [], explanation: "looks fine", patch: null, expectedImprovement: "", actualModel: "haiku", fallbackUsed: false, requestId: "t" }),
+      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
+      async () => ({ ok: true as const, verdict: "pass" as const, confidence: 0.9, defectCategories: [], explanation: "looks fine", patch: null, expectedImprovement: "", actualModel: "haiku", fallbackUsed: false as const, providerInvoked: true, requestId: "t" }),
     );
     results.push(assert(!rPass.ok && rPass.blockers.some((b) => b.startsWith("qa-pass-with-blockers")), "finalize: qa pass cannot waive deterministic blockers"));
+
+    // 9. Static-clean but runtime blockers > 0 ⇒ block; no QA call; no cache write.
+    invalidateFinalizeCache();
+    let rtCalls = 0;
+    const rRuntime = await finalizeCandidate(
+      { candidateHtml: clean, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u", runtimeBlockersForCandidateHash: 2 },
+      async () => { rtCalls++; return okPass(); },
+    );
+    results.push(assert(rtCalls === 0, "finalize: static-clean+runtime-blocker skips QA entirely"));
+    results.push(assert(!rRuntime.ok && rRuntime.blockers.some((b) => b.startsWith("runtime-blockers")), "finalize: runtime blockers alone are blocking"));
+    results.push(assert(finalizeCacheSize() === 0, "finalize: runtime-blocker path does not fill cache"));
+
+    // 10. LRU cap — filling past CACHE_MAX evicts oldest, hit refreshes MRU.
+    invalidateFinalizeCache();
+    // Seed a "marker" decision (unresolved so it fills the decision cache).
+    const seed = async (n: number) => {
+      const html = `<!doctype html><html><body><a href="https://evil-${n}.example.com/x">go</a></body></html>`;
+      await finalizeCandidate(
+        { candidateHtml: html, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
+        async () => null,
+      );
+      return html;
+    };
+    const markerHtml = await seed(0);
+    for (let i = 1; i < 64; i++) await seed(i);
+    // Cache is now full (64 entries). Hit marker to refresh its MRU position.
+    await finalizeCandidate(
+      { candidateHtml: markerHtml, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
+      async () => { throw new Error("must not dispatch on cache hit"); },
+    );
+    // Add one more distinct entry (65th) — evicts the least-recent
+    // (which must not be the marker, since we just touched it).
+    await seed(64);
+    const keys = finalizeCacheKeys();
+    results.push(assert(keys.length === 64, `finalize: LRU stays at cap 64 (got ${keys.length})`));
+    // Marker still present ⇒ another hit does not dispatch.
+    let markerCalls = 0;
+    await finalizeCandidate(
+      { candidateHtml: markerHtml, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
+      async () => { markerCalls++; return null; },
+    );
+    results.push(assert(markerCalls === 0, "finalize: LRU hit refreshes recency — marker survives eviction"));
   }
 
 

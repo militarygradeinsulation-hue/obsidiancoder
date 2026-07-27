@@ -1,49 +1,83 @@
 // Pure model-resolution helper for the metered QA route.
 //
-// The QA route always prefers Claude-family models. We choose the cheapest
-// available Claude model from the CURRENT model registry. When RouteLLM
-// isn't configured (no ROUTELLM_API_KEY) or no Claude model appears in the
-// registry snapshot, callers get `null` and MUST return a structured
-// unavailable envelope without invoking any provider.
-//
-// The resolver is intentionally pure (no I/O) so it can be unit-tested by
-// passing a synthetic registry snapshot.
+// The QA route always prefers Claude-family models, cheapest first. This
+// resolver is intentionally decoupled from any exact production model id:
+// it accepts a snapshot of the CURRENT registry entries `{id, label?}` and
+// ranks them by Claude family (Haiku → Sonnet → Opus → other Claude),
+// with a stable lexical tie-break inside a family. Detection uses either
+// id or label so the registry can drop / rename ids without breaking QA.
 
 import { ROUTELLM_MODELS } from "./models";
 
-/** Claude-family model ids ordered from CHEAPEST → most expensive. */
-export const CLAUDE_MODEL_ORDER: readonly string[] = [
-  "routellm/claude-haiku-4-5-20251001",
-  "routellm/claude-sonnet-4-5-20250929",
-  "routellm/claude-opus-4-1-20250805",
-];
+export interface QaRegistryEntry {
+  id: string;
+  label?: string;
+}
 
 export interface QaRegistrySnapshot {
   /** True when the RouteLLM (Abacus) provider has a valid API key configured. */
   routellmAvailable: boolean;
-  /** Model ids present in the current registry (order-independent). */
-  registryModelIds: readonly string[];
+  /** Full model entries from the current registry (order-independent). */
+  registryModels: readonly QaRegistryEntry[];
 }
+
+export type QaModelReason =
+  | "ok"
+  | "no_routellm"
+  | "no_claude_in_registry";
 
 export interface QaModelResolution {
   model: string | null;
-  reason: "ok" | "no_routellm" | "no_claude_in_registry";
+  reason: QaModelReason;
+}
+
+/** Family rank — lower is cheaper / preferred. Unknown Claude families rank last. */
+const FAMILY_RANK: Record<string, number> = {
+  haiku: 0,
+  sonnet: 1,
+  opus: 2,
+};
+const UNKNOWN_CLAUDE_RANK = 99;
+
+function normalize(s: string): string {
+  return s.toLowerCase();
+}
+
+function isClaudeEntry(e: QaRegistryEntry): boolean {
+  const id = normalize(e.id);
+  const label = e.label ? normalize(e.label) : "";
+  return id.includes("claude") || label.includes("claude");
+}
+
+function familyRankFor(e: QaRegistryEntry): number {
+  const id = normalize(e.id);
+  const label = e.label ? normalize(e.label) : "";
+  const hay = `${id} ${label}`;
+  for (const fam of Object.keys(FAMILY_RANK)) {
+    if (hay.includes(fam)) return FAMILY_RANK[fam];
+  }
+  return UNKNOWN_CLAUDE_RANK;
 }
 
 /** Choose the cheapest Claude-capable model available. Pure. */
 export function resolveCheapestClaudeModel(snap: QaRegistrySnapshot): QaModelResolution {
   if (!snap.routellmAvailable) return { model: null, reason: "no_routellm" };
-  const ids = new Set(snap.registryModelIds);
-  for (const m of CLAUDE_MODEL_ORDER) {
-    if (ids.has(m)) return { model: m, reason: "ok" };
-  }
-  return { model: null, reason: "no_claude_in_registry" };
+  const claude = snap.registryModels.filter(isClaudeEntry);
+  if (claude.length === 0) return { model: null, reason: "no_claude_in_registry" };
+  claude.sort((a, b) => {
+    const ra = familyRankFor(a);
+    const rb = familyRankFor(b);
+    if (ra !== rb) return ra - rb;
+    // Stable lexical tie-break so identical snapshots always return the same id.
+    return a.id.localeCompare(b.id);
+  });
+  return { model: claude[0].id, reason: "ok" };
 }
 
 /** Snapshot built from the current environment + shared registry. */
 export function currentQaRegistrySnapshot(): QaRegistrySnapshot {
   return {
     routellmAvailable: !!process.env.ROUTELLM_API_KEY,
-    registryModelIds: ROUTELLM_MODELS.map((m) => m.id),
+    registryModels: ROUTELLM_MODELS.map((m) => ({ id: m.id, label: m.label })),
   };
 }
