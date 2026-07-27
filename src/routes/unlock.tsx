@@ -351,6 +351,12 @@ function Unlock() {
       {!panelOpen && (
         <div className="unlock-wordmark" id="top">
           <h1 className="unlock-title unlock-title-hero" data-text="OBSIDIAN VIBE">OBSIDIAN VIBE</h1>
+          <div className="unlock-hero-slogan" aria-labelledby="hero-slogan-heading">
+            <h2 id="hero-slogan-heading" className="hero-slogan-headline">AI built for the professionals big tech forgot</h2>
+            <p className="hero-slogan-body">
+              People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
+            </p>
+          </div>
         </div>
       )}
 
@@ -715,112 +721,108 @@ function Unlock() {
 
 
 
-      {/* SLOGAN — bottom of page, out of the way */}
-      <section className="unlock-slogan" aria-labelledby="slogan-heading">
-        <div className="slogan-card">
-          <h2 id="slogan-heading" className="slogan-headline">
-            AI built for the professionals big tech forgot
-          </h2>
-          <p className="slogan-body">
-            People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
-          </p>
-          <div className="slogan-examples" aria-label="Example builds">
-            <button
-              type="button"
-              className="slogan-example"
-              onClick={() => setActiveVideo({ url: exampleVideo1.url, label: "Live build · example 01" })}
-              aria-label="Expand Obsidian build example one"
-            >
-              <video
-                src={exampleVideo1.url}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                aria-hidden
-                tabIndex={-1}
-              />
-              <span className="slogan-example-caption">Live build · example 01</span>
-              <span className="slogan-example-play" aria-hidden>▶</span>
-            </button>
-            <button
-              type="button"
-              className="slogan-example"
-              onClick={() => setActiveVideo({ url: exampleVideo2.url, label: "Live build · example 02" })}
-              aria-label="Expand Obsidian build example two"
-            >
-              <video
-                src={exampleVideo2.url}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                aria-hidden
-                tabIndex={-1}
-              />
-              <span className="slogan-example-caption">Live build · example 02</span>
-              <span className="slogan-example-play" aria-hidden>▶</span>
-            </button>
-            <button
-              type="button"
-              className="slogan-example"
-              onClick={() => setActiveVideo({ url: exampleVideo3.url, label: "Live build · electrician" })}
-              aria-label="Expand Obsidian electrician build example"
-            >
-              <video
-                src={exampleVideo3.url}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                aria-hidden
-                tabIndex={-1}
-              />
-              <span className="slogan-example-caption">Live build · electrician</span>
-              <span className="slogan-example-play" aria-hidden>▶</span>
-            </button>
-            <button
-              type="button"
-              className="slogan-example"
-              onClick={() => setActiveVideo({ url: exampleVideo4.url, label: "Live build · HVAC" })}
-              aria-label="Expand Obsidian HVAC build example"
-            >
-              <video
-                src={exampleVideo4.url}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                aria-hidden
-                tabIndex={-1}
-              />
-              <span className="slogan-example-caption">Live build · HVAC</span>
-              <span className="slogan-example-play" aria-hidden>▶</span>
-            </button>
-            <button
-              type="button"
-              className="slogan-example"
-              onClick={() => setActiveVideo({ url: exampleVideo5.url, label: "Live build · example 05" })}
-              aria-label="Expand Obsidian build example five"
-            >
-              <video
-                src={exampleVideo5.url}
-                autoPlay
-                loop
-                muted
-                playsInline
-                preload="metadata"
-                aria-hidden
-                tabIndex={-1}
-              />
-              <span className="slogan-example-caption">Live build · example 05</span>
-              <span className="slogan-example-play" aria-hidden>▶</span>
-            </button>
-          </div>
+      {/* EXAMPLE BUILDS — below the hero wordmark */}
+      <section className="unlock-examples" aria-labelledby="examples-heading">
+        <div className="unlock-examples-header">
+          <h2 id="examples-heading" className="unlock-examples-title">See it in action</h2>
+          <p className="unlock-examples-sub">Real builds for real work.</p>
+        </div>
+        <div className="slogan-examples" aria-label="Example builds">
+          <button
+            type="button"
+            className="slogan-example"
+            onClick={() => setActiveVideo({ url: exampleVideo1.url, label: "Live build · example 01" })}
+            aria-label="Expand Obsidian build example one"
+          >
+            <video
+              src={exampleVideo1.url}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-hidden
+              tabIndex={-1}
+            />
+            <span className="slogan-example-caption">Live build · example 01</span>
+            <span className="slogan-example-play" aria-hidden>▶</span>
+          </button>
+          <button
+            type="button"
+            className="slogan-example"
+            onClick={() => setActiveVideo({ url: exampleVideo2.url, label: "Live build · example 02" })}
+            aria-label="Expand Obsidian build example two"
+          >
+            <video
+              src={exampleVideo2.url}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-hidden
+              tabIndex={-1}
+            />
+            <span className="slogan-example-caption">Live build · example 02</span>
+            <span className="slogan-example-play" aria-hidden>▶</span>
+          </button>
+          <button
+            type="button"
+            className="slogan-example"
+            onClick={() => setActiveVideo({ url: exampleVideo3.url, label: "Live build · electrician" })}
+            aria-label="Expand Obsidian electrician build example"
+          >
+            <video
+              src={exampleVideo3.url}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-hidden
+              tabIndex={-1}
+            />
+            <span className="slogan-example-caption">Live build · electrician</span>
+            <span className="slogan-example-play" aria-hidden>▶</span>
+          </button>
+          <button
+            type="button"
+            className="slogan-example"
+            onClick={() => setActiveVideo({ url: exampleVideo4.url, label: "Live build · HVAC" })}
+            aria-label="Expand Obsidian HVAC build example"
+          >
+            <video
+              src={exampleVideo4.url}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-hidden
+              tabIndex={-1}
+            />
+            <span className="slogan-example-caption">Live build · HVAC</span>
+            <span className="slogan-example-play" aria-hidden>▶</span>
+          </button>
+          <button
+            type="button"
+            className="slogan-example"
+            onClick={() => setActiveVideo({ url: exampleVideo5.url, label: "Live build · example 05" })}
+            aria-label="Expand Obsidian build example five"
+          >
+            <video
+              src={exampleVideo5.url}
+              autoPlay
+              loop
+              muted
+              playsInline
+              preload="metadata"
+              aria-hidden
+              tabIndex={-1}
+            />
+            <span className="slogan-example-caption">Live build · example 05</span>
+            <span className="slogan-example-play" aria-hidden>▶</span>
+          </button>
         </div>
       </section>
 
@@ -1401,29 +1403,15 @@ const unlockCss = `
 .demo-name { font-size: 12px; color: #f2eee7; letter-spacing: 0.3px; }
 .demo-open { font-size: 11px; color: #F4A125; font-weight: 600; }
 
-.unlock-slogan {
-  position: relative;
-  width: 100%;
-  margin-top: 58vh;
-  padding: 30px 16px 24px;
-  opacity: 0.95;
-  z-index: 3;
-}
-.unlock-slogan::before {
-  content: "";
-  position: absolute;
-  top: 0; left: 50%; transform: translateX(-50%);
-  width: min(600px, 70vw); height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(244,161,37,0.25), transparent);
-}
-.slogan-card {
-  max-width: 720px;
-  margin: 0 auto;
+.unlock-hero-slogan {
+  pointer-events: auto;
+  max-width: 680px;
+  margin: 18px auto 0;
+  padding: 22px 28px;
   text-align: center;
   background: rgba(8,8,10,0.55);
   border: 1px solid rgba(244,161,37,0.18);
   border-radius: 18px;
-  padding: 28px 32px;
   backdrop-filter: blur(12px);
   box-shadow:
     0 18px 50px rgba(0,0,0,0.55),
@@ -1431,27 +1419,60 @@ const unlockCss = `
     0 0 0 1px rgba(244,161,37,0.05);
   transition: border-color .25s ease, box-shadow .25s ease;
 }
-.slogan-card:hover {
+.unlock-hero-slogan:hover {
   border-color: rgba(244,161,37,0.45);
   box-shadow:
     0 22px 60px rgba(0,0,0,0.65),
     0 0 0 1px rgba(244,161,37,0.12),
     0 0 30px rgba(244,161,37,0.08);
 }
-.slogan-headline {
+.hero-slogan-headline {
   font-family: Fraunces, Georgia, serif;
-  font-size: 26px;
-  line-height: 1.25;
+  font-size: 22px;
+  line-height: 1.3;
   color: #f2eee7;
-  margin: 0 0 14px;
+  margin: 0 0 10px;
   text-shadow: 0 0 18px rgba(244,161,37,0.18);
 }
-.slogan-body {
-  font-size: 14px;
-  line-height: 1.65;
+.hero-slogan-body {
+  font-size: 13.5px;
+  line-height: 1.6;
   color: rgba(182,188,200,0.85);
+  margin: 0 auto;
+  max-width: 560px;
+}
+
+.unlock-examples {
+  position: relative;
+  width: 100%;
+  margin-top: 100vh;
+  padding: 30px 16px 24px;
+  opacity: 0.95;
+  z-index: 3;
+}
+.unlock-examples::before {
+  content: "";
+  position: absolute;
+  top: 0; left: 50%; transform: translateX(-50%);
+  width: min(600px, 70vw); height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(244,161,37,0.25), transparent);
+}
+.unlock-examples-header {
+  max-width: 720px;
+  margin: 0 auto 18px;
+  text-align: center;
+}
+.unlock-examples-title {
+  font-family: Fraunces, Georgia, serif;
+  font-size: 22px;
+  color: #f2eee7;
+  margin: 0 0 6px;
+  text-shadow: 0 0 18px rgba(244,161,37,0.18);
+}
+.unlock-examples-sub {
+  font-size: 13px;
+  color: rgba(182,188,200,0.7);
   margin: 0;
-  max-width: 620px;
 }
 
 .slogan-examples {
@@ -1596,15 +1617,19 @@ const unlockCss = `
 
 
 @media (max-width: 800px) {
-  .unlock-slogan { padding: 40px 14px 20px; }
-  .slogan-card { padding: 22px 24px; }
-  .slogan-headline { font-size: 22px; }
-  .slogan-body { font-size: 13px; }
+  .unlock-hero-slogan { padding: 18px 22px; margin-top: 14px; }
+  .hero-slogan-headline { font-size: 19px; }
+  .hero-slogan-body { font-size: 12.5px; }
+  .unlock-examples { padding: 40px 14px 20px; }
+  .unlock-examples-title { font-size: 20px; }
 }
 @media (max-width: 520px) {
-  .slogan-card { padding: 18px 20px; }
-  .slogan-headline { font-size: 19px; }
-  .slogan-body { font-size: 12px; line-height: 1.6; }
+  .unlock-wordmark { padding: 100px 14px 30px; }
+  .unlock-title-hero { font-size: clamp(34px, 11vw, 64px); letter-spacing: 4px; }
+  .unlock-hero-slogan { padding: 14px 18px; }
+  .hero-slogan-headline { font-size: 16px; }
+  .hero-slogan-body { font-size: 11.5px; line-height: 1.55; }
+  .unlock-examples-title { font-size: 18px; }
 }
 .plans-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(244,161,37,0.15); }
 .plans-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 4px; }
@@ -1806,15 +1831,18 @@ const unlockCss = `
 
 /* Centered hero wordmark shown when the panel is closed */
 .unlock-wordmark {
-  position: fixed; inset: 0; display: grid; place-items: center;
+  position: fixed; inset: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
   pointer-events: none; z-index: 2;
+  padding: 110px 16px 40px;
 }
 .unlock-title-hero {
-  font-size: clamp(48px, 10vw, 128px);
+  font-size: clamp(44px, 9vw, 116px);
   letter-spacing: clamp(6px, 1.4vw, 18px);
   color: #f2eee7;
   text-shadow: 0 0 30px rgba(244,161,37,0.25), 0 0 80px rgba(244,161,37,0.12);
-  margin: 0; padding: 0 16px; text-align: center;
+  margin: 0 0 4px; padding: 0 16px; text-align: center;
   font-family: Fraunces, Georgia, serif; font-weight: 500;
 }
 
