@@ -102,6 +102,8 @@ import { checkParity } from "@/lib/parity-check";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
 import { productionQaCall } from "@/lib/qa-client";
+import { statusFromFinalize, statusFromPublish, markStaleIfChanged, type QaSessionStatus } from "@/lib/qa-status";
+import { assessOutbound } from "@/lib/outbound-assess";
 
 
 import { FusionModal, type FusionCommit } from "@/components/FusionModal";
@@ -221,6 +223,7 @@ type Session = {
   themeCss?: string;
   themeName?: string;
   themeBlueprintId?: string;
+  qaStatus?: QaSessionStatus | null;
 
 };
 
@@ -1121,6 +1124,22 @@ function Index() {
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
+  // Mark QA status stale when raw html or theme drift from the last assessment.
+  useEffect(() => {
+    if (!current) return;
+    const next = markStaleIfChanged(current.qaStatus ?? undefined, {
+      html: current.html,
+      themeCss: current.themeCss ?? null,
+      themeName: current.themeName ?? null,
+      themeBlueprintId: current.themeBlueprintId ?? null,
+    });
+    if (next !== (current.qaStatus ?? undefined)) {
+      setSessions((all) => all.map((s) => s.id === current.id ? { ...s, qaStatus: next } : s));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.id, current?.html, current?.themeCss, current?.themeName, current?.themeBlueprintId]);
+
+
   useEffect(() => {
     // Session-scoped: every new browser session starts blank. To continue
     // prior work, the user enters their library code and opens a build.
@@ -1701,6 +1720,10 @@ function Index() {
             taskType: classification.taskType,
             strategy: "deterministic",
           }, productionQaCall);
+          {
+            const qa = statusFromFinalize(fin, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
+            setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
+          }
           if (fin.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
           if (!fin.ok) {
             setSessions((all) => all.map((s) => s.id === sessionId
@@ -1906,6 +1929,10 @@ function Index() {
               taskType: classification.taskType,
               strategy: "ai-patch",
             }, productionQaCall);
+            {
+              const qa = statusFromFinalize(finP, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
+              setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
+            }
             if (finP.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
             if (!finP.ok) {
               setTerminal((t) => [...t, `✗ QA blocked patch: ${(finP.blockers[0] ?? "unresolved").slice(0, 100)} — falling back to full AI generation.`]);
@@ -2284,6 +2311,10 @@ function Index() {
         taskType: classification.taskType,
         strategy: "full-generation",
       }, productionQaCall);
+      {
+        const qa = statusFromFinalize(finG, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
+        setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
+      }
       if (finG.claudeInvoked) { setStage("validate"); setStageDetail("Claude QA"); }
       if (!finG.ok) {
         setSessions((all) => all.map((s) => s.id === sessionId
@@ -2778,23 +2809,23 @@ function Index() {
                   return;
                 }
                 setTerminal((t) => [...t, "→ QA checks…"]);
-                // Build ONE verified publish artifact. Ship exactly this string.
-                const art = buildArtifact({
-                  html: current.html,
+                // Single authoritative outbound assessment. Ship EXACTLY finalHtml.
+                const oa = assessOutbound(current.html, {
                   themeCss: current.themeCss ?? null,
                   themeName: current.themeName ?? null,
-                  surface: "publish",
+                  themeBlueprintId: current.themeBlueprintId ?? null,
+                  surface: "go-live",
                 });
-                if (!art.safeToPublish) {
-                  const reasons = art.violations.slice(0, 4).map(v => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                setSessions((all) => all.map((s) => s.id === current.id ? {
+                  ...s,
+                  qaStatus: statusFromPublish(oa.ok, oa.blockers[0] ?? "", { html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null }, s.qaStatus ?? undefined),
+                } : s));
+                if (!oa.ok) {
+                  const reasons = oa.blockers.slice(0, 4).join("; ") || "empty artifact";
                   setTerminal((t) => [...t, `✗ Go Live blocked by QA: ${reasons}`]);
                   return;
                 }
-                const parity = checkParity(current.html, art.html);
-                if (!parity.ok) {
-                  setTerminal((t) => [...t, `✗ Go Live blocked (parity): ${parity.blockers.slice(0, 2).join("; ")}`]);
-                  return;
-                }
+                const art = { html: oa.finalHtml };
                 setTerminal((t) => [...t, "→ Publishing shareable link…"]);
                 try {
                   let clientId = localStorage.getItem("obs.client_id");
@@ -2842,17 +2873,18 @@ function Index() {
                   clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
                   localStorage.setItem("obs.client_id", clientId);
                 }
-                const art = buildArtifact({
-                  html: current.html,
+                const oa = assessOutbound(current.html, {
                   themeCss: current.themeCss ?? null,
                   themeName: current.themeName ?? null,
-                  surface: "publish",
+                  themeBlueprintId: current.themeBlueprintId ?? null,
+                  surface: "featured-demo",
                 });
-                if (!art.safeToPublish) {
-                  throw new Error("QA blocked: " + (art.violations[0]?.code ?? "empty"));
-                }
-                const parity = checkParity(current.html, art.html);
-                if (!parity.ok) throw new Error("parity blocked: " + parity.blockers[0]);
+                setSessions((all) => all.map((s) => s.id === current.id ? {
+                  ...s,
+                  qaStatus: statusFromPublish(oa.ok, oa.blockers[0] ?? "", { html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null }, s.qaStatus ?? undefined),
+                } : s));
+                if (!oa.ok) throw new Error("QA blocked: " + (oa.blockers[0] ?? "empty"));
+                const art = { html: oa.finalHtml };
                 const res = await authFetch("/api/public/builds", {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
@@ -3986,6 +4018,7 @@ function Index() {
               bypass={engineeringBypass}
               onToggleBypass={setEngineeringBypass}
               currentStage={stage ?? undefined}
+              qaStatus={current.qaStatus ?? null}
             />
             <StrategyExplanation decision={lastDecision} lastOperation={lastOperation} />
             <LearningPanel onChange={() => setIntelligenceTick((n) => n + 1)} />
@@ -4319,13 +4352,14 @@ function Index() {
                 { label: "Go Live (open current build)", run: () => {
                   setPaletteOpen(false);
                   if (!current.html) return;
-                  const art = buildArtifact({ html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, surface: "publish" });
-                  if (!art.safeToPublish) {
-                    const reasons = art.violations.slice(0, 3).map((v) => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                  const oa = assessOutbound(current.html, { themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null, surface: "export" });
+                  setSessions((all) => all.map((s) => s.id === current.id ? { ...s, qaStatus: statusFromPublish(oa.ok, oa.blockers[0] ?? "", { html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null }, s.qaStatus ?? undefined) } : s));
+                  if (!oa.ok) {
+                    const reasons = oa.blockers.slice(0, 3).join("; ") || "empty artifact";
                     setTerminal((t) => [...t, `✗ Palette Go Live blocked by QA: ${reasons}`]);
                     return;
                   }
-                  const blob = new Blob([art.html], { type: "text/html" });
+                  const blob = new Blob([oa.finalHtml], { type: "text/html" });
                   window.open(URL.createObjectURL(blob), "_blank", "noopener,noreferrer");
                 } },
 
