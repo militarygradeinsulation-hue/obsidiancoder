@@ -15,6 +15,8 @@ import { PLAN_TIERS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
+import exampleVideo1 from "@/assets/example-1.mp4.asset.json";
+import exampleVideo2 from "@/assets/example-2.mp4.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
