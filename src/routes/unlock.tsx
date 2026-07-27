@@ -3,6 +3,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type FormEvent } from "react";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
+const GLSLHills = lazy(() => import("@/components/ui/glsl-hills"));
 import DomeGallery from "@/components/ui/dome-gallery";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { supabase } from "@/integrations/supabase/client";
@@ -278,10 +279,12 @@ function Unlock() {
       <div aria-hidden className="unlock-scene">
         <ClientOnly fallback={null}>
           <Suspense fallback={null}>
+            <GLSLHills className="unlock-hills-canvas" />
             <AnomalousMatterScene className="unlock-scene-canvas" />
           </Suspense>
         </ClientOnly>
       </div>
+
 
 
       <div aria-hidden className="unlock-face">
@@ -927,7 +930,16 @@ const unlockCss = `
   display: grid;
   place-items: center;
 }
+.unlock-hills-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0.55;
+  mix-blend-mode: screen;
+}
 .unlock-scene-canvas {
+  position: relative;
   width: min(920px, 92vmin);
   height: min(920px, 92vmin);
   filter: drop-shadow(0 0 60px rgba(244,161,37,0.25));
