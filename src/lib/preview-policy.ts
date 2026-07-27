@@ -6,16 +6,22 @@
 //
 // Design notes:
 //  - PURE string / DOM-regex work. No DOMParser (works in worker/SSR).
-//  - Never rewrites the source itself — that job belongs to clean-export
-//    which owns the sanitizer. This file only *reports*.
-//  - Returned violation codes are stable identifiers used by the failure
-//    ledger, so we can accumulate "this build type keeps emitting X".
+//  - Never inspects resource-loading attributes (<link href>, <script src>,
+//    <img src/srcset>, <source ...>, media assets, CSS url() references,
+//    data URLs) — those are always safe to preserve byte-for-byte.
+//  - Ignores navigation tokens that live inside JS string literals,
+//    template bodies, or comments (via jsLexicalMask).
+//  - Treats `<form data-obsidian-local-form="1">` as safe. Any other form
+//    without a local (hash) action is flagged so navigation-repair can
+//    normalise it.
+
+import { jsLexicalMask } from "./js-lexical-mask";
 
 export type PreviewViolationCode =
   | "nav-creator-route"
   | "nav-external"
   | "nav-protocol-relative"
-  | "nav-deep-link"        // mailto/tel/sms/custom
+  | "nav-deep-link"
   | "nav-target-blank"
   | "nav-window-open"
   | "nav-location-assign"
@@ -26,11 +32,8 @@ export type PreviewViolationCode =
 export interface PreviewViolation {
   code: PreviewViolationCode;
   message: string;
-  /** Best-effort human label for the offending control. */
   label?: string;
-  /** Attribute value / URL involved. */
   target?: string;
-  /** Char index into the source (for reporting only). */
   index?: number;
 }
 
@@ -51,11 +54,9 @@ export function classifyTarget(raw: string): PreviewViolationCode | null {
   if (!s) return null;
   if (s === "#") return "nav-placeholder-hash";
   if (s.startsWith("#")) return null;
-  // Any non-hash scheme is a violation. Only in-page anchors are allowed.
   if (/^(mailto:|tel:|sms:)/i.test(s)) return "nav-deep-link";
   if (/^javascript:/i.test(s)) return "nav-deep-link";
   if (/^[a-zA-Z][a-zA-Z0-9+.-]*:/i.test(s)) {
-    // http(s), custom schemes, etc. Try to parse for creator-host detection.
     try {
       const u = new URL(s);
       if (CREATOR_HOSTS.test(u.host)) return "nav-creator-route";
@@ -64,15 +65,11 @@ export function classifyTarget(raw: string): PreviewViolationCode | null {
   }
   if (s.startsWith("//")) return "nav-protocol-relative";
   if (s.startsWith("/")) {
-    // Any root-relative path is off-page. Creator paths still get their
-    // specific label so failure-learning can accumulate targeted hints.
     try {
       const u = new URL(s, "https://placeholder.local");
       return isCreatorPath(u.pathname) ? "nav-creator-route" : "nav-external";
     } catch { return "nav-external"; }
   }
-  // Bare/relative like "pricing", "next.html", "sub/page?x". Off-page unless
-  // it is an in-page fragment (handled above).
   const head = s.split(/[/?#]/)[0].toLowerCase();
   if (CREATOR_PATH_SEGMENTS.has(head) && head !== "") return "nav-creator-route";
   return "nav-external";
@@ -91,9 +88,21 @@ function labelForTag(fragment: string): string {
   return text.slice(0, 80);
 }
 
+function getAttr(attrs: string, name: string): string | undefined {
+  const rx = new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i");
+  const m = attrs.match(rx);
+  if (!m) return undefined;
+  return m[2] ?? m[3] ?? m[4];
+}
+
+function hasAttr(attrs: string, name: string): boolean {
+  return new RegExp(`\\b${name}\\b`, "i").test(attrs);
+}
+
 /**
  * Static scan of a built HTML document for navigation-policy violations.
- * Deterministic, allocation-bounded, never longer than O(html.length).
+ * Tag-scoped: only opens of <a>, <area>, <button>, <form>, <input> are
+ * inspected. Resource-loading tags are never inspected.
  */
 export function scanNavigationViolations(html: string): PreviewViolation[] {
   const out: PreviewViolation[] = [];
@@ -101,37 +110,48 @@ export function scanNavigationViolations(html: string): PreviewViolation[] {
 
   const ids = collectIds(html);
 
-  // <a>, <button>, <form>, <input type=submit>
-  const tagRx = /<(a|button|form|input)\b([^>]*)>([\s\S]*?)(?:<\/\1>|(?=<))/gi;
+  scanAnchorLike(html, ids, out, /<(a|area)\b([^>]*)>([\s\S]*?)<\/\1>/gi, /* label from inner */ true);
+  // Self-closing / void elements need a separate pass because /<a>...</a>/ can
+  // miss malformed adjacency (unclosed <a> before a <div>, self-closing area).
+  scanAnchorLike(html, ids, out, /<(a|area)\b([^>]*?)\/?>(?!\s*<\/\1)/gi, false);
+
+  scanButtonLike(html, out);
+  scanFormLike(html, out);
+  scanScripts(html, out);
+
+  // De-duplicate: same code+index+target is redundant when both regex
+  // families flagged the same tag.
+  const seen = new Set<string>();
+  return out.filter((v) => {
+    const key = `${v.code}|${v.index ?? -1}|${v.target ?? ""}`;
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+function scanAnchorLike(
+  html: string, ids: Set<string>, out: PreviewViolation[],
+  rx: RegExp, withInner: boolean,
+): void {
   let m: RegExpExecArray | null;
-  while ((m = tagRx.exec(html))) {
-    const tag = m[1].toLowerCase();
+  rx.lastIndex = 0;
+  while ((m = rx.exec(html))) {
     const attrs = m[2] ?? "";
-    const inner = m[3] ?? "";
+    const inner = withInner ? (m[3] ?? "") : "";
     const idx = m.index;
-    const label = labelForTag(inner) || getAttr(attrs, "aria-label") || getAttr(attrs, "value") || "";
+    const label = labelForTag(inner) || getAttr(attrs, "aria-label") || "";
+    const target = getAttr(attrs, "href");
 
-    const target = getAttr(attrs, tag === "form" ? "action" : "href")
-      ?? getAttr(attrs, "formaction");
-
-    if (getAttr(attrs, "target") === "_blank") {
+    if (getAttr(attrs, "target") === "_blank" && !hasAttr(attrs, "data-obsidian-blocked")) {
       out.push({ code: "nav-target-blank", message: "target=_blank is blocked in preview", label, target: target || undefined, index: idx });
-    }
-
-    if (tag === "form") {
-      const method = (getAttr(attrs, "method") ?? "get").toLowerCase();
-      if (target && classifyTarget(target)) {
-        const code = classifyTarget(target)!;
-        out.push({ code, message: `form action targets ${code}`, label, target, index: idx });
-      } else if (!target && method !== "get") {
-        out.push({ code: "nav-form-navigating", message: "form has no local handler and would navigate", label, index: idx });
-      }
-      continue;
     }
 
     if (!target) continue;
     if (target === "#") {
-      out.push({ code: "nav-placeholder-hash", message: 'href="#" placeholder', label, target, index: idx });
+      if (!hasAttr(attrs, "data-obsidian-blocked")) {
+        out.push({ code: "nav-placeholder-hash", message: 'href="#" placeholder', label, target, index: idx });
+      }
       continue;
     }
     if (target.startsWith("#")) {
@@ -143,41 +163,88 @@ export function scanNavigationViolations(html: string): PreviewViolation[] {
     }
     const code = classifyTarget(target);
     if (code) {
-      out.push({ code, message: `${tag} target rejected: ${code}`, label, target, index: idx });
+      out.push({ code, message: `anchor target rejected: ${code}`, label, target, index: idx });
     }
   }
-
-  // window.open / location.href = "..." literal scans
-  const scriptRx = /<script\b[^>]*>([\s\S]*?)<\/script>/gi;
-  let sm: RegExpExecArray | null;
-  while ((sm = scriptRx.exec(html))) {
-    const body = sm[1] ?? "";
-    if (/\bwindow\.open\s*\(/.test(body)) {
-      out.push({ code: "nav-window-open", message: "window.open() is blocked in preview", index: sm.index });
-    }
-    if (/\blocation\.(?:assign|replace|href)\b/.test(body)) {
-      // If a blocked literal appears alongside it, upgrade to creator-route.
-      const literalRx = /["']([^"'\n]{1,300})["']/g;
-      let lm: RegExpExecArray | null;
-      let flagged = false;
-      while ((lm = literalRx.exec(body))) {
-        const code = classifyTarget(lm[1]);
-        if (code) { out.push({ code, message: `script navigates to ${code}`, target: lm[1], index: sm.index }); flagged = true; }
-      }
-      if (!flagged) {
-        out.push({ code: "nav-location-assign", message: "script uses location.assign/replace/href", index: sm.index });
-      }
-    }
-  }
-
-  return out;
 }
 
-function getAttr(attrs: string, name: string): string | undefined {
-  const rx = new RegExp(`\\b${name}\\s*=\\s*("([^"]*)"|'([^']*)'|([^\\s>]+))`, "i");
-  const m = attrs.match(rx);
-  if (!m) return undefined;
-  return m[2] ?? m[3] ?? m[4];
+function scanButtonLike(html: string, out: PreviewViolation[]): void {
+  const rx = /<(button|input)\b([^>]*)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rx.exec(html))) {
+    const attrs = m[2] ?? "";
+    const idx = m.index;
+    if (getAttr(attrs, "target") === "_blank" && !hasAttr(attrs, "data-obsidian-blocked")) {
+      out.push({ code: "nav-target-blank", message: "target=_blank is blocked in preview", label: getAttr(attrs, "aria-label") || getAttr(attrs, "value") || "", index: idx });
+    }
+    const fa = getAttr(attrs, "formaction");
+    if (fa !== undefined && !hasAttr(attrs, "data-obsidian-blocked")) {
+      // Any formaction (including empty/"#") can override the form action.
+      const code = classifyTarget(fa) ?? (fa === "" || fa === "#" ? "nav-placeholder-hash" : null);
+      if (code) {
+        out.push({ code, message: `formaction rejected: ${code}`, target: fa, index: idx });
+      }
+    }
+  }
+}
+
+function scanFormLike(html: string, out: PreviewViolation[]): void {
+  const rx = /<form\b([^>]*)>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rx.exec(html))) {
+    const attrs = m[1] ?? "";
+    const idx = m.index;
+    const label = getAttr(attrs, "aria-label") || "";
+    const marked = hasAttr(attrs, "data-obsidian-local-form");
+    const action = getAttr(attrs, "action");
+
+    // Marked local forms are safe. Their action was already stripped by
+    // the repair pass; even if a user hand-authored an action alongside
+    // the marker, the publish-time form guard cancels navigation.
+    if (marked) continue;
+
+    if (getAttr(attrs, "target") === "_blank") {
+      out.push({ code: "nav-target-blank", message: "form target=_blank blocked", label, index: idx });
+    }
+
+    if (action === undefined) {
+      // Bare form with no marker → would default-navigate.
+      out.push({ code: "nav-form-navigating", message: "form has no local guard and would navigate", label, index: idx });
+      continue;
+    }
+    if (action === "" || action === "#") {
+      out.push({ code: "nav-form-navigating", message: `form action="${action}" would reload the page`, label, target: action, index: idx });
+      continue;
+    }
+    if (action.startsWith("#")) continue; // hash to existing id — treated as local
+    const code = classifyTarget(action);
+    if (code) {
+      out.push({ code, message: `form action rejected: ${code}`, label, target: action, index: idx });
+    }
+  }
+}
+
+function scanScripts(html: string, out: PreviewViolation[]): void {
+  const rx = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = rx.exec(html))) {
+    const attrs = m[1] ?? "";
+    if (/\bsrc\s*=/.test(attrs)) continue; // external script — src is a resource
+    const body = m[2] ?? "";
+    // Skip our own guard/bridge scripts — they contain navigation tokens
+    // that are deliberately safe by construction.
+    if (/data-obsidian-form-guard|obsidian\.runtime/.test(attrs) || /obsidian\.runtime/.test(body)) continue;
+    const mask = jsLexicalMask(body);
+    if (/(?<![\w$.])window\s*\.\s*open\s*\(/.test(mask)) {
+      out.push({ code: "nav-window-open", message: "window.open() in script", index: m.index });
+    }
+    if (/(?<![\w$.])(?:window\s*\.\s*|top\s*\.\s*|parent\s*\.\s*)?location\s*\.\s*(?:assign|replace|href)\s*(?:\(|=(?!=))/.test(mask)) {
+      out.push({ code: "nav-location-assign", message: "script writes to location", index: m.index });
+    }
+    if (/(?<![\w$.])location\s*=(?!=)/.test(mask)) {
+      out.push({ code: "nav-location-assign", message: "script writes to location", index: m.index });
+    }
+  }
 }
 
 export function summarizeViolations(vs: PreviewViolation[]): Record<PreviewViolationCode, number> {

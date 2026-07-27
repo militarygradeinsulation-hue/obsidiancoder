@@ -1,13 +1,13 @@
 // Sandbox-vs-live parity gate. Pure string analysis over two HTML strings
-// (editor rendering + exact publish artifact). No provider calls, no DOM.
-// Results are cached by (editorHash|publishHash) so re-clicking Go Live
-// on an unchanged build never recomputes.
+// (bridge-free render artifact + exact publish artifact). No provider
+// calls, no DOM. Results are cached by a hash that covers both strings.
 
-import { buildArtifact, publishHash } from "./publish-artifact";
+import { buildArtifact } from "./publish-artifact";
 
 export interface ParitySnapshot {
-  chars: number;             // visible text char count
+  chars: number;
   headings: number;
+  sections: number;
   buttons: number;
   links: number;
   forms: number;
@@ -22,11 +22,8 @@ export interface ParityReport {
   editor: ParitySnapshot;
   publish: ParitySnapshot;
   publishEmpty: boolean;
-  /** Absolute deltas keyed by field, e.g. { chars: -420 }. */
   deltas: Record<keyof ParitySnapshot, number>;
-  /** Blocking reasons — publish MUST be repaired before Go Live. */
   blockers: string[];
-  /** Non-blocking notices. */
   warnings: string[];
   ok: boolean;
   cacheKey: string;
@@ -52,6 +49,7 @@ export function snapshot(html: string): ParitySnapshot {
   return {
     chars: visibleChars(html),
     headings: countMatches(html, /<h[1-6]\b/gi),
+    sections: countMatches(html, /<(?:section|article|main|nav|header|footer|aside)\b/gi),
     buttons: countMatches(html, /<button\b/gi),
     links: countMatches(html, /<a\b[^>]*\bhref=/gi),
     forms: countMatches(html, /<form\b/gi),
@@ -61,6 +59,18 @@ export function snapshot(html: string): ParitySnapshot {
     ids: countMatches(html, /\bid\s*=/gi),
     scripts: countMatches(html, /<script\b/gi),
   };
+}
+
+// Independent hash — never call publishHash here, because publishHash
+// re-runs the whole artifact pipeline. Parity is meant to compare two
+// already-built strings.
+function fastHash(s: string): string {
+  let h = 0x811c9dc5;
+  for (let i = 0; i < s.length; i++) {
+    h ^= s.charCodeAt(i);
+    h = (h + ((h << 1) + (h << 4) + (h << 7) + (h << 8) + (h << 24))) >>> 0;
+  }
+  return ("0000000" + h.toString(16)).slice(-8);
 }
 
 const CACHE = new Map<string, ParityReport>();
@@ -73,24 +83,34 @@ function diff(a: ParitySnapshot, b: ParitySnapshot): Record<keyof ParitySnapshot
 }
 
 /**
- * Compare the editor rendering against the exact publish artifact.
+ * Compare a bridge-free render artifact against the exact publish artifact.
  * Both inputs must already be built strings — do NOT rebuild inside.
+ *
+ * If the caller passes { themeCss, themeName } as the second argument, we
+ * synthesise the publish string via buildArtifact({ surface: "publish" })
+ * for convenience.
  */
-export function checkParity(editorHtml: string, publishHtmlOrTheme: string | { themeCss?: string | null }): ParityReport {
-  // Convenience overload: pass the raw source + theme and we'll construct
-  // the publish string via buildArtifact.
+export function checkParity(
+  renderHtml: string,
+  publishHtmlOrTheme: string | { themeCss?: string | null; themeName?: string | null },
+): ParityReport {
   let publishStr: string;
   if (typeof publishHtmlOrTheme === "string") {
     publishStr = publishHtmlOrTheme;
   } else {
-    publishStr = buildArtifact({ html: editorHtml, themeCss: publishHtmlOrTheme.themeCss ?? null, surface: "publish" }).html;
+    publishStr = buildArtifact({
+      html: renderHtml,
+      themeCss: publishHtmlOrTheme.themeCss ?? null,
+      themeName: publishHtmlOrTheme.themeName ?? null,
+      surface: "publish",
+    }).html;
   }
 
-  const cacheKey = `${publishHash(editorHtml)}|${publishHash(publishStr)}`;
+  const cacheKey = `${fastHash(renderHtml)}|${fastHash(publishStr)}`;
   const cached = CACHE.get(cacheKey);
   if (cached) return cached;
 
-  const editor = snapshot(editorHtml);
+  const editor = snapshot(renderHtml);
   const publish = snapshot(publishStr);
   const deltas = diff(editor, publish);
 
@@ -100,12 +120,14 @@ export function checkParity(editorHtml: string, publishHtmlOrTheme: string | { t
   const publishEmpty = publish.chars < 20;
   if (publishEmpty) blockers.push("publish artifact is empty or near-empty");
 
-  // Meaningful content loss: >25% chars or >40% headings/sections dropped.
   if (editor.chars > 200 && deltas.chars < -Math.max(200, editor.chars * 0.25)) {
     blockers.push(`visible text dropped by ${-deltas.chars} chars (>25%)`);
   }
   if (editor.headings > 2 && deltas.headings < -Math.ceil(editor.headings * 0.4)) {
     blockers.push(`headings dropped from ${editor.headings} to ${publish.headings}`);
+  }
+  if (editor.sections > 2 && deltas.sections < -Math.ceil(editor.sections * 0.4)) {
+    blockers.push(`sections dropped from ${editor.sections} to ${publish.sections}`);
   }
   if (editor.buttons > 0 && publish.buttons === 0 && editor.buttons > 1) {
     blockers.push(`all ${editor.buttons} buttons disappeared in publish artifact`);
@@ -113,8 +135,6 @@ export function checkParity(editorHtml: string, publishHtmlOrTheme: string | { t
   if (editor.forms > 0 && publish.forms === 0) {
     warnings.push(`forms dropped: ${editor.forms} → 0`);
   }
-  // Script loss can be legit (bridge stripped) but a >50% drop in a build
-  // that actually had scripts suggests destructive sanitization.
   if (editor.scripts > 2 && publish.scripts <= Math.floor(editor.scripts / 2)) {
     blockers.push(`scripts dropped from ${editor.scripts} to ${publish.scripts} (possible content loss)`);
   }
