@@ -733,7 +733,12 @@ function Unlock() {
             People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
           </p>
           <div className="slogan-examples" aria-label="Example builds">
-            <figure className="slogan-example">
+            <button
+              type="button"
+              className="slogan-example"
+              onClick={() => setActiveVideo({ url: exampleVideo1.url, label: "Live build · example 01" })}
+              aria-label="Expand Obsidian build example one"
+            >
               <video
                 src={exampleVideo1.url}
                 autoPlay
@@ -741,11 +746,18 @@ function Unlock() {
                 muted
                 playsInline
                 preload="metadata"
-                aria-label="Obsidian build example one"
+                aria-hidden
+                tabIndex={-1}
               />
-              <figcaption>Live build · example 01</figcaption>
-            </figure>
-            <figure className="slogan-example">
+              <span className="slogan-example-caption">Live build · example 01</span>
+              <span className="slogan-example-play" aria-hidden>▶</span>
+            </button>
+            <button
+              type="button"
+              className="slogan-example"
+              onClick={() => setActiveVideo({ url: exampleVideo2.url, label: "Live build · example 02" })}
+              aria-label="Expand Obsidian build example two"
+            >
               <video
                 src={exampleVideo2.url}
                 autoPlay
@@ -753,11 +765,18 @@ function Unlock() {
                 muted
                 playsInline
                 preload="metadata"
-                aria-label="Obsidian build example two"
+                aria-hidden
+                tabIndex={-1}
               />
-              <figcaption>Live build · example 02</figcaption>
-            </figure>
-            <figure className="slogan-example">
+              <span className="slogan-example-caption">Live build · example 02</span>
+              <span className="slogan-example-play" aria-hidden>▶</span>
+            </button>
+            <button
+              type="button"
+              className="slogan-example"
+              onClick={() => setActiveVideo({ url: exampleVideo3.url, label: "Live build · electrician" })}
+              aria-label="Expand Obsidian electrician build example"
+            >
               <video
                 src={exampleVideo3.url}
                 autoPlay
@@ -765,11 +784,18 @@ function Unlock() {
                 muted
                 playsInline
                 preload="metadata"
-                aria-label="Obsidian build example three"
+                aria-hidden
+                tabIndex={-1}
               />
-              <figcaption>Live build · electrician</figcaption>
-            </figure>
-            <figure className="slogan-example">
+              <span className="slogan-example-caption">Live build · electrician</span>
+              <span className="slogan-example-play" aria-hidden>▶</span>
+            </button>
+            <button
+              type="button"
+              className="slogan-example"
+              onClick={() => setActiveVideo({ url: exampleVideo4.url, label: "Live build · HVAC" })}
+              aria-label="Expand Obsidian HVAC build example"
+            >
               <video
                 src={exampleVideo4.url}
                 autoPlay
@@ -777,11 +803,18 @@ function Unlock() {
                 muted
                 playsInline
                 preload="metadata"
-                aria-label="Obsidian build example HVAC"
+                aria-hidden
+                tabIndex={-1}
               />
-              <figcaption>Live build · HVAC</figcaption>
-            </figure>
-            <figure className="slogan-example">
+              <span className="slogan-example-caption">Live build · HVAC</span>
+              <span className="slogan-example-play" aria-hidden>▶</span>
+            </button>
+            <button
+              type="button"
+              className="slogan-example"
+              onClick={() => setActiveVideo({ url: exampleVideo5.url, label: "Live build · example 05" })}
+              aria-label="Expand Obsidian build example five"
+            >
               <video
                 src={exampleVideo5.url}
                 autoPlay
@@ -789,13 +822,48 @@ function Unlock() {
                 muted
                 playsInline
                 preload="metadata"
-                aria-label="Obsidian build example five"
+                aria-hidden
+                tabIndex={-1}
               />
-              <figcaption>Live build · example 05</figcaption>
-            </figure>
+              <span className="slogan-example-caption">Live build · example 05</span>
+              <span className="slogan-example-play" aria-hidden>▶</span>
+            </button>
           </div>
         </div>
       </section>
+
+      {/* VIDEO LIGHTBOX */}
+      {activeVideo && (
+        <div
+          className="video-lightbox"
+          role="dialog"
+          aria-modal="true"
+          aria-label={activeVideo.label}
+          onClick={() => setActiveVideo(null)}
+        >
+          <button
+            type="button"
+            className="video-lightbox-close"
+            onClick={() => setActiveVideo(null)}
+            aria-label="Close video"
+          >
+            ×
+          </button>
+          <div className="video-lightbox-stage" onClick={(e) => e.stopPropagation()}>
+            <video
+              ref={activeVideoRef}
+              src={activeVideo.url}
+              autoPlay
+              loop
+              playsInline
+              controls
+              preload="auto"
+              aria-label={activeVideo.label}
+            />
+            <p className="video-lightbox-caption">{activeVideo.label}</p>
+          </div>
+        </div>
+      )}
 
 
       {waitlistTier && (
