@@ -2437,7 +2437,7 @@ function Index() {
           body: JSON.stringify({
             title: versionLabel,
             prompt: basePrompt,
-            html: finalHtml,
+            html: committedFinalHtml,
             model: modelForServer,
             session_id: sessionId,
             client_id: clientId,
