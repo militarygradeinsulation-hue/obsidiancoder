@@ -4243,8 +4243,10 @@ function Index() {
         open={themesOpen}
         onClose={() => setThemesOpen(false)}
         currentThemeName={current.themeName}
-        onApply={(css, name) => updateCurrent({ themeCss: css, themeName: name })}
-        onClear={() => updateCurrent({ themeCss: undefined, themeName: undefined })}
+        currentBlueprintId={current.themeBlueprintId}
+        onApply={(css, name, blueprintId) => updateCurrent({ themeCss: css, themeName: name, themeBlueprintId: blueprintId })}
+        onClear={() => updateCurrent({ themeCss: undefined, themeName: undefined, themeBlueprintId: undefined })}
+
       />
       <DesignLibraryPanel
         open={designLibraryOpen}
