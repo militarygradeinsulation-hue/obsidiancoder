@@ -194,7 +194,7 @@ export async function finalizeCandidate(
       candidateHash: hash,
       source: assessment.repairs.length ? "deterministic-repair" : "clean",
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -219,7 +219,7 @@ export async function finalizeCandidate(
       candidateHash: hash,
       source: "skipped-free-demo",
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -305,7 +305,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -324,7 +324,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -344,7 +344,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -363,7 +363,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -382,7 +382,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -406,7 +406,7 @@ export async function finalizeCandidate(
       source: "blocked",
       ...successBase,
     };
-    remember(hash, result);
+    remember(key, result);
     return result;
   }
 
@@ -423,6 +423,6 @@ export async function finalizeCandidate(
     source: "claude-repair",
     ...successBase,
   };
-  remember(hash, result);
+  remember(key, result);
   return result;
 }
