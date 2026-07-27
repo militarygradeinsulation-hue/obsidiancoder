@@ -75,8 +75,10 @@ export interface FinalizeResult {
   deterministicRepairs: NavRepair[];
   /** Remaining violations on the final artifact (empty on ok). */
   remainingViolations: PreviewViolation[];
-  /** True iff /api/qa was actually invoked. */
+  /** True iff /api/qa was actually dispatched on this run (not on cache hit). */
   claudeInvoked: boolean;
+  /** True iff this run's claude decision came from an earlier cached call. */
+  claudeResultFromCache: boolean;
   claudeModel: string | null;
   claudeVerdict: "pass" | "repair" | "block" | null;
   claudeExplanation: string;
@@ -88,21 +90,50 @@ export interface FinalizeResult {
 }
 
 // -- Cache -------------------------------------------------------------------
+//
+// True LRU keyed by candidate content + inputs that change the decision.
+// stableHtml is INTENTIONALLY excluded from the key — it is session state,
+// not part of the QA decision, and caching it would leak one session's
+// rollback target into another session's cached "blocked" result. Blocked
+// cache hits reconstruct finalHtml from the CURRENT input.stableHtml.
 
 const CACHE = new Map<string, FinalizeResult>();
 const CACHE_MAX = 64;
+
+function cacheKey(input: FinalizeInput, contentHash: string): string {
+  return [
+    contentHash,
+    input.demoMode ? "d1" : "d0",
+    input.taskType ?? "-",
+    input.strategy ?? "-",
+    `pv${QA_POLICY_VERSION}`,
+  ].join("|");
+}
+
+function cacheGet(key: string): FinalizeResult | undefined {
+  const v = CACHE.get(key);
+  if (!v) return undefined;
+  // Re-insert to move to MRU position — Map iteration order is insertion order.
+  CACHE.delete(key);
+  CACHE.set(key, v);
+  return v;
+}
+
 function remember(key: string, r: FinalizeResult): void {
-  if (CACHE.size >= CACHE_MAX) {
+  if (CACHE.has(key)) CACHE.delete(key);
+  else if (CACHE.size >= CACHE_MAX) {
     const first = CACHE.keys().next().value as string | undefined;
     if (first) CACHE.delete(first);
   }
   CACHE.set(key, r);
 }
+
 export function invalidateFinalizeCache(): void { CACHE.clear(); }
 /** Test hook. */
 export function peekFinalizeCache(hash: string): FinalizeResult | undefined {
   return CACHE.get(hash);
 }
+
 
 // -- Public API --------------------------------------------------------------
 
