@@ -727,8 +727,35 @@ function Unlock() {
           <p className="slogan-body">
             People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
           </p>
+          <div className="slogan-examples" aria-label="Example builds">
+            <figure className="slogan-example">
+              <video
+                src={exampleVideo1.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Obsidian build example one"
+              />
+              <figcaption>Live build · example 01</figcaption>
+            </figure>
+            <figure className="slogan-example">
+              <video
+                src={exampleVideo2.url}
+                autoPlay
+                loop
+                muted
+                playsInline
+                preload="metadata"
+                aria-label="Obsidian build example two"
+              />
+              <figcaption>Live build · example 02</figcaption>
+            </figure>
+          </div>
         </div>
       </section>
+
 
       {waitlistTier && (
 
