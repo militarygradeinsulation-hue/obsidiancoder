@@ -174,6 +174,7 @@ export async function finalizeCandidate(
       claudeModel: null,
       claudeVerdict: null,
       claudeExplanation: "",
+      claudeResultFromCache: false,
       blockers: [],
       candidateHash: hash,
       source: assessment.repairs.length ? "deterministic-repair" : "clean",
@@ -196,6 +197,7 @@ export async function finalizeCandidate(
       claudeModel: null,
       claudeVerdict: null,
       claudeExplanation: "",
+      claudeResultFromCache: false,
       blockers: assessment.blockers.length
         ? assessment.blockers
         : ["free-demo QA blocked"],
@@ -264,6 +266,7 @@ export async function finalizeCandidate(
 
   const successBase = {
     claudeInvoked: true,
+    claudeResultFromCache: false,
     claudeModel: qa.actualModel,
     claudeVerdict: qa.verdict,
     claudeExplanation: qa.explanation,
