@@ -2626,6 +2626,24 @@ function Index() {
                   setTerminal((t) => [...t, "→ Go Live requires Obsidian Pro. Local export remains free."]);
                   return;
                 }
+                setTerminal((t) => [...t, "→ QA checks…"]);
+                // Build ONE verified publish artifact. Ship exactly this string.
+                const art = buildArtifact({
+                  html: current.html,
+                  themeCss: current.themeCss ?? null,
+                  themeName: current.themeName ?? null,
+                  surface: "publish",
+                });
+                if (!art.safeToPublish) {
+                  const reasons = art.violations.slice(0, 4).map(v => `${v.code}${v.target ? ` (${v.target})` : ""}`).join("; ") || "empty artifact";
+                  setTerminal((t) => [...t, `✗ Go Live blocked by QA: ${reasons}`]);
+                  return;
+                }
+                const parity = checkParity(current.html, art.html);
+                if (!parity.ok) {
+                  setTerminal((t) => [...t, `✗ Go Live blocked (parity): ${parity.blockers.slice(0, 2).join("; ")}`]);
+                  return;
+                }
                 setTerminal((t) => [...t, "→ Publishing shareable link…"]);
                 try {
                   let clientId = localStorage.getItem("obs.client_id");
@@ -2639,7 +2657,7 @@ function Index() {
                     body: JSON.stringify({
                       title: current.title,
                       prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
-                      html: sanitizeForExport(current.html),
+                      html: art.html,
                       model: current.model,
                       session_id: current.id,
                       client_id: clientId,
@@ -2654,11 +2672,6 @@ function Index() {
                   setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
                   if (libraryCode.trim()) refreshLibrary();
                   recordLiveIdea(activeIdeaLabelRef.current);
-                  // Note: Go Live only publishes the shareable link. To feature
-                  // this build on the public login-page gallery, use the
-                  // separate "Push to Demos" button (admin only).
-
-
                 } catch (e) {
                   const msg = e instanceof Error ? e.message : "publish failed";
                   setTerminal((t) => [...t, `✗ Go Live failed: ${msg}`]);
@@ -2668,6 +2681,7 @@ function Index() {
             >
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
+
             {(libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (() => {
               const existing = demoBySession[current.id];
               const isLive = pushedDemoIds.has(current.id) || !!existing;
