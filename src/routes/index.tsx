@@ -2212,6 +2212,33 @@ function Index() {
         return;
       }
 
+      // QA gate — deterministic navigation repair + parity check on the
+      // generated candidate. Runs before Chief Engineer. Zero AI cost. When
+      // repair produces a safe artifact, we commit the *repaired* source;
+      // if it can't be made safe, we revert to stableHtml.
+      setStage("validate");
+      const qaG = assessCandidateForCommit({
+        html: finalHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null,
+        previousHtml: stableHtml,
+      });
+      if (!qaG.ok) {
+        setSessions((all) => all.map((s) => s.id === sessionId
+          ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ QA blocked commit — ${qaG.blockers.slice(0, 2).join("; ").slice(0, 200)} — reverted to last stable version.` }] }
+          : s));
+        setTerminal((t) => [...t, `✗ QA blocked generation: ${qaG.blockers[0].slice(0, 120)}`]);
+        pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: validation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${qaG.blockers[0]}` });
+        setLastOperation((prev) => prev && prev.operationId === operationId ? {
+          ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
+          validationStatus: validation.status, providerChain: genMeta.providerChain ?? [],
+          imageProviders: genMeta.imageProviders, imageCount: genMeta.imageCount,
+          outcome: "rejected", reason: `qa: ${qaG.blockers[0].slice(0, 120)}`,
+        } : prev);
+        setIntelligenceTick((n) => n + 1);
+        return;
+      }
+      const committedFinalHtml = qaG.repairedHtml;
+      if (qaG.repairs.length) setTerminal((t) => [...t, `✓ QA: ${qaG.repairs.length} deterministic navigation repair(s) applied`]);
+
       // Chief Engineer — multi-agent review before commit.
       setEngineeringRunning(true);
       setEngineeringLive([]);
@@ -2219,7 +2246,7 @@ function Index() {
         useDeterministic: false, usePatch: false, useFullGeneration: true, advisory: false,
         reason: "post-generation review" };
       const chiefReport = reviewBuild({
-        request: basePrompt, previousHtml: stableHtml, candidateHtml: finalHtml,
+        request: basePrompt, previousHtml: stableHtml, candidateHtml: committedFinalHtml,
         plan: chiefPlan as unknown as import("@/lib/orchestrator").Plan,
         validation, bypass: engineeringBypass,
         onAgent: (r: AgentReview) => setEngineeringLive((prev) => [...prev, r]),
@@ -2246,15 +2273,16 @@ function Index() {
         return;
       }
 
-      const newVersion: Version = makeVersion(finalHtml, versionLabel, genMeta);
+      const newVersion: Version = makeVersion(committedFinalHtml, versionLabel, genMeta);
       setSessions((all) => all.map((s) => s.id === sessionId
         ? {
             ...s,
-            html: finalHtml,
+            html: committedFinalHtml,
             messages: [...s.messages, { role: "assistant", content: fullRepairAttempts.length ? "Done — updated the preview (auto-repaired minor issues)." : "Done — updated the preview." }],
             versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
           }
         : s));
+
 
       // Client demo complete — only after the generated result was committed
       // to the local project. Emit once per lifecycle.
