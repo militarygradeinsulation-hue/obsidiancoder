@@ -33,6 +33,7 @@ import { Route as ApiPublicWaitlistRouteImport } from './routes/api/public/waitl
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
+import { Route as ApiPublicBaselineRouteImport } from './routes/api/public/baseline'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
@@ -167,6 +168,11 @@ const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
   path: '/api/public/builds',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicBaselineRoute = ApiPublicBaselineRouteImport.update({
+  id: '/api/public/baseline',
+  path: '/api/public/baseline',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
   Char91DotmcpChar93InvokeToolToolRouteImport.update({
     id: '/.mcp/invoke-tool/$tool',
@@ -248,6 +254,7 @@ export interface FileRoutesByFullPath {
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -285,6 +292,7 @@ export interface FileRoutesByTo {
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -323,6 +331,7 @@ export interface FileRoutesById {
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
@@ -362,6 +371,7 @@ export interface FileRouteTypes {
     | '/api/transcribe'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
+    | '/api/public/baseline'
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
@@ -399,6 +409,7 @@ export interface FileRouteTypes {
     | '/api/transcribe'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
+    | '/api/public/baseline'
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
@@ -436,6 +447,7 @@ export interface FileRouteTypes {
     | '/api/transcribe'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
+    | '/api/public/baseline'
     | '/api/public/builds'
     | '/api/public/entitlement'
     | '/api/public/self-test'
@@ -474,6 +486,7 @@ export interface RootRouteChildren {
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  ApiPublicBaselineRoute: typeof ApiPublicBaselineRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
   ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
@@ -658,6 +671,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBuildsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/baseline': {
+      id: '/api/public/baseline'
+      path: '/api/public/baseline'
+      fullPath: '/api/public/baseline'
+      preLoaderRoute: typeof ApiPublicBaselineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/.mcp/invoke-tool/$tool': {
       id: '/.mcp/invoke-tool/$tool'
       path: '/.mcp/invoke-tool/$tool'
@@ -784,6 +804,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiTranscribeRoute: ApiTranscribeRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  ApiPublicBaselineRoute: ApiPublicBaselineRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
   ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
