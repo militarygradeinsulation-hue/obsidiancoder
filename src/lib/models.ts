@@ -70,7 +70,7 @@ export const MODE_TO_MODEL = {
   economy:  "google/gemini-3.1-flash-lite",    // simple text/color/spacing edits
   balanced: "openai/gpt-5.4-mini",             // complex logic, debugging, multi-feature
   deep:     "google/gemini-3.1-pro-preview",   // major rebuilds
-  routellm: "routellm/claude-haiku-4-5-20251001", // Abacus RouteLLM default (Haiku 4.5)
+  routellm: "routellm/route-llm",              // Abacus RouteLLM auto-router (picks the model)
 } as const satisfies Record<string, ModelId>;
 
 export type ModeId = keyof typeof MODE_TO_MODEL;
@@ -84,7 +84,7 @@ export const MODEL_PICKER_OPTIONS = [
   { id: "economy",  label: "Economy — Flash Lite" },
   { id: "balanced", label: "Balanced — GPT-5.4 Mini" },
   { id: "deep",     label: "Deep Build — Gemini 3.1 Pro" },
-  { id: "routellm", label: "RouteLLM — Claude Haiku 4.5" },
+  { id: "routellm", label: "RouteLLM — Auto (Abacus router)" },
   ...MODEL_REGISTRY,
   ...ROUTELLM_MODELS,
 ] as const;
