@@ -439,7 +439,7 @@ function Index() {
     try { window.localStorage.setItem("obs.demoBySession", JSON.stringify(demoBySession)); } catch {}
   }, [demoBySession]);
   const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
-  const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
+  const markBuildEnd = (sid: string) => { abortMapRef.current.delete(sid); setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; }); };
   // Parallel builds: `loading` mirrors "any tab is building" so one tab
   // finishing never clears the busy state of another tab still running.
   useEffect(() => { setLoading(buildingIds.size > 0); }, [buildingIds]);
