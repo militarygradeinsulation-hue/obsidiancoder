@@ -32,8 +32,11 @@ export const MODEL_REGISTRY = [
 ] as const;
 
 // RouteLLM (Abacus) — OpenAI-compatible gateway at https://routellm.abacus.ai/v1
-// The `routellm/` prefix is stripped before the request is sent upstream.
+// The `routellm/` prefix is stripped before the request is sent upstream, so
+// `routellm/route-llm` posts { model: "route-llm", stream: true } exactly like
+// the OpenAI SDK example in the Abacus docs.
 export const ROUTELLM_MODELS = [
+  { id: "routellm/route-llm",                  label: "RouteLLM · Auto (route-llm)" },
   { id: "routellm/claude-haiku-4-5-20251001",  label: "RouteLLM · Claude Haiku 4.5" },
   { id: "routellm/claude-sonnet-4-5-20250929", label: "RouteLLM · Claude Sonnet 4.5" },
   { id: "routellm/claude-opus-4-1-20250805",   label: "RouteLLM · Claude Opus 4.1" },
