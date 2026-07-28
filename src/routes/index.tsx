@@ -15,7 +15,7 @@ import {
 import { useVoiceControl } from "@/lib/voice-control";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
-import { MessageSquare, ZoomIn, ZoomOut, Maximize2, ClipboardList, Palette } from "lucide-react";
+import { MessageSquare, ZoomIn, ZoomOut, Maximize2, ClipboardList, Palette, History as HistoryIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
 import { suggestAddons, STARTER_IDEA_COUNT, type Addon } from "@/lib/prompt-enhance";
