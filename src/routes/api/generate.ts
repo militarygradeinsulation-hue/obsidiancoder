@@ -781,7 +781,7 @@ export const Route = createFileRoute("/api/generate")({
           ) {
             const t_open = performance.now();
             const viaRouteLLM = isRouteLLMModel(model);
-            const upstreamKey = viaRouteLLM ? routellmKey : apiKey;
+            const upstreamKey = viaRouteLLM ? routellmApiKey : apiKey;
             if (!upstreamKey) {
               throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: viaRouteLLM ? "RouteLLM (Abacus) key is not configured." : "AI is not configured." });
             }

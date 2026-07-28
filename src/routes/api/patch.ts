@@ -246,7 +246,7 @@ export const Route = createFileRoute("/api/patch")({
           // ONE repair attempt. Prefer the cheap Lovable model; if only
           // RouteLLM is configured, repair on the same primary model instead.
           const repairModel = lovableKey ? CHEAP_REPAIR_MODEL : data.model;
-          const repairKey = isRouteLLMModel(repairModel) ? routellmKey! : lovableKey!;
+          const repairKey = isRouteLLMModel(repairModel) ? routellmApiKey! : lovableKey!;
           modelUsed = repairModel;
           const parseErr = attempt.ok ? "invalid patch schema" : attempt.error.message;
           const repairMessages = [

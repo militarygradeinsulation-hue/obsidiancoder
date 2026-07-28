@@ -268,7 +268,7 @@ export const Route = createFileRoute("/api/qa")({
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
-                  Authorization: `Bearer ${routellmKey}`,
+                  Authorization: `Bearer ${routellmApiKey}`,
                 },
                 body: JSON.stringify(body),
               },
