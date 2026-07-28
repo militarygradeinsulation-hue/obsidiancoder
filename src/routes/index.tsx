@@ -2544,6 +2544,152 @@ function Index() {
   const versionCount = current.versions?.length ?? 0;
   const specTax = versionCount > 0 ? Math.max(0, Math.round(((userTurns - versionCount) / Math.max(1, userTurns)) * 100)) : 0;
 
+  const isAdminUser = libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com";
+  const existingDemoForCurrent = demoBySession[current.id];
+  const isDemoLiveForCurrent = pushedDemoIds.has(current.id) || !!existingDemoForCurrent;
+
+  const handleGoLive = async () => {
+    if (!current.html) return;
+    const gate = await requirePaidAction("cloud_share");
+    if (!gate.allowed) {
+      setTerminal((t) => [...t, "→ Go Live requires Obsidian Pro. Local export remains free."]);
+      return;
+    }
+    setTerminal((t) => [...t, "→ QA checks…"]);
+    const oa = assessOutbound(current.html, {
+      themeCss: current.themeCss ?? null,
+      themeName: current.themeName ?? null,
+      themeBlueprintId: current.themeBlueprintId ?? null,
+      surface: "go-live",
+    });
+    setSessions((all) => all.map((s) => s.id === current.id ? {
+      ...s,
+      qaStatus: statusFromPublish(oa.ok, oa.blockers[0] ?? "", { html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null }, s.qaStatus ?? undefined),
+    } : s));
+    if (!oa.ok) {
+      const reasons = oa.blockers.slice(0, 4).join("; ") || "empty artifact";
+      setTerminal((t) => [...t, `✗ Go Live blocked by QA: ${reasons}`]);
+      return;
+    }
+    const art = { html: oa.finalHtml };
+    setTerminal((t) => [...t, "→ Publishing shareable link…"]);
+    try {
+      let clientId = localStorage.getItem("obs.client_id");
+      if (!clientId) {
+        clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+        localStorage.setItem("obs.client_id", clientId);
+      }
+      const res = await authFetch("/api/public/builds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title: current.title,
+          prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
+          html: art.html,
+          model: current.model,
+          session_id: current.id,
+          client_id: clientId,
+          library_code: libraryCode.trim() || undefined,
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const { share_slug } = (await res.json()) as { share_slug: string };
+      const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
+      try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
+      window.open(liveUrl, "_blank", "noopener,noreferrer");
+      setTerminal((t) => [...t, `✓ Live: ${liveUrl}`, "  (URL copied to clipboard — share anywhere, no login required)"]);
+      if (libraryCode.trim()) refreshLibrary();
+      recordLiveIdea(activeIdeaLabelRef.current);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : "publish failed";
+      setTerminal((t) => [...t, `✗ Go Live failed: ${msg}`]);
+    }
+  };
+
+  const doPublishAndPromoteDemo = async (label: string) => {
+    let clientId = localStorage.getItem("obs.client_id");
+    if (!clientId) {
+      clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
+      localStorage.setItem("obs.client_id", clientId);
+    }
+    const oa = assessOutbound(current.html, {
+      themeCss: current.themeCss ?? null,
+      themeName: current.themeName ?? null,
+      themeBlueprintId: current.themeBlueprintId ?? null,
+      surface: "featured-demo",
+    });
+    setSessions((all) => all.map((s) => s.id === current.id ? {
+      ...s,
+      qaStatus: statusFromPublish(oa.ok, oa.blockers[0] ?? "", { html: current.html, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null }, s.qaStatus ?? undefined),
+    } : s));
+    if (!oa.ok) throw new Error("QA blocked: " + (oa.blockers[0] ?? "empty"));
+    const art = { html: oa.finalHtml };
+    const res = await authFetch("/api/public/builds", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        title: current.title,
+        prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 400) || "",
+        html: art.html,
+        model: current.model,
+        session_id: current.id,
+        client_id: clientId,
+        library_code: "9822",
+      }),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const { share_slug } = (await res.json()) as { share_slug: string };
+    const liveUrl = `${window.location.origin}/api/public/share/${share_slug}`;
+    const promoted = await pushFeaturedDemo({
+      data: {
+        adminCode: "9822",
+        slug: share_slug,
+        title: current.title || `Demo · ${share_slug}`,
+        category: classifyDemoCategory(current.title, current.messages.find((m) => m.role === "user")?.content),
+        url: liveUrl,
+      },
+    });
+    if (!("ok" in promoted) || !promoted.ok) {
+      throw new Error("error" in promoted ? promoted.error : "promote failed");
+    }
+    if (existingDemoForCurrent && existingDemoForCurrent.demoId !== promoted.id) {
+      try {
+        await deleteFeaturedDemo({ data: { adminCode: "9822", id: existingDemoForCurrent.demoId } });
+      } catch { /* non-fatal */ }
+    }
+    setDemoBySession((prev) => ({ ...prev, [current.id]: { demoId: promoted.id, slug: promoted.slug } }));
+    setPushedDemoIds((prev) => { const n = new Set(prev); n.add(current.id); return n; });
+    try { await navigator.clipboard?.writeText(liveUrl); } catch { /* ignore */ }
+    setTerminal((t) => [...t, `${label}: ${liveUrl}`]);
+    refreshLibrary();
+    recordLiveIdea(activeIdeaLabelRef.current);
+  };
+
+  const handlePushToDemos = async () => {
+    if (!current.html) return;
+    if (isDemoLiveForCurrent && existingDemoForCurrent) {
+      setTerminal((t) => [...t, "→ Removing from public Demos gallery…"]);
+      try {
+        const del = await deleteFeaturedDemo({ data: { adminCode: "9822", id: existingDemoForCurrent.demoId } });
+        if ("ok" in del && del.ok) {
+          setDemoBySession((prev) => { const n = { ...prev }; delete n[current.id]; return n; });
+          setPushedDemoIds((prev) => { const n = new Set(prev); n.delete(current.id); return n; });
+          setTerminal((t) => [...t, "✓ Removed from Demos."]);
+        } else {
+          setTerminal((t) => [...t, `✗ Remove failed: ${"error" in del ? del.error : "unknown"}`]);
+        }
+      } catch (e) {
+        setTerminal((t) => [...t, `✗ Remove failed: ${e instanceof Error ? e.message : "err"}`]);
+      }
+      return;
+    }
+    setTerminal((t) => [...t, "→ Pushing to public Demos gallery…"]);
+    try { await doPublishAndPromoteDemo("★ Live on Demos"); }
+    catch (e) { setTerminal((t) => [...t, `✗ Push failed: ${e instanceof Error ? e.message : "err"}`]); }
+  };
+
+
+
   return (
     <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "") + (isMobile ? ` is-mobile mob-tab-${mobileTab}` : "")}>
       {isMobile && mobileTab === "preview" && current.html && (
