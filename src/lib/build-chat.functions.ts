@@ -18,6 +18,7 @@ import { requirePaidOperation, settleOperation } from "@/lib/credit-gate.server"
 import { creditsRequiredEnvelope, type CreditsRequiredEnvelope } from "@/lib/credit-gate";
 import { makeUsage } from "@/lib/usage-record";
 import { newRequestId } from "@/lib/ai-errors";
+import { routellmKey } from "@/lib/routellm-keys";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -63,9 +64,9 @@ function trimHtml(html: string): string {
 }
 
 function resolveKey(envName: string): string | undefined {
+  if (envName === "ROUTELLM_API_KEY") return routellmKey();
   const primary = process.env[envName];
   if (primary) return primary;
-  if (envName === "ROUTELLM_API_KEY") return process.env.ROUTELLM_API_KEY_FALLBACK;
   if (envName === "LOVABLE_API_KEY") return process.env.LOVABLE_API_KEY_FALLBACK;
   return undefined;
 }

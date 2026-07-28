@@ -11,6 +11,7 @@ import {
 import { creditsRequiredEnvelope, type CreditsRequiredEnvelope } from "./credit-gate";
 import { makeUsage, estimateUsdForCall, mergeUsage, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "./usage-record";
 import { AETHERIS_VISUAL_STANDARD } from "./aetheris-visual-standard";
+import { routellmKey } from "@/lib/routellm-keys";
 
 /** Structured paywall error the client recognizes. */
 class PaywallError extends Error {
@@ -364,9 +365,9 @@ export const generateHtml = createServerFn({ method: "POST" })
     let mainErrorCode: string | undefined;
     try {
       const apiKey = process.env.LOVABLE_API_KEY;
-      const routellmKey = process.env.ROUTELLM_API_KEY ?? process.env.ROUTELLM_API_KEY_FALLBACK;
+      const routellmApiKey = routellmKey();
       const usingRouteLLM = isRouteLLMModel(data.model);
-      const activeKey = usingRouteLLM ? routellmKey : apiKey;
+      const activeKey = usingRouteLLM ? routellmApiKey : apiKey;
       if (!activeKey) {
         await settleOperation(entitlement, { kind: "no_provider", errorCode: "ai_unauthorized" });
         throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: usingRouteLLM ? "RouteLLM (Abacus) key is not configured." : "AI is not configured." });

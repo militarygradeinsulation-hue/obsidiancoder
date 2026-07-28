@@ -18,6 +18,7 @@ import {
   type EntitlementResult,
 } from "@/lib/credit-gate.server";
 import { makeUsage, mergeUsage, estimateUsdForCall, parseUsageFromChatJson, type UsageRecord } from "@/lib/usage-record";
+import { routellmKey } from "@/lib/routellm-keys";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
@@ -183,8 +184,8 @@ export const Route = createFileRoute("/api/patch")({
 
           const primaryIsRouteLLM = isRouteLLMModel(data.model);
           const lovableKey = process.env.LOVABLE_API_KEY;
-          const routellmKey = process.env.ROUTELLM_API_KEY;
-          const primaryKey = primaryIsRouteLLM ? routellmKey : lovableKey;
+          const routellmApiKey = routellmKey();
+          const primaryKey = primaryIsRouteLLM ? routellmApiKey : lovableKey;
           if (!primaryKey) {
             throw new AiError({
               code: "ai_unauthorized", stage: "validate", requestId,
