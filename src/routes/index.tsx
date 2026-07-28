@@ -1577,14 +1577,15 @@ function Index() {
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if (!basePrompt && pendingAttachments.length === 0) return;
-    // Multi-prompt queue: allow submitting another prompt while one is
-    // building — it will run as soon as the current build finishes.
-    if (loading) {
+    // Parallel builds: each tab runs its own build. Only queue when THIS tab
+    // is already building — other tabs can build at the same time.
+    if (buildingIds.has(activeId)) {
       if (!basePrompt) return;
       setPromptQueue((q) => [...q, { sid: activeId, prompt: basePrompt }].slice(-8));
       setInput("");
       return;
     }
+
     // Central guard — free/unresolved users never reach the network.
     // Free-demo visitors get one full generate_html before hitting paywall.
     if (demoMode) {
