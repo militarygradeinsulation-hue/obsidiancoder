@@ -1127,8 +1127,20 @@ function Index() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  /** Cancel the in-flight build for one tab (defaults to the active tab). */
+  function cancelBuild(sid?: string) {
+    const id = sid ?? activeId;
+    const ctrl = abortMapRef.current.get(id);
+    ctrl?.abort();
+    abortMapRef.current.delete(id);
+    // Drop anything this tab still has queued so cancel really means stop.
+    setPromptQueue((q) => q.filter((p) => p.sid !== id));
+    markBuildEnd(id);
+    setTerminal((t) => [...t, "! Build cancelled"]);
+  }
+
   function stopGeneration() {
-    abortRef.current?.abort();
+    cancelBuild(activeId);
   }
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
