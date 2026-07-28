@@ -2529,19 +2529,22 @@ function Index() {
     }
   }
 
-  // Drain the multi-prompt queue when a build finishes.
+  // Drain the multi-prompt queue: run the first queued prompt whose own tab
+  // is free, even while other tabs are still building.
   useEffect(() => {
-    if (loading) return;
     if (promptQueue.length === 0) return;
-    const [next, ...rest] = promptQueue;
-    setPromptQueue(rest);
+    const idx = promptQueue.findIndex((p) => !buildingIds.has(p.sid));
+    if (idx === -1) return;
+    const next = promptQueue[idx];
+    setPromptQueue((q) => q.filter((_, i) => i !== idx));
     // Switch to the tab that queued it so streaming lands in the right place.
     if (next.sid !== activeId) setActiveId(next.sid);
     // Defer to next tick so activeId update is applied before submit reads it.
     const t = setTimeout(() => { void submit(next.prompt); }, 40);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, promptQueue]);
+  }, [buildingIds, promptQueue]);
+
 
 
 
