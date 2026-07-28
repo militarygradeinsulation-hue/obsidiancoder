@@ -67,7 +67,7 @@ Hard rules:
 - If the request truly cannot be a small patch, return {"summary":"needs full generation","operations":[]}.
 - Preserve every feature that already worked.`;
 
-async function callGateway(
+async function callOnce(
   apiKey: string,
   model: string,
   messages: Array<{ role: string; content: string }>,
