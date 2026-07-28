@@ -439,7 +439,7 @@ function Index() {
     try { window.localStorage.setItem("obs.demoBySession", JSON.stringify(demoBySession)); } catch {}
   }, [demoBySession]);
   const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
-  const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
+  const markBuildEnd = (sid: string) => { abortMapRef.current.delete(sid); setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; }); };
   // Parallel builds: `loading` mirrors "any tab is building" so one tab
   // finishing never clears the busy state of another tab still running.
   useEffect(() => { setLoading(buildingIds.size > 0); }, [buildingIds]);
@@ -613,6 +613,9 @@ function Index() {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Per-tab abort controllers so one tab's build can be cancelled without
+  // touching builds running in other tabs.
+  const abortMapRef = useRef<Map<string, AbortController>>(new Map());
   const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
@@ -1124,8 +1127,20 @@ function Index() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  /** Cancel the in-flight build for one tab (defaults to the active tab). */
+  function cancelBuild(sid?: string) {
+    const id = sid ?? activeId;
+    const ctrl = abortMapRef.current.get(id);
+    ctrl?.abort();
+    abortMapRef.current.delete(id);
+    // Drop anything this tab still has queued so cancel really means stop.
+    setPromptQueue((q) => q.filter((p) => p.sid !== id));
+    markBuildEnd(id);
+    setTerminal((t) => [...t, "! Build cancelled"]);
+  }
+
   function stopGeneration() {
-    abortRef.current?.abort();
+    cancelBuild(activeId);
   }
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
@@ -1189,8 +1204,7 @@ function Index() {
   useEffect(() => {
     if (!hydrated) return;
     sessionSafeSet(ACTIVE_KEY, activeId);
-    // Cancel any stale in-flight request when the active session changes.
-    abortRef.current?.abort();
+    // Parallel builds: switching tabs must NOT abort other tabs' work.
   }, [activeId, hydrated]);
 
   useEffect(() => {
@@ -1813,6 +1827,7 @@ function Index() {
       const memoryStr = memoryToPrompt(current.memory);
       const patchController = new AbortController();
       abortRef.current = patchController;
+      abortMapRef.current.set(sessionId, patchController);
       try {
         setTerminal((t) => [...t, `→ Patch mode → ${modelForPatch}`]);
         const pRes = await authFetch("/api/patch", {
@@ -2040,6 +2055,7 @@ function Index() {
     const modelForServer = adaptiveModel;
     const controller = new AbortController();
     abortRef.current = controller;
+    abortMapRef.current.set(sessionId, controller);
     let providerStarted = false;
     try {
 
@@ -2911,6 +2927,19 @@ function Index() {
                       return q > 0 ? <span className="obs-tab-queued" title={`${q} queued`}>+{q}</span> : null;
                     })()}
                     {isActive && s.html && !buildingIds.has(s.id) && <span className="obs-tab-live">LIVE</span>}
+                    {buildingIds.has(s.id) && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="obs-tab-cancel"
+                        aria-label={`Cancel build in ${s.title}`}
+                        title="Cancel this build"
+                        onClick={(e) => { e.stopPropagation(); cancelBuild(s.id); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); cancelBuild(s.id); } }}
+                      >
+                        <Square className="h-2.5 w-2.5" /> Cancel
+                      </span>
+                    )}
                     {sessions.length > 1 && (
                       <span
                         role="button"
