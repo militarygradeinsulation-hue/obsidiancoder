@@ -18,7 +18,7 @@ import {
   type EntitlementResult,
 } from "@/lib/credit-gate.server";
 import { makeUsage, mergeUsage, estimateUsdForCall, parseUsageFromChatJson, type UsageRecord } from "@/lib/usage-record";
-import { routellmKey } from "@/lib/routellm-keys";
+import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
@@ -67,7 +67,7 @@ Hard rules:
 - If the request truly cannot be a small patch, return {"summary":"needs full generation","operations":[]}.
 - Preserve every feature that already worked.`;
 
-async function callGateway(
+async function callOnce(
   apiKey: string,
   model: string,
   messages: Array<{ role: string; content: string }>,
@@ -141,6 +141,41 @@ async function callGateway(
     return { ok: false, error: aiErr, usage: null };
   }
 }
+
+/**
+ * Try the requested model, walking every configured RouteLLM key, and finally
+ * fall back to the Lovable gateway with an equivalent model when RouteLLM
+ * credits are exhausted. Non-billing errors surface immediately.
+ */
+async function callGateway(
+  apiKey: string,
+  model: string,
+  messages: Array<{ role: string; content: string }>,
+  requestId: string,
+  signal: AbortSignal,
+): Promise<
+  | { ok: true; text: string; usage: UsageRecord }
+  | { ok: false; error: AiError; usage: UsageRecord | null }
+> {
+  const attempts: Array<{ key: string; model: string }> = [];
+  if (isRouteLLMModel(model)) {
+    for (const k of routellmKeys()) attempts.push({ key: k, model });
+    if (attempts.length === 0) attempts.push({ key: apiKey, model });
+    const lovableKey = process.env.LOVABLE_API_KEY;
+    if (lovableKey) attempts.push({ key: lovableKey, model: lovableEquivalentFor(model) });
+  } else {
+    attempts.push({ key: apiKey, model });
+  }
+
+  let last = await callOnce(attempts[0].key, attempts[0].model, messages, requestId, signal);
+  for (let i = 1; i < attempts.length; i++) {
+    if (last.ok || !isRouteLLMKeyExhausted(last.error.message)) return last;
+    last = await callOnce(attempts[i].key, attempts[i].model, messages, requestId, signal);
+  }
+  return last;
+}
+
+
 
 export const Route = createFileRoute("/api/patch")({
   server: {

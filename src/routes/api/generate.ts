@@ -17,7 +17,7 @@ import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from
 import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
-import { routellmKey } from "@/lib/routellm-keys";
+import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
 
 
 const messageSchema = z.object({
@@ -781,40 +781,89 @@ export const Route = createFileRoute("/api/generate")({
           ) {
             const t_open = performance.now();
             const viaRouteLLM = isRouteLLMModel(model);
-            const upstreamKey = viaRouteLLM ? routellmApiKey : apiKey;
-            if (!upstreamKey) {
-              throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: viaRouteLLM ? "RouteLLM (Abacus) key is not configured." : "AI is not configured." });
+            if (viaRouteLLM && !routellmApiKey && !apiKey) {
+              throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "RouteLLM (Abacus) key is not configured." });
             }
-            const upstreamUrl = viaRouteLLM
-              ? "https://routellm.abacus.ai/v1/chat/completions"
-              : "https://ai.gateway.lovable.dev/v1/chat/completions";
-            const upstreamModel = viaRouteLLM ? stripRouteLLMPrefix(model) : model;
-            const res = await aiFetch(
-              upstreamUrl,
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${upstreamKey}`,
-                },
-                body: JSON.stringify({
-                  model: upstreamModel,
-                  messages: attemptMessages,
-                  stream: true,
-                  // Ask the gateway for a final usage frame at the end of the SSE.
-                  stream_options: { include_usage: true },
-                  ...(!viaRouteLLM && model.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
-                }),
-              },
-              {
-                breakerKey: `${viaRouteLLM ? "routellm" : "lovable"}/generate:${model}`,
-                stage: "generate",
-                requestId,
-                signal: clientAbort,
-                stream: true,
-                totalTimeoutMs: budgetMs,
-              },
-            );
+            if (!viaRouteLLM && !apiKey) {
+              throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." });
+            }
+
+            // Attempt chain: every configured RouteLLM key in priority order,
+            // then (when RouteLLM credits are exhausted) the Lovable gateway
+            // with the closest equivalent model, so builds never hard-fail on
+            // a billing problem at one provider.
+            type Attempt = { key: string; url: string; wireModel: string; routed: boolean; label: string };
+            const attempts: Attempt[] = [];
+            if (viaRouteLLM) {
+              for (const k of routellmKeys()) {
+                attempts.push({
+                  key: k,
+                  url: "https://routellm.abacus.ai/v1/chat/completions",
+                  wireModel: stripRouteLLMPrefix(model),
+                  routed: true,
+                  label: `routellm/generate:${model}`,
+                });
+              }
+              if (apiKey) {
+                const equiv = lovableEquivalentFor(model);
+                attempts.push({
+                  key: apiKey,
+                  url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+                  wireModel: equiv,
+                  routed: false,
+                  label: `lovable/generate:${equiv}`,
+                });
+              }
+            } else {
+              attempts.push({
+                key: apiKey!,
+                url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+                wireModel: model,
+                routed: false,
+                label: `lovable/generate:${model}`,
+              });
+            }
+
+            let res: Awaited<ReturnType<typeof aiFetch>> | null = null;
+            let lastErr: unknown = null;
+            for (let i = 0; i < attempts.length; i++) {
+              const a = attempts[i];
+              try {
+                res = await aiFetch(
+                  a.url,
+                  {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                      Authorization: `Bearer ${a.key}`,
+                    },
+                    body: JSON.stringify({
+                      model: a.wireModel,
+                      messages: attemptMessages,
+                      stream: true,
+                      // Ask the gateway for a final usage frame at the end of the SSE.
+                      stream_options: { include_usage: true },
+                      ...(!a.routed && a.wireModel.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
+                    }),
+                  },
+                  {
+                    breakerKey: a.label,
+                    stage: "generate",
+                    requestId,
+                    signal: clientAbort,
+                    stream: true,
+                    totalTimeoutMs: budgetMs,
+                  },
+                );
+                break;
+              } catch (err) {
+                lastErr = err;
+                const canFallback = i < attempts.length - 1 && isRouteLLMKeyExhausted(err);
+                if (!canFallback) throw err;
+              }
+            }
+            if (!res) throw lastErr ?? new AiError({ code: "ai_internal", stage: "generate", requestId });
+
 
             const body = res.response.body;
             if (!body) {
