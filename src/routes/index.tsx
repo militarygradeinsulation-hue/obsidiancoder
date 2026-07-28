@@ -383,7 +383,9 @@ function Index() {
   useEffect(() => {
     try { localStorage.setItem("obs-simple-view", forceSimple ? "1" : "0"); } catch { /* ignore */ }
   }, [forceSimple]);
-  const isMobile = isMobileViewport || forceSimple;
+  // Mobile view intentionally disabled — always render desktop shell.
+  void isMobileViewport; void forceSimple; void setForceSimple;
+  const isMobile = false;
   type MobTab = "chat" | "preview" | "files" | "build" | "more";
   const [mobileTab, setMobileTabState] = useState<MobTab>("preview");
   // Persist mobile tab per session/project so switching within a project keeps it.
