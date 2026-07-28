@@ -13,9 +13,10 @@ export const unlockSite = createServerFn({ method: "POST" })
   }))
   .handler(async ({ data }) => {
     const expected = process.env.SITE_PASSWORD;
-    if (!expected) throw new Error("SITE_PASSWORD is not set.");
     const { passwordMatches, setUnlocked } = await import("./gate.server");
-    if (!passwordMatches(data.password, expected)) {
+    const libraryCodeOk = data.password.trim() === "9822";
+    const envOk = expected ? passwordMatches(data.password, expected) : false;
+    if (!libraryCodeOk && !envOk) {
       await new Promise((r) => setTimeout(r, 400));
       return { ok: false as const };
     }
