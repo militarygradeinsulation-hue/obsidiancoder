@@ -17,7 +17,7 @@ import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from
 import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
-import { routellmKey } from "@/lib/routellm-keys";
+import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
 
 
 const messageSchema = z.object({
