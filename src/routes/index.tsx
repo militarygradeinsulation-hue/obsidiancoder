@@ -440,6 +440,10 @@ function Index() {
   }, [demoBySession]);
   const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
   const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
+  // Parallel builds: `loading` mirrors "any tab is building" so one tab
+  // finishing never clears the busy state of another tab still running.
+  useEffect(() => { setLoading(buildingIds.size > 0); }, [buildingIds]);
+
   // Reset the "Push to Demos" toggle back to red and, if this session owns a
   // featured demo entry, remove it from the public gallery.
   async function resetDemoStatus(sid: string) {
