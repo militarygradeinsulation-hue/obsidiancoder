@@ -2927,6 +2927,19 @@ function Index() {
                       return q > 0 ? <span className="obs-tab-queued" title={`${q} queued`}>+{q}</span> : null;
                     })()}
                     {isActive && s.html && !buildingIds.has(s.id) && <span className="obs-tab-live">LIVE</span>}
+                    {buildingIds.has(s.id) && (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        className="obs-tab-cancel"
+                        aria-label={`Cancel build in ${s.title}`}
+                        title="Cancel this build"
+                        onClick={(e) => { e.stopPropagation(); cancelBuild(s.id); }}
+                        onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); e.stopPropagation(); cancelBuild(s.id); } }}
+                      >
+                        <Square className="h-2.5 w-2.5" /> Cancel
+                      </span>
+                    )}
                     {sessions.length > 1 && (
                       <span
                         role="button"
