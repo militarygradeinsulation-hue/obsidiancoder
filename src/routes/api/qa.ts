@@ -44,6 +44,7 @@ import {
   type QaRouteError,
 } from "@/lib/qa-contract";
 import type { z } from "zod";
+import { routellmKey } from "@/lib/routellm-keys";
 
 export { qaInputSchema, type QaRequestBody, type QaRouteSuccess, type QaRouteError };
 
@@ -220,8 +221,8 @@ export const Route = createFileRoute("/api/qa")({
             return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
           }
 
-          const routellmKey = process.env.ROUTELLM_API_KEY;
-          if (!routellmKey || !isRouteLLMModel(model)) {
+          const routellmApiKey = routellmKey();
+          if (!routellmApiKey || !isRouteLLMModel(model)) {
             await settleFailure("qa_model_unavailable");
             const body = errBody(
               "qa_model_unavailable",
@@ -267,7 +268,7 @@ export const Route = createFileRoute("/api/qa")({
                 method: "POST",
                 headers: {
                   "Content-Type": "application/json",
-                  Authorization: `Bearer ${routellmKey}`,
+                  Authorization: `Bearer ${routellmApiKey}`,
                 },
                 body: JSON.stringify(body),
               },

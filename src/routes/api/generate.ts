@@ -17,6 +17,7 @@ import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from
 import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
+import { routellmKey } from "@/lib/routellm-keys";
 
 
 const messageSchema = z.object({
@@ -503,8 +504,8 @@ export const Route = createFileRoute("/api/generate")({
         };
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
-          const routellmKey = process.env.ROUTELLM_API_KEY;
-          if (!apiKey && !routellmKey) {
+          const routellmApiKey = routellmKey();
+          if (!apiKey && !routellmApiKey) {
             throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "AI is not configured." });
           }
 
@@ -780,7 +781,7 @@ export const Route = createFileRoute("/api/generate")({
           ) {
             const t_open = performance.now();
             const viaRouteLLM = isRouteLLMModel(model);
-            const upstreamKey = viaRouteLLM ? routellmKey : apiKey;
+            const upstreamKey = viaRouteLLM ? routellmApiKey : apiKey;
             if (!upstreamKey) {
               throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: viaRouteLLM ? "RouteLLM (Abacus) key is not configured." : "AI is not configured." });
             }

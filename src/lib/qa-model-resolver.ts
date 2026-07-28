@@ -8,6 +8,7 @@
 // id or label so the registry can drop / rename ids without breaking QA.
 
 import { ROUTELLM_MODELS } from "./models";
+import { routellmKeys } from "@/lib/routellm-keys";
 
 export interface QaRegistryEntry {
   id: string;
@@ -77,7 +78,7 @@ export function resolveCheapestClaudeModel(snap: QaRegistrySnapshot): QaModelRes
 /** Snapshot built from the current environment + shared registry. */
 export function currentQaRegistrySnapshot(): QaRegistrySnapshot {
   return {
-    routellmAvailable: !!process.env.ROUTELLM_API_KEY,
+    routellmAvailable: routellmKeys().length > 0,
     registryModels: ROUTELLM_MODELS.map((m) => ({ id: m.id, label: m.label })),
   };
 }
