@@ -2055,6 +2055,7 @@ function Index() {
     const modelForServer = adaptiveModel;
     const controller = new AbortController();
     abortRef.current = controller;
+    abortMapRef.current.set(sessionId, controller);
     let providerStarted = false;
     try {
 
