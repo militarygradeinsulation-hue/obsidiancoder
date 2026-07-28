@@ -2925,9 +2925,16 @@ function Index() {
                   </button>
                 );
               })}
-              <button type="button" onClick={addSession} className="obs-icon-btn" aria-label="New tab">
-                <Plus className="h-4 w-4" />
+              <button
+                type="button"
+                onClick={addSession}
+                className="obs-chip"
+                aria-label="New build tab"
+                title="Add a new tab — builds run in parallel across tabs"
+              >
+                <Plus className="h-3.5 w-3.5" /> New build
               </button>
+
               <button
                 type="button"
                 onClick={() => setFusionOpen(true)}
