@@ -2727,7 +2727,7 @@ function Index() {
             onClick={() => setMobileTab("build")}
             title="Version history, files, design"
           >
-            <History className="h-4 w-4" />
+            <HistoryIcon className="h-4 w-4" />
             <span>History</span>
           </button>
           <button
