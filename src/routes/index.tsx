@@ -2719,7 +2719,44 @@ function Index() {
           </button>
         </div>
       )}
+      {isMobile && mobileTab === "preview" && current.html && (
+        <div className="mob-actions" role="group" aria-label="Build actions">
+          <button
+            type="button"
+            className="mob-action"
+            onClick={() => setMobileTab("build")}
+            title="Version history, files, design"
+          >
+            <History className="h-4 w-4" />
+            <span>History</span>
+          </button>
+          <button
+            type="button"
+            className="mob-action mob-action-gold"
+            onClick={handleGoLive}
+            title="Publish a public shareable URL"
+          >
+            <Rocket className="h-4 w-4" />
+            <span>Go Live</span>
+          </button>
+          {isAdminUser && (
+            <button
+              type="button"
+              className="mob-action"
+              onClick={handlePushToDemos}
+              style={isDemoLiveForCurrent
+                ? { background: "rgba(34,197,94,0.16)", borderColor: "rgba(34,197,94,0.55)", color: "#7ee2a4" }
+                : { background: "rgba(239,68,68,0.14)", borderColor: "rgba(239,68,68,0.5)", color: "#ff9b9b" }}
+              title={isDemoLiveForCurrent ? "On Demos — tap to remove" : "Push to public Demos gallery"}
+            >
+              {isDemoLiveForCurrent ? <Check className="h-4 w-4" /> : <Rocket className="h-4 w-4" />}
+              <span>{isDemoLiveForCurrent ? "On Demos" : "Push Demo"}</span>
+            </button>
+          )}
+        </div>
+      )}
       {/* IntroSplash now mounted in src/routes/__root.tsx so it runs for every route */}
+
 
 
 
