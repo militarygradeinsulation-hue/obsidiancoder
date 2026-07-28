@@ -32,8 +32,11 @@ export const MODEL_REGISTRY = [
 ] as const;
 
 // RouteLLM (Abacus) — OpenAI-compatible gateway at https://routellm.abacus.ai/v1
-// The `routellm/` prefix is stripped before the request is sent upstream.
+// The `routellm/` prefix is stripped before the request is sent upstream, so
+// `routellm/route-llm` posts { model: "route-llm", stream: true } exactly like
+// the OpenAI SDK example in the Abacus docs.
 export const ROUTELLM_MODELS = [
+  { id: "routellm/route-llm",                  label: "RouteLLM · Auto (route-llm)" },
   { id: "routellm/claude-haiku-4-5-20251001",  label: "RouteLLM · Claude Haiku 4.5" },
   { id: "routellm/claude-sonnet-4-5-20250929", label: "RouteLLM · Claude Sonnet 4.5" },
   { id: "routellm/claude-opus-4-1-20250805",   label: "RouteLLM · Claude Opus 4.1" },
@@ -67,7 +70,7 @@ export const MODE_TO_MODEL = {
   economy:  "google/gemini-3.1-flash-lite",    // simple text/color/spacing edits
   balanced: "openai/gpt-5.4-mini",             // complex logic, debugging, multi-feature
   deep:     "google/gemini-3.1-pro-preview",   // major rebuilds
-  routellm: "routellm/claude-haiku-4-5-20251001", // Abacus RouteLLM default (Haiku 4.5)
+  routellm: "routellm/route-llm",              // Abacus RouteLLM auto-router (picks the model)
 } as const satisfies Record<string, ModelId>;
 
 export type ModeId = keyof typeof MODE_TO_MODEL;
@@ -81,7 +84,7 @@ export const MODEL_PICKER_OPTIONS = [
   { id: "economy",  label: "Economy — Flash Lite" },
   { id: "balanced", label: "Balanced — GPT-5.4 Mini" },
   { id: "deep",     label: "Deep Build — Gemini 3.1 Pro" },
-  { id: "routellm", label: "RouteLLM — Claude Haiku 4.5" },
+  { id: "routellm", label: "RouteLLM — Auto (Abacus router)" },
   ...MODEL_REGISTRY,
   ...ROUTELLM_MODELS,
 ] as const;
