@@ -1827,6 +1827,7 @@ function Index() {
       const memoryStr = memoryToPrompt(current.memory);
       const patchController = new AbortController();
       abortRef.current = patchController;
+      abortMapRef.current.set(sessionId, patchController);
       try {
         setTerminal((t) => [...t, `→ Patch mode → ${modelForPatch}`]);
         const pRes = await authFetch("/api/patch", {
