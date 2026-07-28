@@ -440,6 +440,10 @@ function Index() {
   }, [demoBySession]);
   const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
   const markBuildEnd = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
+  // Parallel builds: `loading` mirrors "any tab is building" so one tab
+  // finishing never clears the busy state of another tab still running.
+  useEffect(() => { setLoading(buildingIds.size > 0); }, [buildingIds]);
+
   // Reset the "Push to Demos" toggle back to red and, if this session owns a
   // featured demo entry, remove it from the public gallery.
   async function resetDemoStatus(sid: string) {
@@ -1573,14 +1577,15 @@ function Index() {
   async function submit(promptOverride?: string) {
     const basePrompt = (promptOverride ?? input).trim();
     if (!basePrompt && pendingAttachments.length === 0) return;
-    // Multi-prompt queue: allow submitting another prompt while one is
-    // building — it will run as soon as the current build finishes.
-    if (loading) {
+    // Parallel builds: each tab runs its own build. Only queue when THIS tab
+    // is already building — other tabs can build at the same time.
+    if (buildingIds.has(activeId)) {
       if (!basePrompt) return;
       setPromptQueue((q) => [...q, { sid: activeId, prompt: basePrompt }].slice(-8));
       setInput("");
       return;
     }
+
     // Central guard — free/unresolved users never reach the network.
     // Free-demo visitors get one full generate_html before hitting paywall.
     if (demoMode) {
@@ -2524,19 +2529,22 @@ function Index() {
     }
   }
 
-  // Drain the multi-prompt queue when a build finishes.
+  // Drain the multi-prompt queue: run the first queued prompt whose own tab
+  // is free, even while other tabs are still building.
   useEffect(() => {
-    if (loading) return;
     if (promptQueue.length === 0) return;
-    const [next, ...rest] = promptQueue;
-    setPromptQueue(rest);
+    const idx = promptQueue.findIndex((p) => !buildingIds.has(p.sid));
+    if (idx === -1) return;
+    const next = promptQueue[idx];
+    setPromptQueue((q) => q.filter((_, i) => i !== idx));
     // Switch to the tab that queued it so streaming lands in the right place.
     if (next.sid !== activeId) setActiveId(next.sid);
     // Defer to next tick so activeId update is applied before submit reads it.
     const t = setTimeout(() => { void submit(next.prompt); }, 40);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, promptQueue]);
+  }, [buildingIds, promptQueue]);
+
 
 
 
@@ -2917,9 +2925,16 @@ function Index() {
                   </button>
                 );
               })}
-              <button type="button" onClick={addSession} className="obs-icon-btn" aria-label="New tab">
-                <Plus className="h-4 w-4" />
+              <button
+                type="button"
+                onClick={addSession}
+                className="obs-chip"
+                aria-label="New build tab"
+                title="Add a new tab — builds run in parallel across tabs"
+              >
+                <Plus className="h-3.5 w-3.5" /> New build
               </button>
+
               <button
                 type="button"
                 onClick={() => setFusionOpen(true)}
