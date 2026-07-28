@@ -613,6 +613,9 @@ function Index() {
   const [overflowOpen, setOverflowOpen] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const abortRef = useRef<AbortController | null>(null);
+  // Per-tab abort controllers so one tab's build can be cancelled without
+  // touching builds running in other tabs.
+  const abortMapRef = useRef<Map<string, AbortController>>(new Map());
   const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
