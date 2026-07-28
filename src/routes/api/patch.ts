@@ -18,7 +18,7 @@ import {
   type EntitlementResult,
 } from "@/lib/credit-gate.server";
 import { makeUsage, mergeUsage, estimateUsdForCall, parseUsageFromChatJson, type UsageRecord } from "@/lib/usage-record";
-import { routellmKey } from "@/lib/routellm-keys";
+import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
