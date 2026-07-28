@@ -1204,8 +1204,7 @@ function Index() {
   useEffect(() => {
     if (!hydrated) return;
     sessionSafeSet(ACTIVE_KEY, activeId);
-    // Cancel any stale in-flight request when the active session changes.
-    abortRef.current?.abort();
+    // Parallel builds: switching tabs must NOT abort other tabs' work.
   }, [activeId, hydrated]);
 
   useEffect(() => {
