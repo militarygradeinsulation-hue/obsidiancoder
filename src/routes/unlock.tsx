@@ -6,6 +6,7 @@ const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScen
 const GLSLHills = lazy(() => import("@/components/ui/glsl-hills"));
 import DomeGallery from "@/components/ui/dome-gallery";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
+import { setAccountCode } from "@/lib/account-code";
 import { supabase } from "@/integrations/supabase/client";
 import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
