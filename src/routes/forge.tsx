@@ -132,9 +132,12 @@ function ForgePage() {
   const [title, setTitle] = React.useState("Untitled build");
   const [shareUrl, setShareUrl] = React.useState<string | null>(null);
 
+  // Account code (entered at /unlock) is the default library code, so every
+  // person's saved projects are scoped to them across browsers.
   const [libraryCode, setLibraryCode] = React.useState<string>(
-    () => safeGet<string>("forge.libraryCode") ?? "",
+    () => safeGet<string>("forge.libraryCode") || getAccountCode(),
   );
+
   const [library, setLibrary] = React.useState<LibraryBuild[]>([]);
 
   const [demoAvailable, setDemoAvailable] = React.useState<boolean | null>(null);
