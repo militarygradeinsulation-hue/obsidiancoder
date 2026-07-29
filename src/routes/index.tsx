@@ -2853,9 +2853,9 @@ function Index() {
 
         <div className="obs-section-label">Experimental</div>
         <nav className="obs-nav" aria-label="Experimental">
-          <Link to="/forge" className="obs-nav-item" data-testid="nav-forge" title="Obsidian Forge — simplified prompt-to-app workspace">
+          <Link to="/forge" className="obs-nav-item" data-testid="nav-forge" title="Obsidian Lite — simplified prompt-to-app workspace">
             <Rocket className="h-[18px] w-[18px]" strokeWidth={1.5} />
-            <span>Obsidian Forge</span>
+            <span>Obsidian Lite</span>
             <span className="obs-kbd obs-kbd-nav">new</span>
           </Link>
         </nav>
