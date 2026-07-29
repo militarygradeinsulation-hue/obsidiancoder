@@ -235,9 +235,13 @@ function Unlock() {
     try {
       const { ok } = await unlock({ data: { password } });
       if (ok) {
+        // The access code doubles as the person's library code, so their
+        // saved projects follow them across browsers and devices.
+        setAccountCode(password);
         await router.navigate({ to: "/" });
         router.invalidate();
       } else setError("Access denied.");
+
     } catch { setError("Something went wrong. Try again."); }
     finally { setBusy(false); }
   }
