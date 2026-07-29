@@ -537,7 +537,7 @@ function ForgePage() {
               <ChevronLeft size={14} className={sidebarOpen ? "" : "rotate-180"} />
             </button>
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-gradient-to-b from-[#F4A125] to-[#DD9324] text-[11px] font-black text-[#111317]">
-              OF
+              OL
             </span>
             <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Lite</h1>
