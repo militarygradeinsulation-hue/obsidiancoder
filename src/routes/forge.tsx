@@ -374,6 +374,38 @@ function ForgePage() {
     }
   }, [prompt, busy, enhance, html]);
 
+  // ---- Voice assist (same engine as the main Obsidian composer) -----------
+  const voice = useVoiceControl({
+    getDraft: () => promptRef.current?.value ?? prompt,
+    onDictate: (_append, full) => {
+      setPrompt(full);
+      requestAnimationFrame(() => {
+        const el = promptRef.current;
+        if (!el) return;
+        el.focus();
+        try { el.setSelectionRange(el.value.length, el.value.length); } catch {}
+      });
+    },
+    onCommand: (cmd) => {
+      const draft = (promptRef.current?.value ?? prompt).trim();
+      switch (cmd) {
+        case "send":
+          if (!busy && draft) void generate();
+          break;
+        case "enhance":
+        case "expand":
+          if (!busy && draft) void runEnhance();
+          break;
+        case "clear":
+          setPrompt("");
+          requestAnimationFrame(() => promptRef.current?.focus());
+          break;
+        default:
+          break;
+      }
+    },
+  });
+
   // ---- Save to library (real cloud_save gate + builds row) ----------------
   const save = React.useCallback(async () => {
     if (busy || html.length < 40) return;
