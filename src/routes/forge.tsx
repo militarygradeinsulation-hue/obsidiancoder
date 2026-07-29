@@ -1,4 +1,4 @@
-// Obsidian Forge — experimental, additive prompt-to-code workspace.
+// Obsidian Pocket — experimental, additive prompt-to-code workspace.
 // Route: /forge. It does NOT replace the main Obsidian IDE at "/". Every
 // capability here calls the real Obsidian pipeline (streaming /api/generate,
 // the shared project model, the real entitlement/credit gate, the real cloud
@@ -899,7 +899,7 @@ function ForgePage() {
                 </div>
                 <div className="flex h-[52vh] justify-center overflow-auto bg-[#050608] p-2">
                   <iframe
-                    title="Obsidian Lite preview"
+                    title="Obsidian Pocket preview"
                     srcDoc={srcDoc}
                     sandbox="allow-scripts"
                     className="h-full w-full rounded-lg border border-white/10 bg-white"
