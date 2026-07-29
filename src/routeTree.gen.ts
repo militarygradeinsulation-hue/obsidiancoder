@@ -16,6 +16,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as ForgeRouteImport } from './routes/forge'
 import { Route as DemosRouteImport } from './routes/demos'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
@@ -82,6 +83,11 @@ const McpRoute = McpRouteImport.update({
 const GalleryRoute = GalleryRouteImport.update({
   id: '/gallery',
   path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgeRoute = ForgeRouteImport.update({
+  id: '/forge',
+  path: '/forge',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DemosRoute = DemosRouteImport.update({
@@ -257,6 +263,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
+  '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
@@ -298,6 +305,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
+  '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
@@ -340,6 +348,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
+  '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
   '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
@@ -383,6 +392,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/demos'
+    | '/forge'
     | '/gallery'
     | '/mcp'
     | '/privacy'
@@ -424,6 +434,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/demos'
+    | '/forge'
     | '/gallery'
     | '/mcp'
     | '/privacy'
@@ -465,6 +476,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/dashboard'
     | '/demos'
+    | '/forge'
     | '/gallery'
     | '/mcp'
     | '/privacy'
@@ -507,6 +519,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   DashboardRoute: typeof DashboardRoute
   DemosRoute: typeof DemosRoute
+  ForgeRoute: typeof ForgeRoute
   GalleryRoute: typeof GalleryRoute
   McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -591,6 +604,13 @@ declare module '@tanstack/react-router' {
       path: '/gallery'
       fullPath: '/gallery'
       preLoaderRoute: typeof GalleryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/forge': {
+      id: '/forge'
+      path: '/forge'
+      fullPath: '/forge'
+      preLoaderRoute: typeof ForgeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/demos': {
@@ -848,6 +868,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   DashboardRoute: DashboardRoute,
   DemosRoute: DemosRoute,
+  ForgeRoute: ForgeRoute,
   GalleryRoute: GalleryRoute,
   McpRoute: McpRoute,
   PrivacyRoute: PrivacyRoute,
