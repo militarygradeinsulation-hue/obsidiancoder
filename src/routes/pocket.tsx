@@ -5,7 +5,9 @@
 // save + share endpoints, the real GitHub modal and outbound QA gate).
 import { LandingAccordionItem } from "@/components/ui/interactive-image-accordion";
 import * as React from "react";
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly } from "@tanstack/react-router";
+
+const GLSLHills = React.lazy(() => import("@/components/ui/glsl-hills"));
 import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronLeft,
@@ -573,7 +575,17 @@ function ForgePage() {
   const frameWidth = deviceWidth(device);
 
   return (
-    <div className="min-h-screen bg-[#08090b] text-[#E8E6E1]">
+    <div className="relative min-h-screen bg-[#08090b] text-[#E8E6E1]">
+      {/* Animated GLSL hills background */}
+      <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <ClientOnly fallback={null}>
+          <React.Suspense fallback={null}>
+            <GLSLHills className="h-full w-full opacity-70" />
+          </React.Suspense>
+        </ClientOnly>
+        <div className="absolute inset-0 bg-gradient-to-b from-[#08090b]/70 via-[#08090b]/55 to-[#08090b]/85" />
+      </div>
+      <div className="relative z-10">
       {/* Sticky compact header */}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0b0c0f]/90 backdrop-blur">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 sm:flex sm:justify-between">
