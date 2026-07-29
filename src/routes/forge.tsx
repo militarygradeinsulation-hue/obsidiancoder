@@ -119,7 +119,7 @@ function ForgePage() {
   const [device, setDevice] = React.useState<ForgeDevice>("desktop");
   const [tab, setTab] = React.useState<TabId>("build");
   const [pane, setPane] = React.useState<"code" | "preview">("preview");
-  const [sidebarOpen, setSidebarOpen] = React.useState(true);
+  const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [ghOpen, setGhOpen] = React.useState(false);
   const [pricingOpen, setPricingOpen] = React.useState(false);
