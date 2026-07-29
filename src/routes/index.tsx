@@ -2853,7 +2853,7 @@ function Index() {
 
         <div className="obs-section-label">Experimental</div>
         <nav className="obs-nav" aria-label="Experimental">
-          <Link to="/forge" className="obs-nav-item" data-testid="nav-forge" title="Obsidian Pocket — simplified prompt-to-app workspace">
+          <Link to="/pocket" className="obs-nav-item" data-testid="nav-forge" title="Obsidian Pocket — simplified prompt-to-app workspace">
             <Rocket className="h-[18px] w-[18px]" strokeWidth={1.5} />
             <span>Obsidian Pocket</span>
             <span className="obs-kbd obs-kbd-nav">new</span>
