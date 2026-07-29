@@ -3,6 +3,7 @@
 // capability here calls the real Obsidian pipeline (streaming /api/generate,
 // the shared project model, the real entitlement/credit gate, the real cloud
 // save + share endpoints, the real GitHub modal and outbound QA gate).
+import { LandingAccordionItem } from "@/components/ui/interactive-image-accordion";
 import * as React from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
@@ -628,7 +629,21 @@ function ForgePage() {
             </div>
           )}
 
+          {/* Empty-state hero */}
+          {!html && (
+            <section className="mb-3 rounded-2xl border border-white/10 bg-[#0b0c0f] p-5 sm:p-8">
+              <LandingAccordionItem
+                eyebrow="Obsidian Forge"
+                heading="Describe it once. Ship a real page."
+                body="Clean, minimal, straight to the build. Type a prompt below and Forge generates production-grade code you can edit, preview, and publish."
+                ctaLabel="Start building"
+                onCta={() => promptRef.current?.focus()}
+              />
+            </section>
+          )}
+
           {/* Prompt composer */}
+
           <section className="rounded-xl border border-white/10 bg-[#0b0c0f] p-3 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]">
             <label htmlFor="forge-prompt" className="text-sm font-semibold">
               What should I build or change?
