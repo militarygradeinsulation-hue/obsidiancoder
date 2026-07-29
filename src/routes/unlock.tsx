@@ -325,7 +325,7 @@ function Unlock() {
           <a href="https://businessforensics.tech/aetheris-universe" target="_blank" rel="noopener noreferrer" className="unlock-topbar-link">Aetheris Universe</a>
           <button type="button" className="unlock-topbar-link" onClick={() => { openPanel("buy"); setPlansOpen(true); requestAnimationFrame(() => document.getElementById("plans-heading")?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>Pricing</button>
           <button type="button" className="unlock-topbar-link" onClick={() => { setDemosOpen(true); requestAnimationFrame(() => document.getElementById("demos-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Live Demos</button>
-          <Link to="/forge" className="unlock-topbar-link" title="Obsidian Lite — simplified prompt-to-app workspace">Lite</Link>
+          <Link to="/forge" className="unlock-topbar-link" title="Obsidian Pocket — simplified prompt-to-app workspace">Pocket</Link>
           <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Access Code</button>
           <Link
             to="/"
