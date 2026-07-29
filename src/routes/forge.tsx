@@ -630,7 +630,7 @@ function ForgePage() {
           )}
 
           {/* Empty-state hero */}
-          {!html && (
+          {(versions.length === 0 && (!html || html.trim() === EMPTY_DOC.trim())) && (
             <section className="mb-3 rounded-2xl border border-white/10 bg-[#0b0c0f] p-5 sm:p-8">
               <LandingAccordionItem
                 eyebrow="Obsidian Forge"
