@@ -419,14 +419,20 @@ function ForgePage() {
     },
   });
 
-  // ---- Save to library (real cloud_save gate + builds row) ----------------
+  // ---- Save to library (account code, or paid cloud_save gate) ------------
   const save = React.useCallback(async () => {
     if (busy || html.length < 40) return;
-    const guard = await requirePaidAction("cloud_save");
-    if (!guard.allowed) {
-      setPricingOpen(true);
-      return;
+    const code = libraryCode.trim();
+    // A valid account code scopes the project to that person's library and is
+    // sufficient to save; otherwise fall back to the paid entitlement gate.
+    if (!isValidAccountCode(code)) {
+      const guard = await requirePaidAction("cloud_save");
+      if (!guard.allowed) {
+        setPricingOpen(true);
+        return;
+      }
     }
+
     setBusy("saving");
     setStatus("Saving…");
     setError(null);
