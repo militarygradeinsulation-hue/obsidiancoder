@@ -14,6 +14,7 @@ import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PocketRouteImport } from './routes/pocket'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as ForgeRouteImport } from './routes/forge'
@@ -73,6 +74,11 @@ const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PocketRoute = PocketRouteImport.update({
+  id: '/pocket',
+  path: '/pocket',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -266,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
   '/mcp': typeof McpRoute
+  '/pocket': typeof PocketRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
@@ -308,6 +315,7 @@ export interface FileRoutesByTo {
   '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
   '/mcp': typeof McpRoute
+  '/pocket': typeof PocketRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
@@ -351,6 +359,7 @@ export interface FileRoutesById {
   '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
   '/mcp': typeof McpRoute
+  '/pocket': typeof PocketRoute
   '/privacy': typeof PrivacyRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/terms': typeof TermsRoute
@@ -395,6 +404,7 @@ export interface FileRouteTypes {
     | '/forge'
     | '/gallery'
     | '/mcp'
+    | '/pocket'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
@@ -437,6 +447,7 @@ export interface FileRouteTypes {
     | '/forge'
     | '/gallery'
     | '/mcp'
+    | '/pocket'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
@@ -479,6 +490,7 @@ export interface FileRouteTypes {
     | '/forge'
     | '/gallery'
     | '/mcp'
+    | '/pocket'
     | '/privacy'
     | '/sitemap.xml'
     | '/terms'
@@ -522,6 +534,7 @@ export interface RootRouteChildren {
   ForgeRoute: typeof ForgeRoute
   GalleryRoute: typeof GalleryRoute
   McpRoute: typeof McpRoute
+  PocketRoute: typeof PocketRoute
   PrivacyRoute: typeof PrivacyRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   TermsRoute: typeof TermsRoute
@@ -590,6 +603,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/pocket': {
+      id: '/pocket'
+      path: '/pocket'
+      fullPath: '/pocket'
+      preLoaderRoute: typeof PocketRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -871,6 +891,7 @@ const rootRouteChildren: RootRouteChildren = {
   ForgeRoute: ForgeRoute,
   GalleryRoute: GalleryRoute,
   McpRoute: McpRoute,
+  PocketRoute: PocketRoute,
   PrivacyRoute: PrivacyRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   TermsRoute: TermsRoute,
