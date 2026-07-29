@@ -61,14 +61,14 @@ import {
 export const Route = createFileRoute("/forge")({
   head: () => ({
     meta: [
-      { title: "Obsidian Forge — Prompt-to-Code Workspace" },
+      { title: "Obsidian Lite — Prompt-to-Code Workspace" },
       {
         name: "description",
         content:
-          "Experimental Obsidian Forge workspace: one prompt, real multi-file projects, live preview, versions, and publishing on the Obsidian pipeline.",
+          "Obsidian Lite workspace: one prompt, real multi-file projects, live preview, versions, and publishing on the Obsidian pipeline.",
       },
       { name: "robots", content: "noindex" },
-      { property: "og:title", content: "Obsidian Forge — Prompt-to-Code Workspace" },
+      { property: "og:title", content: "Obsidian Lite — Prompt-to-Code Workspace" },
       {
         property: "og:description",
         content:
@@ -540,9 +540,9 @@ function ForgePage() {
               OF
             </span>
             <div className="min-w-0">
-              <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Forge</h1>
+              <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Lite</h1>
               <p className="truncate text-[10px] uppercase tracking-widest text-[#6b7180]">
-                Experimental workspace
+                Lite workspace
               </p>
             </div>
           </div>
@@ -633,9 +633,9 @@ function ForgePage() {
           {(versions.length === 0 && (!html || html.trim() === EMPTY_DOC.trim())) && (
             <section className="mb-3 rounded-2xl border border-white/10 bg-[#0b0c0f] p-5 sm:p-8">
               <LandingAccordionItem
-                eyebrow="Obsidian Forge"
+                eyebrow="Obsidian Lite"
                 heading="Describe it once. Ship a real page."
-                body="Clean, minimal, straight to the build. Type a prompt below and Forge generates production-grade code you can edit, preview, and publish."
+                body="Clean, minimal, straight to the build. Type a prompt below and Lite generates production-grade code you can edit, preview, and publish."
                 ctaLabel="Start building"
                 onCta={() => promptRef.current?.focus()}
               />
@@ -845,7 +845,7 @@ function ForgePage() {
                 </div>
                 <div className="flex h-[52vh] justify-center overflow-auto bg-[#050608] p-2">
                   <iframe
-                    title="Obsidian Forge preview"
+                    title="Obsidian Lite preview"
                     srcDoc={srcDoc}
                     sandbox="allow-scripts"
                     className="h-full w-full rounded-lg border border-white/10 bg-white"
