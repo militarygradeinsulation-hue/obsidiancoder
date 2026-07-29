@@ -1128,6 +1128,7 @@ function ForgePage() {
         onLog={log}
       />
       {pricingOpen && <PricingModal onClose={() => setPricingOpen(false)} />}
+      </div>
     </div>
   );
 }
