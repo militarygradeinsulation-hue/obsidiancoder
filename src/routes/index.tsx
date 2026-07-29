@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, ClientOnly } from "@tanstack/react-router";
+import { createFileRoute, redirect, ClientOnly, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
@@ -2850,6 +2850,17 @@ function Index() {
             );
           })}
         </nav>
+
+        <div className="obs-section-label">Experimental</div>
+        <nav className="obs-nav" aria-label="Experimental">
+          <Link to="/forge" className="obs-nav-item" data-testid="nav-forge" title="Obsidian Forge — simplified prompt-to-app workspace">
+            <Rocket className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            <span>Obsidian Forge</span>
+            <span className="obs-kbd obs-kbd-nav">new</span>
+          </Link>
+        </nav>
+
+
 
         <div className="obs-sidebar-footer">
           <div className="obs-user">
