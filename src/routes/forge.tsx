@@ -159,8 +159,14 @@ function ForgePage() {
     safeSet("forge.model", model);
   }, [model]);
   React.useEffect(() => {
-    if (libraryCode) safeSet("forge.libraryCode", libraryCode);
+    if (libraryCode) {
+      safeSet("forge.libraryCode", libraryCode);
+      // Keep the shared account code in sync so the main builder and Pocket
+      // resolve the same personal library.
+      setAccountCode(libraryCode);
+    }
   }, [libraryCode]);
+
 
   // Free-demo eligibility — server is the source of truth.
   React.useEffect(() => {
