@@ -22,11 +22,14 @@ import {
   Sparkles,
   Tablet,
   Wand2,
+  Mic,
+  MicOff,
   X,
   History,
 } from "lucide-react";
 
 import { authFetch } from "@/lib/auth-fetch";
+import { useVoiceControl } from "@/lib/voice-control";
 import { requirePaidAction } from "@/lib/action-guard";
 import { useEntitlement, isPaidMode, refreshEntitlement } from "@/hooks/useEntitlement";
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
@@ -689,6 +692,11 @@ function ForgePage() {
               placeholder="A pricing page for an HVAC dispatch tool with three tiers and a comparison table…"
               className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-black/40 p-3 text-sm text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
             />
+            {(voice.listening || voice.processing || voice.error) && (
+              <p className="mt-2 text-xs text-[#F4A125]" role="status" aria-live="polite">
+                {voice.error || voice.interim || (voice.processing ? "Transcribing…" : "Listening… say “send” to build")}
+              </p>
+            )}
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:justify-between">
               <div className="flex min-w-0 items-center gap-2">
                 <label className="sr-only" htmlFor="forge-mode">
@@ -711,6 +719,20 @@ function ForgePage() {
                 >
                   <Wand2 size={13} /> Enhance
                 </button>
+                {voice.supported && (
+                  <button
+                    type="button"
+                    className={btn}
+                    onClick={voice.toggle}
+                    aria-pressed={voice.listening}
+                    aria-label={voice.listening ? "Voice assist on — click to stop" : "Voice assist — dictate, say 'send' to build"}
+                    title={voice.listening ? "Listening — say 'send' to build, 'enhance' to polish, 'clear' to reset" : "Voice assist"}
+                    style={voice.listening ? { color: "#F4A125", borderColor: "rgba(244,161,37,0.55)", background: "rgba(244,161,37,0.14)" } : undefined}
+                  >
+                    {voice.listening ? <Mic size={13} /> : <MicOff size={13} />}
+                    {voice.listening ? "Listening" : "Voice"}
+                  </button>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {busy === "generating" ? (
