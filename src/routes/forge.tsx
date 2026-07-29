@@ -828,15 +828,16 @@ function ForgePage() {
                     </button>
                   ))}
                 </div>
-                <div className="grid h-[52vh] place-items-start justify-center overflow-auto bg-[#050608] p-2">
+                <div className="flex h-[52vh] justify-center overflow-auto bg-[#050608] p-2">
                   <iframe
                     title="Obsidian Forge preview"
                     srcDoc={srcDoc}
                     sandbox="allow-scripts"
-                    className="h-full rounded-lg border border-white/10 bg-white"
-                    style={{ width: frameWidth ? `${frameWidth}px` : "100%" }}
+                    className="h-full w-full rounded-lg border border-white/10 bg-white"
+                    style={frameWidth ? { maxWidth: `${frameWidth}px` } : undefined}
                   />
                 </div>
+
               </div>
 
               {/* Mobile pane switch */}
