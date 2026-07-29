@@ -46,6 +46,7 @@ import { DEFAULT_MODEL, MODEL_REGISTRY, ROUTELLM_MODELS } from "@/lib/models";
 import { updateContent, createFile, type Project } from "@/lib/project-model";
 import { enhancePrompt } from "@/lib/enhance.functions";
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import { getAccountCode, setAccountCode, isValidAccountCode } from "@/lib/account-code";
 import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
 import {
@@ -132,9 +133,12 @@ function ForgePage() {
   const [title, setTitle] = React.useState("Untitled build");
   const [shareUrl, setShareUrl] = React.useState<string | null>(null);
 
+  // Account code (entered at /unlock) is the default library code, so every
+  // person's saved projects are scoped to them across browsers.
   const [libraryCode, setLibraryCode] = React.useState<string>(
-    () => safeGet<string>("forge.libraryCode") ?? "",
+    () => safeGet<string>("forge.libraryCode") || getAccountCode(),
   );
+
   const [library, setLibrary] = React.useState<LibraryBuild[]>([]);
 
   const [demoAvailable, setDemoAvailable] = React.useState<boolean | null>(null);
@@ -155,8 +159,14 @@ function ForgePage() {
     safeSet("forge.model", model);
   }, [model]);
   React.useEffect(() => {
-    if (libraryCode) safeSet("forge.libraryCode", libraryCode);
+    if (libraryCode) {
+      safeSet("forge.libraryCode", libraryCode);
+      // Keep the shared account code in sync so the main builder and Pocket
+      // resolve the same personal library.
+      setAccountCode(libraryCode);
+    }
   }, [libraryCode]);
+
 
   // Free-demo eligibility — server is the source of truth.
   React.useEffect(() => {
@@ -409,14 +419,20 @@ function ForgePage() {
     },
   });
 
-  // ---- Save to library (real cloud_save gate + builds row) ----------------
+  // ---- Save to library (account code, or paid cloud_save gate) ------------
   const save = React.useCallback(async () => {
     if (busy || html.length < 40) return;
-    const guard = await requirePaidAction("cloud_save");
-    if (!guard.allowed) {
-      setPricingOpen(true);
-      return;
+    const code = libraryCode.trim();
+    // A valid account code scopes the project to that person's library and is
+    // sufficient to save; otherwise fall back to the paid entitlement gate.
+    if (!isValidAccountCode(code)) {
+      const guard = await requirePaidAction("cloud_save");
+      if (!guard.allowed) {
+        setPricingOpen(true);
+        return;
+      }
     }
+
     setBusy("saving");
     setStatus("Saving…");
     setError(null);
