@@ -64,14 +64,14 @@ import {
 export const Route = createFileRoute("/forge")({
   head: () => ({
     meta: [
-      { title: "Obsidian Lite — Prompt-to-Code Workspace" },
+      { title: "Obsidian Pocket — Prompt-to-Code Workspace" },
       {
         name: "description",
         content:
-          "Obsidian Lite workspace: one prompt, real multi-file projects, live preview, versions, and publishing on the Obsidian pipeline.",
+          "Obsidian Pocket workspace: one prompt, real multi-file projects, live preview, versions, and publishing on the Obsidian pipeline.",
       },
       { name: "robots", content: "noindex" },
-      { property: "og:title", content: "Obsidian Lite — Prompt-to-Code Workspace" },
+      { property: "og:title", content: "Obsidian Pocket — Prompt-to-Code Workspace" },
       {
         property: "og:description",
         content:
@@ -572,12 +572,12 @@ function ForgePage() {
               <ChevronLeft size={14} className={sidebarOpen ? "" : "rotate-180"} />
             </button>
             <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-gradient-to-b from-[#F4A125] to-[#DD9324] text-[11px] font-black text-[#111317]">
-              OL
+              OP
             </span>
             <div className="min-w-0">
-              <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Lite</h1>
+              <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket</h1>
               <p className="truncate text-[10px] uppercase tracking-widest text-[#6b7180]">
-                Lite workspace
+                Pocket workspace
               </p>
             </div>
           </div>
@@ -668,9 +668,9 @@ function ForgePage() {
           {(versions.length === 0 && (!html || html.trim() === EMPTY_DOC.trim())) && (
             <section className="mb-3 rounded-2xl border border-white/10 bg-[#0b0c0f] p-5 sm:p-8">
               <LandingAccordionItem
-                eyebrow="Obsidian Lite"
+                eyebrow="Obsidian Pocket"
                 heading="Describe it once. Ship a real page."
-                body="Clean, minimal, straight to the build. Type a prompt below and Lite generates production-grade code you can edit, preview, and publish."
+                body="Clean, minimal, straight to the build. Type a prompt below and Pocket generates production-grade code you can edit, preview, and publish."
                 ctaLabel="Start building"
                 onCta={() => promptRef.current?.focus()}
               />
