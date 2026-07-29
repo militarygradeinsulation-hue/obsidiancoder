@@ -2,12 +2,7 @@
 // No side effects, no imports from React — kept separate so the logic can be
 // unit-tested and so /forge never forks Obsidian's real project model.
 
-import {
-  migrateFromHtml,
-  getEntry,
-  updateContent,
-  type Project,
-} from "@/lib/project-model";
+import { migrateFromHtml, getEntry, updateContent, type Project } from "@/lib/project-model";
 
 export type ForgeDevice = "desktop" | "tablet" | "mobile";
 
@@ -65,12 +60,7 @@ export function titleFromPrompt(prompt: string, fallback = "Untitled build"): st
 }
 
 /** Which capabilities require a paid/authenticated account in Forge. */
-export const FORGE_PAID_CAPABILITIES = [
-  "save",
-  "github",
-  "export",
-  "deploy",
-] as const;
+export const FORGE_PAID_CAPABILITIES = ["save", "github", "export", "deploy"] as const;
 export type ForgePaidCapability = (typeof FORGE_PAID_CAPABILITIES)[number];
 
 export function forgeCapabilityAllowed(cap: ForgePaidCapability, paid: boolean): boolean {
