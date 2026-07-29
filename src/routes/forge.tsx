@@ -837,7 +837,6 @@ function ForgePage() {
                     style={frameWidth ? { maxWidth: `${frameWidth}px` } : undefined}
                   />
                 </div>
-
               </div>
 
               {/* Mobile pane switch */}
