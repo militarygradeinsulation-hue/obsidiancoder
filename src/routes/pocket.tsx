@@ -431,7 +431,7 @@ function ForgePage() {
     const code = libraryCode.trim();
     // A valid account code scopes the project to that person's library and is
     // sufficient to save; otherwise fall back to the paid entitlement gate.
-    if (!isValidAccountCode(code)) {
+    if (!isValidAccountCode(code) && !isAdminCode) {
       const guard = await requirePaidAction("cloud_save");
       if (!guard.allowed) {
         setPricingOpen(true);
