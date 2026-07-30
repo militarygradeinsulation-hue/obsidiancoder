@@ -7,7 +7,7 @@ import { LandingAccordionItem } from "@/components/ui/interactive-image-accordio
 import * as React from "react";
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 
-const GLSLHills = React.lazy(() => import("@/components/ui/glsl-hills"));
+const InteractiveGrid = React.lazy(() => import("@/components/ui/interactive-grid"));
 import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronLeft,
