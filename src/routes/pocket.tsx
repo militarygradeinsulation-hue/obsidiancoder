@@ -1224,7 +1224,66 @@ function ForgePage() {
         </main>
       </div>
 
+      {/* Published build modal — always shows the live URL even if the
+          browser blocked the new tab (common inside embedded previews). */}
+      {publishedUrl && (
+        <div
+          className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Build published"
+        >
+          <div className="w-full max-w-lg rounded-2xl border border-[#F4A125]/30 bg-[#0b0c0f] p-5 shadow-2xl">
+            <h2 className="text-lg font-semibold text-[#F4A125]">Your build is live</h2>
+            <p className="mt-1 text-sm text-[#B6BCC8]">
+              Open it in a new tab — your workspace stays exactly as it is.
+            </p>
+            <div className="mt-3 overflow-hidden rounded-lg border border-white/10">
+              <iframe
+                src={publishedUrl}
+                title="Published build preview"
+                className="h-56 w-full bg-white"
+                sandbox="allow-scripts allow-forms allow-popups"
+              />
+            </div>
+            <a
+              className="mt-3 block break-all text-xs text-[#F4A125] underline underline-offset-2"
+              href={publishedUrl}
+              target="_blank"
+              rel="noreferrer"
+            >
+              {publishedUrl}
+            </a>
+            <div className="mt-4 flex flex-wrap gap-2">
+              <a
+                className="rounded-lg bg-[#F4A125] px-3 py-1.5 text-sm font-semibold text-black"
+                href={publishedUrl}
+                target="_blank"
+                rel="noreferrer"
+              >
+                Open build
+              </a>
+              <button
+                type="button"
+                className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#B6BCC8]"
+                onClick={() => { void navigator.clipboard?.writeText(publishedUrl); setStatus("Link copied"); }}
+              >
+                Copy link
+              </button>
+              <button
+                type="button"
+                className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#B6BCC8]"
+                onClick={() => setPublishedUrl(null)}
+              >
+                Back to workspace
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Advanced drawer */}
+
       {advancedOpen && (
         <div
           className="fixed inset-0 z-40 flex justify-end bg-black/60"
