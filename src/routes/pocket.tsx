@@ -472,15 +472,21 @@ function ForgePage() {
   // ---- Deploy (existing outbound QA gate → save → share URL) --------------
   const deploy = React.useCallback(async () => {
     if (busy || html.length < 40) return;
+    // Open the tab synchronously so browsers don't block the popup after
+    // the async publish round-trip.
+    const win = window.open("", "_blank", "noopener,noreferrer");
+    const closeWin = () => { try { win?.close(); } catch { /* ignore */ } };
     if (!isAdminCode) {
       const guard = await requirePaidAction("cloud_publish");
       if (!guard.allowed) {
+        closeWin();
         setPricingOpen(true);
         return;
       }
     }
     const assessment = assessOutbound(html, { surface: "go-live" });
     if (!assessment.ok) {
+      closeWin();
       setError(`Publish blocked by QA gate: ${assessment.blockers.slice(0, 3).join(", ")}`);
       setStatus("Publish blocked");
       log(`Publish blocked: ${assessment.blockers.join(" | ")}`);
@@ -507,14 +513,17 @@ function ForgePage() {
       setShareUrl(url);
       setStatus("Live");
       log(`Published → ${url}`);
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (win) win.location.href = url;
+      else window.open(url, "_blank", "noopener,noreferrer");
     } catch (err) {
+      closeWin();
       setError(sanitizeErrorMessage(err, "Publish failed."));
       setStatus("Publish failed");
     } finally {
       setBusy(null);
     }
   }, [busy, html, title, prompt, model, libraryCode, log, isAdminCode]);
+
 
   // ---- Push to Demos (admin library code only) ---------------------------
   const pushToDemos = React.useCallback(async () => {
