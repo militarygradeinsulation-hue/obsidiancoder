@@ -3,7 +3,6 @@
 // capability here calls the real Obsidian pipeline (streaming /api/generate,
 // the shared project model, the real entitlement/credit gate, the real cloud
 // save + share endpoints, the real GitHub modal and outbound QA gate).
-import { LandingAccordionItem } from "@/components/ui/interactive-image-accordion";
 import * as React from "react";
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 
