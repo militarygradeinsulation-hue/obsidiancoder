@@ -174,6 +174,63 @@ function ForgePage() {
     }
   }, [libraryCode]);
 
+  // ---- Active session memory (per library code, survives reloads) --------
+  type PocketSession = {
+    html: string;
+    title: string;
+    prompt: string;
+    versions: ForgeVersion[];
+    at: number;
+  };
+  const sessionKey = React.useCallback(
+    (code: string) => `pocket.session.${(code || "guest").trim() || "guest"}`,
+    [],
+  );
+  const restoredRef = React.useRef<string>("");
+
+  const restoreSession = React.useCallback(
+    (code: string) => {
+      const saved = safeGet<PocketSession>(sessionKey(code));
+      if (!saved?.html || saved.html.length < 40) return false;
+      const next = projectFromHtml(saved.html);
+      setProject(next);
+      setActiveFileId(next.entryFileId);
+      setTitle(saved.title || "Untitled build");
+      setPrompt(saved.prompt || "");
+      setVersions(saved.versions ?? []);
+      setPane("preview");
+      setStatus("Restored your last build");
+      return true;
+    },
+    [sessionKey],
+  );
+
+  // Restore on mount and whenever the library code changes, unless the
+  // canvas already holds real work.
+  React.useEffect(() => {
+    const code = libraryCode.trim();
+    if (restoredRef.current === code) return;
+    restoredRef.current = code;
+    const blank = html === EMPTY_DOC || html.length < 40;
+    if (blank) restoreSession(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryCode, restoreSession]);
+
+  // Autosave whatever is on the canvas.
+  React.useEffect(() => {
+    if (!html || html === EMPTY_DOC || html.length < 40) return;
+    const t = window.setTimeout(() => {
+      safeSet(sessionKey(libraryCode), {
+        html,
+        title,
+        prompt,
+        versions: versions.slice(0, 10),
+        at: Date.now(),
+      } satisfies PocketSession);
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [html, title, prompt, versions, libraryCode, sessionKey]);
+
 
   // Free-demo eligibility — server is the source of truth.
   React.useEffect(() => {
