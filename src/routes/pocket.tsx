@@ -747,15 +747,21 @@ function ForgePage() {
 
   return (
     <div className="relative min-h-screen bg-[#08090b] text-[#E8E6E1]">
-      {/* Interactive dot-grid background */}
+      {/* Holographic hieroglyph wall + interactive dot-grid background */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <ClientOnly fallback={null}>
+          <React.Suspense fallback={null}>
+            <HolographicWall />
+          </React.Suspense>
+        </ClientOnly>
         <ClientOnly fallback={null}>
           <React.Suspense fallback={null}>
             <InteractiveGrid className="h-full w-full" />
           </React.Suspense>
         </ClientOnly>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#08090b]/60 via-[#08090b]/45 to-[#08090b]/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#08090b]/55 via-[#08090b]/40 to-[#08090b]/75" />
       </div>
+
       <div className="relative z-10">
       {/* Sticky compact header */}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0b0c0f]/90 backdrop-blur">
