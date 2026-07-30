@@ -471,10 +471,12 @@ function ForgePage() {
   // ---- Deploy (existing outbound QA gate → save → share URL) --------------
   const deploy = React.useCallback(async () => {
     if (busy || html.length < 40) return;
-    const guard = await requirePaidAction("cloud_publish");
-    if (!guard.allowed) {
-      setPricingOpen(true);
-      return;
+    if (!isAdminCode) {
+      const guard = await requirePaidAction("cloud_publish");
+      if (!guard.allowed) {
+        setPricingOpen(true);
+        return;
+      }
     }
     const assessment = assessOutbound(html, { surface: "go-live" });
     if (!assessment.ok) {
@@ -511,13 +513,82 @@ function ForgePage() {
     } finally {
       setBusy(null);
     }
-  }, [busy, html, title, prompt, model, libraryCode, log]);
+  }, [busy, html, title, prompt, model, libraryCode, log, isAdminCode]);
+
+  // ---- Push to Demos (admin library code only) ---------------------------
+  const pushToDemos = React.useCallback(async () => {
+    if (!isAdminCode || busy || html.length < 40) return;
+    // Toggle off when this build is already featured.
+    if (demoLive) {
+      setStatus("Removing from Demos…");
+      try {
+        const del = await deleteFeaturedDemo({ data: { adminCode: "9822", id: demoLive.id } });
+        if ("ok" in del && del.ok) {
+          setDemoLive(null);
+          setStatus("Removed from Demos");
+          log("Removed from public Demos gallery.");
+        } else {
+          setError("error" in del ? del.error : "Remove failed.");
+        }
+      } catch (err) {
+        setError(sanitizeErrorMessage(err, "Remove failed."));
+      }
+      return;
+    }
+    const assessment = assessOutbound(html, { surface: "featured-demo" });
+    if (!assessment.ok) {
+      setError(`Demo push blocked by QA gate: ${assessment.blockers.slice(0, 3).join(", ")}`);
+      setStatus("Demo push blocked");
+      return;
+    }
+    setBusy("deploying");
+    setStatus("Pushing to Demos…");
+    setError(null);
+    try {
+      const res = await authFetch("/api/public/builds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          title,
+          prompt,
+          html: assessment.finalHtml,
+          model,
+          library_code: "9822",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const j = (await res.json()) as { share_slug: string };
+      const url = `${window.location.origin}/api/public/share/${j.share_slug}`;
+      const promoted = await pushFeaturedDemo({
+        data: {
+          adminCode: "9822",
+          slug: j.share_slug,
+          title: title || `Demo · ${j.share_slug}`,
+          url,
+        },
+      });
+      if (!("ok" in promoted) || !promoted.ok) {
+        throw new Error("error" in promoted ? promoted.error : "promote failed");
+      }
+      setDemoLive({ id: promoted.id, slug: promoted.slug });
+      setShareUrl(url);
+      setStatus("Live on Demos");
+      log(`Pushed to Demos → ${url}`);
+    } catch (err) {
+      setError(sanitizeErrorMessage(err, "Demo push failed."));
+      setStatus("Demo push failed");
+    } finally {
+      setBusy(null);
+    }
+  }, [isAdminCode, busy, html, title, prompt, model, demoLive, log]);
 
   const exportProject = React.useCallback(async () => {
-    const guard = await requirePaidAction("cloud_share");
-    if (!guard.allowed) {
-      setPricingOpen(true);
-      return;
+    if (!isAdminCode) {
+      const guard = await requirePaidAction("cloud_share");
+      if (!guard.allowed) {
+        setPricingOpen(true);
+        return;
+      }
     }
     const blob = new Blob([sanitizeForExport(html)], { type: "text/html" });
     const a = document.createElement("a");
@@ -526,16 +597,18 @@ function ForgePage() {
     a.click();
     URL.revokeObjectURL(a.href);
     setStatus("Exported");
-  }, [html, title]);
+  }, [html, title, isAdminCode]);
 
   const openGithub = React.useCallback(async () => {
-    const guard = await requirePaidAction("github_deploy");
-    if (!guard.allowed) {
-      setPricingOpen(true);
-      return;
+    if (!isAdminCode) {
+      const guard = await requirePaidAction("github_deploy");
+      if (!guard.allowed) {
+        setPricingOpen(true);
+        return;
+      }
     }
     setGhOpen(true);
-  }, []);
+  }, [isAdminCode]);
 
   const restore = React.useCallback((v: ForgeVersion) => {
     setProject((prev) => setEntryHtml(prev, v.html));
