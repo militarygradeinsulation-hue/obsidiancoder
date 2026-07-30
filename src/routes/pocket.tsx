@@ -6,8 +6,8 @@
 import * as React from "react";
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 
-const InteractiveGrid = React.lazy(() => import("@/components/ui/interactive-grid"));
-const HolographicWall = React.lazy(() => import("@/components/ui/holographic-wall"));
+import { PocketBackground } from "@/components/PocketBackground";
+
 import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronLeft,
