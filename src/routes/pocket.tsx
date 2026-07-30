@@ -748,14 +748,14 @@ function ForgePage() {
 
   return (
     <div className="relative min-h-screen bg-[#08090b] text-[#E8E6E1]">
-      {/* Animated GLSL hills background */}
+      {/* Interactive dot-grid background */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
         <ClientOnly fallback={null}>
           <React.Suspense fallback={null}>
-            <GLSLHills className="h-full w-full opacity-70" />
+            <InteractiveGrid className="h-full w-full" />
           </React.Suspense>
         </ClientOnly>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#08090b]/70 via-[#08090b]/55 to-[#08090b]/85" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#08090b]/60 via-[#08090b]/45 to-[#08090b]/80" />
       </div>
       <div className="relative z-10">
       {/* Sticky compact header */}
