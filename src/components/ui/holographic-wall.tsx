@@ -1,6 +1,5 @@
 "use client";
 
-import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
 
 type HolographicWallProps = {
@@ -103,11 +102,9 @@ export function HolographicWall({
 
       {/* Golden cursor light */}
       {mouse && (
-        <motion.div
+        <div
           className="absolute"
-          animate={{ left: mouse.x, top: mouse.y }}
-          transition={{ type: "spring", stiffness: 260, damping: 30, mass: 0.4 }}
-          style={{ width: 0, height: 0 }}
+          style={{ left: mouse.x, top: mouse.y, width: 0, height: 0, transition: "left 120ms ease-out, top 120ms ease-out" }}
         >
           <div
             className="absolute rounded-full"
@@ -131,7 +128,7 @@ export function HolographicWall({
               filter: "blur(28px)",
             }}
           />
-        </motion.div>
+        </div>
       )}
     </div>
   );
