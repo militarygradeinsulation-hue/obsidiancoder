@@ -174,6 +174,63 @@ function ForgePage() {
     }
   }, [libraryCode]);
 
+  // ---- Active session memory (per library code, survives reloads) --------
+  type PocketSession = {
+    html: string;
+    title: string;
+    prompt: string;
+    versions: ForgeVersion[];
+    at: number;
+  };
+  const sessionKey = React.useCallback(
+    (code: string) => `pocket.session.${(code || "guest").trim() || "guest"}`,
+    [],
+  );
+  const restoredRef = React.useRef<string>("");
+
+  const restoreSession = React.useCallback(
+    (code: string) => {
+      const saved = safeGet<PocketSession>(sessionKey(code));
+      if (!saved?.html || saved.html.length < 40) return false;
+      const next = projectFromHtml(saved.html);
+      setProject(next);
+      setActiveFileId(next.entryFileId);
+      setTitle(saved.title || "Untitled build");
+      setPrompt(saved.prompt || "");
+      setVersions(saved.versions ?? []);
+      setPane("preview");
+      setStatus("Restored your last build");
+      return true;
+    },
+    [sessionKey],
+  );
+
+  // Restore on mount and whenever the library code changes, unless the
+  // canvas already holds real work.
+  React.useEffect(() => {
+    const code = libraryCode.trim();
+    if (restoredRef.current === code) return;
+    restoredRef.current = code;
+    const blank = html === EMPTY_DOC || html.length < 40;
+    if (blank) restoreSession(code);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryCode, restoreSession]);
+
+  // Autosave whatever is on the canvas.
+  React.useEffect(() => {
+    if (!html || html === EMPTY_DOC || html.length < 40) return;
+    const t = window.setTimeout(() => {
+      safeSet(sessionKey(libraryCode), {
+        html,
+        title,
+        prompt,
+        versions: versions.slice(0, 10),
+        at: Date.now(),
+      } satisfies PocketSession);
+    }, 600);
+    return () => window.clearTimeout(t);
+  }, [html, title, prompt, versions, libraryCode, sessionKey]);
+
 
   // Free-demo eligibility — server is the source of truth.
   React.useEffect(() => {
@@ -472,15 +529,21 @@ function ForgePage() {
   // ---- Deploy (existing outbound QA gate → save → share URL) --------------
   const deploy = React.useCallback(async () => {
     if (busy || html.length < 40) return;
+    // Open the tab synchronously so browsers don't block the popup after
+    // the async publish round-trip.
+    const win = window.open("", "_blank", "noopener,noreferrer");
+    const closeWin = () => { try { win?.close(); } catch { /* ignore */ } };
     if (!isAdminCode) {
       const guard = await requirePaidAction("cloud_publish");
       if (!guard.allowed) {
+        closeWin();
         setPricingOpen(true);
         return;
       }
     }
     const assessment = assessOutbound(html, { surface: "go-live" });
     if (!assessment.ok) {
+      closeWin();
       setError(`Publish blocked by QA gate: ${assessment.blockers.slice(0, 3).join(", ")}`);
       setStatus("Publish blocked");
       log(`Publish blocked: ${assessment.blockers.join(" | ")}`);
@@ -507,14 +570,17 @@ function ForgePage() {
       setShareUrl(url);
       setStatus("Live");
       log(`Published → ${url}`);
-      window.open(url, "_blank", "noopener,noreferrer");
+      if (win) win.location.href = url;
+      else window.open(url, "_blank", "noopener,noreferrer");
     } catch (err) {
+      closeWin();
       setError(sanitizeErrorMessage(err, "Publish failed."));
       setStatus("Publish failed");
     } finally {
       setBusy(null);
     }
   }, [busy, html, title, prompt, model, libraryCode, log, isAdminCode]);
+
 
   // ---- Push to Demos (admin library code only) ---------------------------
   const pushToDemos = React.useCallback(async () => {
