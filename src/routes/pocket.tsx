@@ -1195,6 +1195,16 @@ function ForgePage() {
               <button type="button" className={btn} onClick={() => void deploy()}>
                 <Rocket size={13} /> Publish
               </button>
+              {isAdminCode && (
+                <button
+                  type="button"
+                  className={`${btn} col-span-2 ${demoLive ? "!border-emerald-400/50 !text-emerald-300" : "!border-rose-400/40 !text-rose-300"}`}
+                  onClick={() => void pushToDemos()}
+                  disabled={!!busy}
+                >
+                  <Rocket size={13} /> {demoLive ? "On Demos (click to remove)" : "Push to Demos"}
+                </button>
+              )}
             </div>
 
             <h3 className="mt-5 text-[10px] uppercase tracking-widest text-[#6b7180]">Logs</h3>
