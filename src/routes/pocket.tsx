@@ -3,11 +3,11 @@
 // capability here calls the real Obsidian pipeline (streaming /api/generate,
 // the shared project model, the real entitlement/credit gate, the real cloud
 // save + share endpoints, the real GitHub modal and outbound QA gate).
-import { LandingAccordionItem } from "@/components/ui/interactive-image-accordion";
 import * as React from "react";
 import { createFileRoute, ClientOnly } from "@tanstack/react-router";
 
 const InteractiveGrid = React.lazy(() => import("@/components/ui/interactive-grid"));
+const HolographicWall = React.lazy(() => import("@/components/ui/holographic-wall"));
 import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronLeft,
@@ -748,15 +748,21 @@ function ForgePage() {
 
   return (
     <div className="relative min-h-screen bg-[#08090b] text-[#E8E6E1]">
-      {/* Interactive dot-grid background */}
+      {/* Holographic hieroglyph wall + interactive dot-grid background */}
       <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
+        <ClientOnly fallback={null}>
+          <React.Suspense fallback={null}>
+            <HolographicWall />
+          </React.Suspense>
+        </ClientOnly>
         <ClientOnly fallback={null}>
           <React.Suspense fallback={null}>
             <InteractiveGrid className="h-full w-full" />
           </React.Suspense>
         </ClientOnly>
-        <div className="absolute inset-0 bg-gradient-to-b from-[#08090b]/60 via-[#08090b]/45 to-[#08090b]/80" />
+        <div className="absolute inset-0 bg-gradient-to-b from-[#08090b]/55 via-[#08090b]/40 to-[#08090b]/75" />
       </div>
+
       <div className="relative z-10">
       {/* Sticky compact header */}
       <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0b0c0f]/90 backdrop-blur">
@@ -864,18 +870,6 @@ function ForgePage() {
             </div>
           )}
 
-          {/* Empty-state hero */}
-          {(versions.length === 0 && (!html || html.trim() === EMPTY_DOC.trim())) && (
-            <section className="mb-3 rounded-2xl border border-white/10 bg-[#0b0c0f] p-5 sm:p-8">
-              <LandingAccordionItem
-                eyebrow="Obsidian Pocket"
-                heading="Describe it once. Ship a real page."
-                body="Clean, minimal, straight to the build. Type a prompt below and Pocket generates production-grade code you can edit, preview, and publish."
-                ctaLabel="Start building"
-                onCta={() => promptRef.current?.focus()}
-              />
-            </section>
-          )}
 
           {/* Prompt composer */}
 
