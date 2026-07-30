@@ -813,6 +813,14 @@ function ForgePage() {
             <button
               type="button"
               className={btn}
+              onClick={clearAll}
+              aria-label="Clear all and start a new build"
+            >
+              Clear all
+            </button>
+            <button
+              type="button"
+              className={btn}
               onClick={() => setAdvancedOpen(true)}
               aria-haspopup="dialog"
             >
