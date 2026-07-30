@@ -327,6 +327,33 @@ function ForgePage() {
     promptRef.current?.focus();
   }, []);
 
+  // Full reset: wipes the canvas, history, prompt and the saved session for
+  // the current code so the user can start a brand-new build.
+  const clearAll = React.useCallback(() => {
+    if (typeof window !== "undefined") {
+      const ok = window.confirm("Clear this build and start a new one? This cannot be undone.");
+      if (!ok) return;
+      try {
+        window.localStorage.removeItem(sessionKey(libraryCode));
+      } catch {
+        /* ignore */
+      }
+    }
+    const next = projectFromHtml(EMPTY_DOC);
+    setProject(next);
+    setActiveFileId(next.entryFileId);
+    setTitle("Untitled build");
+    setPrompt("");
+    setVersions([]);
+    setShareUrl(null);
+    setPublishedUrl(null);
+    setError(null);
+    setPane("preview");
+    setStatus("Cleared — ready for a new build");
+    restoredRef.current = libraryCode.trim();
+    promptRef.current?.focus();
+  }, [libraryCode, sessionKey]);
+
   // ---- Real generation (streaming /api/generate) --------------------------
   const generate = React.useCallback(async () => {
     const p = prompt.trim();
