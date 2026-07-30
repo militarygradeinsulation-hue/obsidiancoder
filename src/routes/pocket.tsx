@@ -863,18 +863,6 @@ function ForgePage() {
             </div>
           )}
 
-          {/* Empty-state hero */}
-          {(versions.length === 0 && (!html || html.trim() === EMPTY_DOC.trim())) && (
-            <section className="mb-3 rounded-2xl border border-white/10 bg-[#0b0c0f] p-5 sm:p-8">
-              <LandingAccordionItem
-                eyebrow="Obsidian Pocket"
-                heading="Describe it once. Ship a real page."
-                body="Clean, minimal, straight to the build. Type a prompt below and Pocket generates production-grade code you can edit, preview, and publish."
-                ctaLabel="Start building"
-                onCta={() => promptRef.current?.focus()}
-              />
-            </section>
-          )}
 
           {/* Prompt composer */}
 
