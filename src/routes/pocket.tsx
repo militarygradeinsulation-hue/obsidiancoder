@@ -142,6 +142,10 @@ function ForgePage() {
   );
 
   const [library, setLibrary] = React.useState<LibraryBuild[]>([]);
+  const [demoLive, setDemoLive] = React.useState<{ id: string; slug: string } | null>(null);
+
+  /** Admin library code: full access to save, publish, export and Demos. */
+  const isAdminCode = libraryCode.trim() === "9822";
 
   const [demoAvailable, setDemoAvailable] = React.useState<boolean | null>(null);
   const [demoUsed, setDemoUsed] = React.useState(false);
