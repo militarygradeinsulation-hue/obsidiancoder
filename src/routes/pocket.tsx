@@ -49,6 +49,7 @@ import { updateContent, createFile, type Project } from "@/lib/project-model";
 import { enhancePrompt } from "@/lib/enhance.functions";
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { getAccountCode, setAccountCode, isValidAccountCode } from "@/lib/account-code";
+import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
 import {
