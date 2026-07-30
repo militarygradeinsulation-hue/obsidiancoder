@@ -1,9 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 
+interface MousePos {
+  x: number;
+  y: number;
+}
+
 interface Dot {
   x: number;
   y: number;
-  render: (ctx: CanvasRenderingContext2D, mouse: Dot, params: CanvasParams, hue: number) => void;
+  render: (ctx: CanvasRenderingContext2D, mouse: MousePos, params: CanvasParams, hue: number) => void;
 }
 
 interface CanvasParams {
