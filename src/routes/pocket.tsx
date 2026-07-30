@@ -529,9 +529,18 @@ function ForgePage() {
   // ---- Deploy (existing outbound QA gate → save → share URL) --------------
   const deploy = React.useCallback(async () => {
     if (busy || html.length < 40) return;
-    // Open the tab synchronously so browsers don't block the popup after
-    // the async publish round-trip.
-    const win = window.open("", "_blank", "noopener,noreferrer");
+    // Open the tab synchronously (no `noopener`, otherwise the handle is null)
+    // so browsers don't block the popup after the async publish round-trip.
+    let win: Window | null = null;
+    try {
+      win = window.open("", "_blank");
+      if (win) {
+        win.opener = null;
+        win.document.write(
+          '<title>Publishing…</title><body style="background:#08090b;color:#F4A125;font-family:system-ui;display:grid;place-items:center;height:100vh">Publishing your build…</body>',
+        );
+      }
+    } catch { win = null; }
     const closeWin = () => { try { win?.close(); } catch { /* ignore */ } };
     if (!isAdminCode) {
       const guard = await requirePaidAction("cloud_publish");
@@ -564,14 +573,30 @@ function ForgePage() {
           library_code: libraryCode.trim() || undefined,
         }),
       });
-      if (!res.ok) throw new Error(await res.text());
+      if (!res.ok) {
+        const text = await res.text();
+        closeWin();
+        if (res.status === 401 || res.status === 402 || res.status === 403) {
+          setStatus("Publish needs access");
+          setError("Publishing needs an unlocked session or Pro account. Enter your access code again, or upgrade.");
+          setPricingOpen(true);
+          return;
+        }
+        throw new Error(text);
+      }
       const j = (await res.json()) as { share_slug: string };
       const url = `${window.location.origin}/api/public/share/${j.share_slug}`;
       setShareUrl(url);
       setStatus("Live");
       log(`Published → ${url}`);
-      if (win) win.location.href = url;
-      else window.open(url, "_blank", "noopener,noreferrer");
+      // Always surface the URL in-app: popups are frequently blocked inside
+      // embedded previews, which used to make publishing look like it failed.
+      setPublishedUrl(url);
+      if (win && !win.closed) {
+        try { win.location.replace(url); } catch { /* keep in-app link */ }
+      } else {
+        try { window.open(url, "_blank", "noopener,noreferrer"); } catch { /* keep in-app link */ }
+      }
     } catch (err) {
       closeWin();
       setError(sanitizeErrorMessage(err, "Publish failed."));
@@ -580,6 +605,7 @@ function ForgePage() {
       setBusy(null);
     }
   }, [busy, html, title, prompt, model, libraryCode, log, isAdminCode]);
+
 
 
   // ---- Push to Demos (admin library code only) ---------------------------
