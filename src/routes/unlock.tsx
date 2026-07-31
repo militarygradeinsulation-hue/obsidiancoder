@@ -366,7 +366,7 @@ function Unlock() {
               </p>
             </div>
 
-            <section className="pocket-spotlight" aria-labelledby="pocket-spotlight-heading">
+            <section className={`pocket-spotlight ${pocketExpanded ? "is-expanded" : "is-collapsed"}`} aria-labelledby="pocket-spotlight-heading">
               <div className="pocket-spotlight-glow" aria-hidden />
               <span className="pocket-spotlight-badge">New · Minimal mode</span>
               <h2 id="pocket-spotlight-heading" className="pocket-spotlight-title">Obsidian Pocket</h2>
@@ -383,22 +383,50 @@ function Unlock() {
                 <span className="pocket-spotlight-link-label">PromptOpto</span>
                 <span className="pocket-spotlight-link-desc">AI prompt optimization that makes Pocket builds sharper.</span>
               </a>
-              <div className="pocket-spotlight-frame">
-                <div className="pocket-spotlight-bar">
-                  <span /><span /><span />
-                  <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
-                </div>
-                <div className="pocket-spotlight-stage">
-                  <iframe
-                    src="/pocket?embed=1"
-                    title="Obsidian Pocket live sandbox"
-                    className="pocket-spotlight-iframe"
-                    loading="lazy"
-                  />
-                </div>
-              </div>
-              <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
 
+              {!pocketExpanded ? (
+                <button
+                  type="button"
+                  className="pocket-spotlight-expand"
+                  onClick={() => setPocketExpanded(true)}
+                  aria-expanded={false}
+                  aria-controls="pocket-spotlight-frame"
+                >
+                  <span className="pocket-spotlight-expand-preview" aria-hidden>
+                    <span className="pocket-spotlight-expand-dots">
+                      <span /><span /><span />
+                    </span>
+                    <em>Live sandbox preview</em>
+                  </span>
+                  <span className="pocket-spotlight-expand-label">Tap to open the sandbox</span>
+                </button>
+              ) : (
+                <>
+                  <div id="pocket-spotlight-frame" className="pocket-spotlight-frame">
+                    <div className="pocket-spotlight-bar">
+                      <span /><span /><span />
+                      <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
+                      <button
+                        type="button"
+                        className="pocket-spotlight-collapse"
+                        onClick={() => setPocketExpanded(false)}
+                        aria-label="Collapse sandbox"
+                      >
+                        −
+                      </button>
+                    </div>
+                    <div className="pocket-spotlight-stage">
+                      <iframe
+                        src="/pocket?embed=1"
+                        title="Obsidian Pocket live sandbox"
+                        className="pocket-spotlight-iframe"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                  <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
+                </>
+              )}
             </section>
           </div>
         </div>
