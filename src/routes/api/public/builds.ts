@@ -44,12 +44,18 @@ export const Route = createFileRoute("/api/public/builds")({
       // Public save: cloud save requires either owner cookie OR a signed-in
       // Pro user with credits. Local editing does not hit this route.
       POST: async ({ request }) => {
-        const { requirePaidOperation, denialResponse, settleOperation } =
+        const { requirePaidOperation, denialResponse, settleOperation, serverStripeEnv } =
           await import("@/lib/credit-gate.server");
+        type Ent = Awaited<ReturnType<typeof requirePaidOperation>>;
         const { makeUsage } = await import("@/lib/usage-record");
         const { newRequestId } = await import("@/lib/ai-errors");
         const requestId = newRequestId();
-        const entitlement = await requirePaidOperation(request, "cloud_save", requestId);
+        // Obsidian Pocket is a completely free surface — saving and
+        // publishing from it are unmetered and need no account.
+        const pocketFree = request.headers.get("x-obs-free") === "1";
+        const entitlement: Ent = pocketFree
+          ? { kind: "free_open", env: serverStripeEnv(), requestId }
+          : await requirePaidOperation(request, "cloud_save", requestId);
         if (entitlement.kind === "denied" && entitlement.denial) {
           return denialResponse(entitlement.denial, requestId);
         }

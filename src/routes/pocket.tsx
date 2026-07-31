@@ -385,12 +385,7 @@ function ForgePage() {
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       if (ctype.includes("application/json")) {
         const envelope: unknown = await res.json().catch(() => null);
-        if (isCreditsRequiredEnvelope(envelope)) {
-          if (envelope.code === "free_demo_used") setDemoUsed(true);
-          if (envelope.code === "free_demo_unavailable") setDemoAvailable(false);
-          setPricingOpen(true);
-          throw new Error(envelope.message);
-        }
+        if (isCreditsRequiredEnvelope(envelope)) throw new Error(envelope.message);
         if (isAiErrorEnvelope(envelope)) throw new Error(envelope.message);
         throw new Error(`Generation failed (${res.status})`);
       }
@@ -456,7 +451,6 @@ function ForgePage() {
     try {
       const r = await enhance({ data: { prompt: p, hasHtml: html.length > 200, surface: "pocket" } });
       if ("paywall" in r) {
-        setPricingOpen(true);
         setStatus("Ready");
         return;
       }
@@ -504,9 +498,6 @@ function ForgePage() {
   // ---- Save to library (account code, or paid cloud_save gate) ------------
   const save = React.useCallback(async () => {
     if (busy || html.length < 40) return;
-    const code = libraryCode.trim();
-    // A valid account code scopes the project to that person's library and is
-    // sufficient to save; otherwise fall back to the paid entitlement gate.
 
     setBusy("saving");
     setStatus("Saving…");
@@ -514,7 +505,7 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/public/builds", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
         body: JSON.stringify({
           title,
           prompt,
@@ -567,7 +558,7 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/public/builds", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
         body: JSON.stringify({
           title,
           prompt,
@@ -579,12 +570,6 @@ function ForgePage() {
       if (!res.ok) {
         const text = await res.text();
         closeWin();
-        if (res.status === 401 || res.status === 402 || res.status === 403) {
-          setStatus("Publish needs access");
-          setError("Publishing needs an unlocked session or Pro account. Enter your access code again, or upgrade.");
-          setPricingOpen(true);
-          return;
-        }
         throw new Error(text);
       }
       const j = (await res.json()) as { share_slug: string };
@@ -643,7 +628,7 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/public/builds", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
         body: JSON.stringify({
           title,
           prompt,
