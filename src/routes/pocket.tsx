@@ -1140,7 +1140,7 @@ function ForgePage() {
                     </button>
                   ))}
                 </div>
-                <div className="flex h-[72vh] justify-center overflow-hidden bg-[#050608] p-2">
+                <div className={`flex ${paneHeight} justify-center overflow-hidden bg-[#050608] p-2`}>
                   <PocketPreviewFrame
                     title="Obsidian Pocket preview"
                     doc={srcDoc}
