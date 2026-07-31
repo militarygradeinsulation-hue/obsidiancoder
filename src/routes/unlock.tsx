@@ -138,6 +138,7 @@ function Unlock() {
   const [featuredDemos, setFeaturedDemos] = useState<{ slug: string; title: string; url?: string; category: DemoCategory }[]>([]);
   const [activeVideo, setActiveVideo] = useState<{ url: string; label: string } | null>(null);
   const activeVideoRef = useRef<HTMLVideoElement | null>(null);
+  const [pocketExpanded, setPocketExpanded] = useState(false);
 
   // Load admin-curated demos so newly promoted builds appear without a code edit.
   useEffect(() => {
@@ -365,7 +366,7 @@ function Unlock() {
               </p>
             </div>
 
-            <section className="pocket-spotlight" aria-labelledby="pocket-spotlight-heading">
+            <section className={`pocket-spotlight ${pocketExpanded ? "is-expanded" : "is-collapsed"}`} aria-labelledby="pocket-spotlight-heading">
               <div className="pocket-spotlight-glow" aria-hidden />
               <span className="pocket-spotlight-badge">New · Minimal mode</span>
               <h2 id="pocket-spotlight-heading" className="pocket-spotlight-title">Obsidian Pocket</h2>
@@ -382,22 +383,50 @@ function Unlock() {
                 <span className="pocket-spotlight-link-label">PromptOpto</span>
                 <span className="pocket-spotlight-link-desc">AI prompt optimization that makes Pocket builds sharper.</span>
               </a>
-              <div className="pocket-spotlight-frame">
-                <div className="pocket-spotlight-bar">
-                  <span /><span /><span />
-                  <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
-                </div>
-                <div className="pocket-spotlight-stage">
-                  <iframe
-                    src="/pocket?embed=1"
-                    title="Obsidian Pocket live sandbox"
-                    className="pocket-spotlight-iframe"
-                    loading="lazy"
-                  />
-                </div>
-              </div>
-              <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
 
+              {!pocketExpanded ? (
+                <button
+                  type="button"
+                  className="pocket-spotlight-expand"
+                  onClick={() => setPocketExpanded(true)}
+                  aria-expanded={false}
+                  aria-controls="pocket-spotlight-frame"
+                >
+                  <span className="pocket-spotlight-expand-preview" aria-hidden>
+                    <span className="pocket-spotlight-expand-dots">
+                      <span /><span /><span />
+                    </span>
+                    <em>Live sandbox preview</em>
+                  </span>
+                  <span className="pocket-spotlight-expand-label">Tap to open the sandbox</span>
+                </button>
+              ) : (
+                <>
+                  <div id="pocket-spotlight-frame" className="pocket-spotlight-frame">
+                    <div className="pocket-spotlight-bar">
+                      <span /><span /><span />
+                      <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
+                      <button
+                        type="button"
+                        className="pocket-spotlight-collapse"
+                        onClick={() => setPocketExpanded(false)}
+                        aria-label="Collapse sandbox"
+                      >
+                        −
+                      </button>
+                    </div>
+                    <div className="pocket-spotlight-stage">
+                      <iframe
+                        src="/pocket?embed=1"
+                        title="Obsidian Pocket live sandbox"
+                        className="pocket-spotlight-iframe"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                  <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
+                </>
+              )}
             </section>
           </div>
         </div>
@@ -1621,6 +1650,67 @@ const unlockCss = `
   transform: translateY(-2px);
   box-shadow: 0 16px 40px rgba(244,161,37,0.42);
 }
+
+/* Collapsed / expanded sandbox states */
+.pocket-spotlight.is-collapsed { padding-bottom: 22px; }
+.pocket-spotlight-expand {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin-top: 16px;
+  padding: 18px 20px;
+  border-radius: 14px;
+  border: 1px dashed rgba(244,161,37,0.35);
+  background: rgba(0,0,0,0.32);
+  color: #f2eee7;
+  cursor: pointer;
+  transition: background .2s ease, border-color .2s ease, transform .2s ease, box-shadow .2s ease;
+}
+.pocket-spotlight-expand:hover {
+  background: rgba(244,161,37,0.08);
+  border-color: rgba(244,161,37,0.55);
+  transform: translateY(-1px);
+  box-shadow: 0 12px 34px rgba(244,161,37,0.12);
+}
+.pocket-spotlight-expand-preview {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 12px; letter-spacing: .6px; text-transform: uppercase;
+  color: rgba(182,188,200,0.75);
+}
+.pocket-spotlight-expand-dots { display: flex; align-items: center; gap: 4px; }
+.pocket-spotlight-expand-dots span {
+  width: 6px; height: 6px; border-radius: 50%;
+  background: rgba(244,161,37,0.45);
+  animation: pocketDotPulse 1.6s ease-in-out infinite;
+}
+.pocket-spotlight-expand-dots span:nth-child(2) { animation-delay: .2s; }
+.pocket-spotlight-expand-dots span:nth-child(3) { animation-delay: .4s; }
+@keyframes pocketDotPulse { 0%,100% { opacity: .35; transform: scale(.9); } 50% { opacity: 1; transform: scale(1.1); } }
+.pocket-spotlight-expand-label {
+  font-size: 13px; font-weight: 700; letter-spacing: .2px;
+  color: #F4A125;
+}
+.pocket-spotlight-collapse {
+  margin-left: auto;
+  width: 24px; height: 24px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(244,161,37,0.35);
+  background: rgba(244,161,37,0.1);
+  color: #F4A125;
+  font-size: 18px; line-height: 1;
+  cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.pocket-spotlight-collapse:hover {
+  background: rgba(244,161,37,0.2);
+  transform: scale(1.05);
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pocket-spotlight, .pocket-spotlight-glow, .pocket-spotlight-typed, .pocket-spotlight-caret { animation: none; }
   .pocket-spotlight-typed { width: auto; }
