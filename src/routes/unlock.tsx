@@ -371,17 +371,22 @@ function Unlock() {
             <p className="pocket-spotlight-body">
               One box. One prompt. A real, working page in seconds — no panels, no setup, nothing to learn.
             </p>
-            <div className="pocket-spotlight-frame" aria-hidden>
+            <div className="pocket-spotlight-frame">
               <div className="pocket-spotlight-bar">
                 <span /><span /><span />
+                <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
               </div>
-              <div className="pocket-spotlight-input">
-                <span className="pocket-spotlight-typed">Build a quoting tool for my HVAC crew</span>
-                <span className="pocket-spotlight-caret" />
+              <div className="pocket-spotlight-stage">
+                <iframe
+                  src="/pocket?embed=1"
+                  title="Obsidian Pocket live sandbox"
+                  className="pocket-spotlight-iframe"
+                  loading="lazy"
+                />
               </div>
-              <div className="pocket-spotlight-run">Build</div>
             </div>
-            <Link to="/pocket" className="pocket-spotlight-cta">Try Pocket free →</Link>
+            <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
+
           </section>
         </div>
       )}
@@ -1473,7 +1478,7 @@ const unlockCss = `
 .pocket-spotlight {
   pointer-events: auto;
   position: relative;
-  max-width: 560px;
+  max-width: 980px;
   margin: 22px auto 0;
   padding: 24px 26px 26px;
   text-align: center;
@@ -1526,40 +1531,28 @@ const unlockCss = `
   padding: 10px;
   text-align: left;
 }
-.pocket-spotlight-bar { display: flex; gap: 5px; margin-bottom: 10px; }
+.pocket-spotlight-bar { display: flex; align-items: center; gap: 5px; margin-bottom: 10px; }
 .pocket-spotlight-bar span {
   width: 7px; height: 7px; border-radius: 50%;
   background: rgba(244,161,37,0.32);
 }
-.pocket-spotlight-input {
-  display: flex; align-items: center; gap: 2px;
-  border: 1px solid rgba(244,161,37,0.18);
+.pocket-spotlight-url {
+  margin-left: 8px; font-style: normal;
+  font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase;
+  color: rgba(182,188,200,0.65);
+}
+.pocket-spotlight-stage {
+  position: relative;
   border-radius: 10px;
-  background: rgba(255,255,255,0.02);
-  padding: 11px 12px;
-  font-size: 12.5px; color: rgba(242,238,231,0.9);
-  min-height: 40px;
+  overflow: hidden;
+  border: 1px solid rgba(244,161,37,0.18);
+  background: #08080a;
+  height: min(62vh, 560px);
 }
-.pocket-spotlight-typed {
-  overflow: hidden; white-space: nowrap;
-  border-right: 0;
-  animation: pocketType 4.5s steps(38) infinite alternate;
-  max-width: 100%;
+.pocket-spotlight-iframe {
+  width: 100%; height: 100%; border: 0; display: block;
 }
-@keyframes pocketType { 0% { width: 0; } 60%, 100% { width: 26ch; } }
-.pocket-spotlight-caret {
-  width: 2px; height: 15px; background: #F4A125;
-  animation: pocketBlink 1s steps(1) infinite;
-}
-@keyframes pocketBlink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
-.pocket-spotlight-run {
-  margin-top: 10px;
-  display: inline-block;
-  font-size: 11.5px; font-weight: 600; letter-spacing: .4px;
-  color: #111317;
-  background: linear-gradient(180deg, #F4A125, #DD9324);
-  border-radius: 8px; padding: 6px 14px;
-}
+
 .pocket-spotlight-cta {
   position: relative;
   display: inline-block;
