@@ -1478,7 +1478,7 @@ const unlockCss = `
 .pocket-spotlight {
   pointer-events: auto;
   position: relative;
-  max-width: 560px;
+  max-width: 980px;
   margin: 22px auto 0;
   padding: 24px 26px 26px;
   text-align: center;
