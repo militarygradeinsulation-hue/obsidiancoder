@@ -1036,7 +1036,7 @@ function ForgePage() {
               id="forge-panel-build"
               role="tabpanel"
               aria-labelledby="forge-tab-build"
-              className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]"
+              className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]"
             >
               {/* Code side */}
               <div
