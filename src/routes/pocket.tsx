@@ -418,10 +418,15 @@ function ForgePage() {
         if (done) break;
         acc += decoder.decode(value, { stream: true });
         const now = performance.now();
-        if (now - lastPaint > 140) {
-          lastPaint = now;
+        // Repaint on a slower cadence and only at a safe tag boundary, so the
+        // preview grows in cleanly instead of flashing half-parsed markup.
+        if (now - lastPaint > 650) {
           const partial = clean(acc);
-          setProject((prev) => setEntryHtml(prev, partial));
+          const cut = partial.lastIndexOf(">");
+          if (cut > 200) {
+            lastPaint = now;
+            setProject((prev) => setEntryHtml(prev, partial.slice(0, cut + 1)));
+          }
         }
       }
       const finalHtml = clean(acc).trim();
