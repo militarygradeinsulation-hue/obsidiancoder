@@ -46,6 +46,8 @@ import { getAccountCode, setAccountCode, isFullAccessCode } from "@/lib/account-
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 import { GithubModal } from "@/components/GithubModal";
 import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
+import { PocketBuildOrb } from "@/components/PocketBuildOrb";
+
 import { PricingModal } from "@/components/PricingModal";
 import {
   FORGE_DEVICES,
