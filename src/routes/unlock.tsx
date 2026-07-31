@@ -1469,6 +1469,125 @@ const unlockCss = `
   max-width: 560px;
 }
 
+/* ---- Pocket spotlight ---- */
+.pocket-spotlight {
+  pointer-events: auto;
+  position: relative;
+  max-width: 560px;
+  margin: 22px auto 0;
+  padding: 24px 26px 26px;
+  text-align: center;
+  border-radius: 20px;
+  border: 1px solid rgba(244,161,37,0.35);
+  background: linear-gradient(180deg, rgba(20,15,6,0.72), rgba(8,8,10,0.72));
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 24px 70px rgba(0,0,0,0.6),
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 0 44px rgba(244,161,37,0.12);
+  overflow: hidden;
+  animation: pocketRise .7s ease both;
+}
+@keyframes pocketRise { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+.pocket-spotlight-glow {
+  position: absolute; inset: -40% -20% auto -20%; height: 180px;
+  background: radial-gradient(ellipse at 50% 0%, rgba(244,161,37,0.28), transparent 70%);
+  pointer-events: none;
+  animation: pocketPulse 5s ease-in-out infinite;
+}
+@keyframes pocketPulse { 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+.pocket-spotlight-badge {
+  position: relative;
+  display: inline-block;
+  font-size: 10.5px; letter-spacing: 1.4px; text-transform: uppercase;
+  color: #F4A125;
+  border: 1px solid rgba(244,161,37,0.4);
+  border-radius: 999px;
+  padding: 4px 11px;
+  background: rgba(244,161,37,0.08);
+}
+.pocket-spotlight-title {
+  position: relative;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 26px; margin: 12px 0 6px; color: #f2eee7;
+  text-shadow: 0 0 24px rgba(244,161,37,0.25);
+}
+.pocket-spotlight-body {
+  position: relative;
+  font-size: 13px; line-height: 1.6; color: rgba(182,188,200,0.9);
+  margin: 0 auto; max-width: 420px;
+}
+.pocket-spotlight-frame {
+  position: relative;
+  margin: 18px auto 0;
+  border-radius: 14px;
+  border: 1px solid rgba(244,161,37,0.2);
+  background: rgba(0,0,0,0.5);
+  padding: 10px;
+  text-align: left;
+}
+.pocket-spotlight-bar { display: flex; gap: 5px; margin-bottom: 10px; }
+.pocket-spotlight-bar span {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: rgba(244,161,37,0.32);
+}
+.pocket-spotlight-input {
+  display: flex; align-items: center; gap: 2px;
+  border: 1px solid rgba(244,161,37,0.18);
+  border-radius: 10px;
+  background: rgba(255,255,255,0.02);
+  padding: 11px 12px;
+  font-size: 12.5px; color: rgba(242,238,231,0.9);
+  min-height: 40px;
+}
+.pocket-spotlight-typed {
+  overflow: hidden; white-space: nowrap;
+  border-right: 0;
+  animation: pocketType 4.5s steps(38) infinite alternate;
+  max-width: 100%;
+}
+@keyframes pocketType { 0% { width: 0; } 60%, 100% { width: 26ch; } }
+.pocket-spotlight-caret {
+  width: 2px; height: 15px; background: #F4A125;
+  animation: pocketBlink 1s steps(1) infinite;
+}
+@keyframes pocketBlink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
+.pocket-spotlight-run {
+  margin-top: 10px;
+  display: inline-block;
+  font-size: 11.5px; font-weight: 600; letter-spacing: .4px;
+  color: #111317;
+  background: linear-gradient(180deg, #F4A125, #DD9324);
+  border-radius: 8px; padding: 6px 14px;
+}
+.pocket-spotlight-cta {
+  position: relative;
+  display: inline-block;
+  margin-top: 18px;
+  padding: 11px 24px;
+  border-radius: 999px;
+  font-size: 13.5px; font-weight: 700; letter-spacing: .3px;
+  color: #111317;
+  background: linear-gradient(180deg, #F4A125, #DD9324);
+  text-decoration: none;
+  box-shadow: 0 10px 30px rgba(244,161,37,0.28);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.pocket-spotlight-cta:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 40px rgba(244,161,37,0.42);
+}
+@media (prefers-reduced-motion: reduce) {
+  .pocket-spotlight, .pocket-spotlight-glow, .pocket-spotlight-typed, .pocket-spotlight-caret { animation: none; }
+  .pocket-spotlight-typed { width: auto; }
+}
+@media (max-width: 640px) {
+  .pocket-spotlight { padding: 20px 18px 22px; margin-top: 18px; }
+  .pocket-spotlight-title { font-size: 22px; }
+}
+
+
+
 .unlock-examples {
   position: relative;
   width: 100%;
