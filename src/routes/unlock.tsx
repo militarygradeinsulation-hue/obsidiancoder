@@ -142,16 +142,11 @@ function Unlock() {
   const [pocketExpanded, setPocketExpanded] = useState(false);
   useEffect(() => {
     if (!pocketExpanded) return;
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
     const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") setPocketExpanded(false);
     };
     window.addEventListener("keydown", onKey);
-    return () => {
-      document.body.style.overflow = prev;
-      window.removeEventListener("keydown", onKey);
-    };
+    return () => window.removeEventListener("keydown", onKey);
   }, [pocketExpanded]);
 
   // Load admin-curated demos so newly promoted builds appear without a code edit.
