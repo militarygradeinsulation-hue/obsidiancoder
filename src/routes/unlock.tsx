@@ -371,17 +371,22 @@ function Unlock() {
             <p className="pocket-spotlight-body">
               One box. One prompt. A real, working page in seconds — no panels, no setup, nothing to learn.
             </p>
-            <div className="pocket-spotlight-frame" aria-hidden>
+            <div className="pocket-spotlight-frame">
               <div className="pocket-spotlight-bar">
                 <span /><span /><span />
+                <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
               </div>
-              <div className="pocket-spotlight-input">
-                <span className="pocket-spotlight-typed">Build a quoting tool for my HVAC crew</span>
-                <span className="pocket-spotlight-caret" />
+              <div className="pocket-spotlight-stage">
+                <iframe
+                  src="/pocket?embed=1"
+                  title="Obsidian Pocket live sandbox"
+                  className="pocket-spotlight-iframe"
+                  loading="lazy"
+                />
               </div>
-              <div className="pocket-spotlight-run">Build</div>
             </div>
-            <Link to="/pocket" className="pocket-spotlight-cta">Try Pocket free →</Link>
+            <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
+
           </section>
         </div>
       )}
