@@ -48,7 +48,7 @@ import { DEFAULT_MODEL, MODEL_REGISTRY, ROUTELLM_MODELS } from "@/lib/models";
 import { updateContent, createFile, type Project } from "@/lib/project-model";
 import { enhancePrompt } from "@/lib/enhance.functions";
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
-import { getAccountCode, setAccountCode, isValidAccountCode } from "@/lib/account-code";
+import { getAccountCode, setAccountCode, isValidAccountCode, isFullAccessCode } from "@/lib/account-code";
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
@@ -148,7 +148,7 @@ function ForgePage() {
   const [demoLive, setDemoLive] = React.useState<{ id: string; slug: string } | null>(null);
 
   /** Admin library code: full access to save, publish, export and Demos. */
-  const isAdminCode = libraryCode.trim() === "9822";
+  const isAdminCode = isFullAccessCode(libraryCode);
 
   const [demoAvailable, setDemoAvailable] = React.useState<boolean | null>(null);
   const [demoUsed, setDemoUsed] = React.useState(false);
