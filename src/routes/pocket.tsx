@@ -779,6 +779,14 @@ function ForgePage() {
   );
   const frameWidth = deviceWidth(device);
 
+  // Embedded mode (?embed=1) runs inside the login-page sandbox overlay — use
+  // compact panel heights so the whole workspace fits without page scrolling.
+  const [embed, setEmbed] = React.useState(false);
+  React.useEffect(() => {
+    setEmbed(new URLSearchParams(window.location.search).get("embed") === "1");
+  }, []);
+  const paneHeight = embed ? "h-[42vh]" : "h-[72vh]";
+
   return (
     <div className="relative min-h-screen bg-[#08090b] text-[#E8E6E1]">
       {/* Holographic hieroglyph wall + interactive dot-grid background */}
