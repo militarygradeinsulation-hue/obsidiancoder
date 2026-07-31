@@ -32,15 +32,9 @@ import {
 
 import { authFetch } from "@/lib/auth-fetch";
 import { useVoiceControl } from "@/lib/voice-control";
-import { requirePaidAction } from "@/lib/action-guard";
-import { useEntitlement, isPaidMode, refreshEntitlement } from "@/hooks/useEntitlement";
+import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
-import {
-  resolveFromServer,
-  resolveOnStatusError,
-  shouldAllowDemoSubmit,
-} from "@/lib/free-demo-status";
 import { buildArtifact } from "@/lib/publish-artifact";
 import { assessOutbound } from "@/lib/outbound-assess";
 import { sanitizeForExport } from "@/lib/clean-export";
@@ -48,7 +42,7 @@ import { DEFAULT_MODEL, MODEL_REGISTRY, ROUTELLM_MODELS } from "@/lib/models";
 import { updateContent, createFile, type Project } from "@/lib/project-model";
 import { enhancePrompt } from "@/lib/enhance.functions";
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
-import { getAccountCode, setAccountCode, isValidAccountCode, isFullAccessCode } from "@/lib/account-code";
+import { getAccountCode, setAccountCode, isFullAccessCode } from "@/lib/account-code";
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 import { GithubModal } from "@/components/GithubModal";
 import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
@@ -151,8 +145,6 @@ function ForgePage() {
   /** Admin library code: full access to save, publish, export and Demos. */
   const isAdminCode = isFullAccessCode(libraryCode);
 
-  const [demoAvailable, setDemoAvailable] = React.useState<boolean | null>(null);
-  const [demoUsed, setDemoUsed] = React.useState(false);
 
   const abortRef = React.useRef<AbortController | null>(null);
   const promptRef = React.useRef<HTMLTextAreaElement>(null);
@@ -234,35 +226,6 @@ function ForgePage() {
     return () => window.clearTimeout(t);
   }, [html, title, prompt, versions, libraryCode, sessionKey]);
 
-
-  // Free-demo eligibility — server is the source of truth.
-  React.useEffect(() => {
-    let alive = true;
-    if (paid) {
-      setDemoAvailable(false);
-      return;
-    }
-    (async () => {
-      try {
-        const res = await fetch("/api/public/free-demo/status", { credentials: "include" });
-        const j = res.ok ? await res.json() : null;
-        const r = j ? resolveFromServer(j) : resolveOnStatusError();
-        if (!alive) return;
-        setDemoAvailable(r.available);
-        setDemoUsed(r.used);
-      } catch {
-        if (!alive) return;
-        const r = resolveOnStatusError();
-        setDemoAvailable(r.available);
-        setDemoUsed(r.used);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [paid]);
-
-  const demoMode = !paid && shouldAllowDemoSubmit({ demoAvailable, demoUsed });
 
   // Personal library (real builds rows, scoped by the user's library code).
   const loadLibrary = React.useCallback(async (code: string) => {
@@ -436,7 +399,7 @@ function ForgePage() {
       abortRef.current = null;
       setBusy(null);
     }
-  }, [prompt, busy, paid, demoMode, html, mode, model, title, log]);
+  }, [prompt, busy, html, mode, model, title, log]);
 
   const stop = React.useCallback(() => {
     abortRef.current?.abort();
