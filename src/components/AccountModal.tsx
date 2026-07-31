@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useNavigate } from "@tanstack/react-router";
 import { X, LogOut, ExternalLink, AlertTriangle } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +8,7 @@ import { createPortalSession, cancelSubscriptionNow } from "@/utils/payments.fun
 import { getStripeEnvironment } from "@/lib/stripe";
 
 export function AccountModal({ onClose }: { onClose: () => void }) {
+  const navigate = useNavigate();
   const { userId, email } = useAuth();
   const { subscription, isPro, refetch } = useSubscription();
   const [busy, setBusy] = useState<string | null>(null);
@@ -15,6 +17,7 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
   async function signOut() {
     await supabase.auth.signOut();
     onClose();
+    navigate({ to: "/unlock", search: {}, replace: true });
   }
 
   async function openPortal() {
