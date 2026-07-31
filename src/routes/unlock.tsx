@@ -1647,10 +1647,48 @@ const unlockCss = `
   overflow: hidden;
   border: 1px solid rgba(244,161,37,0.18);
   background: #08080a;
-  height: min(62vh, 560px);
+  flex: 1;
+  min-height: 0;
 }
 .pocket-spotlight-iframe {
   width: 100%; height: 100%; border: 0; display: block;
+}
+
+/* Full-window sandbox overlay (no page scrolling behind it) */
+.pocket-spotlight-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  padding: 14px;
+  background: rgba(3,4,5,0.86);
+  backdrop-filter: blur(10px);
+  animation: pocketOverlayIn .25s ease both;
+}
+@keyframes pocketOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+.pocket-spotlight-overlay .pocket-spotlight-frame {
+  margin: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: rgba(0,0,0,0.6);
+}
+.pocket-spotlight-openfull {
+  margin-left: auto;
+  font-size: 11px; letter-spacing: .4px;
+  color: #F4A125; text-decoration: none;
+  border: 1px solid rgba(244,161,37,0.3);
+  border-radius: 999px; padding: 4px 10px;
+  transition: background .2s ease;
+}
+.pocket-spotlight-openfull:hover { background: rgba(244,161,37,0.14); }
+.pocket-spotlight-overlay .pocket-spotlight-collapse { margin-left: 8px; }
+.pocket-spotlight-openhint {
+  position: relative;
+  margin-top: 14px;
+  font-size: 12px; letter-spacing: .4px;
+  color: rgba(182,188,200,0.7);
 }
 
 .pocket-spotlight-cta {
