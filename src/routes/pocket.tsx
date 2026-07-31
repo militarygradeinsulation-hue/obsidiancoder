@@ -51,6 +51,7 @@ import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { getAccountCode, setAccountCode, isValidAccountCode, isFullAccessCode } from "@/lib/account-code";
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 import { GithubModal } from "@/components/GithubModal";
+import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
 import { PricingModal } from "@/components/PricingModal";
 import {
   FORGE_DEVICES,
