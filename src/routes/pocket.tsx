@@ -1097,7 +1097,7 @@ function ForgePage() {
                   onChange={(e) =>
                     activeFile && setProject((p) => updateContent(p, activeFile.id, e.target.value))
                   }
-                  className="h-[52vh] w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#cfd3db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F4A125]/60"
+                  className="h-[72vh] w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#cfd3db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F4A125]/60"
                 />
               </div>
 
