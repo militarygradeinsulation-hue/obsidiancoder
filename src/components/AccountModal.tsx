@@ -17,7 +17,7 @@ export function AccountModal({ onClose }: { onClose: () => void }) {
   async function signOut() {
     await supabase.auth.signOut();
     onClose();
-    navigate({ to: "/unlock", replace: true });
+    navigate({ to: "/unlock", search: {}, replace: true });
   }
 
   async function openPortal() {
