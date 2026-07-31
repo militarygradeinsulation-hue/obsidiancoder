@@ -402,29 +402,36 @@ function Unlock() {
                 </button>
               ) : (
                 <>
-                  <div id="pocket-spotlight-frame" className="pocket-spotlight-frame">
-                    <div className="pocket-spotlight-bar">
-                      <span /><span /><span />
-                      <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
-                      <button
-                        type="button"
-                        className="pocket-spotlight-collapse"
-                        onClick={() => setPocketExpanded(false)}
-                        aria-label="Collapse sandbox"
-                      >
-                        −
-                      </button>
-                    </div>
-                    <div className="pocket-spotlight-stage">
-                      <iframe
-                        src="/pocket?embed=1"
-                        title="Obsidian Pocket live sandbox"
-                        className="pocket-spotlight-iframe"
-                        loading="lazy"
-                      />
+                  <div className="pocket-spotlight-openhint">Sandbox open — full screen</div>
+                  <div
+                    className="pocket-spotlight-overlay"
+                    role="dialog"
+                    aria-modal="true"
+                    aria-label="Obsidian Pocket live sandbox"
+                  >
+                    <div id="pocket-spotlight-frame" className="pocket-spotlight-frame">
+                      <div className="pocket-spotlight-bar">
+                        <span /><span /><span />
+                        <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
+                        <Link to="/pocket" className="pocket-spotlight-openfull">Open full page ↗</Link>
+                        <button
+                          type="button"
+                          className="pocket-spotlight-collapse"
+                          onClick={() => setPocketExpanded(false)}
+                          aria-label="Close sandbox"
+                        >
+                          ×
+                        </button>
+                      </div>
+                      <div className="pocket-spotlight-stage">
+                        <iframe
+                          src="/pocket?embed=1"
+                          title="Obsidian Pocket live sandbox"
+                          className="pocket-spotlight-iframe"
+                        />
+                      </div>
                     </div>
                   </div>
-                  <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
                 </>
               )}
             </section>
