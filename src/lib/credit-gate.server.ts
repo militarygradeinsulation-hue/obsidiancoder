@@ -203,7 +203,7 @@ export interface Reservation {
 }
 
 export interface EntitlementResult {
-  kind: "owner" | "pro" | "free_demo" | "denied";
+  kind: "owner" | "pro" | "free_demo" | "free_open" | "denied";
   user?: AuthedUser;
   reservation?: Reservation;
   denial?: CreditsRequiredEnvelope;
@@ -473,7 +473,9 @@ export async function settleOperation(
   ent: EntitlementResult,
   outcome: SettleOutcome,
 ): Promise<void> {
-  if (ent.kind === "denied") return;
+  // `free_open` = an intentionally unmetered surface (Obsidian Pocket).
+  // Nothing was reserved, so there is nothing to commit or refund.
+  if (ent.kind === "denied" || ent.kind === "free_open") return;
 
   if (ent.kind === "owner") {
     if (outcome.kind === "no_provider") return;

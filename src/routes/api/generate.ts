@@ -527,10 +527,17 @@ export const Route = createFileRoute("/api/generate")({
           const op = data.advisory ? "enhance_prompt" : "generate_html";
           opForSettle = op;
 
+          // Obsidian Pocket is a completely free surface — no credits, no
+          // sign-in, no one-shot demo ledger. It opts in with x-obs-free.
+          if (request.headers.get("x-obs-free") === "1") {
+            const { serverStripeEnv: _envFree } = await import("@/lib/credit-gate.server");
+            entitlement = { kind: "free_open", env: _envFree(), requestId };
+          }
+
           // Free-demo path — one full generate_html per browser fingerprint.
           // Only considered when the client explicitly opts in with the
           // x-obs-demo header. Owner/Pro users always take their normal path.
-          const wantsDemo = op === "generate_html" && request.headers.get("x-obs-demo") === "1";
+          const wantsDemo = !entitlement && op === "generate_html" && request.headers.get("x-obs-demo") === "1";
           if (wantsDemo) {
             const { isOwnerSession: _isOwner, resolveUserFromRequest: _resolveUser, hasActivePro: _hasPro, serverStripeEnv: _env } = await import("@/lib/credit-gate.server");
             const isOwner = await _isOwner();

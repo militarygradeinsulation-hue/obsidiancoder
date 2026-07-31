@@ -32,15 +32,9 @@ import {
 
 import { authFetch } from "@/lib/auth-fetch";
 import { useVoiceControl } from "@/lib/voice-control";
-import { requirePaidAction } from "@/lib/action-guard";
-import { useEntitlement, isPaidMode, refreshEntitlement } from "@/hooks/useEntitlement";
+import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
-import {
-  resolveFromServer,
-  resolveOnStatusError,
-  shouldAllowDemoSubmit,
-} from "@/lib/free-demo-status";
 import { buildArtifact } from "@/lib/publish-artifact";
 import { assessOutbound } from "@/lib/outbound-assess";
 import { sanitizeForExport } from "@/lib/clean-export";
@@ -48,7 +42,7 @@ import { DEFAULT_MODEL, MODEL_REGISTRY, ROUTELLM_MODELS } from "@/lib/models";
 import { updateContent, createFile, type Project } from "@/lib/project-model";
 import { enhancePrompt } from "@/lib/enhance.functions";
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
-import { getAccountCode, setAccountCode, isValidAccountCode, isFullAccessCode } from "@/lib/account-code";
+import { getAccountCode, setAccountCode, isFullAccessCode } from "@/lib/account-code";
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 import { GithubModal } from "@/components/GithubModal";
 import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
@@ -151,8 +145,6 @@ function ForgePage() {
   /** Admin library code: full access to save, publish, export and Demos. */
   const isAdminCode = isFullAccessCode(libraryCode);
 
-  const [demoAvailable, setDemoAvailable] = React.useState<boolean | null>(null);
-  const [demoUsed, setDemoUsed] = React.useState(false);
 
   const abortRef = React.useRef<AbortController | null>(null);
   const promptRef = React.useRef<HTMLTextAreaElement>(null);
@@ -234,35 +226,6 @@ function ForgePage() {
     return () => window.clearTimeout(t);
   }, [html, title, prompt, versions, libraryCode, sessionKey]);
 
-
-  // Free-demo eligibility — server is the source of truth.
-  React.useEffect(() => {
-    let alive = true;
-    if (paid) {
-      setDemoAvailable(false);
-      return;
-    }
-    (async () => {
-      try {
-        const res = await fetch("/api/public/free-demo/status", { credentials: "include" });
-        const j = res.ok ? await res.json() : null;
-        const r = j ? resolveFromServer(j) : resolveOnStatusError();
-        if (!alive) return;
-        setDemoAvailable(r.available);
-        setDemoUsed(r.used);
-      } catch {
-        if (!alive) return;
-        const r = resolveOnStatusError();
-        setDemoAvailable(r.available);
-        setDemoUsed(r.used);
-      }
-    })();
-    return () => {
-      alive = false;
-    };
-  }, [paid]);
-
-  const demoMode = !paid && shouldAllowDemoSubmit({ demoAvailable, demoUsed });
 
   // Personal library (real builds rows, scoped by the user's library code).
   const loadLibrary = React.useCallback(async (code: string) => {
@@ -359,16 +322,9 @@ function ForgePage() {
   const generate = React.useCallback(async () => {
     const p = prompt.trim();
     if (!p || busy) return;
-    if (!paid && !demoMode) {
-      const guard = await requirePaidAction("generate_html");
-      if (!guard.allowed) {
-        setPricingOpen(true);
-        return;
-      }
-    }
     setError(null);
     setBusy("generating");
-    setStatus(demoMode ? "Generating your free demo build…" : "Generating…");
+    setStatus("Generating…");
     setPane("preview");
     const controller = new AbortController();
     abortRef.current = controller;
@@ -377,7 +333,7 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(demoMode ? { "x-obs-demo": "1" } : {}) },
+        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
         body: JSON.stringify({
           prompt: mode === "refine" ? `[FOCUSED CHANGE] ${p}` : p,
           currentHtml: mode === "refine" ? previous : previous.slice(0, 8000),
@@ -392,12 +348,7 @@ function ForgePage() {
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       if (ctype.includes("application/json")) {
         const envelope: unknown = await res.json().catch(() => null);
-        if (isCreditsRequiredEnvelope(envelope)) {
-          if (envelope.code === "free_demo_used") setDemoUsed(true);
-          if (envelope.code === "free_demo_unavailable") setDemoAvailable(false);
-          setPricingOpen(true);
-          throw new Error(envelope.message);
-        }
+        if (isCreditsRequiredEnvelope(envelope)) throw new Error(envelope.message);
         if (isAiErrorEnvelope(envelope)) throw new Error(envelope.message);
         throw new Error(`Generation failed (${res.status})`);
       }
@@ -436,11 +387,6 @@ function ForgePage() {
       if (title === "Untitled build") setTitle(titleFromPrompt(p));
       setStatus(`Built in ${Math.round(performance.now() - t0)}ms`);
       log(`Generated ${finalHtml.length.toLocaleString()} chars with ${model}`);
-      if (demoMode) {
-        setDemoUsed(true);
-        setDemoAvailable(false);
-        void refreshEntitlement();
-      }
     } catch (err) {
       if ((err as { name?: string })?.name === "AbortError") {
         setProject((prev) => setEntryHtml(prev, previous));
@@ -453,7 +399,7 @@ function ForgePage() {
       abortRef.current = null;
       setBusy(null);
     }
-  }, [prompt, busy, paid, demoMode, html, mode, model, title, log]);
+  }, [prompt, busy, html, mode, model, title, log]);
 
   const stop = React.useCallback(() => {
     abortRef.current?.abort();
@@ -463,17 +409,11 @@ function ForgePage() {
   const runEnhance = React.useCallback(async () => {
     const p = prompt.trim();
     if (!p || busy) return;
-    const guard = await requirePaidAction("enhance_prompt");
-    if (!guard.allowed) {
-      setPricingOpen(true);
-      return;
-    }
     setBusy("enhancing");
     setStatus("Enhancing prompt…");
     try {
-      const r = await enhance({ data: { prompt: p, hasHtml: html.length > 200 } });
+      const r = await enhance({ data: { prompt: p, hasHtml: html.length > 200, surface: "pocket" } });
       if ("paywall" in r) {
-        setPricingOpen(true);
         setStatus("Ready");
         return;
       }
@@ -521,16 +461,6 @@ function ForgePage() {
   // ---- Save to library (account code, or paid cloud_save gate) ------------
   const save = React.useCallback(async () => {
     if (busy || html.length < 40) return;
-    const code = libraryCode.trim();
-    // A valid account code scopes the project to that person's library and is
-    // sufficient to save; otherwise fall back to the paid entitlement gate.
-    if (!isValidAccountCode(code) && !isAdminCode) {
-      const guard = await requirePaidAction("cloud_save");
-      if (!guard.allowed) {
-        setPricingOpen(true);
-        return;
-      }
-    }
 
     setBusy("saving");
     setStatus("Saving…");
@@ -538,7 +468,7 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/public/builds", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
         body: JSON.stringify({
           title,
           prompt,
@@ -577,14 +507,6 @@ function ForgePage() {
       }
     } catch { win = null; }
     const closeWin = () => { try { win?.close(); } catch { /* ignore */ } };
-    if (!isAdminCode) {
-      const guard = await requirePaidAction("cloud_publish");
-      if (!guard.allowed) {
-        closeWin();
-        setPricingOpen(true);
-        return;
-      }
-    }
     const assessment = assessOutbound(html, { surface: "go-live" });
     if (!assessment.ok) {
       closeWin();
@@ -599,7 +521,7 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/public/builds", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
         body: JSON.stringify({
           title,
           prompt,
@@ -611,12 +533,6 @@ function ForgePage() {
       if (!res.ok) {
         const text = await res.text();
         closeWin();
-        if (res.status === 401 || res.status === 402 || res.status === 403) {
-          setStatus("Publish needs access");
-          setError("Publishing needs an unlocked session or Pro account. Enter your access code again, or upgrade.");
-          setPricingOpen(true);
-          return;
-        }
         throw new Error(text);
       }
       const j = (await res.json()) as { share_slug: string };
@@ -675,7 +591,7 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/public/builds", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
         body: JSON.stringify({
           title,
           prompt,
@@ -711,13 +627,6 @@ function ForgePage() {
   }, [isAdminCode, busy, html, title, prompt, model, demoLive, log]);
 
   const exportProject = React.useCallback(async () => {
-    if (!isAdminCode) {
-      const guard = await requirePaidAction("cloud_share");
-      if (!guard.allowed) {
-        setPricingOpen(true);
-        return;
-      }
-    }
     const blob = new Blob([sanitizeForExport(html)], { type: "text/html" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -728,13 +637,6 @@ function ForgePage() {
   }, [html, title, isAdminCode]);
 
   const openGithub = React.useCallback(async () => {
-    if (!isAdminCode) {
-      const guard = await requirePaidAction("github_deploy");
-      if (!guard.allowed) {
-        setPricingOpen(true);
-        return;
-      }
-    }
     setGhOpen(true);
   }, [isAdminCode]);
 
@@ -895,16 +797,7 @@ function ForgePage() {
           {/* Demo banner */}
           {!paid && (
             <div className="mb-3 rounded-lg border border-[#F4A125]/30 bg-[#F4A125]/[0.06] px-3 py-2 text-xs text-[#E8E6E1]">
-              {demoMode
-                ? "Free demo: one real build, no card. Saving, GitHub, full export, and publishing need an account."
-                : "Your free demo is used. Sign in or upgrade to keep building, saving, and publishing."}
-              <button
-                type="button"
-                className="ml-2 underline decoration-[#F4A125] underline-offset-2 hover:text-[#F4A125]"
-                onClick={() => setPricingOpen(true)}
-              >
-                View plans
-              </button>
+              Obsidian Pocket is completely free — unlimited builds, saving, export, and publishing. No card, no sign-in.
             </div>
           )}
 

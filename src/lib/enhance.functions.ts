@@ -5,6 +5,7 @@ import {
   requirePaidOperation,
   settleOperation,
 } from "@/lib/credit-gate.server";
+import type { EntitlementResult } from "@/lib/credit-gate.server";
 import { creditsRequiredEnvelope } from "@/lib/credit-gate";
 import { makeUsage, estimateUsdForCall, parseUsageFromChatJson } from "@/lib/usage-record";
 import { newRequestId } from "@/lib/ai-errors";
@@ -17,6 +18,8 @@ import {
 const inputSchema = z.object({
   prompt: z.string().min(1).max(4000),
   hasHtml: z.boolean().optional().default(false),
+  // "pocket" = Obsidian Pocket, an intentionally free, unmetered surface.
+  surface: z.enum(["default", "pocket"]).optional().default("default"),
 });
 
 const SYSTEM = `You rewrite short web-build requests into clear, concrete prompts for a front-end code generator.
@@ -38,7 +41,11 @@ export const enhancePrompt = createServerFn({ method: "POST" })
   .handler(async ({ data }): Promise<EnhanceResult> => {
     const request = getRequest();
     const requestId = newRequestId();
-    const entitlement = await requirePaidOperation(request, "enhance_prompt", requestId);
+    const { serverStripeEnv } = await import("@/lib/credit-gate.server");
+    const entitlement: EntitlementResult =
+      data.surface === "pocket"
+        ? { kind: "free_open", env: serverStripeEnv(), requestId }
+        : await requirePaidOperation(request, "enhance_prompt", requestId);
     if (entitlement.kind === "denied" && entitlement.denial) {
       return { paywall: entitlement.denial };
     }
