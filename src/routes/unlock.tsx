@@ -1992,7 +1992,8 @@ const unlockCss = `
 
 /* Centered hero wordmark shown when the panel is closed */
 .unlock-wordmark {
-  position: fixed; inset: 0;
+  position: relative;
+  min-height: 100vh;
   display: flex; flex-direction: column;
   align-items: center; justify-content: center;
   pointer-events: none; z-index: 2;
