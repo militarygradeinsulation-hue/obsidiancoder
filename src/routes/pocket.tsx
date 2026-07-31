@@ -1126,7 +1126,7 @@ function ForgePage() {
                     </button>
                   ))}
                 </div>
-                <div className="flex h-[52vh] justify-center overflow-auto bg-[#050608] p-2">
+                <div className="flex h-[72vh] justify-center overflow-auto bg-[#050608] p-2">
                   <iframe
                     title="Obsidian Pocket preview"
                     srcDoc={srcDoc}
