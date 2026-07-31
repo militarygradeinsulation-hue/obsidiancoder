@@ -363,8 +363,29 @@ function Unlock() {
               People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
             </p>
           </div>
+
+          <section className="pocket-spotlight" aria-labelledby="pocket-spotlight-heading">
+            <div className="pocket-spotlight-glow" aria-hidden />
+            <span className="pocket-spotlight-badge">New · Minimal mode</span>
+            <h2 id="pocket-spotlight-heading" className="pocket-spotlight-title">Obsidian Pocket</h2>
+            <p className="pocket-spotlight-body">
+              One box. One prompt. A real, working page in seconds — no panels, no setup, nothing to learn.
+            </p>
+            <div className="pocket-spotlight-frame" aria-hidden>
+              <div className="pocket-spotlight-bar">
+                <span /><span /><span />
+              </div>
+              <div className="pocket-spotlight-input">
+                <span className="pocket-spotlight-typed">Build a quoting tool for my HVAC crew</span>
+                <span className="pocket-spotlight-caret" />
+              </div>
+              <div className="pocket-spotlight-run">Build</div>
+            </div>
+            <Link to="/pocket" className="pocket-spotlight-cta">Try Pocket free →</Link>
+          </section>
         </div>
       )}
+
 
       {panelOpen && (
       <main className="unlock-card" role="main" aria-labelledby="unlock-heading" id="top">
