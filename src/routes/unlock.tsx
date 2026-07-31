@@ -1476,12 +1476,23 @@ const unlockCss = `
   max-width: 560px;
 }
 
+/* ---- Hero stack: title, slogan, and spotlight share the title's intrinsic width ---- */
+.unlock-hero-stack {
+  width: fit-content;
+  max-width: 96vw;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* ---- Pocket spotlight ---- */
 .pocket-spotlight {
   pointer-events: auto;
   position: relative;
-  max-width: 980px;
-  margin: 22px auto 0;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 22px;
   padding: 24px 26px 26px;
   text-align: center;
   border-radius: 20px;
