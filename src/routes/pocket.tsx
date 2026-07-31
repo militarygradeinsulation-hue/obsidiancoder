@@ -1036,7 +1036,7 @@ function ForgePage() {
               id="forge-panel-build"
               role="tabpanel"
               aria-labelledby="forge-tab-build"
-              className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]"
+              className="mt-3 grid gap-3 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.7fr)]"
             >
               {/* Code side */}
               <div
@@ -1097,7 +1097,7 @@ function ForgePage() {
                   onChange={(e) =>
                     activeFile && setProject((p) => updateContent(p, activeFile.id, e.target.value))
                   }
-                  className="h-[52vh] w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#cfd3db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F4A125]/60"
+                  className="h-[72vh] w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#cfd3db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F4A125]/60"
                 />
               </div>
 
@@ -1126,7 +1126,7 @@ function ForgePage() {
                     </button>
                   ))}
                 </div>
-                <div className="flex h-[52vh] justify-center overflow-auto bg-[#050608] p-2">
+                <div className="flex h-[72vh] justify-center overflow-auto bg-[#050608] p-2">
                   <iframe
                     title="Obsidian Pocket preview"
                     srcDoc={srcDoc}
