@@ -139,6 +139,19 @@ function Unlock() {
   const [activeVideo, setActiveVideo] = useState<{ url: string; label: string } | null>(null);
   const activeVideoRef = useRef<HTMLVideoElement | null>(null);
   const [pocketExpanded, setPocketExpanded] = useState(false);
+  useEffect(() => {
+    if (!pocketExpanded) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setPocketExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [pocketExpanded]);
 
   // Load admin-curated demos so newly promoted builds appear without a code edit.
   useEffect(() => {
