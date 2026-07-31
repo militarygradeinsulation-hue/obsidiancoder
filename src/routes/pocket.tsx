@@ -869,7 +869,7 @@ function ForgePage() {
               value={libraryCode}
               onChange={(e) => setLibraryCode(e.target.value)}
               placeholder="e.g. 9822"
-              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60`}
+              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
             />
             <h2 className="mt-4 text-[10px] uppercase tracking-widest text-[#6b7180]">Projects</h2>
             <ul className="mt-2 space-y-1">
@@ -881,7 +881,7 @@ function ForgePage() {
                   <button
                     type="button"
                     onClick={() => void openLibraryBuild(b.id)}
-                    className="w-full truncate rounded-md px-2 py-1.5 text-left text-xs text-[#B6BCC8] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60`}
+                    className="w-full truncate rounded-md px-2 py-1.5 text-left text-xs text-[#B6BCC8] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
                   >
                     {b.title || "Untitled"}
                   </button>
@@ -922,7 +922,7 @@ function ForgePage() {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="A pricing page for an HVAC dispatch tool with three tiers and a comparison table…"
-              className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-black/40 p-3 text-sm text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60`}
+              className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-black/40 p-3 text-sm text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
             />
             {(voice.listening || voice.processing || voice.error) && (
               <p className="mt-2 text-xs text-[#F4A125]" role="status" aria-live="polite">
@@ -938,7 +938,7 @@ function ForgePage() {
                   id="forge-mode"
                   value={mode}
                   onChange={(e) => setMode(e.target.value as BuildMode)}
-                  className="rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60`}
+                  className="rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
                 >
                   <option value="build">Build new</option>
                   <option value="refine">Refine current</option>
@@ -1065,7 +1065,7 @@ function ForgePage() {
                     id="forge-file"
                     value={activeFile?.id ?? ""}
                     onChange={(e) => setActiveFileId(e.target.value)}
-                    className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60`}
+                    className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
                   >
                     {project.files.map((f) => (
                       <option key={f.id} value={f.id}>
@@ -1226,7 +1226,7 @@ function ForgePage() {
                   id="forge-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60`}
+                  className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
                 />
               </div>
               <p className="text-xs text-[#5d626e]">
@@ -1348,7 +1348,7 @@ function ForgePage() {
               id="forge-model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60`}
+              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
             >
               <optgroup label="Obsidian gateway">
                 {MODEL_REGISTRY.map((m) => (
