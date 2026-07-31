@@ -3307,3 +3307,28 @@ body.is-resizing-composer * { user-select: none !important; }
   from { opacity: 0; transform: translate(-50%, 4px); }
   to { opacity: 1; transform: translate(-50%, 0); }
 }
+
+/* --- Obsidian Pocket build orb --- */
+.pocket-orb {
+  width: 84px;
+  height: 84px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 32% 30%, #ffe1a3 0%, #f4a125 42%, #b96f12 78%, #4a2c05 100%);
+  box-shadow:
+    0 0 30px rgba(244, 161, 37, 0.55),
+    0 0 90px rgba(244, 161, 37, 0.28),
+    inset -10px -12px 26px rgba(0, 0, 0, 0.45);
+  animation: pocket-orb-float 2.6s ease-in-out infinite, pocket-orb-pulse 1.8s ease-in-out infinite;
+}
+@keyframes pocket-orb-float {
+  0%, 100% { transform: translateY(-8px) rotate(-6deg); }
+  50% { transform: translateY(8px) rotate(6deg); }
+}
+@keyframes pocket-orb-pulse {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.22); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pocket-orb { animation: pocket-orb-pulse 3s ease-in-out infinite; }
+}
