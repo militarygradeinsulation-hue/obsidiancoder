@@ -372,6 +372,16 @@ function Unlock() {
               <p className="pocket-spotlight-body">
                 One box. One prompt. A real, working page in seconds — no panels, no setup, nothing to learn.
               </p>
+              <a
+                href="https://promptopto.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="pocket-spotlight-link"
+                aria-label="PromptOpto — AI prompt optimization for Obsidian Pocket"
+              >
+                <span className="pocket-spotlight-link-label">PromptOpto</span>
+                <span className="pocket-spotlight-link-desc">AI prompt optimization that makes Pocket builds sharper.</span>
+              </a>
               <div className="pocket-spotlight-frame">
                 <div className="pocket-spotlight-bar">
                   <span /><span /><span />
