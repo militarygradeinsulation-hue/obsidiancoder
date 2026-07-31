@@ -44,3 +44,10 @@ export function clearAccountCode(): void {
     /* ignore */
   }
 }
+
+/** Codes granting full admin/publish access across the coder and Pocket. */
+export const FULL_ACCESS_CODES = ["9822", "963169"] as const;
+
+export function isFullAccessCode(code: string | null | undefined): boolean {
+  return FULL_ACCESS_CODES.includes((code ?? "").trim() as (typeof FULL_ACCESS_CODES)[number]);
+}
