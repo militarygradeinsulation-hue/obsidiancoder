@@ -1,7 +1,6 @@
 import { createFileRoute, redirect, useRouter, Link, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type FormEvent } from "react";
-import { createPortal } from "react-dom";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 const GLSLHills = lazy(() => import("@/components/ui/glsl-hills"));
