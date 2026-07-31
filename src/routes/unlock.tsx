@@ -356,38 +356,40 @@ function Unlock() {
 
       {!panelOpen && (
         <div className="unlock-wordmark" id="top">
-          <h1 className="unlock-title unlock-title-hero" data-text="OBSIDIAN VIBE">OBSIDIAN VIBE</h1>
-          <div className="unlock-hero-slogan" aria-labelledby="hero-slogan-heading">
-            <h2 id="hero-slogan-heading" className="hero-slogan-headline">AI built for the professionals big tech forgot</h2>
-            <p className="hero-slogan-body">
-              People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
-            </p>
-          </div>
-
-          <section className="pocket-spotlight" aria-labelledby="pocket-spotlight-heading">
-            <div className="pocket-spotlight-glow" aria-hidden />
-            <span className="pocket-spotlight-badge">New · Minimal mode</span>
-            <h2 id="pocket-spotlight-heading" className="pocket-spotlight-title">Obsidian Pocket</h2>
-            <p className="pocket-spotlight-body">
-              One box. One prompt. A real, working page in seconds — no panels, no setup, nothing to learn.
-            </p>
-            <div className="pocket-spotlight-frame">
-              <div className="pocket-spotlight-bar">
-                <span /><span /><span />
-                <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
-              </div>
-              <div className="pocket-spotlight-stage">
-                <iframe
-                  src="/pocket?embed=1"
-                  title="Obsidian Pocket live sandbox"
-                  className="pocket-spotlight-iframe"
-                  loading="lazy"
-                />
-              </div>
+          <div className="unlock-hero-stack">
+            <h1 className="unlock-title unlock-title-hero" data-text="OBSIDIAN VIBE">OBSIDIAN VIBE</h1>
+            <div className="unlock-hero-slogan" aria-labelledby="hero-slogan-heading">
+              <h2 id="hero-slogan-heading" className="hero-slogan-headline">AI built for the professionals big tech forgot</h2>
+              <p className="hero-slogan-body">
+                People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
+              </p>
             </div>
-            <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
 
-          </section>
+            <section className="pocket-spotlight" aria-labelledby="pocket-spotlight-heading">
+              <div className="pocket-spotlight-glow" aria-hidden />
+              <span className="pocket-spotlight-badge">New · Minimal mode</span>
+              <h2 id="pocket-spotlight-heading" className="pocket-spotlight-title">Obsidian Pocket</h2>
+              <p className="pocket-spotlight-body">
+                One box. One prompt. A real, working page in seconds — no panels, no setup, nothing to learn.
+              </p>
+              <div className="pocket-spotlight-frame">
+                <div className="pocket-spotlight-bar">
+                  <span /><span /><span />
+                  <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
+                </div>
+                <div className="pocket-spotlight-stage">
+                  <iframe
+                    src="/pocket?embed=1"
+                    title="Obsidian Pocket live sandbox"
+                    className="pocket-spotlight-iframe"
+                    loading="lazy"
+                  />
+                </div>
+              </div>
+              <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
+
+            </section>
+          </div>
         </div>
       )}
 
@@ -1474,12 +1476,23 @@ const unlockCss = `
   max-width: 560px;
 }
 
+/* ---- Hero stack: title, slogan, and spotlight share the title's intrinsic width ---- */
+.unlock-hero-stack {
+  width: fit-content;
+  max-width: 96vw;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
 /* ---- Pocket spotlight ---- */
 .pocket-spotlight {
   pointer-events: auto;
   position: relative;
-  max-width: 980px;
-  margin: 22px auto 0;
+  width: 100%;
+  max-width: 100%;
+  margin-top: 22px;
   padding: 24px 26px 26px;
   text-align: center;
   border-radius: 20px;
