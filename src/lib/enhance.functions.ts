@@ -5,6 +5,7 @@ import {
   requirePaidOperation,
   settleOperation,
 } from "@/lib/credit-gate.server";
+import type { EntitlementResult } from "@/lib/credit-gate.server";
 import { creditsRequiredEnvelope } from "@/lib/credit-gate";
 import { makeUsage, estimateUsdForCall, parseUsageFromChatJson } from "@/lib/usage-record";
 import { newRequestId } from "@/lib/ai-errors";
@@ -41,9 +42,9 @@ export const enhancePrompt = createServerFn({ method: "POST" })
     const request = getRequest();
     const requestId = newRequestId();
     const { serverStripeEnv } = await import("@/lib/credit-gate.server");
-    const entitlement =
+    const entitlement: EntitlementResult =
       data.surface === "pocket"
-        ? ({ kind: "free_open", env: serverStripeEnv(), requestId } as const)
+        ? { kind: "free_open", env: serverStripeEnv(), requestId }
         : await requirePaidOperation(request, "enhance_prompt", requestId);
     if (entitlement.kind === "denied" && entitlement.denial) {
       return { paywall: entitlement.denial };

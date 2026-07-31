@@ -359,16 +359,9 @@ function ForgePage() {
   const generate = React.useCallback(async () => {
     const p = prompt.trim();
     if (!p || busy) return;
-    if (!paid && !demoMode) {
-      const guard = await requirePaidAction("generate_html");
-      if (!guard.allowed) {
-        setPricingOpen(true);
-        return;
-      }
-    }
     setError(null);
     setBusy("generating");
-    setStatus(demoMode ? "Generating your free demo build…" : "Generating…");
+    setStatus("Generating…");
     setPane("preview");
     const controller = new AbortController();
     abortRef.current = controller;
@@ -377,7 +370,7 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(demoMode ? { "x-obs-demo": "1" } : {}) },
+        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
         body: JSON.stringify({
           prompt: mode === "refine" ? `[FOCUSED CHANGE] ${p}` : p,
           currentHtml: mode === "refine" ? previous : previous.slice(0, 8000),
@@ -436,11 +429,6 @@ function ForgePage() {
       if (title === "Untitled build") setTitle(titleFromPrompt(p));
       setStatus(`Built in ${Math.round(performance.now() - t0)}ms`);
       log(`Generated ${finalHtml.length.toLocaleString()} chars with ${model}`);
-      if (demoMode) {
-        setDemoUsed(true);
-        setDemoAvailable(false);
-        void refreshEntitlement();
-      }
     } catch (err) {
       if ((err as { name?: string })?.name === "AbortError") {
         setProject((prev) => setEntryHtml(prev, previous));
@@ -463,15 +451,10 @@ function ForgePage() {
   const runEnhance = React.useCallback(async () => {
     const p = prompt.trim();
     if (!p || busy) return;
-    const guard = await requirePaidAction("enhance_prompt");
-    if (!guard.allowed) {
-      setPricingOpen(true);
-      return;
-    }
     setBusy("enhancing");
     setStatus("Enhancing prompt…");
     try {
-      const r = await enhance({ data: { prompt: p, hasHtml: html.length > 200 } });
+      const r = await enhance({ data: { prompt: p, hasHtml: html.length > 200, surface: "pocket" } });
       if ("paywall" in r) {
         setPricingOpen(true);
         setStatus("Ready");
@@ -524,13 +507,6 @@ function ForgePage() {
     const code = libraryCode.trim();
     // A valid account code scopes the project to that person's library and is
     // sufficient to save; otherwise fall back to the paid entitlement gate.
-    if (!isValidAccountCode(code) && !isAdminCode) {
-      const guard = await requirePaidAction("cloud_save");
-      if (!guard.allowed) {
-        setPricingOpen(true);
-        return;
-      }
-    }
 
     setBusy("saving");
     setStatus("Saving…");
@@ -577,14 +553,6 @@ function ForgePage() {
       }
     } catch { win = null; }
     const closeWin = () => { try { win?.close(); } catch { /* ignore */ } };
-    if (!isAdminCode) {
-      const guard = await requirePaidAction("cloud_publish");
-      if (!guard.allowed) {
-        closeWin();
-        setPricingOpen(true);
-        return;
-      }
-    }
     const assessment = assessOutbound(html, { surface: "go-live" });
     if (!assessment.ok) {
       closeWin();
@@ -711,13 +679,6 @@ function ForgePage() {
   }, [isAdminCode, busy, html, title, prompt, model, demoLive, log]);
 
   const exportProject = React.useCallback(async () => {
-    if (!isAdminCode) {
-      const guard = await requirePaidAction("cloud_share");
-      if (!guard.allowed) {
-        setPricingOpen(true);
-        return;
-      }
-    }
     const blob = new Blob([sanitizeForExport(html)], { type: "text/html" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -728,13 +689,6 @@ function ForgePage() {
   }, [html, title, isAdminCode]);
 
   const openGithub = React.useCallback(async () => {
-    if (!isAdminCode) {
-      const guard = await requirePaidAction("github_deploy");
-      if (!guard.allowed) {
-        setPricingOpen(true);
-        return;
-      }
-    }
     setGhOpen(true);
   }, [isAdminCode]);
 
@@ -895,16 +849,7 @@ function ForgePage() {
           {/* Demo banner */}
           {!paid && (
             <div className="mb-3 rounded-lg border border-[#F4A125]/30 bg-[#F4A125]/[0.06] px-3 py-2 text-xs text-[#E8E6E1]">
-              {demoMode
-                ? "Free demo: one real build, no card. Saving, GitHub, full export, and publishing need an account."
-                : "Your free demo is used. Sign in or upgrade to keep building, saving, and publishing."}
-              <button
-                type="button"
-                className="ml-2 underline decoration-[#F4A125] underline-offset-2 hover:text-[#F4A125]"
-                onClick={() => setPricingOpen(true)}
-              >
-                View plans
-              </button>
+              Obsidian Pocket is completely free — unlimited builds, saving, export, and publishing. No card, no sign-in.
             </div>
           )}
 
