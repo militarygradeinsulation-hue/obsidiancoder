@@ -141,14 +141,14 @@ export const Route = createFileRoute("/")({
 
   head: () => ({
     meta: [
-      { title: "Obsidian — System builder for people that can't code" },
-      { name: "description", content: "Obsidian is an AI system builder — think it, type it, see it. Ship production-ready software without writing code." },
-      { property: "og:title", content: "Obsidian — Think it, Type it, See it" },
-      { property: "og:description", content: "AI system builder for people that can't code. Ship production-ready software with an AI engineering team." },
+      { title: "Aetheris Obsidian — Tell it what to build" },
+      { name: "description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
+      { property: "og:title", content: "Aetheris Obsidian — Tell it what to build" },
+      { property: "og:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
       { property: "og:url", content: "https://obsidianvibe.live/" },
       { property: "og:type", content: "website" },
-      { name: "twitter:title", content: "Obsidian — Think it, Type it, See it" },
-      { name: "twitter:description", content: "AI system builder for people that can't code." },
+      { name: "twitter:title", content: "Aetheris Obsidian — Tell it what to build" },
+      { name: "twitter:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
     ],
     links: [{ rel: "canonical", href: "https://obsidianvibe.live/" }],
   }),
