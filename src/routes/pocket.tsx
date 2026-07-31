@@ -1126,12 +1126,11 @@ function ForgePage() {
                     </button>
                   ))}
                 </div>
-                <div className="flex h-[72vh] justify-center overflow-auto bg-[#050608] p-2">
-                  <iframe
+                <div className="flex h-[72vh] justify-center overflow-hidden bg-[#050608] p-2">
+                  <PocketPreviewFrame
                     title="Obsidian Pocket preview"
-                    srcDoc={srcDoc}
-                    sandbox="allow-scripts"
-                    className="h-full w-full rounded-lg border border-white/10 bg-white"
+                    doc={srcDoc}
+                    className="h-full w-full"
                     style={frameWidth ? { maxWidth: `${frameWidth}px` } : undefined}
                   />
                 </div>
