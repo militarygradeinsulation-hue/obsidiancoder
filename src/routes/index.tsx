@@ -2570,7 +2570,7 @@ function Index() {
   const versionCount = current.versions?.length ?? 0;
   const specTax = versionCount > 0 ? Math.max(0, Math.round(((userTurns - versionCount) / Math.max(1, userTurns)) * 100)) : 0;
 
-  const isAdminUser = libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com";
+  const isAdminUser = isFullAccessCode(libraryCode) || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com";
   const existingDemoForCurrent = demoBySession[current.id];
   const isDemoLiveForCurrent = pushedDemoIds.has(current.id) || !!existingDemoForCurrent;
 
