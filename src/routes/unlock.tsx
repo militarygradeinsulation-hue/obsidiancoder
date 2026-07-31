@@ -1,6 +1,7 @@
 import { createFileRoute, redirect, useRouter, Link, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type FormEvent } from "react";
+import { createPortal } from "react-dom";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 const GLSLHills = lazy(() => import("@/components/ui/glsl-hills"));
@@ -139,6 +140,19 @@ function Unlock() {
   const [activeVideo, setActiveVideo] = useState<{ url: string; label: string } | null>(null);
   const activeVideoRef = useRef<HTMLVideoElement | null>(null);
   const [pocketExpanded, setPocketExpanded] = useState(false);
+  useEffect(() => {
+    if (!pocketExpanded) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const onKey = (e: globalThis.KeyboardEvent) => {
+      if (e.key === "Escape") setPocketExpanded(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prev;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [pocketExpanded]);
 
   // Load admin-curated demos so newly promoted builds appear without a code edit.
   useEffect(() => {
@@ -402,29 +416,39 @@ function Unlock() {
                 </button>
               ) : (
                 <>
-                  <div id="pocket-spotlight-frame" className="pocket-spotlight-frame">
-                    <div className="pocket-spotlight-bar">
-                      <span /><span /><span />
-                      <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
-                      <button
-                        type="button"
-                        className="pocket-spotlight-collapse"
-                        onClick={() => setPocketExpanded(false)}
-                        aria-label="Collapse sandbox"
-                      >
-                        −
-                      </button>
-                    </div>
-                    <div className="pocket-spotlight-stage">
-                      <iframe
-                        src="/pocket?embed=1"
-                        title="Obsidian Pocket live sandbox"
-                        className="pocket-spotlight-iframe"
-                        loading="lazy"
-                      />
-                    </div>
-                  </div>
-                  <Link to="/pocket" className="pocket-spotlight-cta">Open Pocket full screen →</Link>
+                  <div className="pocket-spotlight-openhint">Sandbox open — full screen</div>
+                  {typeof document !== "undefined" && createPortal(
+                    <div
+                      className="pocket-spotlight-overlay"
+                      role="dialog"
+                      aria-modal="true"
+                      aria-label="Obsidian Pocket live sandbox"
+                    >
+                      <div id="pocket-spotlight-frame" className="pocket-spotlight-frame">
+                        <div className="pocket-spotlight-bar">
+                          <span /><span /><span />
+                          <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
+                          <Link to="/pocket" className="pocket-spotlight-openfull">Open full page ↗</Link>
+                          <button
+                            type="button"
+                            className="pocket-spotlight-collapse"
+                            onClick={() => setPocketExpanded(false)}
+                            aria-label="Close sandbox"
+                          >
+                            ×
+                          </button>
+                        </div>
+                        <div className="pocket-spotlight-stage">
+                          <iframe
+                            src="/pocket?embed=1"
+                            title="Obsidian Pocket live sandbox"
+                            className="pocket-spotlight-iframe"
+                          />
+                        </div>
+                      </div>
+                    </div>,
+                    document.body,
+                  )}
                 </>
               )}
             </section>
@@ -1627,10 +1651,48 @@ const unlockCss = `
   overflow: hidden;
   border: 1px solid rgba(244,161,37,0.18);
   background: #08080a;
-  height: min(62vh, 560px);
+  flex: 1;
+  min-height: 0;
 }
 .pocket-spotlight-iframe {
   width: 100%; height: 100%; border: 0; display: block;
+}
+
+/* Full-window sandbox overlay (no page scrolling behind it) */
+.pocket-spotlight-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: flex;
+  padding: 14px;
+  background: rgba(3,4,5,0.86);
+  backdrop-filter: blur(10px);
+  animation: pocketOverlayIn .25s ease both;
+}
+@keyframes pocketOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+.pocket-spotlight-overlay .pocket-spotlight-frame {
+  margin: 0;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: rgba(0,0,0,0.6);
+}
+.pocket-spotlight-openfull {
+  margin-left: auto;
+  font-size: 11px; letter-spacing: .4px;
+  color: #F4A125; text-decoration: none;
+  border: 1px solid rgba(244,161,37,0.3);
+  border-radius: 999px; padding: 4px 10px;
+  transition: background .2s ease;
+}
+.pocket-spotlight-openfull:hover { background: rgba(244,161,37,0.14); }
+.pocket-spotlight-overlay .pocket-spotlight-collapse { margin-left: 8px; }
+.pocket-spotlight-openhint {
+  position: relative;
+  margin-top: 14px;
+  font-size: 12px; letter-spacing: .4px;
+  color: rgba(182,188,200,0.7);
 }
 
 .pocket-spotlight-cta {

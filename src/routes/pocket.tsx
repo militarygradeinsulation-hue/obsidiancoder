@@ -51,6 +51,7 @@ import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { getAccountCode, setAccountCode, isValidAccountCode, isFullAccessCode } from "@/lib/account-code";
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 import { GithubModal } from "@/components/GithubModal";
+import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
 import { PricingModal } from "@/components/PricingModal";
 import {
   FORGE_DEVICES,
@@ -417,10 +418,15 @@ function ForgePage() {
         if (done) break;
         acc += decoder.decode(value, { stream: true });
         const now = performance.now();
-        if (now - lastPaint > 140) {
-          lastPaint = now;
+        // Repaint on a slower cadence and only at a safe tag boundary, so the
+        // preview grows in cleanly instead of flashing half-parsed markup.
+        if (now - lastPaint > 650) {
           const partial = clean(acc);
-          setProject((prev) => setEntryHtml(prev, partial));
+          const cut = partial.lastIndexOf(">");
+          if (cut > 200) {
+            lastPaint = now;
+            setProject((prev) => setEntryHtml(prev, partial.slice(0, cut + 1)));
+          }
         }
       }
       const finalHtml = clean(acc).trim();
@@ -773,6 +779,14 @@ function ForgePage() {
   );
   const frameWidth = deviceWidth(device);
 
+  // Embedded mode (?embed=1) runs inside the login-page sandbox overlay — use
+  // compact panel heights so the whole workspace fits without page scrolling.
+  const [embed, setEmbed] = React.useState(false);
+  React.useEffect(() => {
+    setEmbed(new URLSearchParams(window.location.search).get("embed") === "1");
+  }, []);
+  const paneHeight = embed ? "h-[42vh]" : "h-[72vh]";
+
   return (
     <div className="relative min-h-screen bg-[#08090b] text-[#E8E6E1]">
       {/* Holographic hieroglyph wall + interactive dot-grid background */}
@@ -1097,7 +1111,7 @@ function ForgePage() {
                   onChange={(e) =>
                     activeFile && setProject((p) => updateContent(p, activeFile.id, e.target.value))
                   }
-                  className="h-[72vh] w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#cfd3db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F4A125]/60"
+                  className={`${paneHeight} w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#cfd3db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F4A125]/60`}
                 />
               </div>
 
@@ -1126,12 +1140,11 @@ function ForgePage() {
                     </button>
                   ))}
                 </div>
-                <div className="flex h-[72vh] justify-center overflow-auto bg-[#050608] p-2">
-                  <iframe
+                <div className={`flex ${paneHeight} justify-center overflow-hidden bg-[#050608] p-2`}>
+                  <PocketPreviewFrame
                     title="Obsidian Pocket preview"
-                    srcDoc={srcDoc}
-                    sandbox="allow-scripts"
-                    className="h-full w-full rounded-lg border border-white/10 bg-white"
+                    doc={srcDoc}
+                    className="h-full w-full"
                     style={frameWidth ? { maxWidth: `${frameWidth}px` } : undefined}
                   />
                 </div>
