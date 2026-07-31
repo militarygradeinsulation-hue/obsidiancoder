@@ -46,6 +46,8 @@ import { getAccountCode, setAccountCode, isFullAccessCode } from "@/lib/account-
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 import { GithubModal } from "@/components/GithubModal";
 import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
+import { PocketBuildOrb } from "@/components/PocketBuildOrb";
+
 import { PricingModal } from "@/components/PricingModal";
 import {
   FORGE_DEVICES,
@@ -1033,14 +1035,16 @@ function ForgePage() {
                     </button>
                   ))}
                 </div>
-                <div className={`flex ${paneHeight} justify-center overflow-hidden bg-[#050608] p-2`}>
+                <div className={`relative flex ${paneHeight} justify-center overflow-hidden bg-[#050608] p-2`}>
                   <PocketPreviewFrame
                     title="Obsidian Pocket preview"
                     doc={srcDoc}
                     className="h-full w-full"
                     style={frameWidth ? { maxWidth: `${frameWidth}px` } : undefined}
                   />
+                  {busy === "generating" ? <PocketBuildOrb label="Building your page…" /> : null}
                 </div>
+
               </div>
 
               {/* Mobile pane switch */}
