@@ -122,6 +122,7 @@ import { useRailResize } from "@/hooks/useRailResize";
 import { reviewBuild, summarizeReport, type AgentReview } from "@/lib/chief-engineer";
 import { EngineeringConsolePanel } from "@/components/panels/EngineeringConsolePanel";
 import { restoreAndVerify } from "@/lib/context-compactor";
+import { isFullAccessCode } from "@/lib/account-code";
 
 
 
@@ -2570,7 +2571,7 @@ function Index() {
   const versionCount = current.versions?.length ?? 0;
   const specTax = versionCount > 0 ? Math.max(0, Math.round(((userTurns - versionCount) / Math.max(1, userTurns)) * 100)) : 0;
 
-  const isAdminUser = libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com";
+  const isAdminUser = isFullAccessCode(libraryCode) || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com";
   const existingDemoForCurrent = demoBySession[current.id];
   const isDemoLiveForCurrent = pushedDemoIds.has(current.id) || !!existingDemoForCurrent;
 
@@ -3104,7 +3105,7 @@ function Index() {
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
 
-            {(libraryCode.trim() === "9822" || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (() => {
+            {(isFullAccessCode(libraryCode) || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (() => {
               const existing = demoBySession[current.id];
               const isLive = pushedDemoIds.has(current.id) || !!existing;
               const doPublishAndPromote = async (label: string) => {

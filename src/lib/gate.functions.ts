@@ -14,10 +14,10 @@ export const unlockSite = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const expected = process.env.SITE_PASSWORD;
     const { passwordMatches, setUnlocked } = await import("./gate.server");
-    // "9822" = primary admin library code. "482917" = free-tier access code
-    // (unlocks the site only; it grants no admin capabilities).
+    // "9822" and "963169" = full-access library codes. "482917" = free-tier
+    // access code (unlocks the site only; it grants no admin capabilities).
     const entered = data.password.trim();
-    const libraryCodeOk = entered === "9822" || entered === "482917";
+    const libraryCodeOk = entered === "9822" || entered === "963169" || entered === "482917";
     const envOk = expected ? passwordMatches(data.password, expected) : false;
     if (!libraryCodeOk && !envOk) {
       await new Promise((r) => setTimeout(r, 400));
