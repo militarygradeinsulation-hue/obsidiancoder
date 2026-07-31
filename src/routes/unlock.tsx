@@ -1531,40 +1531,28 @@ const unlockCss = `
   padding: 10px;
   text-align: left;
 }
-.pocket-spotlight-bar { display: flex; gap: 5px; margin-bottom: 10px; }
+.pocket-spotlight-bar { display: flex; align-items: center; gap: 5px; margin-bottom: 10px; }
 .pocket-spotlight-bar span {
   width: 7px; height: 7px; border-radius: 50%;
   background: rgba(244,161,37,0.32);
 }
-.pocket-spotlight-input {
-  display: flex; align-items: center; gap: 2px;
-  border: 1px solid rgba(244,161,37,0.18);
+.pocket-spotlight-url {
+  margin-left: 8px; font-style: normal;
+  font-size: 10.5px; letter-spacing: .6px; text-transform: uppercase;
+  color: rgba(182,188,200,0.65);
+}
+.pocket-spotlight-stage {
+  position: relative;
   border-radius: 10px;
-  background: rgba(255,255,255,0.02);
-  padding: 11px 12px;
-  font-size: 12.5px; color: rgba(242,238,231,0.9);
-  min-height: 40px;
+  overflow: hidden;
+  border: 1px solid rgba(244,161,37,0.18);
+  background: #08080a;
+  height: min(62vh, 560px);
 }
-.pocket-spotlight-typed {
-  overflow: hidden; white-space: nowrap;
-  border-right: 0;
-  animation: pocketType 4.5s steps(38) infinite alternate;
-  max-width: 100%;
+.pocket-spotlight-iframe {
+  width: 100%; height: 100%; border: 0; display: block;
 }
-@keyframes pocketType { 0% { width: 0; } 60%, 100% { width: 26ch; } }
-.pocket-spotlight-caret {
-  width: 2px; height: 15px; background: #F4A125;
-  animation: pocketBlink 1s steps(1) infinite;
-}
-@keyframes pocketBlink { 0%,50% { opacity: 1; } 51%,100% { opacity: 0; } }
-.pocket-spotlight-run {
-  margin-top: 10px;
-  display: inline-block;
-  font-size: 11.5px; font-weight: 600; letter-spacing: .4px;
-  color: #111317;
-  background: linear-gradient(180deg, #F4A125, #DD9324);
-  border-radius: 8px; padding: 6px 14px;
-}
+
 .pocket-spotlight-cta {
   position: relative;
   display: inline-block;
