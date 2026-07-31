@@ -143,7 +143,7 @@ function Unlock() {
     if (!pocketExpanded) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    const onKey = (e: KeyboardEvent) => {
+    const onKey = (e: globalThis.KeyboardEvent) => {
       if (e.key === "Escape") setPocketExpanded(false);
     };
     window.addEventListener("keydown", onKey);
