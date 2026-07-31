@@ -2,14 +2,14 @@ import * as React from "react";
 import { ClientOnly } from "@tanstack/react-router";
 
 const InteractiveGrid = React.lazy(() => import("@/components/ui/interactive-grid"));
-const HolographicWall = React.lazy(() => import("@/components/ui/holographic-wall"));
+const AqueousMesh = React.lazy(() => import("@/components/ui/aqueous-mesh"));
 
 export function PocketBackground() {
   return (
     <div aria-hidden className="pointer-events-none fixed inset-0 z-0 overflow-hidden">
       <ClientOnly fallback={null}>
         <React.Suspense fallback={null}>
-          <HolographicWall />
+          <AqueousMesh className="absolute inset-0 h-full w-full" />
         </React.Suspense>
       </ClientOnly>
       <ClientOnly fallback={null}>
@@ -21,5 +21,6 @@ export function PocketBackground() {
     </div>
   );
 }
+
 
 export default PocketBackground;
