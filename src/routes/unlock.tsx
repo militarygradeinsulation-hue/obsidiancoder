@@ -415,41 +415,28 @@ function Unlock() {
                   <span className="pocket-spotlight-expand-label">Tap to open the sandbox</span>
                 </button>
               ) : (
-                <>
-                  <div className="pocket-spotlight-openhint">Sandbox open — full screen</div>
-                  {typeof document !== "undefined" && createPortal(
-                    <div
-                      className="pocket-spotlight-overlay"
-                      role="dialog"
-                      aria-modal="true"
-                      aria-label="Obsidian Pocket live sandbox"
+                <div id="pocket-spotlight-frame" className="pocket-spotlight-frame">
+                  <div className="pocket-spotlight-bar">
+                    <span /><span /><span />
+                    <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
+                    <Link to="/pocket" className="pocket-spotlight-openfull">Open full page ↗</Link>
+                    <button
+                      type="button"
+                      className="pocket-spotlight-collapse"
+                      onClick={() => setPocketExpanded(false)}
+                      aria-label="Close sandbox"
                     >
-                      <div id="pocket-spotlight-frame" className="pocket-spotlight-frame">
-                        <div className="pocket-spotlight-bar">
-                          <span /><span /><span />
-                          <em className="pocket-spotlight-url">obsidian pocket · live sandbox</em>
-                          <Link to="/pocket" className="pocket-spotlight-openfull">Open full page ↗</Link>
-                          <button
-                            type="button"
-                            className="pocket-spotlight-collapse"
-                            onClick={() => setPocketExpanded(false)}
-                            aria-label="Close sandbox"
-                          >
-                            ×
-                          </button>
-                        </div>
-                        <div className="pocket-spotlight-stage">
-                          <iframe
-                            src="/pocket?embed=1"
-                            title="Obsidian Pocket live sandbox"
-                            className="pocket-spotlight-iframe"
-                          />
-                        </div>
-                      </div>
-                    </div>,
-                    document.body,
-                  )}
-                </>
+                      ×
+                    </button>
+                  </div>
+                  <div className="pocket-spotlight-stage">
+                    <iframe
+                      src="/pocket?embed=1"
+                      title="Obsidian Pocket live sandbox"
+                      className="pocket-spotlight-iframe"
+                    />
+                  </div>
+                </div>
               )}
             </section>
           </div>
