@@ -1545,6 +1545,34 @@ const unlockCss = `
   font-size: 13px; line-height: 1.6; color: rgba(182,188,200,0.9);
   margin: 0 auto; max-width: 420px;
 }
+.pocket-spotlight-link {
+  position: relative;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  margin: 12px auto 0;
+  padding: 8px 16px;
+  border-radius: 999px;
+  text-decoration: none;
+  color: #f4a125;
+  background: rgba(244,161,37,0.08);
+  border: 1px solid rgba(244,161,37,0.25);
+  box-shadow: 0 0 20px rgba(244,161,37,0.06);
+  transition: background .2s ease, border-color .2s ease, box-shadow .2s ease, transform .2s ease;
+}
+.pocket-spotlight-link:hover {
+  background: rgba(244,161,37,0.14);
+  border-color: rgba(244,161,37,0.45);
+  box-shadow: 0 0 28px rgba(244,161,37,0.14);
+  transform: translateY(-1px);
+}
+.pocket-spotlight-link-label {
+  font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+}
+.pocket-spotlight-link-desc {
+  font-size: 11px; color: rgba(182,188,200,0.75); text-align: center; line-height: 1.4;
+}
 .pocket-spotlight-frame {
   position: relative;
   margin: 18px auto 0;
