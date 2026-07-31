@@ -1607,7 +1607,6 @@ const unlockCss = `
 .unlock-examples {
   position: relative;
   width: 100%;
-  margin-top: 100vh;
   padding: 30px 16px 24px;
   opacity: 0.95;
   z-index: 3;
