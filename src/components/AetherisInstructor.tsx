@@ -138,11 +138,17 @@ export function AetherisInstructor({
       const controller = new AbortController();
       abortRef.current = controller;
       try {
+        // Give the teacher eyes on the workspace: what the learner has typed
+        // and whether anything is built yet.
+        const draft = controls?.getPrompt().trim() ?? "";
+        const workspace = controls
+          ? `\n\n[Workspace the learner is looking at]\nPrompt box: ${draft ? `"${draft.slice(0, 900)}"` : "(empty)"}\nPreview: ${currentHtml.length > 200 ? "a build is on screen" : "nothing built yet"}\nWhen you suggest wording for the prompt box, put the exact text in a fenced \`\`\`prompt block so it can be applied with one tap.`
+          : "";
         const res = await authFetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-obs-free": "1" },
           body: JSON.stringify({
-            prompt: question,
+            prompt: `${question}${workspace}`,
             currentHtml: currentHtml ? currentHtml.slice(0, 4000) : "",
             history,
             advisory: true,
@@ -150,6 +156,7 @@ export function AetherisInstructor({
           }),
           signal: controller.signal,
         });
+
 
         const ctype = (res.headers.get("content-type") || "").toLowerCase();
         if (ctype.includes("application/json")) {
