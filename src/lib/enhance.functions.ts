@@ -107,6 +107,14 @@ export const enhancePrompt = createServerFn({ method: "POST" })
         const fallback = neutralEnhancementFallbacks(data.prompt, data.hasHtml, 2);
         out = [data.prompt.trim(), ...fallback.map((item) => item.snippet)].join(" ").slice(0, 600);
       }
+      if (out && data.mode === "extend") {
+        // Hard guarantee: extending never loses the words the user typed.
+        const original = data.prompt.trim();
+        if (!out.toLowerCase().includes(original.slice(0, 40).toLowerCase())) {
+          out = `${original} ${out}`.trim();
+        }
+      }
+
       if (!out) {
         errorCode = "ai_empty_output";
         // Provider DID work; charge actual/estimated with failed status.
