@@ -458,6 +458,14 @@ function Unlock() {
               <h2 id="compare-heading" className="unlock-compare-title">Choose your workspace</h2>
               <div className="unlock-compare-grid">
                 <div className="unlock-compare-card is-vibe">
+                  <img
+                    className="unlock-compare-shot"
+                    src={vibeShot.url}
+                    alt="Obsidian Vibe workspace: left tool rail, live sandbox canvas, and right agent panel"
+                    loading="lazy"
+                    width={1440}
+                    height={900}
+                  />
                   <div className="unlock-compare-card-head">
                     <span className="unlock-compare-badge">Full power</span>
                     <h3 className="unlock-compare-card-title">Obsidian Vibe</h3>
@@ -470,12 +478,20 @@ function Unlock() {
                     <li>Co-designer chat, image uploads, and style guides</li>
                     <li>Best for polished apps, dashboards, and client work</li>
                   </ul>
-                  <Link to="/" search={{ demo: "1" }} className="unlock-compare-cta is-secondary">
+                  <a href="/?demo=1" className="unlock-compare-cta is-secondary">
                     Open Obsidian Vibe
-                  </Link>
+                  </a>
                 </div>
 
                 <div className="unlock-compare-card is-pocket">
+                  <img
+                    className="unlock-compare-shot"
+                    src={pocketShot.url}
+                    alt="Obsidian Pocket workspace: single prompt box with code and live preview side by side"
+                    loading="lazy"
+                    width={1440}
+                    height={900}
+                  />
                   <div className="unlock-compare-card-head">
                     <span className="unlock-compare-badge">Quick builds</span>
                     <h3 className="unlock-compare-card-title">Obsidian Pocket</h3>
@@ -488,22 +504,58 @@ function Unlock() {
                     <li>Free to use with no account required</li>
                     <li>Best for fast landing pages, ideas, and prototypes</li>
                   </ul>
-                  <Link to="/pocket" className="unlock-compare-cta">
-                    Try Obsidian Pocket
-                  </Link>
+                  <a href="/pocket" className="unlock-compare-cta">
+                    Open Obsidian Pocket
+                  </a>
                 </div>
               </div>
 
-              <div className="unlock-compare-card" style={{ marginTop: "1.25rem" }}>
-                <h3 className="unlock-compare-card-title">Community Library</h3>
-                <p className="unlock-compare-card-sub">
-                  Every build people shared from Pocket — preview it live, copy the code, or remix it into your own
-                  workspace in one click.
-                </p>
-                <Link to="/library" className="unlock-compare-cta">
-                  Browse the Library
-                </Link>
+              {/* Live builds people shared from Pocket */}
+              <div className="unlock-community" id="community-anchor">
+                <div className="unlock-community-head">
+                  <div>
+                    <h3 className="unlock-compare-card-title">Built in Pocket by the community</h3>
+                    <p className="unlock-compare-card-sub">
+                      Real, working pages people shared. Preview one live, then copy or remix it.
+                    </p>
+                  </div>
+                  <a href="/library" className="unlock-compare-cta">Browse the Library</a>
+                </div>
+                {communityBuilds.length === 0 ? (
+                  <p className="unlock-community-empty">
+                    No shared builds yet — build something in Pocket and press “Share to Library”.
+                  </p>
+                ) : (
+                  <div className="unlock-community-grid">
+                    {communityBuilds.map((b) => (
+                      <a
+                        key={b.id}
+                        className="demo-card"
+                        href={`/api/public/share/${b.share_slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={b.prompt || b.title}
+                      >
+                        <span className="demo-frame">
+                          <iframe
+                            src={`/api/public/share/${b.share_slug}`}
+                            title={b.title}
+                            loading="lazy"
+                            sandbox="allow-scripts"
+                            tabIndex={-1}
+                          />
+                          <span className="demo-scrim" aria-hidden />
+                        </span>
+                        <span className="demo-meta">
+                          <span className="demo-name">{b.title || "Untitled build"}</span>
+                          <span className="demo-open">Open ↗</span>
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
+
             </section>
           </div>
         </div>
