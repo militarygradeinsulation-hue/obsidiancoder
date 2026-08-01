@@ -502,25 +502,33 @@ function ForgePage() {
   }, []);
 
   // ---- Prompt enhancement (real server fn + credit gate) ------------------
-  const runEnhance = React.useCallback(async () => {
-    const p = prompt.trim();
-    if (!p || busy) return;
-    setBusy("enhancing");
-    setStatus("Enhancing prompt…");
-    try {
-      const r = await enhance({ data: { prompt: p, hasHtml: html.length > 200, surface: "pocket" } });
-      if ("paywall" in r) {
-        setStatus("Ready");
-        return;
+  const runEnhanceMode = React.useCallback(
+    async (mode: "rewrite" | "extend") => {
+      const p = prompt.trim();
+      if (!p || busy) return;
+      setBusy("enhancing");
+      setStatus(mode === "extend" ? "Reading your prompt and adding ideas…" : "Enhancing prompt…");
+      try {
+        const r = await enhance({
+          data: { prompt: p, hasHtml: html.length > 200, surface: "pocket", mode },
+        });
+        if ("paywall" in r) {
+          setStatus("Ready");
+          return;
+        }
+        setPrompt(r.prompt);
+        setStatus(mode === "extend" ? "Ideas added to your prompt" : "Prompt enhanced");
+      } catch (err) {
+        setError(sanitizeErrorMessage(err, "Could not enhance the prompt."));
+      } finally {
+        setBusy(null);
       }
-      setPrompt(r.prompt);
-      setStatus("Prompt enhanced");
-    } catch (err) {
-      setError(sanitizeErrorMessage(err, "Could not enhance the prompt."));
-    } finally {
-      setBusy(null);
-    }
-  }, [prompt, busy, enhance, html]);
+    },
+    [prompt, busy, enhance, html],
+  );
+  const runEnhance = React.useCallback(() => runEnhanceMode("rewrite"), [runEnhanceMode]);
+  const runExtendIdeas = React.useCallback(() => runEnhanceMode("extend"), [runEnhanceMode]);
+
 
   // ---- Voice assist (same engine as the main Obsidian composer) -----------
   const voice = useVoiceControl({
