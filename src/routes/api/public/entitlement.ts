@@ -8,6 +8,7 @@ import {
   resolveUserFromRequest,
   serverStripeEnv,
   hasActivePro,
+  pocketBuildUsage,
 } from "@/lib/credit-gate.server";
 
 export type EntitlementMode = "owner" | "pro" | "free";
@@ -22,6 +23,10 @@ export interface EntitlementSnapshot {
   reserved: number;
   cap: number;
   remaining: number;
+  /** Active plan tier id (null when free / unresolved). */
+  tier?: string | null;
+  /** Pocket build allowance for this billing period (cap 0 when not on Pocket). */
+  builds?: { used: number; cap: number; remaining: number };
 }
 
 const NO_STORE = { "Cache-Control": "no-store", "Content-Type": "application/json; charset=utf-8" };
@@ -93,9 +98,18 @@ export const Route = createFileRoute("/api/public/entitlement")({
             periodEnd = row.period_end ?? periodEnd;
           }
         } catch { /* best-effort */ }
+        let tier: string | null = null;
+        let builds = { used: 0, cap: 0, remaining: 0 };
+        try {
+          const pocket = await pocketBuildUsage(user.userId, env);
+          tier = pocket.tier;
+          builds = { used: pocket.used, cap: pocket.cap, remaining: pocket.remaining };
+        } catch { /* best-effort */ }
+
         const snap: EntitlementSnapshot = {
           mode: "pro", authed: true, subStatus, environment: env,
           periodStart, periodEnd, used, reserved, cap: CAP_PRO_MONTHLY, remaining,
+          tier, builds,
         };
 
         return new Response(JSON.stringify(snap), { headers: NO_STORE });
