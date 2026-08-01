@@ -1,6 +1,13 @@
 import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Copy, ExternalLink, Loader2, Search, Wand2, Home } from "lucide-react";
+import { Copy, ExternalLink, Loader2, Search, Wand2, Home, Plus, Trash2, X } from "lucide-react";
+import {
+  listLibraryBuilds,
+  setLibraryBuildPublic,
+  verifyLibraryAdmin,
+  type AdminBuildRow,
+} from "@/lib/community-admin.functions";
+
 
 type CommunityBuild = {
   id: string;
