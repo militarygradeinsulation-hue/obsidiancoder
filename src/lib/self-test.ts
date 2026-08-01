@@ -2836,6 +2836,19 @@ export async function runBuildDiscussionTests(): Promise<{ results: TestResult[]
     "discussion: marker set and legacy keys removed after import"));
   results.push(assert(readLegacyDiscussion(store) === null, "discussion: migration marker prevents a second import"));
 
+  // Active build already has its own discussion → legacy is retired, not merged.
+  const busyStore = mkStore();
+  busyStore.setItem(LEGACY_HISTORY_KEY, JSON.stringify([{ role: "user", content: "legacy" }]));
+  const busy: S[] = [{ ...mkSession("A"), discussion: appendDiscussionMessages(undefined, [{ role: "user", content: "own" }]) }];
+  const busyLegacy = readLegacyDiscussion(busyStore);
+  const busyAfter = busy.map((s) =>
+    s.id === "A" && isDiscussionEmpty(s.discussion) && busyLegacy ? { ...s, discussion: busyLegacy } : s);
+  finishDiscussionMigration(busyStore);
+  results.push(assert(
+    busyAfter[0].discussion.messages.length === 1 && busyAfter[0].discussion.messages[0].content === "own" &&
+    isDiscussionMigrated(busyStore) && !busyStore.mem.has(LEGACY_HISTORY_KEY),
+    "discussion: legacy never merges into a build that already has a discussion"));
+
   const malformed = mkStore();
   malformed.setItem(LEGACY_HISTORY_KEY, "{not json");
   malformed.setItem(LEGACY_CONFIRMED_KEY, JSON.stringify({ nope: true }));
