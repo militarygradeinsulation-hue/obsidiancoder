@@ -1138,6 +1138,15 @@ function ForgePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              to="/"
+              className={btn}
+              data-testid="pocket-topbar-coder"
+              title="Switch to the full Obsidian Coder workspace"
+            >
+              Coder
+            </Link>
+
             <label className="hidden items-center gap-1.5 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
               <span className="text-[10px] uppercase tracking-widest text-[#6b7180]">Code</span>
               <input
