@@ -49,6 +49,7 @@ import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/library.$code'
 import { Route as ApiPublicFreeDemoStatusRouteImport } from './routes/api/public/free-demo.status'
+import { Route as ApiPublicCommunityIdRouteImport } from './routes/api/public/community.$id'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
 import { Route as ApiPublicLibraryCodeIdRouteImport } from './routes/api/public/library.$code.$id'
 
@@ -259,6 +260,11 @@ const ApiPublicFreeDemoStatusRoute = ApiPublicFreeDemoStatusRouteImport.update({
   path: '/api/public/free-demo/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCommunityIdRoute = ApiPublicCommunityIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiPublicCommunityRoute,
+} as any)
 const ApiPublicBuildsIdRoute = ApiPublicBuildsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -297,13 +303,14 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
-  '/api/public/community': typeof ApiPublicCommunityRoute
+  '/api/public/community': typeof ApiPublicCommunityRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
   '/api/public/theme-thumbnails': typeof ApiPublicThemeThumbnailsRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
+  '/api/public/community/$id': typeof ApiPublicCommunityIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -341,13 +348,14 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
-  '/api/public/community': typeof ApiPublicCommunityRoute
+  '/api/public/community': typeof ApiPublicCommunityRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
   '/api/public/theme-thumbnails': typeof ApiPublicThemeThumbnailsRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
+  '/api/public/community/$id': typeof ApiPublicCommunityIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -386,13 +394,14 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
-  '/api/public/community': typeof ApiPublicCommunityRoute
+  '/api/public/community': typeof ApiPublicCommunityRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
   '/api/public/theme-thumbnails': typeof ApiPublicThemeThumbnailsRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
+  '/api/public/community/$id': typeof ApiPublicCommunityIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -439,6 +448,7 @@ export interface FileRouteTypes {
     | '/api/public/theme-thumbnails'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
+    | '/api/public/community/$id'
     | '/api/public/free-demo/status'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
@@ -483,6 +493,7 @@ export interface FileRouteTypes {
     | '/api/public/theme-thumbnails'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
+    | '/api/public/community/$id'
     | '/api/public/free-demo/status'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
@@ -527,6 +538,7 @@ export interface FileRouteTypes {
     | '/api/public/theme-thumbnails'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
+    | '/api/public/community/$id'
     | '/api/public/free-demo/status'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
@@ -565,7 +577,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicBaselineRoute: typeof ApiPublicBaselineRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
-  ApiPublicCommunityRoute: typeof ApiPublicCommunityRoute
+  ApiPublicCommunityRoute: typeof ApiPublicCommunityRouteWithChildren
   ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
   ApiPublicThemeBlueprintsRoute: typeof ApiPublicThemeBlueprintsRoute
@@ -863,6 +875,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicFreeDemoStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/community/$id': {
+      id: '/api/public/community/$id'
+      path: '/$id'
+      fullPath: '/api/public/community/$id'
+      preLoaderRoute: typeof ApiPublicCommunityIdRouteImport
+      parentRoute: typeof ApiPublicCommunityRoute
+    }
     '/api/public/builds/$id': {
       id: '/api/public/builds/$id'
       path: '/$id'
@@ -891,6 +910,17 @@ const ApiPublicBuildsRouteChildren: ApiPublicBuildsRouteChildren = {
 const ApiPublicBuildsRouteWithChildren = ApiPublicBuildsRoute._addFileChildren(
   ApiPublicBuildsRouteChildren,
 )
+
+interface ApiPublicCommunityRouteChildren {
+  ApiPublicCommunityIdRoute: typeof ApiPublicCommunityIdRoute
+}
+
+const ApiPublicCommunityRouteChildren: ApiPublicCommunityRouteChildren = {
+  ApiPublicCommunityIdRoute: ApiPublicCommunityIdRoute,
+}
+
+const ApiPublicCommunityRouteWithChildren =
+  ApiPublicCommunityRoute._addFileChildren(ApiPublicCommunityRouteChildren)
 
 interface ApiPublicLibraryCodeRouteChildren {
   ApiPublicLibraryCodeIdRoute: typeof ApiPublicLibraryCodeIdRoute
@@ -931,7 +961,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicBaselineRoute: ApiPublicBaselineRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
-  ApiPublicCommunityRoute: ApiPublicCommunityRoute,
+  ApiPublicCommunityRoute: ApiPublicCommunityRouteWithChildren,
   ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
   ApiPublicThemeBlueprintsRoute: ApiPublicThemeBlueprintsRoute,
