@@ -306,7 +306,50 @@ export function AetherisInstructor({
       </div>
 
       <div className="border-t border-white/10 px-3 py-2">
+        {controls && (
+          <div className="mb-2 flex flex-wrap gap-1 border-b border-white/10 pb-2">
+            <button
+              type="button"
+              className={actionChip}
+              disabled={busy}
+              onClick={() => void ask("Read my prompt box and tell me, in simple words, what it will build and the one thing I should improve.")}
+            >
+              Check my prompt
+            </button>
+            {controls.extendIdeas && (
+              <button
+                type="button"
+                className={actionChip}
+                disabled={busy || controls.busy}
+                onClick={() => controls.extendIdeas?.()}
+              >
+                Add ideas to it
+              </button>
+            )}
+            {controls.build && (
+              <button
+                type="button"
+                className={actionChip}
+                disabled={busy || controls.busy}
+                onClick={() => controls.build?.()}
+              >
+                Build it for me
+              </button>
+            )}
+            {controls.clear && (
+              <button
+                type="button"
+                className={actionChip}
+                disabled={busy || controls.busy}
+                onClick={() => controls.clear?.()}
+              >
+                Start over
+              </button>
+            )}
+          </div>
+        )}
         <div className="mb-2 flex flex-wrap gap-1">
+
           {QUICK.map((q) => (
             <button
               key={q}
