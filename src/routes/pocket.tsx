@@ -824,6 +824,31 @@ function ForgePage() {
                 {voice.error || voice.interim || (voice.processing ? "Transcribing…" : "Listening… say “send” to build")}
               </p>
             )}
+            {/* Idea chips — click to append, then Enhance to expand */}
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {ideaChips.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  title={a.reason || a.snippet}
+                  onClick={() => {
+                    setPrompt((p) => (p.trim() ? `${p.trim()} ${a.snippet}` : a.snippet));
+                    requestAnimationFrame(() => promptRef.current?.focus());
+                  }}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-[#B6BCC8] transition hover:border-[#F4A125]/50 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                >
+                  {a.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setIdeaOffset((o) => o + 4)}
+                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[#7d8494] transition hover:text-[#E8E6E1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+              >
+                More ideas
+              </button>
+            </div>
+
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:justify-between">
               <div className="flex min-w-0 items-center gap-2">
                 <label className="sr-only" htmlFor="forge-mode">
