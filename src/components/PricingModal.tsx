@@ -1,8 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Check, Lock, Mail } from "lucide-react";
 import { StripeEmbeddedCheckout } from "./StripeEmbeddedCheckout";
 import { useAuth, useCredits, useSubscription } from "@/hooks/useSubscription";
-import { Link } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { PLAN_TIERS, type PlanTier } from "@/lib/plans";
 
 const FREE_FEATURES = [
@@ -20,6 +20,19 @@ export function PricingModal({ onClose, initialPriceId }: { onClose: () => void;
   const { isPro } = useSubscription();
   const credits = useCredits();
   const [selected, setSelected] = useState<string | null>(initialPriceId ?? null);
+  const navigate = useNavigate();
+
+  // Resume a checkout the visitor started before signing in.
+  useEffect(() => {
+    if (!userId || selected) return;
+    try {
+      const pending = sessionStorage.getItem("obs:intended-price");
+      if (pending) {
+        sessionStorage.removeItem("obs:intended-price");
+        setSelected(pending);
+      }
+    } catch { /* noop */ }
+  }, [userId, selected]);
 
   return (
     <div className="fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-start justify-center overflow-y-auto p-4">
@@ -81,7 +94,21 @@ export function PricingModal({ onClose, initialPriceId }: { onClose: () => void;
             {/* Tier grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {PLAN_TIERS.map((p) => (
-                <TierCard key={p.id} tier={p} disabled={!userId} onCheckout={() => p.priceId && setSelected(p.priceId)} />
+                <TierCard
+                  key={p.id}
+                  tier={p}
+                  signedIn={!!userId}
+                  onCheckout={() => {
+                    if (!p.priceId) return;
+                    if (!userId) {
+                      // Remember the intended plan, then send them to sign in.
+                      try { sessionStorage.setItem("obs:intended-price", p.priceId); } catch { /* noop */ }
+                      navigate({ to: "/auth", search: { redirect: window.location.pathname } });
+                      return;
+                    }
+                    setSelected(p.priceId);
+                  }}
+                />
               ))}
             </div>
 
@@ -95,7 +122,7 @@ export function PricingModal({ onClose, initialPriceId }: { onClose: () => void;
   );
 }
 
-function TierCard({ tier, disabled, onCheckout }: { tier: PlanTier; disabled: boolean; onCheckout: () => void }) {
+function TierCard({ tier, signedIn, onCheckout }: { tier: PlanTier; signedIn: boolean; onCheckout: () => void }) {
   const Icon = tier.icon;
   const isFeatured = !!tier.featured;
 
@@ -104,10 +131,9 @@ function TierCard({ tier, disabled, onCheckout }: { tier: PlanTier; disabled: bo
       return (
         <button
           onClick={onCheckout}
-          disabled={disabled}
-          className="w-full py-2 rounded-md bg-[#F4A125] hover:bg-[#DD9324] disabled:opacity-50 disabled:cursor-not-allowed text-black text-sm font-semibold transition-colors"
+          className="w-full py-2 rounded-md bg-[#F4A125] hover:bg-[#DD9324] text-black text-sm font-semibold transition-colors"
         >
-          {disabled ? "Sign in to continue" : `Choose ${tier.name}`}
+          {signedIn ? `Choose ${tier.name}` : `Sign in to get ${tier.name}`}
         </button>
       );
     }
