@@ -16,6 +16,7 @@ import { PLAN_TIERS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
+import aetherisEmblem from "@/assets/aetheris-emblem.jpg.asset.json";
 import exampleVideo1 from "@/assets/example-1.mp4.asset.json";
 import exampleVideo2 from "@/assets/example-2.mp4.asset.json";
 import exampleVideo3 from "@/assets/example-3.mp4.asset.json";
