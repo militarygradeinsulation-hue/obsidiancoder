@@ -170,9 +170,8 @@ function ForgePage() {
 
 
   const [mode, setMode] = React.useState<BuildMode>("build");
-  const [model, setModel] = React.useState<string>(
-    () => safeGet<string>("forge.model") ?? DEFAULT_MODEL,
-  );
+  const [model, setModel] = React.useState<string>(DEFAULT_MODEL);
+
   const [device, setDevice] = React.useState<ForgeDevice>("desktop");
   const [tab, setTab] = React.useState<TabId>("build");
   const [pane, setPane] = React.useState<"code" | "preview">("preview");
@@ -193,9 +192,16 @@ function ForgePage() {
 
   // Account code (entered at /unlock) is the default library code, so every
   // person's saved projects are scoped to them across browsers.
-  const [libraryCode, setLibraryCode] = React.useState<string>(
-    () => safeGet<string>("forge.libraryCode") || getAccountCode(),
-  );
+  // Read after mount so SSR and the first client render agree (no hydration
+  // mismatch from localStorage-derived UI such as the admin-only actions).
+  const [libraryCode, setLibraryCode] = React.useState<string>("");
+  React.useEffect(() => {
+    const stored = safeGet<string>("forge.libraryCode") || getAccountCode();
+    if (stored) setLibraryCode(stored);
+    const storedModel = safeGet<string>("forge.model");
+    if (storedModel) setModel(storedModel);
+  }, []);
+
 
   const [library, setLibrary] = React.useState<LibraryBuild[]>([]);
   const [demoLive, setDemoLive] = React.useState<{ id: string; slug: string } | null>(null);
@@ -361,6 +367,15 @@ function ForgePage() {
         /* ignore */
       }
     }
+    // Stop any in-flight generation first — otherwise its stream keeps writing
+    // HTML back into the sandbox right after we wipe it.
+    try {
+      abortRef.current?.abort();
+    } catch {
+      /* ignore */
+    }
+    abortRef.current = null;
+    setBusy(null);
     const next = projectFromHtml(EMPTY_DOC);
     setProject(next);
     setActiveFileId(next.entryFileId);
@@ -369,12 +384,15 @@ function ForgePage() {
     setVersions([]);
     setShareUrl(null);
     setPublishedUrl(null);
+    setDemoLive(null);
+    setLogs([]);
     setError(null);
     setPane("preview");
     setStatus("Cleared — ready for a new build");
     restoredRef.current = libraryCode.trim();
     promptRef.current?.focus();
   }, [libraryCode, sessionKey]);
+
 
   // ---- Real generation (streaming /api/generate) --------------------------
   const generate = React.useCallback(async () => {
