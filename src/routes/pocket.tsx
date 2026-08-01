@@ -15,6 +15,7 @@ import {
   Copy,
   Download,
   Github,
+  Home,
   Loader2,
   Monitor,
   Rocket,
