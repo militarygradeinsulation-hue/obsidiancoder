@@ -116,6 +116,11 @@ function ForgePage() {
   const [versions, setVersions] = React.useState<ForgeVersion[]>([]);
   const [prompt, setPrompt] = React.useState("");
   const [ideaOffset, setIdeaOffset] = React.useState(0);
+  const ideaChips = React.useMemo(
+    () => suggestAddons(prompt, false, ideaOffset, 7),
+    [prompt, ideaOffset],
+  );
+
 
   const [mode, setMode] = React.useState<BuildMode>("build");
   const [model, setModel] = React.useState<string>(
