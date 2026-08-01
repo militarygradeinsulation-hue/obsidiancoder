@@ -58,9 +58,7 @@ export const PLAN_TIERS: PlanTier[] = [
   {
     id: "starter",
     name: "Starter",
-    price: "$19",
-    originalPrice: "$29",
-    founding: true,
+    price: "$29",
     cadence: "/month",
     headline: "Perfect for learning and small projects.",
     bestFor: "First-time builders exploring what AI can ship.",
