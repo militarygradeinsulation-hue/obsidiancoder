@@ -116,10 +116,40 @@ function ForgePage() {
   const [versions, setVersions] = React.useState<ForgeVersion[]>([]);
   const [prompt, setPrompt] = React.useState("");
   const [ideaOffset, setIdeaOffset] = React.useState(0);
-  const ideaChips = React.useMemo(
+  const [ideaCategory, setIdeaCategory] = React.useState("all");
+  const [aiIdeas, setAiIdeas] = React.useState<Addon[]>([]);
+  const [aiIdeasLoading, setAiIdeasLoading] = React.useState(false);
+  const seenIdeasRef = React.useRef<Set<string>>(new Set());
+  const genIdeas = useServerFn(generateStarterIdeas);
+  const baseIdeas = React.useMemo(
     () => suggestAddons(prompt, false, ideaOffset, 7),
     [prompt, ideaOffset],
   );
+  const ideaChips = React.useMemo(
+    () => (!prompt.trim() && aiIdeas.length ? aiIdeas.slice(0, 6) : baseIdeas),
+    [prompt, aiIdeas, baseIdeas],
+  );
+  const loadCategoryIdeas = React.useCallback(
+    async (category: string) => {
+      setAiIdeasLoading(true);
+      try {
+        const exclude = Array.from(seenIdeasRef.current).slice(-120);
+        const res = await genIdeas({ data: { exclude, count: 8, category: category as never } });
+        const allowTrades = category === "trades";
+        const fresh = (res.ideas ?? [])
+          .filter((i) => suggestionAllowed(`${i.label} ${i.snippet}`, allowTrades))
+          .map((i) => ({ id: i.id, label: i.label, snippet: i.snippet }) as Addon);
+        fresh.forEach((f) => seenIdeasRef.current.add(f.label.toLowerCase()));
+        setAiIdeas(fresh);
+      } catch {
+        setAiIdeas([]);
+      } finally {
+        setAiIdeasLoading(false);
+      }
+    },
+    [genIdeas],
+  );
+
 
 
   const [mode, setMode] = React.useState<BuildMode>("build");
