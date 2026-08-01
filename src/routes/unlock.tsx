@@ -24,6 +24,8 @@ import exampleVideo4 from "@/assets/example-4.mp4.asset.json";
 import exampleVideo5 from "@/assets/example-5.mp4.asset.json";
 import vibeShot from "@/assets/workspace-vibe.png.asset.json";
 import pocketShot from "@/assets/workspace-pocket.png.asset.json";
+import PocketPromoModal from "@/components/PocketPromoModal";
+
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
