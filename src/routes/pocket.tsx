@@ -755,7 +755,7 @@ function ForgePage() {
 
       <div className="relative z-10">
       {/* Sticky compact header */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-[#0b0c0f]/90 backdrop-blur">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-black/40 backdrop-blur">
         <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 sm:flex sm:justify-between">
           <div className="flex min-w-0 items-center gap-2">
             <button
@@ -808,7 +808,7 @@ function ForgePage() {
         {/* Sidebar */}
         {sidebarOpen && (
           <aside
-            className="hidden w-60 shrink-0 border-r border-white/10 bg-[#0a0b0e] p-3 md:block"
+            className="hidden w-60 shrink-0 border-r border-white/10 bg-black/30 p-3 backdrop-blur-md md:block"
             aria-label="Projects"
           >
             <button
@@ -854,7 +854,7 @@ function ForgePage() {
         <main className="min-w-0 flex-1 p-3">
           {/* Demo banner */}
           {!paid && (
-            <div className="mb-3 rounded-lg border border-[#F4A125]/30 bg-[#F4A125]/[0.06] px-3 py-2 text-xs text-[#E8E6E1]">
+            <div className="mb-3 rounded-lg border border-[#F4A125]/30 bg-[#F4A125]/10 px-3 py-2 text-xs text-[#E8E6E1] backdrop-blur-sm">
               Obsidian Pocket is completely free — unlimited builds, saving, export, and publishing. No card, no sign-in.
             </div>
           )}
@@ -862,7 +862,7 @@ function ForgePage() {
 
           {/* Prompt composer */}
 
-          <section className="rounded-xl border border-white/10 bg-[#0b0c0f] p-3 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset]">
+          <section className="rounded-xl border border-white/10 bg-black/30 p-3 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset] backdrop-blur-md">
             <label htmlFor="forge-prompt" className="text-sm font-semibold">
               What should I build or change?
             </label>
@@ -1068,7 +1068,7 @@ function ForgePage() {
             >
               {/* Code side */}
               <div
-                className={`${pane === "code" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-[#0b0c0f]`}
+                className={`${pane === "code" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-black/30 backdrop-blur-md`}
               >
                 <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
                   <Code2 size={13} className="shrink-0 text-[#F4A125]" />
@@ -1131,7 +1131,7 @@ function ForgePage() {
 
               {/* Preview side */}
               <div
-                className={`${pane === "preview" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-[#0b0c0f]`}
+                className={`${pane === "preview" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-black/30 backdrop-blur-md`}
               >
                 <div className="flex items-center gap-1 border-b border-white/10 px-3 py-2">
                   <span className="mr-auto truncate text-xs text-[#B6BCC8]">{title}</span>
@@ -1194,7 +1194,7 @@ function ForgePage() {
               id="forge-panel-versions"
               role="tabpanel"
               aria-labelledby="forge-tab-versions"
-              className="mt-3 rounded-xl border border-white/10 bg-[#0b0c0f] p-3"
+              className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 backdrop-blur-md"
             >
               <h2 className="flex items-center gap-2 text-sm font-semibold">
                 <History size={14} className="text-[#F4A125]" /> Versions
@@ -1232,7 +1232,7 @@ function ForgePage() {
               id="forge-panel-settings"
               role="tabpanel"
               aria-labelledby="forge-tab-settings"
-              className="mt-3 space-y-3 rounded-xl border border-white/10 bg-[#0b0c0f] p-3"
+              className="mt-3 space-y-3 rounded-xl border border-white/10 bg-black/30 p-3 backdrop-blur-md"
             >
               <div>
                 <label htmlFor="forge-title" className="text-xs text-[#B6BCC8]">
@@ -1280,7 +1280,7 @@ function ForgePage() {
           aria-modal="true"
           aria-label="Build published"
         >
-          <div className="w-full max-w-lg rounded-2xl border border-[#F4A125]/30 bg-[#0b0c0f] p-5 shadow-2xl">
+          <div className="w-full max-w-lg rounded-2xl border border-[#F4A125]/30 bg-black/60 p-5 shadow-2xl backdrop-blur-xl">
             <h2 className="text-lg font-semibold text-[#F4A125]">Your build is live</h2>
             <p className="mt-1 text-sm text-[#B6BCC8]">
               Open it in a new tab — your workspace stays exactly as it is.
@@ -1341,7 +1341,7 @@ function ForgePage() {
             if (e.target === e.currentTarget) setAdvancedOpen(false);
           }}
         >
-          <div className="h-full w-full max-w-sm overflow-y-auto border-l border-white/10 bg-[#0b0c0f] p-4">
+          <div className="h-full w-full max-w-sm overflow-y-auto border-l border-white/10 bg-black/40 p-4 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Advanced</h2>
               <button
