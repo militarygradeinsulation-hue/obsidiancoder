@@ -7,6 +7,7 @@ import * as React from "react";
 import { createFileRoute, ClientOnly, useNavigate } from "@tanstack/react-router";
 
 import { PocketBackground } from "@/components/PocketBackground";
+import { AetherisInstructor } from "@/components/AetherisInstructor";
 
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -1404,6 +1405,9 @@ function ForgePage() {
           )}
         </main>
       </div>
+
+      {/* Aetheris Instructor — plain-English teacher for the whole system. */}
+      <AetherisInstructor currentHtml={html} />
 
       {/* Published build modal — always shows the live URL even if the
           browser blocked the new tab (common inside embedded previews). */}

@@ -1186,12 +1186,44 @@
   display: flex; align-items: center; gap: 10px;
   min-width: 0;
 }
-.obs-title-mark {
-  width: 22px; height: 22px;
-  border-radius: 5px;
-  background: linear-gradient(180deg, #D9A84E, #B58A3E);
-  box-shadow: 0 0 12px rgba(217,168,78,0.35);
+/* Mini version of the home-screen amber orb. Used as the Vibe Coder title
+   mark and as the Aetheris Instructor's face — never a flat placeholder dot. */
+.obs-mini-orb {
+  position: relative;
+  display: inline-grid;
+  place-items: center;
   flex-shrink: 0;
+  width: 26px; height: 26px;
+  animation: mini-orb-drift 3.4s ease-in-out infinite;
+}
+.obs-mini-orb-core {
+  width: 46%; height: 46%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 34% 32%, #FFE0A8, #F4A125 46%, #B58A3E);
+  box-shadow:
+    0 0 0 1px rgba(244, 161, 37, 0.45),
+    0 0 10px rgba(244, 161, 37, 0.6),
+    0 0 22px rgba(244, 161, 37, 0.35);
+  animation: mini-orb-pulse 2.2s ease-in-out infinite;
+}
+.obs-mini-orb-ring {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(244, 161, 37, 0.4);
+  animation: loading-ripple 2.6s ease-out infinite;
+}
+.obs-mini-orb-ring.is-outer { animation-delay: 1.3s; opacity: 0.55; }
+@keyframes mini-orb-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.18); opacity: 0.86; }
+}
+@keyframes mini-orb-drift {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-2px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .obs-mini-orb, .obs-mini-orb-core, .obs-mini-orb-ring { animation: none !important; }
+  .obs-mini-orb-ring { opacity: 0.3; }
 }
 .obs-page-title h1 {
   font-family: var(--font-display);
