@@ -187,6 +187,9 @@ function ForgePage() {
   const [ghOpen, setGhOpen] = React.useState(false);
   const [pricingOpen, setPricingOpen] = React.useState(false);
   const [status, setStatus] = React.useState<string>("Ready");
+  // Bumped on Clear all so the sandbox iframe remounts blank even if a
+  // streaming load was aborted mid-swap.
+  const [previewNonce, setPreviewNonce] = React.useState(0);
   const [busy, setBusy] = React.useState<
     null | "generating" | "saving" | "enhancing" | "deploying"
   >(null);
@@ -405,6 +408,8 @@ function ForgePage() {
     setError(null);
     setPane("preview");
     setStatus("Cleared — ready for a new build");
+    setPreviewNonce((n) => n + 1);
+    setPreviewNonce((n) => n + 1);
     restoredRef.current = libraryCode.trim();
     promptRef.current?.focus();
   }, [libraryCode, sessionKey]);
@@ -1362,6 +1367,7 @@ function ForgePage() {
                 </div>
                 <div className={`relative flex ${paneHeight} justify-center overflow-hidden bg-[#050608] p-2`}>
                   <PocketPreviewFrame
+                    key={`preview-${previewNonce}`}
                     title="Obsidian Pocket preview"
                     doc={srcDoc}
                     className="h-full w-full"
