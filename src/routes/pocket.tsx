@@ -415,7 +415,11 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
+        headers: {
+          "Content-Type": "application/json",
+          // Paid accounts go through the metered path (Pocket = 10 builds/mo).
+          ...(paidAccess ? {} : { "x-obs-free": "1" }),
+        },
         body: JSON.stringify({
           prompt: mode === "refine" ? `[FOCUSED CHANGE] ${p}` : p,
           currentHtml: mode === "refine" ? previous : previous.slice(0, 8000),
@@ -543,6 +547,7 @@ function ForgePage() {
   // ---- Save to library (account code, or paid cloud_save gate) ------------
   const save = React.useCallback(async () => {
     if (busy || html.length < 40) return;
+    if (!paidAccess) { requireAccount("Saving projects"); return; }
 
     setBusy("saving");
     setStatus("Saving…");
@@ -801,6 +806,7 @@ function ForgePage() {
 
 
   const exportProject = React.useCallback(async () => {
+    if (!paidAccess) { requireAccount("Exporting code"); return; }
     const blob = new Blob([sanitizeForExport(html)], { type: "text/html" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -808,7 +814,7 @@ function ForgePage() {
     a.click();
     URL.revokeObjectURL(a.href);
     setStatus("Exported");
-  }, [html, title, isAdminCode]);
+  }, [html, title, isAdminCode, paidAccess, requireAccount]);
 
   const openGithub = React.useCallback(async () => {
     setGhOpen(true);
@@ -1243,6 +1249,7 @@ function ForgePage() {
                     type="button"
                     className={btn}
                     onClick={() => {
+                      if (!paidAccess) { requireAccount("Copying code"); return; }
                       void navigator.clipboard.writeText(activeFile?.content ?? "");
                       setStatus("Copied");
                     }}
