@@ -7,6 +7,8 @@ import * as React from "react";
 import { createFileRoute, ClientOnly, useNavigate } from "@tanstack/react-router";
 
 import { PocketBackground } from "@/components/PocketBackground";
+import pocketLogo from "@/assets/aetheris-logo.png.asset.json";
+
 import { AetherisInstructor } from "@/components/AetherisInstructor";
 
 import { useServerFn } from "@tanstack/react-start";
