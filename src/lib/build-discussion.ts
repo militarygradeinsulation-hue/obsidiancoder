@@ -32,12 +32,20 @@ export type BuildDiscussionState = {
   lastProvider?: string;
 };
 
-export const EMPTY_BUILD_DISCUSSION: BuildDiscussionState = {
+/** Fresh empty discussion — never shares arrays between builds. */
+export function createEmptyBuildDiscussion(
+  provider: DiscussionProvider = "claude",
+): BuildDiscussionState {
+  return { v: BUILD_DISCUSSION_VERSION, messages: [], confirmed: [], provider };
+}
+
+/** Read-only compatibility constant. Never use its arrays as mutable state. */
+export const EMPTY_BUILD_DISCUSSION: Readonly<BuildDiscussionState> = Object.freeze({
   v: BUILD_DISCUSSION_VERSION,
-  messages: [],
-  confirmed: [],
+  messages: Object.freeze([]) as unknown as DiscussionMessage[],
+  confirmed: Object.freeze([]) as unknown as string[],
   provider: "claude",
-};
+});
 
 const PROVIDERS: DiscussionProvider[] = ["claude", "grok", "auto"];
 
@@ -82,7 +90,7 @@ export function normalizeConfirmed(input: unknown): string[] {
 }
 
 export function normalizeBuildDiscussion(input: unknown): BuildDiscussionState {
-  if (!input || typeof input !== "object") return { ...EMPTY_BUILD_DISCUSSION };
+  if (!input || typeof input !== "object") return createEmptyBuildDiscussion();
   const d = input as Partial<BuildDiscussionState>;
   const provider = PROVIDERS.includes(d.provider as DiscussionProvider)
     ? (d.provider as DiscussionProvider)
@@ -130,7 +138,7 @@ export function toggleConfirmedSuggestion(
 
 export function clearBuildDiscussion(current?: BuildDiscussionState): BuildDiscussionState {
   const provider = normalizeBuildDiscussion(current).provider;
-  return { ...EMPTY_BUILD_DISCUSSION, provider };
+  return createEmptyBuildDiscussion(provider);
 }
 
 export function isDiscussionEmpty(d: BuildDiscussionState | undefined): boolean {
@@ -193,7 +201,7 @@ export function readLegacyDiscussion(store?: DiscussionStore | null): BuildDiscu
   const messages = normalizeMessages(readJson(s, LEGACY_HISTORY_KEY));
   const confirmed = normalizeConfirmed(readJson(s, LEGACY_CONFIRMED_KEY));
   if (messages.length === 0 && confirmed.length === 0) return null;
-  return normalizeBuildDiscussion({ ...EMPTY_BUILD_DISCUSSION, messages, confirmed });
+  return normalizeBuildDiscussion({ ...createEmptyBuildDiscussion(), messages, confirmed });
 }
 
 /** Marks migration done and drops the legacy + stale global keys. Never throws. */
@@ -212,4 +220,38 @@ export function finishDiscussionMigration(store?: DiscussionStore | null): void 
       /* ignore */
     }
   }
+}
+
+// ---------------------------------------------------------------------------
+// Pure migration planner — the caller decides durability (persist-then-commit).
+// ---------------------------------------------------------------------------
+
+export type DiscussionMigrationPlan<S> =
+  /** No usable legacy history — safe to mark migration complete. */
+  | { status: "nothing" }
+  /** Legacy exists but no eligible empty active build — keep legacy for later. */
+  | { status: "defer" }
+  /** Import into the active build; caller must persist `sessions` before finishing. */
+  | { status: "import"; sessions: S[] };
+
+export function planLegacyDiscussionMigration<
+  S extends { id: string; discussion?: BuildDiscussionState },
+>(
+  sessions: S[],
+  activeId: string,
+  legacy: BuildDiscussionState | null,
+): DiscussionMigrationPlan<S> {
+  if (!legacy) return { status: "nothing" };
+  const active = sessions.find((s) => s.id === activeId);
+  if (!active) return { status: "defer" };
+  if (!isDiscussionEmpty(active.discussion)) return { status: "defer" };
+  const imported = normalizeBuildDiscussion({
+    ...createEmptyBuildDiscussion(normalizeBuildDiscussion(active.discussion).provider),
+    messages: legacy.messages,
+    confirmed: legacy.confirmed,
+  });
+  return {
+    status: "import",
+    sessions: sessions.map((s) => (s.id === activeId ? { ...s, discussion: imported } : s)),
+  };
 }

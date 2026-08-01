@@ -17,9 +17,9 @@ import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
 import {
   type BuildDiscussionState,
-  EMPTY_BUILD_DISCUSSION,
+  createEmptyBuildDiscussion,
+  planLegacyDiscussionMigration,
   finishDiscussionMigration,
-  isDiscussionEmpty,
   isDiscussionMigrated,
   normalizeBuildDiscussion,
   readLegacyDiscussion,
@@ -292,7 +292,7 @@ function newSession(): Session {
     rules: reconcileRules(undefined),
     runtimeEvents: [],
     cost: { ...EMPTY_COST },
-    discussion: { ...EMPTY_BUILD_DISCUSSION },
+    discussion: createEmptyBuildDiscussion(),
   };
 }
 
@@ -1119,7 +1119,7 @@ function Index() {
             { role: "assistant", content: `Loaded "${data.title ?? "Untitled"}" from your library.` },
           ],
           // A different project in this tab must not inherit the old chat.
-          discussion: { ...EMPTY_BUILD_DISCUSSION },
+          discussion: createEmptyBuildDiscussion(),
         });
         setTab("preview");
         setLibraryOpen(false);
@@ -1216,22 +1216,24 @@ function Index() {
   const migratedRef = useRef(false);
   useEffect(() => {
     if (!hydrated || migratedRef.current) return;
-    migratedRef.current = true;
     try {
-      if (isDiscussionMigrated()) return;
+      if (isDiscussionMigrated()) { migratedRef.current = true; return; }
       const legacy = readLegacyDiscussion();
-      if (legacy) {
-        // The updater below runs during render, so decide the target here and
-        // retire the legacy keys unconditionally — a legacy import happens once.
-        setSessions((all) => all.map((s) => (
-          s.id === activeId && isDiscussionEmpty(s.discussion) ? { ...s, discussion: legacy } : s
-        )));
+      const plan = planLegacyDiscussionMigration(sessions, activeId, legacy);
+      // Legacy history stays untouched until an empty active build exists.
+      if (plan.status === "defer") return;
+      if (plan.status === "nothing") {
+        migratedRef.current = true;
+        finishDiscussionMigration();
+        return;
       }
+      // Persist-then-commit: never drop legacy keys before a durable write.
+      if (!sessionSafeSet(STORAGE_KEY, plan.sessions)) return;
+      migratedRef.current = true;
+      setSessions(plan.sessions);
       finishDiscussionMigration();
     } catch { /* migration must never break the workspace */ }
-
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hydrated]);
+  }, [hydrated, activeId, sessions]);
 
   // Debounced persistence — quota failures surface once via terminal, non-destructive.
   useEffect(() => {
