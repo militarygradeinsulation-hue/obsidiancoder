@@ -4,7 +4,7 @@
 // the shared project model, the real entitlement/credit gate, the real cloud
 // save + share endpoints, the real GitHub modal and outbound QA gate).
 import * as React from "react";
-import { createFileRoute, ClientOnly } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly, useNavigate } from "@tanstack/react-router";
 
 import { PocketBackground } from "@/components/PocketBackground";
 
