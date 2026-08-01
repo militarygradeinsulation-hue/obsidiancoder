@@ -4,7 +4,7 @@
 // the shared project model, the real entitlement/credit gate, the real cloud
 // save + share endpoints, the real GitHub modal and outbound QA gate).
 import * as React from "react";
-import { createFileRoute, ClientOnly } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly, useNavigate } from "@tanstack/react-router";
 
 import { PocketBackground } from "@/components/PocketBackground";
 
@@ -15,6 +15,7 @@ import {
   Copy,
   Download,
   Github,
+  Home,
   Loader2,
   Monitor,
   Rocket,
@@ -125,6 +126,7 @@ const primaryBtn =
   "inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-b from-[#F4A125] to-[#DD9324] px-4 py-2 text-sm font-semibold text-[#111317] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/70 disabled:cursor-not-allowed disabled:opacity-50";
 
 function ForgePage() {
+  const navigate = useNavigate();
   const { snap } = useEntitlement();
   const paid = isPaidMode(snap.mode);
 
@@ -796,6 +798,16 @@ function ForgePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className={btn}
+              onClick={() => navigate({ to: "/unlock" })}
+              aria-label="Go back to Obsidian Vibe home"
+              title="Home"
+            >
+              <Home size={14} />
+              <span className="hidden sm:inline">Home</span>
+            </button>
             <span
               aria-live="polite"
               className="hidden max-w-[220px] truncate text-xs text-[#B6BCC8] sm:inline"
