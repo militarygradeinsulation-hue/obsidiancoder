@@ -409,6 +409,7 @@ function ForgePage() {
     setPane("preview");
     setStatus("Cleared — ready for a new build");
     setPreviewNonce((n) => n + 1);
+    setPreviewNonce((n) => n + 1);
     restoredRef.current = libraryCode.trim();
     promptRef.current?.focus();
   }, [libraryCode, sessionKey]);
