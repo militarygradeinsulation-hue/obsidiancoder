@@ -193,9 +193,16 @@ function ForgePage() {
 
   // Account code (entered at /unlock) is the default library code, so every
   // person's saved projects are scoped to them across browsers.
-  const [libraryCode, setLibraryCode] = React.useState<string>(
-    () => safeGet<string>("forge.libraryCode") || getAccountCode(),
-  );
+  // Read after mount so SSR and the first client render agree (no hydration
+  // mismatch from localStorage-derived UI such as the admin-only actions).
+  const [libraryCode, setLibraryCode] = React.useState<string>("");
+  React.useEffect(() => {
+    const stored = safeGet<string>("forge.libraryCode") || getAccountCode();
+    if (stored) setLibraryCode(stored);
+    const storedModel = safeGet<string>("forge.model");
+    if (storedModel) setModel(storedModel);
+  }, []);
+
 
   const [library, setLibrary] = React.useState<LibraryBuild[]>([]);
   const [demoLive, setDemoLive] = React.useState<{ id: string; slug: string } | null>(null);
