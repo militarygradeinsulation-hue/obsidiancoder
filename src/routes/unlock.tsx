@@ -64,7 +64,9 @@ const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory
 type Intent = "buy" | "code";
 
 export const Route = createFileRoute("/unlock")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): {
+    password?: string; intent?: Intent; checkout?: "1"; priceId?: string;
+  } => ({
     password: typeof s.password === "string" ? s.password : undefined,
     intent: (s.intent === "buy" || s.intent === "code" ? s.intent : undefined) as Intent | undefined,
     checkout: s.checkout === "1" ? "1" : undefined,

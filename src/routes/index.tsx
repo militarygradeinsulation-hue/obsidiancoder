@@ -127,7 +127,7 @@ import { isFullAccessCode } from "@/lib/account-code";
 
 
 export const Route = createFileRoute("/")({
-  validateSearch: (s: Record<string, unknown>) => ({
+  validateSearch: (s: Record<string, unknown>): { demo?: "1" } => ({
     demo: s.demo === "1" || s.demo === 1 || s.demo === true ? ("1" as const) : undefined,
   }),
   beforeLoad: async ({ search }) => {
