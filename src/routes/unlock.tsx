@@ -2480,12 +2480,12 @@ const unlockCss = `
 
 .unlock-topbar-link {
   position: relative;
-  text-transform: uppercase; font-size: 11px !important; letter-spacing: 0.18em !important;
-  padding: 8px 14px !important; color: rgba(242,238,231,0.7) !important;
+  text-transform: uppercase; font-size: 11px !important; letter-spacing: 0.12em !important; white-space: nowrap;
+  padding: 8px 10px !important; color: rgba(242,238,231,0.7) !important;
   border-radius: 999px !important;
 }
 .unlock-topbar-link::after {
-  content: ""; position: absolute; left: 14px; right: 14px; bottom: 4px; height: 1px;
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: 4px; height: 1px;
   background: linear-gradient(90deg, transparent, rgba(244,161,37,0.7), transparent);
   transform: scaleX(0); transform-origin: center; transition: transform .25s ease;
 }
@@ -2493,7 +2493,7 @@ const unlockCss = `
 .unlock-topbar-link:hover::after { transform: scaleX(1); }
 .unlock-topbar-cta {
   text-transform: uppercase; font-size: 11px !important; letter-spacing: 0.2em !important;
-  padding: 9px 18px !important; border-radius: 999px !important;
+  padding: 9px 14px !important; border-radius: 999px !important; white-space: nowrap;
   background: linear-gradient(180deg, #f4a125, #c9761f) !important;
   box-shadow: 0 6px 24px rgba(244,161,37,0.28), 0 1px 0 rgba(255,255,255,0.25) inset !important;
 }
