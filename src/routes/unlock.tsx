@@ -2470,7 +2470,14 @@ const unlockCss = `
     0 20px 60px rgba(0,0,0,0.55),
     0 0 40px rgba(244,161,37,0.06) !important;
 }
-.unlock-topbar-name { font-family: Fraunces, Georgia, serif !important; font-weight: 500 !important; letter-spacing: 0.32em !important; }
+.unlock-topbar-name { font-family: Fraunces, Georgia, serif !important; font-weight: 500 !important; letter-spacing: 0.32em !important; padding-right: 0.32em; }
+@media (max-width: 900px) {
+  /* Stack brand above the links instead of letting them collide. */
+  .unlock-topbar { grid-template-columns: 1fr !important; row-gap: 6px; border-radius: 18px !important; }
+  .unlock-topbar-links { justify-content: center; }
+  .unlock-topbar-brand { justify-content: center; }
+}
+
 .unlock-topbar-link {
   position: relative;
   text-transform: uppercase; font-size: 11px !important; letter-spacing: 0.18em !important;
