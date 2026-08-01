@@ -6,6 +6,7 @@ import {
   emitPromoEvent,
   isPromoEligible,
   readPromoState,
+  shouldForceClosePromo,
   writePromoState,
   type PromoCampaign,
   type PromoDismissSource,
@@ -90,6 +91,28 @@ export default function PocketPromoModal({
     return () => window.clearTimeout(timer);
   }, [blocked, sessionLoading, signedIn, searchCheckout, searchIntent, campaign, open]);
 
+  // Safety yield: once open, a higher-priority flow (another dialog/panel, an
+  // arriving session, auth redirect, checkout/buy/code intent, or the campaign
+  // going out of window) must reclaim the screen immediately. This is NOT a
+  // user dismissal — no cooldown timestamp is written and no dismissal event
+  // is emitted. The session-shown marker set at open time stays in place, so
+  // the promo will not reopen later in this tab.
+  useEffect(() => {
+    if (!open) return;
+    if (
+      shouldForceClosePromo({
+        campaign,
+        now: Date.now(),
+        blocked,
+        sessionLoading,
+        signedIn,
+        search: { checkout: searchCheckout, intent: searchIntent },
+      })
+    ) {
+      setOpen(false);
+    }
+  }, [open, blocked, sessionLoading, signedIn, searchCheckout, searchIntent, campaign]);
+
   const persist = useCallback(
     (patch: { dismissedAt?: number; engagedAt?: number }) => {
       let storage: Storage | null = null;
@@ -162,7 +185,15 @@ export default function PocketPromoModal({
       window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", onKey, true);
       document.body.style.overflow = prevOverflow;
-      restoreFocusRef.current?.focus?.();
+      // The previously focused node may have been unmounted (e.g. an auto
+      // close triggered by a route/panel change) — never throw on restore.
+      const prior = restoreFocusRef.current;
+      restoreFocusRef.current = null;
+      try {
+        if (prior && prior.isConnected) prior.focus?.();
+      } catch {
+        /* noop */
+      }
     };
   }, [open, dismiss]);
 
