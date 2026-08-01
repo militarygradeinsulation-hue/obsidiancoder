@@ -2632,6 +2632,39 @@ export async function runPocketPromoTests(): Promise<{ results: TestResult[]; pa
   results.push(assert(!/unlimited|free forever|\$/i.test(POCKET_PROMO.body + POCKET_PROMO.headline),
     "promo: copy makes no price or allowance claims"));
 
+  // ---- Safety yield: an already-open promo closes when a higher-priority
+  // flow arrives. These are automatic closes, not user dismissals.
+  const openBase = {
+    campaign: POCKET_PROMO, now, blocked: false, sessionLoading: false,
+    signedIn: false, search: {} as { checkout?: string; intent?: string },
+  };
+  results.push(assert(!shouldForceClosePromo(openBase), "promo: open promo stays open while eligible"));
+  results.push(assert(shouldForceClosePromo({ ...openBase, blocked: true }), "promo: auto-closes when blocked becomes true"));
+  results.push(assert(shouldForceClosePromo({ ...openBase, signedIn: true }), "promo: auto-closes when a signed-in session arrives"));
+  results.push(assert(shouldForceClosePromo({ ...openBase, sessionLoading: true }), "promo: auto-closes when session loading restarts"));
+  results.push(assert(shouldForceClosePromo({ ...openBase, search: { checkout: "1" } }), "promo: auto-closes on checkout=1"));
+  results.push(assert(shouldForceClosePromo({ ...openBase, search: { intent: "buy" } }), "promo: auto-closes on intent=buy"));
+  results.push(assert(shouldForceClosePromo({ ...openBase, search: { intent: "code" } }), "promo: auto-closes on intent=code"));
+  results.push(assert(shouldForceClosePromo({ ...openBase, campaign: { ...POCKET_PROMO, enabled: false } }),
+    "promo: auto-closes when campaign is disabled"));
+  results.push(assert(shouldForceClosePromo({ ...openBase, campaign: { ...POCKET_PROMO, endAt: "2026-01-01T00:00:00Z" } }),
+    "promo: auto-closes outside the campaign date window"));
+  // Cooldown/session state must NOT force-close an open promo — the promo it
+  // just showed is the one that sets the session marker.
+  results.push(assert(!shouldForceClosePromo({ ...openBase, now: now + 1000 }),
+    "promo: session-shown/cooldown state does not force-close an open promo"));
+  // An automatic close writes nothing to storage and emits no event.
+  const safetyMem = new Map<string, string>();
+  const safetyStore = {
+    getItem: (k: string) => safetyMem.get(k) ?? null,
+    setItem: (k: string, v: string) => { safetyMem.set(k, v); },
+  };
+  shouldForceClosePromo({ ...openBase, blocked: true });
+  shouldForceClosePromo({ ...openBase, signedIn: true });
+  results.push(assert(safetyMem.size === 0 && readPromoState(safetyStore) === null,
+    "promo: auto-close records no dismissal timestamp"));
+
+
   const passed = results.filter((r) => r.ok).length;
   return { results, passed, failed: results.length - passed };
 }
