@@ -220,7 +220,7 @@ export interface PlanNavItem {
 
 // Ordered lowest → highest for gating comparisons.
 const TIER_ORDER: PlanTierId[] = [
-  "starter", "creator", "professional", "business", "elite", "enterprise",
+  "pocket", "starter", "creator", "professional", "business", "elite", "enterprise",
 ];
 
 export function tierAtLeast(current: PlanTierId | null | undefined, min: PlanTierId): boolean {
