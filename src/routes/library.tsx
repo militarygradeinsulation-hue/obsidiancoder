@@ -1,6 +1,13 @@
 import * as React from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { Copy, ExternalLink, Loader2, Search, Wand2, Home } from "lucide-react";
+import { Copy, ExternalLink, Loader2, Search, Wand2, Home, Plus, Trash2, X } from "lucide-react";
+import {
+  listLibraryBuilds,
+  setLibraryBuildPublic,
+  verifyLibraryAdmin,
+  type AdminBuildRow,
+} from "@/lib/community-admin.functions";
+
 
 type CommunityBuild = {
   id: string;
@@ -59,6 +66,17 @@ function LibraryPage() {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
+  // --- Admin backdoor (red dot -> code 9822) -------------------------------
+  const [adminCode, setAdminCode] = React.useState<string | null>(null);
+  const [codeOpen, setCodeOpen] = React.useState(false);
+  const [codeInput, setCodeInput] = React.useState("");
+  const [codeBusy, setCodeBusy] = React.useState(false);
+  const [manageOpen, setManageOpen] = React.useState(false);
+  const [allBuilds, setAllBuilds] = React.useState<AdminBuildRow[]>([]);
+  const [adminBusy, setAdminBusy] = React.useState<string | null>(null);
+
+
+
   const load = React.useCallback(async (query: string) => {
     setLoading(true);
     setError(null);
@@ -98,6 +116,55 @@ function LibraryPage() {
       setBusyId(null);
     }
   }, []);
+
+  const refreshAll = React.useCallback(async (code: string) => {
+    const r = await listLibraryBuilds({ data: { adminCode: code } });
+    if (r.ok) setAllBuilds(r.builds);
+    else setNotice(r.error);
+  }, []);
+
+  const submitCode = React.useCallback(async () => {
+    const code = codeInput.trim();
+    if (!code) return;
+    setCodeBusy(true);
+    try {
+      const r = await verifyLibraryAdmin({ data: { adminCode: code } });
+      if (!r.ok) {
+        setNotice("Wrong code");
+        return;
+      }
+      setAdminCode(code);
+      setCodeOpen(false);
+      setCodeInput("");
+      setManageOpen(true);
+      await refreshAll(code);
+      setNotice("Admin mode on");
+    } finally {
+      setCodeBusy(false);
+    }
+  }, [codeInput, refreshAll]);
+
+  const togglePublic = React.useCallback(
+    async (id: string, next: boolean) => {
+      if (!adminCode) return;
+      setAdminBusy(id);
+      try {
+        const r = await setLibraryBuildPublic({ data: { adminCode, id, is_public: next } });
+        if (!r.ok) {
+          setNotice(r.error);
+          return;
+        }
+        setAllBuilds((prev) => prev.map((b) => (b.id === id ? { ...b, is_public: next } : b)));
+        setNotice(next ? "Added to the library" : "Removed from the library");
+        await load(q.trim());
+      } finally {
+        setAdminBusy(null);
+      }
+    },
+    [adminCode, load, q],
+  );
+
+
 
   return (
     <main className="min-h-screen bg-[#08090b] text-[#f2eee7]">
@@ -208,6 +275,21 @@ function LibraryPage() {
                       <a href={`/pocket?remix=${b.id}`} className={`${btn} !border-[#F4A125]/40 !text-[#F4A125]`}>
                         <Wand2 size={13} /> Remix
                       </a>
+                      {adminCode && (
+                        <button
+                          type="button"
+                          className={`${btn} !border-rose-400/40 !text-rose-300`}
+                          onClick={() => void togglePublic(b.id, false)}
+                          disabled={adminBusy === b.id}
+                        >
+                          {adminBusy === b.id ? (
+                            <Loader2 size={13} className="animate-spin" />
+                          ) : (
+                            <Trash2 size={13} />
+                          )}{" "}
+                          Remove
+                        </button>
+                      )}
                     </div>
                   </div>
                 </li>
@@ -216,6 +298,93 @@ function LibraryPage() {
           </ul>
         )}
       </div>
+
+      {/* Admin backdoor dot */}
+      <button
+        type="button"
+        aria-label="Admin"
+        title="Admin"
+        onClick={() => (adminCode ? setManageOpen((v) => !v) : setCodeOpen(true))}
+        className="fixed bottom-4 left-4 z-40 h-3.5 w-3.5 rounded-full bg-rose-500/80 shadow-[0_0_10px_rgba(244,63,94,0.8)] transition hover:scale-125"
+      />
+
+      {codeOpen && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/70 p-4">
+          <form
+            className="w-full max-w-xs rounded-xl border border-white/10 bg-[#111317] p-4"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submitCode();
+            }}
+          >
+            <p className="text-sm font-semibold">Admin code</p>
+            <input
+              autoFocus
+              type="password"
+              inputMode="numeric"
+              value={codeInput}
+              onChange={(e) => setCodeInput(e.target.value)}
+              aria-label="Admin code"
+              className="mt-3 w-full rounded-md border border-white/10 bg-white/[0.04] px-3 py-2 text-sm text-[#f2eee7] focus:outline-none focus:ring-2 focus:ring-[#F4A125]/60"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button type="button" className={btn} onClick={() => setCodeOpen(false)}>
+                Cancel
+              </button>
+              <button type="submit" className={btn} disabled={codeBusy}>
+                {codeBusy ? <Loader2 size={13} className="animate-spin" /> : null} Enter
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {adminCode && manageOpen && (
+        <aside className="fixed bottom-4 left-4 z-50 max-h-[70vh] w-[min(24rem,calc(100vw-2rem))] overflow-auto rounded-xl border border-white/10 bg-[#111317]/95 p-3 backdrop-blur-xl">
+          <div className="flex items-center justify-between">
+            <p className="text-sm font-semibold">Manage library</p>
+            <button type="button" className={btn} onClick={() => setManageOpen(false)} aria-label="Close">
+              <X size={13} />
+            </button>
+          </div>
+          <p className="mt-1 text-[11px] text-[#6b7180]">Toggle any build in or out of the public library.</p>
+          <ul className="mt-3 space-y-2">
+            {allBuilds.map((b) => (
+              <li
+                key={b.id}
+                className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-xs text-[#f2eee7]">{b.title || "Untitled"}</span>
+                  <span className="block text-[10px] text-[#6b7180]">
+                    {new Date(b.created_at).toLocaleDateString()} · {b.is_public ? "in library" : "hidden"}
+                  </span>
+                </span>
+                <button
+                  type="button"
+                  className={
+                    b.is_public
+                      ? `${btn} !border-rose-400/40 !text-rose-300`
+                      : `${btn} !border-emerald-400/40 !text-emerald-300`
+                  }
+                  onClick={() => void togglePublic(b.id, !b.is_public)}
+                  disabled={adminBusy === b.id}
+                >
+                  {adminBusy === b.id ? (
+                    <Loader2 size={13} className="animate-spin" />
+                  ) : b.is_public ? (
+                    <Trash2 size={13} />
+                  ) : (
+                    <Plus size={13} />
+                  )}
+                  {b.is_public ? "Remove" : "Add"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </aside>
+      )}
     </main>
   );
 }
+
