@@ -7,12 +7,16 @@ import type { LucideIcon } from "lucide-react";
 import { Rocket, Sparkles, Briefcase, Building2, Crown, Landmark } from "lucide-react";
 
 export type PlanTierId =
+  | "pocket"
   | "starter"
   | "creator"
   | "professional"
   | "business"
   | "elite"
   | "enterprise";
+
+/** Hard monthly build allowance for the Obsidian Pocket plan. */
+export const POCKET_MONTHLY_BUILDS = 10;
 
 export interface PlanTier {
   id: PlanTierId;
@@ -34,11 +38,27 @@ export interface PlanTier {
 
 export const PLAN_TIERS: PlanTier[] = [
   {
+    id: "pocket",
+    name: "Pocket",
+    price: "$10",
+    cadence: "/month",
+    headline: "Obsidian Pocket — quick prompt-to-app builds.",
+    bestFor: "Anyone who wants fast one-box builds without the full studio.",
+    outcomes: [
+      "Access to Obsidian Pocket",
+      `${POCKET_MONTHLY_BUILDS} AI builds every month`,
+      "Save projects to your account",
+      "Copy and export your code",
+      "Publish + share to the community library",
+    ],
+    priceId: "obsidian_pocket_monthly",
+    cta: "checkout",
+    icon: Sparkles,
+  },
+  {
     id: "starter",
     name: "Starter",
-    price: "$19",
-    originalPrice: "$29",
-    founding: true,
+    price: "$29",
     cadence: "/month",
     headline: "Perfect for learning and small projects.",
     bestFor: "First-time builders exploring what AI can ship.",
@@ -56,9 +76,7 @@ export const PLAN_TIERS: PlanTier[] = [
   {
     id: "creator",
     name: "Creator",
-    price: "$49",
-    originalPrice: "$79",
-    founding: true,
+    price: "$79",
     cadence: "/month",
     headline: "For solo builders shipping regularly.",
     bestFor: "Independent builders and side-project founders.",
@@ -182,6 +200,9 @@ export function tierForPriceId(priceId: string | null | undefined): PlanTier | u
  * returns 0 (free plan — no paid AI operations).
  */
 export const TIER_CREDIT_CAP: Record<PlanTierId, number> = {
+  // Pocket is metered by builds (POCKET_MONTHLY_BUILDS), the credit cap is a
+  // conservative envelope that comfortably covers 10 builds + prompt enhance.
+  pocket: 700,
   starter: 400,
   creator: 1000,
   professional: 2500,
@@ -213,7 +234,7 @@ export interface PlanNavItem {
 
 // Ordered lowest → highest for gating comparisons.
 const TIER_ORDER: PlanTierId[] = [
-  "starter", "creator", "professional", "business", "elite", "enterprise",
+  "pocket", "starter", "creator", "professional", "business", "elite", "enterprise",
 ];
 
 export function tierAtLeast(current: PlanTierId | null | undefined, min: PlanTierId): boolean {

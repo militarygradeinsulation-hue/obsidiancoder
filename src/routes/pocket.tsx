@@ -57,6 +57,7 @@ import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
 import { PocketBuildOrb } from "@/components/PocketBuildOrb";
 
 import { PricingModal } from "@/components/PricingModal";
+import { POCKET_MONTHLY_BUILDS } from "@/lib/plans";
 import {
   FORGE_DEVICES,
   deviceWidth,
@@ -214,6 +215,13 @@ function ForgePage() {
 
   /** Admin library code: full access to save, publish, export and Demos. */
   const isAdminCode = isFullAccessCode(libraryCode);
+  /** Paid Pocket access: an active subscription, or the admin library code. */
+  const paidAccess = paid || isAdminCode;
+  const buildsLeft = snap.builds && snap.builds.cap > 0 ? snap.builds : null;
+  const requireAccount = React.useCallback((what: string) => {
+    setError(`${what} needs an Obsidian Pocket account — $10/month for ${POCKET_MONTHLY_BUILDS} builds, saving, and code export.`);
+    setPricingOpen(true);
+  }, []);
 
 
   const abortRef = React.useRef<AbortController | null>(null);
@@ -415,7 +423,11 @@ function ForgePage() {
     try {
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
+        headers: {
+          "Content-Type": "application/json",
+          // Paid accounts go through the metered path (Pocket = 10 builds/mo).
+          ...(paidAccess ? {} : { "x-obs-free": "1" }),
+        },
         body: JSON.stringify({
           prompt: mode === "refine" ? `[FOCUSED CHANGE] ${p}` : p,
           currentHtml: mode === "refine" ? previous : previous.slice(0, 8000),
@@ -543,6 +555,7 @@ function ForgePage() {
   // ---- Save to library (account code, or paid cloud_save gate) ------------
   const save = React.useCallback(async () => {
     if (busy || html.length < 40) return;
+    if (!paidAccess) { requireAccount("Saving projects"); return; }
 
     setBusy("saving");
     setStatus("Saving…");
@@ -571,7 +584,7 @@ function ForgePage() {
     } finally {
       setBusy(null);
     }
-  }, [busy, html, title, prompt, model, libraryCode, loadLibrary, log]);
+  }, [busy, html, title, prompt, model, libraryCode, loadLibrary, log, paidAccess, requireAccount]);
 
   // ---- Deploy (existing outbound QA gate → save → share URL) --------------
   const deploy = React.useCallback(async () => {
@@ -801,6 +814,7 @@ function ForgePage() {
 
 
   const exportProject = React.useCallback(async () => {
+    if (!paidAccess) { requireAccount("Exporting code"); return; }
     const blob = new Blob([sanitizeForExport(html)], { type: "text/html" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -808,7 +822,7 @@ function ForgePage() {
     a.click();
     URL.revokeObjectURL(a.href);
     setStatus("Exported");
-  }, [html, title, isAdminCode]);
+  }, [html, title, isAdminCode, paidAccess, requireAccount]);
 
   const openGithub = React.useCallback(async () => {
     setGhOpen(true);
@@ -894,6 +908,23 @@ function ForgePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {buildsLeft ? (
+              <span
+                className="hidden rounded-md border border-[#F4A125]/30 bg-[#F4A125]/10 px-2 py-1 text-[11px] text-[#F4A125] md:inline"
+                title={`Pocket plan: ${buildsLeft.used} of ${buildsLeft.cap} builds used this month`}
+              >
+                {buildsLeft.remaining}/{buildsLeft.cap} builds left
+              </span>
+            ) : !paidAccess ? (
+              <button
+                type="button"
+                className={btn}
+                onClick={() => setPricingOpen(true)}
+                title={`Obsidian Pocket — $10/month for ${POCKET_MONTHLY_BUILDS} builds, saving and export`}
+              >
+                Upgrade
+              </button>
+            ) : null}
             <button
               type="button"
               className={btn}
@@ -1243,6 +1274,7 @@ function ForgePage() {
                     type="button"
                     className={btn}
                     onClick={() => {
+                      if (!paidAccess) { requireAccount("Copying code"); return; }
                       void navigator.clipboard.writeText(activeFile?.content ?? "");
                       setStatus("Copied");
                     }}
