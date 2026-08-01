@@ -3413,7 +3413,11 @@ function Index() {
           <div className="obs-canvas">
             <div className="obs-canvas-head">
               <div className="obs-page-title">
-                <span className="obs-title-mark" />
+                <span className="obs-mini-orb" aria-hidden="true">
+                  <span className="obs-mini-orb-core" />
+                  <span className="obs-mini-orb-ring" />
+                  <span className="obs-mini-orb-ring is-outer" />
+                </span>
                 <h1>{current.title === "Untitled" ? "Vibe Coder" : current.title}</h1>
               </div>
               <div className="obs-mode-group" role="tablist" aria-label="Development mode">
