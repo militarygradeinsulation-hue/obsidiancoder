@@ -21,6 +21,8 @@ import exampleVideo2 from "@/assets/example-2.mp4.asset.json";
 import exampleVideo3 from "@/assets/example-3.mp4.asset.json";
 import exampleVideo4 from "@/assets/example-4.mp4.asset.json";
 import exampleVideo5 from "@/assets/example-5.mp4.asset.json";
+import vibeShot from "@/assets/workspace-vibe.png.asset.json";
+import pocketShot from "@/assets/workspace-pocket.png.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
@@ -1855,6 +1857,26 @@ const unlockCss = `
 }
 
 /* ---- Vibe vs Pocket comparison ---- */
+.unlock-compare-shot {
+  display: block; width: 100%; height: auto; aspect-ratio: 16 / 10;
+  object-fit: cover; object-position: top center;
+  border-radius: 12px; margin-bottom: 14px;
+  border: 1px solid rgba(244,161,37,0.22);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.55);
+}
+.unlock-community { margin-top: 22px; }
+.unlock-community-head {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: flex-end; justify-content: space-between; margin-bottom: 14px;
+}
+.unlock-community-empty { font-size: 13px; color: rgba(182,188,200,0.7); margin: 0; }
+.unlock-community-grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.unlock-community-grid .demo-frame { display: block; }
+.unlock-community-grid .demo-meta { display: flex; }
+
 .unlock-compare {
   pointer-events: auto;
   width: 100%;
