@@ -79,7 +79,7 @@ export const Route = createFileRoute("/unlock")({
     const pwd = (search as { password?: string }).password;
     if (!pwd) return;
     const { ok } = await unlockSite({ data: { password: pwd } });
-    if (ok) throw redirect({ to: "/" });
+    if (ok) throw redirect({ to: "/home" });
     throw redirect({ to: "/unlock" });
   },
   head: () => ({
@@ -263,7 +263,7 @@ function Unlock() {
         if (cancelled) return;
         if (ok) {
           setStatus("Pro access verified — opening Obsidian…");
-          await router.navigate({ to: "/" });
+          await router.navigate({ to: "/home" });
           router.invalidate();
         }
       } catch { /* not pro or transport error — stay on page */ }
@@ -282,7 +282,7 @@ function Unlock() {
         // The access code doubles as the person's library code, so their
         // saved projects follow them across browsers and devices.
         setAccountCode(password);
-        await router.navigate({ to: "/" });
+        await router.navigate({ to: "/home" });
         router.invalidate();
       } else setError("Access denied.");
 
