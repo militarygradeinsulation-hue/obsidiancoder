@@ -908,6 +908,23 @@ function ForgePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            {buildsLeft ? (
+              <span
+                className="hidden rounded-md border border-[#F4A125]/30 bg-[#F4A125]/10 px-2 py-1 text-[11px] text-[#F4A125] md:inline"
+                title={`Pocket plan: ${buildsLeft.used} of ${buildsLeft.cap} builds used this month`}
+              >
+                {buildsLeft.remaining}/{buildsLeft.cap} builds left
+              </span>
+            ) : !paidAccess ? (
+              <button
+                type="button"
+                className={btn}
+                onClick={() => setPricingOpen(true)}
+                title={`Obsidian Pocket — $10/month for ${POCKET_MONTHLY_BUILDS} builds, saving and export`}
+              >
+                Upgrade
+              </button>
+            ) : null}
             <button
               type="button"
               className={btn}
