@@ -57,6 +57,7 @@ import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
 import { PocketBuildOrb } from "@/components/PocketBuildOrb";
 
 import { PricingModal } from "@/components/PricingModal";
+import { POCKET_MONTHLY_BUILDS } from "@/lib/plans";
 import {
   FORGE_DEVICES,
   deviceWidth,
@@ -214,6 +215,13 @@ function ForgePage() {
 
   /** Admin library code: full access to save, publish, export and Demos. */
   const isAdminCode = isFullAccessCode(libraryCode);
+  /** Paid Pocket access: an active subscription, or the admin library code. */
+  const paidAccess = paid || isAdminCode;
+  const buildsLeft = snap.builds && snap.builds.cap > 0 ? snap.builds : null;
+  const requireAccount = React.useCallback((what: string) => {
+    setError(`${what} needs an Obsidian Pocket account — $10/month for ${POCKET_MONTHLY_BUILDS} builds, saving, and code export.`);
+    setPricingOpen(true);
+  }, []);
 
 
   const abortRef = React.useRef<AbortController | null>(null);
@@ -576,7 +584,7 @@ function ForgePage() {
     } finally {
       setBusy(null);
     }
-  }, [busy, html, title, prompt, model, libraryCode, loadLibrary, log]);
+  }, [busy, html, title, prompt, model, libraryCode, loadLibrary, log, paidAccess, requireAccount]);
 
   // ---- Deploy (existing outbound QA gate → save → share URL) --------------
   const deploy = React.useCallback(async () => {
