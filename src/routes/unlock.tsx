@@ -178,14 +178,23 @@ function Unlock() {
       .limit(60)
       .then(({ data }) => {
         if (!alive || !data) return;
+        // Collapse duplicates (same title or same target URL promoted twice).
+        const seen = new Set<string>();
+        const unique = data.filter((d) => {
+          const key = (d.url || d.title || d.slug).toLowerCase().trim();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         setFeaturedDemos(
-          data.map((d) => ({
+          unique.map((d) => ({
             slug: d.slug,
             title: d.title,
             url: d.url ?? undefined,
             category: (DEMO_CATEGORIES as readonly string[]).includes(d.category) ? (d.category as DemoCategory) : "App",
           })),
         );
+
       });
     return () => { alive = false; };
   }, []);
