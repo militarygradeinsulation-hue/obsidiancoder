@@ -76,7 +76,38 @@ function InstructorOrb({ size = 34, busy = false }: { size?: number; busy?: bool
   );
 }
 
-export function AetherisInstructor({ currentHtml = "" }: { currentHtml?: string }) {
+/**
+ * Optional hands-on controls. When Pocket passes these, the Instructor stops
+ * being a read-only chat and can actually drive the workspace for the learner:
+ * read their prompt, write or add to it, start a build, and reset.
+ */
+export interface InstructorControls {
+  getPrompt: () => string;
+  setPrompt: (next: string) => void;
+  appendPrompt: (extra: string) => void;
+  build?: () => void;
+  extendIdeas?: () => void;
+  clear?: () => void;
+  busy?: boolean;
+}
+
+/** Pull a suggested prompt out of an assistant answer: fenced block first. */
+function extractSuggestedPrompt(text: string): string {
+  const fenced = /```(?:prompt|text)?\s*\n([\s\S]*?)```/i.exec(text);
+  if (fenced?.[1]?.trim()) return fenced[1].trim();
+  const quoted = /"([^"]{40,600})"/.exec(text);
+  if (quoted?.[1]?.trim()) return quoted[1].trim();
+  return "";
+}
+
+export function AetherisInstructor({
+  currentHtml = "",
+  controls,
+}: {
+  currentHtml?: string;
+  controls?: InstructorControls;
+}) {
+
   const [open, setOpen] = React.useState(false);
   const [input, setInput] = React.useState("");
   const [busy, setBusy] = React.useState(false);
