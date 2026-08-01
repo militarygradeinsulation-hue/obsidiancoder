@@ -99,6 +99,10 @@ export const Route = createFileRoute("/api/public/builds")({
             library_code: libCode || null,
             share_slug: genSlug(),
             byte_size: cleanHtml.length,
+            is_public: body.is_public === true,
+            published_at: body.is_public === true ? new Date().toISOString() : null,
+            author_label: (body.author_label || "").slice(0, 40) || null,
+            surface: (body.surface || "").slice(0, 20) || null,
           };
           const admin = await sbAdmin();
           const { data, error } = await admin
