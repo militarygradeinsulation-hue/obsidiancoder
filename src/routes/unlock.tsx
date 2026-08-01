@@ -145,14 +145,14 @@ function Unlock() {
   // Community builds shared from Obsidian Pocket — shown right on the home
   // screen so visitors see real work without opening /library first.
   const [communityBuilds, setCommunityBuilds] = useState<
-    { id: string; title: string; prompt: string; share_slug: string | null; remix_count: number }[]
+    { id: string; title: string; prompt: string; share_slug: string | null; remix_count: number; byte_size: number }[]
   >([]);
   useEffect(() => {
     let alive = true;
-    fetch("/api/public/community?limit=8")
+    fetch("/api/public/community?limit=24")
       .then((r) => (r.ok ? r.json() : { builds: [] }))
       .then((j: { builds?: typeof communityBuilds }) => {
-        if (alive && Array.isArray(j.builds)) setCommunityBuilds(j.builds.filter((b) => b.share_slug));
+        if (alive && Array.isArray(j.builds)) setCommunityBuilds(j.builds.filter((b) => b.share_slug && b.byte_size > 900).slice(0, 8));
       })
       .catch(() => {});
     return () => {
