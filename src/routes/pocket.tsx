@@ -101,6 +101,20 @@ interface LibraryBuild {
   share_slug?: string | null;
 }
 
+const POCKET_IDEA_CATEGORIES: Array<{ id: string; label: string }> = [
+  { id: "all", label: "All ideas" },
+  { id: "ai", label: "AI" },
+  { id: "app", label: "App" },
+  { id: "game", label: "Game" },
+  { id: "productivity", label: "Productivity" },
+  { id: "education", label: "Education" },
+  { id: "presentation", label: "Presentation" },
+  { id: "landing", label: "Landing page" },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "portfolio", label: "Portfolio" },
+];
+
+
 const EMPTY_DOC = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New project</title></head>
 <body style="margin:0;display:grid;place-items:center;height:100vh;background:#0b0c0f;color:#8b8f98;font-family:Inter,system-ui;font-size:14px">Describe what to build, then press Generate.</body></html>`;
