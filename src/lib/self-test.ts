@@ -2563,10 +2563,75 @@ export async function runPhaseBTests(): Promise<{ results: TestResult[]; passed:
   return { results, passed, failed: results.length - passed };
 }
 
+export async function runPocketPromoTests(): Promise<{ results: TestResult[]; passed: number; failed: number }> {
+  const results: TestResult[] = [];
+  const {
+    POCKET_PROMO, isPromoEligible, readPromoState, writePromoState,
+    promoEventDetail, withinWindow, PROMO_STORAGE_KEY,
+  } = await import("./pocket-promo");
 
+  const DAY = 86_400_000;
+  const now = Date.UTC(2026, 0, 15);
+  const base = {
+    campaign: POCKET_PROMO, now, blocked: false, sessionLoading: false,
+    signedIn: false, search: {} as { checkout?: string; intent?: string },
+    sessionShown: false, stored: null as null | { campaignId: string; dismissedAt?: number; engagedAt?: number },
+  };
 
+  results.push(assert(isPromoEligible(base), "promo: first eligible visit shows campaign"));
+  results.push(assert(!isPromoEligible({ ...base, search: { checkout: "1" } }), "promo: checkout=1 suppresses"));
+  results.push(assert(!isPromoEligible({ ...base, search: { intent: "buy" } }), "promo: intent=buy suppresses"));
+  results.push(assert(!isPromoEligible({ ...base, search: { intent: "code" } }), "promo: intent=code suppresses"));
+  results.push(assert(!isPromoEligible({ ...base, blocked: true }), "promo: open modal/panel suppresses"));
+  results.push(assert(!isPromoEligible({ ...base, signedIn: true }), "promo: signed-in session suppresses"));
+  results.push(assert(!isPromoEligible({ ...base, sessionLoading: true }), "promo: session loading suppresses"));
+  results.push(assert(!isPromoEligible({ ...base, sessionShown: true }), "promo: one impression per tab session"));
 
+  const dismissed = { campaignId: POCKET_PROMO.campaignId, dismissedAt: now - 2 * DAY };
+  results.push(assert(!isPromoEligible({ ...base, stored: dismissed }), "promo: dismissal hidden during 7d cooldown"));
+  results.push(assert(isPromoEligible({ ...base, now: now + 8 * DAY, stored: dismissed }), "promo: expired cooldown permits again"));
 
+  const engaged = { campaignId: POCKET_PROMO.campaignId, engagedAt: now - 5 * DAY };
+  results.push(assert(!isPromoEligible({ ...base, stored: engaged }), "promo: CTA engagement suppresses 30 days"));
+  results.push(assert(isPromoEligible({ ...base, now: now + 31 * DAY, stored: engaged }), "promo: engagement suppression expires"));
+  results.push(assert(isPromoEligible({ ...base, stored: { campaignId: "pocket-launch-v0", dismissedAt: now } }),
+    "promo: campaignId change permits a new campaign"));
+  results.push(assert(!isPromoEligible({ ...base, campaign: { ...POCKET_PROMO, enabled: false } }), "promo: disabled campaign never shows"));
+  results.push(assert(!withinWindow({ ...POCKET_PROMO, endAt: "2026-01-01T00:00:00Z" }, now), "promo: end date closes window"));
+  results.push(assert(!withinWindow({ ...POCKET_PROMO, startAt: "2026-02-01T00:00:00Z" }, now), "promo: start date gates window"));
 
+  // Storage exceptions must fail safe (treated as "no stored state"), not throw.
+  const throwing = {
+    getItem() { throw new Error("blocked"); },
+    setItem() { throw new Error("blocked"); },
+  };
+  let threw = false;
+  let readBack: unknown = "x";
+  try {
+    readBack = readPromoState(throwing);
+    writePromoState(throwing, { campaignId: POCKET_PROMO.campaignId, dismissedAt: now });
+  } catch { threw = true; }
+  results.push(assert(!threw && readBack === null, "promo: storage exception does not crash"));
+  results.push(assert(readPromoState({ getItem: () => "{not json", setItem: () => {} }) === null, "promo: malformed storage value ignored"));
 
+  const mem = new Map<string, string>();
+  const fake = { getItem: (k: string) => mem.get(k) ?? null, setItem: (k: string, v: string) => { mem.set(k, v); } };
+  writePromoState(fake, { campaignId: POCKET_PROMO.campaignId, dismissedAt: now });
+  results.push(assert(mem.has(PROMO_STORAGE_KEY) && readPromoState(fake)?.dismissedAt === now, "promo: round-trips dismissal state"));
 
+  const impression = promoEventDetail("pocket_promo_impression", POCKET_PROMO.campaignId);
+  const cta = promoEventDetail("pocket_promo_cta_clicked", POCKET_PROMO.campaignId);
+  const dismiss = promoEventDetail("pocket_promo_dismissed", POCKET_PROMO.campaignId, "escape");
+  const keysOk = [impression, cta, dismiss].every((d) =>
+    Object.keys(d).every((k) => k === "event" || k === "campaignId" || k === "source"));
+  results.push(assert(keysOk, "promo: analytics payloads contain no PII fields"));
+  results.push(assert(dismiss.source === "escape", "promo: dismissal source recorded"));
+  results.push(assert(POCKET_PROMO.destination === "/pocket", "promo: CTA destination is exactly /pocket"));
+  results.push(assert(POCKET_PROMO.initialDelayMs === 1400 && POCKET_PROMO.dismissCooldownDays === 7
+    && POCKET_PROMO.engagedCooldownDays === 30, "promo: timing config matches spec"));
+  results.push(assert(!/unlimited|free forever|\$/i.test(POCKET_PROMO.body + POCKET_PROMO.headline),
+    "promo: copy makes no price or allowance claims"));
+
+  const passed = results.filter((r) => r.ok).length;
+  return { results, passed, failed: results.length - passed };
+}
