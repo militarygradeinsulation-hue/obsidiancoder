@@ -2567,7 +2567,7 @@ export async function runPocketPromoTests(): Promise<{ results: TestResult[]; pa
   const results: TestResult[] = [];
   const {
     POCKET_PROMO, isPromoEligible, readPromoState, writePromoState,
-    promoEventDetail, withinWindow, PROMO_STORAGE_KEY,
+    promoEventDetail, withinWindow, PROMO_STORAGE_KEY, shouldForceClosePromo,
   } = await import("./pocket-promo");
 
   const DAY = 86_400_000;
