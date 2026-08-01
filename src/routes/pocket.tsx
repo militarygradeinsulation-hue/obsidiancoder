@@ -1151,6 +1151,16 @@ function ForgePage() {
                 >
                   <Wand2 size={13} /> Enhance
                 </button>
+                <button
+                  type="button"
+                  className={btn}
+                  onClick={() => void runExtendIdeas()}
+                  disabled={!!busy || !prompt.trim()}
+                  title="Reads what you wrote and adds more ideas on top — your words are kept"
+                >
+                  <Sparkles size={13} /> Extend ideas
+                </button>
+
                 {voice.supported && (
                   <button
                     type="button"
