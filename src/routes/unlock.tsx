@@ -1095,7 +1095,15 @@ function Unlock() {
           onClose={() => setWaitlistTier(null)}
         />
       )}
+
+      <PocketPromoModal
+        blocked={panelOpen || showCheckout || !!activeVideo || !!waitlistTier || pocketExpanded || demosOpen}
+        sessionLoading={sessionLoading}
+        signedIn={!!session}
+        search={{ checkout: search.checkout, intent: search.intent }}
+      />
     </div>
+
   );
 }
 
