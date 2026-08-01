@@ -14,7 +14,9 @@ export const Route = createFileRoute("/api/public/self-test")({
           failed: core.failed + phaseB.failed + promo.failed + discussion.failed + creative.failed,
           phaseB: { passed: phaseB.passed, failed: phaseB.failed },
           pocketPromo: { passed: promo.passed, failed: promo.failed },
-          buildDiscussion: { passed: discussion.passed + creative.passed, failed: discussion.failed },
+          buildDiscussion: { passed: discussion.passed, failed: discussion.failed },
+          pocketCreative: { passed: creative.passed, failed: creative.failed },
+
         };
         return Response.json(out, {
           headers: { "Cache-Control": "no-store" },
