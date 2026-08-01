@@ -185,7 +185,15 @@ export default function PocketPromoModal({
       window.clearTimeout(focusTimer);
       document.removeEventListener("keydown", onKey, true);
       document.body.style.overflow = prevOverflow;
-      restoreFocusRef.current?.focus?.();
+      // The previously focused node may have been unmounted (e.g. an auto
+      // close triggered by a route/panel change) — never throw on restore.
+      const prior = restoreFocusRef.current;
+      restoreFocusRef.current = null;
+      try {
+        if (prior && prior.isConnected) prior.focus?.();
+      } catch {
+        /* noop */
+      }
     };
   }, [open, dismiss]);
 
