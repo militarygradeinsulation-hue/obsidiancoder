@@ -66,6 +66,17 @@ function LibraryPage() {
   const [notice, setNotice] = React.useState<string | null>(null);
   const [busyId, setBusyId] = React.useState<string | null>(null);
 
+  // --- Admin backdoor (red dot -> code 9822) -------------------------------
+  const [adminCode, setAdminCode] = React.useState<string | null>(null);
+  const [codeOpen, setCodeOpen] = React.useState(false);
+  const [codeInput, setCodeInput] = React.useState("");
+  const [codeBusy, setCodeBusy] = React.useState(false);
+  const [manageOpen, setManageOpen] = React.useState(false);
+  const [allBuilds, setAllBuilds] = React.useState<AdminBuildRow[]>([]);
+  const [adminBusy, setAdminBusy] = React.useState<string | null>(null);
+
+
+
   const load = React.useCallback(async (query: string) => {
     setLoading(true);
     setError(null);
