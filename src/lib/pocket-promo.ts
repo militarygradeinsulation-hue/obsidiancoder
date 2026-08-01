@@ -36,8 +36,7 @@ export const POCKET_PROMO: PromoCampaign = {
   destination: "/pocket",
   eyebrow: "NEW · OBSIDIAN POCKET",
   headline: "The fastest way to build with Obsidian.",
-  body:
-    "One prompt. Editable code. A live preview. Pocket puts Obsidian’s real generation, versions, QA, publishing, and project tools inside a simpler workspace.",
+  body: "One prompt. Editable code. A live preview. Pocket puts Obsidian’s real generation, versions, QA, publishing, and project tools inside a simpler workspace.",
   primaryCta: "Try Obsidian Pocket",
   secondaryCta: "Continue to Obsidian Vibe",
   trustLine: "Same Obsidian engine. Simpler workspace.",

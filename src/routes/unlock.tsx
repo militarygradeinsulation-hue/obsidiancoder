@@ -1099,7 +1099,14 @@ function Unlock() {
       )}
 
       <PocketPromoModal
-        blocked={panelOpen || showCheckout || !!activeVideo || !!waitlistTier || pocketExpanded || demosOpen}
+        blocked={
+          panelOpen ||
+          showCheckout ||
+          !!activeVideo ||
+          !!waitlistTier ||
+          pocketExpanded ||
+          demosOpen
+        }
         sessionLoading={sessionLoading}
         signedIn={!!session}
         search={{ checkout: search.checkout, intent: search.intent }}
