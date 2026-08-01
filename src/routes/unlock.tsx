@@ -178,14 +178,23 @@ function Unlock() {
       .limit(60)
       .then(({ data }) => {
         if (!alive || !data) return;
+        // Collapse duplicates (same title or same target URL promoted twice).
+        const seen = new Set<string>();
+        const unique = data.filter((d) => {
+          const key = (d.url || d.title || d.slug).toLowerCase().trim();
+          if (seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
         setFeaturedDemos(
-          data.map((d) => ({
+          unique.map((d) => ({
             slug: d.slug,
             title: d.title,
             url: d.url ?? undefined,
             category: (DEMO_CATEGORIES as readonly string[]).includes(d.category) ? (d.category as DemoCategory) : "App",
           })),
         );
+
       });
     return () => { alive = false; };
   }, []);
@@ -876,6 +885,7 @@ function Unlock() {
           })}
         </div>
         {(demosOpen || demoCategory !== "All") && (() => {
+          const seenTitles = new Set<string>();
           const merged = Array.from(
             new Map(
               [...featuredDemos, ...DEMOS].map((d) => {
@@ -883,7 +893,17 @@ function Unlock() {
                 return [demoUrl, { ...d, demoUrl }] as const;
               }),
             ).values(),
-          ).filter(({ category }) => demoCategory === "All" || category === demoCategory);
+          )
+            // Same project promoted under two slugs shows once.
+            .filter(({ title }) => {
+              const key = (title || "").toLowerCase().replace(/\s+/g, " ").trim();
+              if (!key) return true;
+              if (seenTitles.has(key)) return false;
+              seenTitles.add(key);
+              return true;
+            })
+            .filter(({ category }) => demoCategory === "All" || category === demoCategory);
+
 
           const placeholder = (slug: string, label: string) => {
             let hue = 0;
