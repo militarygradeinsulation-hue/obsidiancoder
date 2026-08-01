@@ -113,9 +113,9 @@ function LibraryPage() {
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/unlock" className={btn}>
+            <a href="/unlock" className={btn}>
               <Home size={13} /> Home
-            </Link>
+            </a>
             <Link
               to="/pocket"
               className="inline-flex items-center gap-2 rounded-md bg-gradient-to-b from-[#F4A125] to-[#DD9324] px-4 py-2 text-sm font-semibold text-[#111317] transition hover:brightness-110"
