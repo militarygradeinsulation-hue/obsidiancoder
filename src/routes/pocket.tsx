@@ -913,6 +913,22 @@ function ForgePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <label className="hidden items-center gap-1.5 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
+              <span className="text-[10px] uppercase tracking-widest text-[#6b7180]">Code</span>
+              <input
+                value={libraryCode}
+                onChange={(e) => setLibraryCode(e.target.value)}
+                placeholder="e.g. 9822"
+                aria-label="Account / library code"
+                title="Enter your code to auto-save and load your projects"
+                className="w-[86px] bg-transparent text-xs text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none"
+              />
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${libraryCode.trim() ? "bg-emerald-400" : "bg-[#4b5060]"}`}
+                title={libraryCode.trim() ? "Signed in — projects auto-save" : "No code — projects are not saved"}
+              />
+            </label>
+
             {buildsLeft ? (
               <span
                 className="hidden rounded-md border border-[#F4A125]/30 bg-[#F4A125]/10 px-2 py-1 text-[11px] text-[#F4A125] md:inline"
