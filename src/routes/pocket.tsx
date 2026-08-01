@@ -41,7 +41,10 @@ import { sanitizeForExport } from "@/lib/clean-export";
 import { DEFAULT_MODEL, MODEL_REGISTRY, ROUTELLM_MODELS } from "@/lib/models";
 import { updateContent, createFile, type Project } from "@/lib/project-model";
 import { enhancePrompt } from "@/lib/enhance.functions";
-import { suggestAddons } from "@/lib/prompt-enhance";
+import { suggestAddons, type Addon } from "@/lib/prompt-enhance";
+import { generateStarterIdeas } from "@/lib/ideas.functions";
+import { suggestionAllowed } from "@/lib/suggestion-safety";
+
 
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { getAccountCode, setAccountCode, isFullAccessCode } from "@/lib/account-code";
