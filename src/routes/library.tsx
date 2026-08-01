@@ -362,6 +362,7 @@ function LibraryPage() {
               );
             })}
           </ul>
+          </>
         )}
       </div>
 
