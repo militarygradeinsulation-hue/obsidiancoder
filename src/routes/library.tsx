@@ -205,9 +205,9 @@ function LibraryPage() {
                       >
                         {busyId === b.id ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />} Copy code
                       </button>
-                      <Link to="/pocket" search={{ remix: b.id }} className={`${btn} !border-[#F4A125]/40 !text-[#F4A125]`}>
+                      <a href={`/pocket?remix=${b.id}`} className={`${btn} !border-[#F4A125]/40 !text-[#F4A125]`}>
                         <Wand2 size={13} /> Remix
-                      </Link>
+                      </a>
                     </div>
                   </div>
                 </li>
