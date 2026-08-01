@@ -4786,9 +4786,12 @@ function Index() {
         buildId={current.id}
         buildTitle={current.title || "Untitled"}
         discussion={normalizeBuildDiscussion(current.discussion)}
-        onDiscussionChange={(next) => {
+        onDiscussionChange={(updater) => {
+          // Captured at render time: a late reply always resolves against ITS build.
           const sid = current.id;
-          setSessions((all) => all.map((s) => (s.id === sid ? { ...s, discussion: next } : s)));
+          setSessions((all) => all.map((s) => (
+            s.id === sid ? { ...s, discussion: updater(normalizeBuildDiscussion(s.discussion)) } : s
+          )));
         }}
         open={buildChatOpen}
         onClose={() => setBuildChatOpen(false)}

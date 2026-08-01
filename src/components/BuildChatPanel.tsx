@@ -18,6 +18,7 @@ import {
   type BuildDiscussionState,
   type DiscussionMessage,
   type DiscussionProvider,
+  appendDiscussionMessages,
   clearBuildDiscussion,
   normalizeBuildDiscussion,
   toggleConfirmedSuggestion,
@@ -37,7 +38,9 @@ interface Props {
   buildId: string;
   buildTitle: string;
   discussion: BuildDiscussionState;
-  onDiscussionChange: (next: BuildDiscussionState) => void;
+  /** Functional update applied against the LATEST state of this build only, so a
+   *  reply that resolves after the user switched tabs still lands on its own build. */
+  onDiscussionChange: (updater: (prev: BuildDiscussionState) => BuildDiscussionState) => void;
 }
 
 /** Cheap revision id from HTML content. */
@@ -96,7 +99,7 @@ export function BuildChatPanel({
   const stateRef = useRef(state);
   stateRef.current = state;
   const patch = (p: Partial<BuildDiscussionState>) =>
-    onDiscussionChange(updateBuildDiscussion(stateRef.current, p));
+    onDiscussionChange((prev) => updateBuildDiscussion(prev, p));
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 60);
@@ -113,8 +116,8 @@ export function BuildChatPanel({
     // Live sync: always send freshest HTML + unsaved prompt text
     const liveHtml = currentHtml || "";
     const liveDraft = draftPrompt || "";
-    const next: Msg[] = [...messages, { role: "user", content: q, revisionId: currentRevision, ts: Date.now() }];
-    patch({ messages: next });
+    const question: Msg = { role: "user", content: q, revisionId: currentRevision, ts: Date.now() };
+    onDiscussionChange((prev) => appendDiscussionMessages(prev, [question]));
     setBusy(true);
     try {
       const res = await discuss({
@@ -139,10 +142,9 @@ export function BuildChatPanel({
       if (!allowTrades && containsTradesOnlyLanguage(res.reply)) {
         throw new Error("domain_mismatch");
       }
-      patch({
-        lastProvider: res.providerUsed,
-        messages: [...next, { role: "assistant", content: res.reply, revisionId: currentRevision, ts: Date.now() }],
-      });
+      const answer: Msg = { role: "assistant", content: res.reply, revisionId: currentRevision, ts: Date.now() };
+      onDiscussionChange((prev) =>
+        updateBuildDiscussion(appendDiscussionMessages(prev, [answer]), { lastProvider: res.providerUsed }));
     } catch (e) {
       const msg = e instanceof Error ? e.message : "unknown";
       setError(msg === "build_chat_unavailable"
@@ -155,7 +157,7 @@ export function BuildChatPanel({
   };
 
   const toggleConfirm = (s: string) => {
-    onDiscussionChange(toggleConfirmedSuggestion(stateRef.current, s));
+    onDiscussionChange((prev) => toggleConfirmedSuggestion(prev, s));
   };
 
   const applyConfirmedBatch = () => {
@@ -558,7 +560,7 @@ export function BuildChatPanel({
             {messages.length > 0 && (
               <button
                 type="button"
-                onClick={() => { onDiscussionChange(clearBuildDiscussion(stateRef.current)); setError(""); }}
+                onClick={() => { onDiscussionChange((prev) => clearBuildDiscussion(prev)); setError(""); }}
                 className="hover:text-amber-400"
               >
                 Clear chat
