@@ -117,6 +117,55 @@ function LibraryPage() {
     }
   }, []);
 
+  const refreshAll = React.useCallback(async (code: string) => {
+    const r = await listLibraryBuilds({ data: { adminCode: code } });
+    if (r.ok) setAllBuilds(r.builds);
+    else setNotice(r.error);
+  }, []);
+
+  const submitCode = React.useCallback(async () => {
+    const code = codeInput.trim();
+    if (!code) return;
+    setCodeBusy(true);
+    try {
+      const r = await verifyLibraryAdmin({ data: { adminCode: code } });
+      if (!r.ok) {
+        setNotice("Wrong code");
+        return;
+      }
+      setAdminCode(code);
+      setCodeOpen(false);
+      setCodeInput("");
+      setManageOpen(true);
+      await refreshAll(code);
+      setNotice("Admin mode on");
+    } finally {
+      setCodeBusy(false);
+    }
+  }, [codeInput, refreshAll]);
+
+  const togglePublic = React.useCallback(
+    async (id: string, next: boolean) => {
+      if (!adminCode) return;
+      setAdminBusy(id);
+      try {
+        const r = await setLibraryBuildPublic({ data: { adminCode, id, is_public: next } });
+        if (!r.ok) {
+          setNotice(r.error);
+          return;
+        }
+        setAllBuilds((prev) => prev.map((b) => (b.id === id ? { ...b, is_public: next } : b)));
+        setNotice(next ? "Added to the library" : "Removed from the library");
+        await load(q.trim());
+      } finally {
+        setAdminBusy(null);
+      }
+    },
+    [adminCode, load, q],
+  );
+
+
+
   return (
     <main className="min-h-screen bg-[#08090b] text-[#f2eee7]">
       <div className="pointer-events-none fixed inset-0 bg-[radial-gradient(60%_50%_at_50%_0%,rgba(244,161,37,0.12),transparent_70%)]" />
