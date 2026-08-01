@@ -170,9 +170,8 @@ function ForgePage() {
 
 
   const [mode, setMode] = React.useState<BuildMode>("build");
-  const [model, setModel] = React.useState<string>(
-    () => safeGet<string>("forge.model") ?? DEFAULT_MODEL,
-  );
+  const [model, setModel] = React.useState<string>(DEFAULT_MODEL);
+
   const [device, setDevice] = React.useState<ForgeDevice>("desktop");
   const [tab, setTab] = React.useState<TabId>("build");
   const [pane, setPane] = React.useState<"code" | "preview">("preview");
