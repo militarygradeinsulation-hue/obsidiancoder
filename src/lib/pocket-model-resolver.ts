@@ -76,9 +76,12 @@ export function rankClaude(entries: readonly RegistryEntry[]): Ranked[] {
     const opus = familyVersion(text, "opus");
     const sonnet = familyVersion(text, "sonnet");
     const haiku = familyVersion(text, "haiku");
-    if (opus != null) ranked.push({ entry, family: "opus", version: opus, capability: 3000 + opus * 10 });
-    else if (sonnet != null) ranked.push({ entry, family: "sonnet", version: sonnet, capability: 2000 + sonnet * 10 });
-    else if (haiku != null) ranked.push({ entry, family: "haiku", version: haiku, capability: 1000 + haiku * 10 });
+    if (opus != null)
+      ranked.push({ entry, family: "opus", version: opus, capability: 3000 + opus * 10 });
+    else if (sonnet != null)
+      ranked.push({ entry, family: "sonnet", version: sonnet, capability: 2000 + sonnet * 10 });
+    else if (haiku != null)
+      ranked.push({ entry, family: "haiku", version: haiku, capability: 1000 + haiku * 10 });
     else ranked.push({ entry, family: "other", version: 0, capability: 500 });
   }
   ranked.sort((a, b) => b.capability - a.capability || a.entry.id.localeCompare(b.entry.id));
@@ -138,7 +141,11 @@ export function resolvePocketModel(input: {
   );
 
   // A pinned raw model always wins — including for Fast.
-  if (input.pinnedModel && allowed(input.pinnedModel) && !(input.unavailableIds ?? []).includes(input.pinnedModel)) {
+  if (
+    input.pinnedModel &&
+    allowed(input.pinnedModel) &&
+    !(input.unavailableIds ?? []).includes(input.pinnedModel)
+  ) {
     const entry = registry.find((e) => e.id === input.pinnedModel);
     const claude = entry ? isClaudeEntry(entry) : CLAUDE_RE.test(input.pinnedModel);
     return {

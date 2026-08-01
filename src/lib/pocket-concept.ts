@@ -61,7 +61,7 @@ export function conceptCacheKey(input: {
 export const CONCEPT_PROMPT_MAX = 2000;
 
 export function conceptSeed(prompt: string, family: PocketStyleFamily, salt: number): number {
-  return (hashString(`${prompt}::${family}::${salt}`) >>> 0) || 1;
+  return hashString(`${prompt}::${family}::${salt}`) >>> 0 || 1;
 }
 
 /** Three structurally distinct concepts with zero provider calls. */
@@ -130,11 +130,12 @@ function str(v: unknown, max: number, fallback: string): string {
  * Merge a model's creative direction over a deterministic base so the DNA is
  * always complete and valid, even if the model returns partial JSON.
  */
-export function parseConceptPlan(
-  raw: unknown,
-  base: PocketConceptPlan,
-): PocketConceptPlan {
-  const obj = (raw ?? {}) as { concepts?: unknown; selectedId?: unknown; selectionReason?: unknown };
+export function parseConceptPlan(raw: unknown, base: PocketConceptPlan): PocketConceptPlan {
+  const obj = (raw ?? {}) as {
+    concepts?: unknown;
+    selectedId?: unknown;
+    selectionReason?: unknown;
+  };
   const list = Array.isArray(obj.concepts) ? (obj.concepts as RawConcept[]) : [];
   if (list.length < 3) return base;
 
@@ -156,7 +157,10 @@ export function parseConceptPlan(
       hero: str(rc.hero, 240, seeded.hero),
       sections: sections.length >= 3 ? sections : seeded.sections,
     };
-    const risk = rc.risk === "low" || rc.risk === "medium" || rc.risk === "high" ? rc.risk : fallbackConcept.risk;
+    const risk =
+      rc.risk === "low" || rc.risk === "medium" || rc.risk === "high"
+        ? rc.risk
+        : fallbackConcept.risk;
     return {
       id: fallbackConcept.id,
       name: str(rc.name, 60, fallbackConcept.name),
@@ -197,7 +201,12 @@ ${input.prompt.slice(0, CONCEPT_PROMPT_MAX)}
 
 REQUESTED STYLE FAMILY: ${input.family}
 RECENTLY USED STRUCTURES (do NOT repeat these):
-${input.recentSummaries.slice(0, 12).map((s) => `- ${s}`).join("\n") || "- none"}
+${
+  input.recentSummaries
+    .slice(0, 12)
+    .map((s) => `- ${s}`)
+    .join("\n") || "- none"
+}
 
 Return STRICT JSON only, no prose, no markdown fence:
 {"concepts":[{"name":"","concept":"one sentence","family":"futuristic|cinematic|luxury|editorial|brutalist|minimal|playful|organic|data-dense","layout":"concrete archetype","hero":"one concrete sentence describing hero composition","sections":["6 concrete section ids"],"signatureMoment":"one memorable visual or interaction","risk":"low|medium|high"}],"selectedId":"","selectionReason":""}

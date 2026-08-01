@@ -70,7 +70,10 @@ Implement this direction fully. Do NOT output alternative concepts — output ex
 
   if (input.recentSignatures?.length) {
     parts.push(`RECENT BUILD STRUCTURES TO AVOID REPEATING:
-${input.recentSignatures.slice(0, 12).map((s) => `- ${s}`).join("\n")}`);
+${input.recentSignatures
+  .slice(0, 12)
+  .map((s) => `- ${s}`)
+  .join("\n")}`);
   }
 
   parts.push(`NON-NEGOTIABLE QUALITY BAR
@@ -124,15 +127,26 @@ export function parseCritique(raw: unknown): PocketCritique {
   const scores: PocketCritiqueScores = {};
   if (o.scores && typeof o.scores === "object") {
     for (const [k, v] of Object.entries(o.scores as Record<string, unknown>)) {
-      if (typeof v === "number" && Number.isFinite(v)) scores[k.slice(0, 40)] = Math.max(0, Math.min(10, v));
+      if (typeof v === "number" && Number.isFinite(v))
+        scores[k.slice(0, 40)] = Math.max(0, Math.min(10, v));
     }
   }
   const verdict = o.verdict === "repair" || o.verdict === "block" ? o.verdict : "keep";
   const similarityRisk =
     o.similarityRisk === "medium" || o.similarityRisk === "high" ? o.similarityRisk : "low";
   const issues = Array.isArray(o.issues)
-    ? (o.issues as unknown[]).filter((i): i is string => typeof i === "string").slice(0, 8).map((i) => i.slice(0, 240))
+    ? (o.issues as unknown[])
+        .filter((i): i is string => typeof i === "string")
+        .slice(0, 8)
+        .map((i) => i.slice(0, 240))
     : [];
   const operations = Array.isArray(o.operations) ? (o.operations as unknown[]).slice(0, 24) : [];
-  return { scores, similarityRisk, issues, verdict, operations, policyVersion: POCKET_CRITIQUE_POLICY_VERSION };
+  return {
+    scores,
+    similarityRisk,
+    issues,
+    verdict,
+    operations,
+    policyVersion: POCKET_CRITIQUE_POLICY_VERSION,
+  };
 }

@@ -18,7 +18,11 @@ import { makeUsage, estimateUsdForCall, parseUsageFromChatJson } from "@/lib/usa
 import { newRequestId } from "@/lib/ai-errors";
 import { isRouteLLMModel, stripRouteLLMPrefix } from "@/lib/models";
 import { routellmKeys, lovableEquivalentFor } from "@/lib/routellm-keys";
-import { POCKET_CRITIQUE_RUBRIC, POCKET_CRITIQUE_POLICY_VERSION, parseCritique } from "@/lib/pocket-prompt";
+import {
+  POCKET_CRITIQUE_RUBRIC,
+  POCKET_CRITIQUE_POLICY_VERSION,
+  parseCritique,
+} from "@/lib/pocket-prompt";
 
 /* ------------------------- bounded caches ------------------------- */
 
@@ -70,7 +74,9 @@ async function chatOnce(input: {
         const json = (await res.json()) as { choices?: Array<{ message?: { content?: string } }> };
         const text = json.choices?.[0]?.message?.content?.trim() ?? "";
         if (text) return { text, model: input.model, usage: parseUsageFromChatJson(json) };
-      } catch { /* try the next key */ }
+      } catch {
+        /* try the next key */
+      }
     }
     return chatOnce({ ...input, model: lovableEquivalentFor(input.model) });
   }
@@ -96,14 +102,21 @@ async function chatOnce(input: {
 }
 
 function parseJsonLoose(text: string): unknown {
-  const cleaned = text.replace(/^```[a-z]*\s*/i, "").replace(/\s*```$/, "").trim();
+  const cleaned = text
+    .replace(/^```[a-z]*\s*/i, "")
+    .replace(/\s*```$/, "")
+    .trim();
   try {
     return JSON.parse(cleaned);
   } catch {
     const start = cleaned.indexOf("{");
     const end = cleaned.lastIndexOf("}");
     if (start >= 0 && end > start) {
-      try { return JSON.parse(cleaned.slice(start, end + 1)); } catch { /* fall through */ }
+      try {
+        return JSON.parse(cleaned.slice(start, end + 1));
+      } catch {
+        /* fall through */
+      }
     }
     return null;
   }
@@ -178,7 +191,11 @@ export const planPocketConcepts = createServerFn({ method: "POST" })
       return { ok: true, rawJson, model: out.model, cached: false };
     } catch {
       if (!providerUsed) {
-        try { await settleOperation(ent, { kind: "no_provider", errorCode: "ai_internal" }); } catch { /* settled */ }
+        try {
+          await settleOperation(ent, { kind: "no_provider", errorCode: "ai_internal" });
+        } catch {
+          /* settled */
+        }
       }
       // Planner failure is never fatal — the caller falls back to the
       // deterministic three-concept plan.
@@ -228,7 +245,11 @@ export const critiquePocketBuild = createServerFn({ method: "POST" })
       return { ok: true, critiqueJson, model: out.model, cached: false };
     } catch {
       if (!providerUsed) {
-        try { await settleOperation(ent, { kind: "no_provider", errorCode: "ai_internal" }); } catch { /* settled */ }
+        try {
+          await settleOperation(ent, { kind: "no_provider", errorCode: "ai_internal" });
+        } catch {
+          /* settled */
+        }
       }
       return { ok: false, reason: "provider_failed" };
     }
