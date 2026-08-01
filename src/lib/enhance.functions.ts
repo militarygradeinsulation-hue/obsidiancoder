@@ -20,6 +20,9 @@ const inputSchema = z.object({
   hasHtml: z.boolean().optional().default(false),
   // "pocket" = Obsidian Pocket, an intentionally free, unmetered surface.
   surface: z.enum(["default", "pocket"]).optional().default("default"),
+  // "rewrite" = tighten the prompt. "extend" = keep every word the user wrote
+  // and append new, concrete ideas that build on it.
+  mode: z.enum(["rewrite", "extend"]).optional().default("rewrite"),
 });
 
 const SYSTEM = `You rewrite short web-build requests into clear, concrete prompts for a front-end code generator.
@@ -29,6 +32,15 @@ Rules:
 - Be concise: 1-3 sentences, under 400 characters.
 - Prefer specifics: layout, sections, tone, key components, accessibility.
 - If the user is iterating on an existing build, phrase it as a focused change, not a rebuild.`;
+
+const SYSTEM_EXTEND = `You EXTEND a web-build request with more ideas. You never replace or reword what the user already wrote.
+Rules:
+- Return the user's original text VERBATIM first, then a space, then 2-4 additional sentences that add new, concrete ideas.
+- Every added idea must build directly on what the original request is actually about. Read it carefully first.
+- Never contradict, remove, or restate the original ideas. Only add ones that are not there yet.
+- Added ideas should be specific and buildable: sections, components, states, data shown, interactions, accessibility.
+- Plain text only. No preamble, no quotes, no markdown, no lists. Stay under 900 characters total.`;
+
 
 const ENHANCE_MODEL = "google/gemini-3.1-flash-lite";
 
