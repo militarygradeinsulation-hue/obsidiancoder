@@ -477,6 +477,20 @@ export async function requirePaidOperation(
     };
   }
 
+  // Pocket is metered by BUILDS, not credits: 10 generations per billing month.
+  if (operation === "generate_html") {
+    const pocket = await pocketBuildUsage(user.userId, env);
+    if (pocket.tier === "pocket" && pocket.remaining <= 0) {
+      return {
+        kind: "denied", env, requestId, user,
+        denial: creditsRequiredEnvelope({
+          code: "credits_required", operation,
+          message: `You've used all ${pocket.cap} Pocket builds for this month. Upgrade to keep building.`,
+        }),
+      };
+    }
+  }
+
   const cap = await capForUser(user.userId, env);
   const reservation = await usageReserve(user, operation, env, requestId, cap);
   if (reservation === "no_period") {
