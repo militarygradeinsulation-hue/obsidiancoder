@@ -885,6 +885,7 @@ function Unlock() {
           })}
         </div>
         {(demosOpen || demoCategory !== "All") && (() => {
+          const seenTitles = new Set<string>();
           const merged = Array.from(
             new Map(
               [...featuredDemos, ...DEMOS].map((d) => {
@@ -892,7 +893,17 @@ function Unlock() {
                 return [demoUrl, { ...d, demoUrl }] as const;
               }),
             ).values(),
-          ).filter(({ category }) => demoCategory === "All" || category === demoCategory);
+          )
+            // Same project promoted under two slugs shows once.
+            .filter(({ title }) => {
+              const key = (title || "").toLowerCase().replace(/\s+/g, " ").trim();
+              if (!key) return true;
+              if (seenTitles.has(key)) return false;
+              seenTitles.add(key);
+              return true;
+            })
+            .filter(({ category }) => demoCategory === "All" || category === demoCategory);
+
 
           const placeholder = (slug: string, label: string) => {
             let hue = 0;
