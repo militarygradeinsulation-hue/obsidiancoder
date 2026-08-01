@@ -139,6 +139,24 @@ function Unlock() {
   const [activeVideo, setActiveVideo] = useState<{ url: string; label: string } | null>(null);
   const activeVideoRef = useRef<HTMLVideoElement | null>(null);
   const [pocketExpanded, setPocketExpanded] = useState(false);
+
+  // Community builds shared from Obsidian Pocket — shown right on the home
+  // screen so visitors see real work without opening /library first.
+  const [communityBuilds, setCommunityBuilds] = useState<
+    { id: string; title: string; prompt: string; share_slug: string | null; remix_count: number }[]
+  >([]);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/public/community?limit=8")
+      .then((r) => (r.ok ? r.json() : { builds: [] }))
+      .then((j: { builds?: typeof communityBuilds }) => {
+        if (alive && Array.isArray(j.builds)) setCommunityBuilds(j.builds.filter((b) => b.share_slug));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   useEffect(() => {
     if (!pocketExpanded) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
