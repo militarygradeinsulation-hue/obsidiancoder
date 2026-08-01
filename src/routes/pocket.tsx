@@ -126,6 +126,7 @@ const primaryBtn =
   "inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-b from-[#F4A125] to-[#DD9324] px-4 py-2 text-sm font-semibold text-[#111317] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/70 disabled:cursor-not-allowed disabled:opacity-50";
 
 function ForgePage() {
+  const navigate = useNavigate();
   const { snap } = useEntitlement();
   const paid = isPaidMode(snap.mode);
 
