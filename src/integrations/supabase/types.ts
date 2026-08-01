@@ -97,42 +97,57 @@ export type Database = {
       }
       builds: {
         Row: {
+          author_label: string | null
           byte_size: number
           client_id: string | null
           created_at: string
           html: string
           id: string
+          is_public: boolean
           library_code: string | null
           model: string | null
           prompt: string
+          published_at: string | null
+          remix_count: number
           session_id: string | null
           share_slug: string | null
+          surface: string | null
           title: string
         }
         Insert: {
+          author_label?: string | null
           byte_size?: number
           client_id?: string | null
           created_at?: string
           html: string
           id?: string
+          is_public?: boolean
           library_code?: string | null
           model?: string | null
           prompt?: string
+          published_at?: string | null
+          remix_count?: number
           session_id?: string | null
           share_slug?: string | null
+          surface?: string | null
           title?: string
         }
         Update: {
+          author_label?: string | null
           byte_size?: number
           client_id?: string | null
           created_at?: string
           html?: string
           id?: string
+          is_public?: boolean
           library_code?: string | null
           model?: string | null
           prompt?: string
+          published_at?: string | null
+          remix_count?: number
           session_id?: string | null
           share_slug?: string | null
+          surface?: string | null
           title?: string
         }
         Relationships: []

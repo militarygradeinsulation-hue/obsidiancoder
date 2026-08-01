@@ -16,6 +16,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PocketRouteImport } from './routes/pocket'
 import { Route as McpRouteImport } from './routes/mcp'
+import { Route as LibraryRouteImport } from './routes/library'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as ForgeRouteImport } from './routes/forge'
 import { Route as DemosRouteImport } from './routes/demos'
@@ -37,6 +38,7 @@ import { Route as ApiPublicThemeThumbnailsRouteImport } from './routes/api/publi
 import { Route as ApiPublicThemeBlueprintsRouteImport } from './routes/api/public/theme-blueprints'
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
+import { Route as ApiPublicCommunityRouteImport } from './routes/api/public/community'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicBaselineRouteImport } from './routes/api/public/baseline'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
@@ -48,6 +50,7 @@ import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/library.$code'
 import { Route as ApiPublicFreeDemoStatusRouteImport } from './routes/api/public/free-demo.status'
+import { Route as ApiPublicCommunityIdRouteImport } from './routes/api/public/community.$id'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
 import { Route as ApiPublicLibraryCodeIdRouteImport } from './routes/api/public/library.$code.$id'
 
@@ -84,6 +87,11 @@ const PocketRoute = PocketRouteImport.update({
 const McpRoute = McpRouteImport.update({
   id: '/mcp',
   path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryRoute = GalleryRouteImport.update({
@@ -195,6 +203,11 @@ const ApiPublicEntitlementRoute = ApiPublicEntitlementRouteImport.update({
   path: '/api/public/entitlement',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCommunityRoute = ApiPublicCommunityRouteImport.update({
+  id: '/api/public/community',
+  path: '/api/public/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
   id: '/api/public/builds',
   path: '/api/public/builds',
@@ -253,6 +266,11 @@ const ApiPublicFreeDemoStatusRoute = ApiPublicFreeDemoStatusRouteImport.update({
   path: '/api/public/free-demo/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCommunityIdRoute = ApiPublicCommunityIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiPublicCommunityRoute,
+} as any)
 const ApiPublicBuildsIdRoute = ApiPublicBuildsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -271,6 +289,7 @@ export interface FileRoutesByFullPath {
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
+  '/library': typeof LibraryRoute
   '/mcp': typeof McpRoute
   '/pocket': typeof PocketRoute
   '/privacy': typeof PrivacyRoute
@@ -291,12 +310,14 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/community': typeof ApiPublicCommunityRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
   '/api/public/theme-thumbnails': typeof ApiPublicThemeThumbnailsRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
+  '/api/public/community/$id': typeof ApiPublicCommunityIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -314,6 +335,7 @@ export interface FileRoutesByTo {
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
+  '/library': typeof LibraryRoute
   '/mcp': typeof McpRoute
   '/pocket': typeof PocketRoute
   '/privacy': typeof PrivacyRoute
@@ -334,12 +356,14 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/community': typeof ApiPublicCommunityRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
   '/api/public/theme-thumbnails': typeof ApiPublicThemeThumbnailsRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
+  '/api/public/community/$id': typeof ApiPublicCommunityIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -358,6 +382,7 @@ export interface FileRoutesById {
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
+  '/library': typeof LibraryRoute
   '/mcp': typeof McpRoute
   '/pocket': typeof PocketRoute
   '/privacy': typeof PrivacyRoute
@@ -378,12 +403,14 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/community': typeof ApiPublicCommunityRouteWithChildren
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
   '/api/public/theme-thumbnails': typeof ApiPublicThemeThumbnailsRoute
   '/api/public/waitlist': typeof ApiPublicWaitlistRoute
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
+  '/api/public/community/$id': typeof ApiPublicCommunityIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
@@ -403,6 +430,7 @@ export interface FileRouteTypes {
     | '/demos'
     | '/forge'
     | '/gallery'
+    | '/library'
     | '/mcp'
     | '/pocket'
     | '/privacy'
@@ -423,12 +451,14 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/baseline'
     | '/api/public/builds'
+    | '/api/public/community'
     | '/api/public/entitlement'
     | '/api/public/self-test'
     | '/api/public/theme-blueprints'
     | '/api/public/theme-thumbnails'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
+    | '/api/public/community/$id'
     | '/api/public/free-demo/status'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
@@ -446,6 +476,7 @@ export interface FileRouteTypes {
     | '/demos'
     | '/forge'
     | '/gallery'
+    | '/library'
     | '/mcp'
     | '/pocket'
     | '/privacy'
@@ -466,12 +497,14 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/baseline'
     | '/api/public/builds'
+    | '/api/public/community'
     | '/api/public/entitlement'
     | '/api/public/self-test'
     | '/api/public/theme-blueprints'
     | '/api/public/theme-thumbnails'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
+    | '/api/public/community/$id'
     | '/api/public/free-demo/status'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
@@ -489,6 +522,7 @@ export interface FileRouteTypes {
     | '/demos'
     | '/forge'
     | '/gallery'
+    | '/library'
     | '/mcp'
     | '/pocket'
     | '/privacy'
@@ -509,12 +543,14 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/baseline'
     | '/api/public/builds'
+    | '/api/public/community'
     | '/api/public/entitlement'
     | '/api/public/self-test'
     | '/api/public/theme-blueprints'
     | '/api/public/theme-thumbnails'
     | '/api/public/waitlist'
     | '/api/public/builds/$id'
+    | '/api/public/community/$id'
     | '/api/public/free-demo/status'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
@@ -533,6 +569,7 @@ export interface RootRouteChildren {
   DemosRoute: typeof DemosRoute
   ForgeRoute: typeof ForgeRoute
   GalleryRoute: typeof GalleryRoute
+  LibraryRoute: typeof LibraryRoute
   McpRoute: typeof McpRoute
   PocketRoute: typeof PocketRoute
   PrivacyRoute: typeof PrivacyRoute
@@ -553,6 +590,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicBaselineRoute: typeof ApiPublicBaselineRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
+  ApiPublicCommunityRoute: typeof ApiPublicCommunityRouteWithChildren
   ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
   ApiPublicThemeBlueprintsRoute: typeof ApiPublicThemeBlueprintsRoute
@@ -617,6 +655,13 @@ declare module '@tanstack/react-router' {
       path: '/mcp'
       fullPath: '/mcp'
       preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery': {
@@ -766,6 +811,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicEntitlementRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/community': {
+      id: '/api/public/community'
+      path: '/api/public/community'
+      fullPath: '/api/public/community'
+      preLoaderRoute: typeof ApiPublicCommunityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/builds': {
       id: '/api/public/builds'
       path: '/api/public/builds'
@@ -843,6 +895,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicFreeDemoStatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/community/$id': {
+      id: '/api/public/community/$id'
+      path: '/$id'
+      fullPath: '/api/public/community/$id'
+      preLoaderRoute: typeof ApiPublicCommunityIdRouteImport
+      parentRoute: typeof ApiPublicCommunityRoute
+    }
     '/api/public/builds/$id': {
       id: '/api/public/builds/$id'
       path: '/$id'
@@ -872,6 +931,17 @@ const ApiPublicBuildsRouteWithChildren = ApiPublicBuildsRoute._addFileChildren(
   ApiPublicBuildsRouteChildren,
 )
 
+interface ApiPublicCommunityRouteChildren {
+  ApiPublicCommunityIdRoute: typeof ApiPublicCommunityIdRoute
+}
+
+const ApiPublicCommunityRouteChildren: ApiPublicCommunityRouteChildren = {
+  ApiPublicCommunityIdRoute: ApiPublicCommunityIdRoute,
+}
+
+const ApiPublicCommunityRouteWithChildren =
+  ApiPublicCommunityRoute._addFileChildren(ApiPublicCommunityRouteChildren)
+
 interface ApiPublicLibraryCodeRouteChildren {
   ApiPublicLibraryCodeIdRoute: typeof ApiPublicLibraryCodeIdRoute
 }
@@ -890,6 +960,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemosRoute: DemosRoute,
   ForgeRoute: ForgeRoute,
   GalleryRoute: GalleryRoute,
+  LibraryRoute: LibraryRoute,
   McpRoute: McpRoute,
   PocketRoute: PocketRoute,
   PrivacyRoute: PrivacyRoute,
@@ -911,6 +982,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicBaselineRoute: ApiPublicBaselineRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
+  ApiPublicCommunityRoute: ApiPublicCommunityRouteWithChildren,
   ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
   ApiPublicThemeBlueprintsRoute: ApiPublicThemeBlueprintsRoute,

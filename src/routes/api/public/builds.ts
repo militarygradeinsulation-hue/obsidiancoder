@@ -71,6 +71,7 @@ export const Route = createFileRoute("/api/public/builds")({
           const body = (await request.json()) as {
             title?: string; prompt?: string; html?: string; model?: string;
             session_id?: string; client_id?: string; library_code?: string;
+            is_public?: boolean; author_label?: string; surface?: string;
           };
           if (!body.html || body.html.length < 20) {
             await settleOperation(entitlement, { kind: "no_provider", errorCode: "missing_html" });
@@ -98,6 +99,10 @@ export const Route = createFileRoute("/api/public/builds")({
             library_code: libCode || null,
             share_slug: genSlug(),
             byte_size: cleanHtml.length,
+            is_public: body.is_public === true,
+            published_at: body.is_public === true ? new Date().toISOString() : null,
+            author_label: (body.author_label || "").slice(0, 40) || null,
+            surface: (body.surface || "").slice(0, 20) || null,
           };
           const admin = await sbAdmin();
           const { data, error } = await admin
