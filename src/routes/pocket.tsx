@@ -706,6 +706,98 @@ function ForgePage() {
     }
   }, [isAdminCode, busy, html, title, prompt, model, demoLive, log]);
 
+  // ---- Share to the public Community Library (open to everyone) ----------
+  const shareToLibrary = React.useCallback(async () => {
+    if (busy || html.length < 40) return;
+
+    // Toggle off — unshare a build that is already in the library.
+    if (inCommunity) {
+      setStatus("Removing from Library…");
+      try {
+        const res = await fetch("/api/public/community", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id: inCommunity.id, share_slug: inCommunity.slug, is_public: false }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        setInCommunity(null);
+        setStatus("Removed from Library");
+        log("Removed build from the community library.");
+      } catch (err) {
+        setError(sanitizeErrorMessage(err, "Remove failed."));
+      }
+      return;
+    }
+
+    const assessment = assessOutbound(html, { surface: "featured-demo" });
+    if (!assessment.ok) {
+      setError(`Share blocked by QA gate: ${assessment.blockers.slice(0, 3).join(", ")}`);
+      setStatus("Share blocked");
+      return;
+    }
+
+    setBusy("deploying");
+    setStatus("Sharing to Library…");
+    setError(null);
+    try {
+      const code = libraryCode.trim();
+      const res = await authFetch("/api/public/builds", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-obs-free": "1" },
+        body: JSON.stringify({
+          title,
+          prompt,
+          html: assessment.finalHtml,
+          model,
+          library_code: code || undefined,
+          is_public: true,
+          surface: "pocket",
+          author_label: code ? `Builder ${code.slice(-4)}` : "Anonymous builder",
+        }),
+      });
+      if (!res.ok) throw new Error(await res.text());
+      const j = (await res.json()) as { id: string; share_slug: string };
+      const url = `${window.location.origin}/api/public/share/${j.share_slug}`;
+      setInCommunity({ id: j.id, slug: j.share_slug });
+      setShareUrl(url);
+      setStatus("Shared to Library");
+      log(`Shared to community library → ${url}`);
+      void loadLibrary(libraryCode);
+    } catch (err) {
+      setError(sanitizeErrorMessage(err, "Share failed."));
+      setStatus("Share failed");
+    } finally {
+      setBusy(null);
+    }
+  }, [busy, html, title, prompt, model, libraryCode, inCommunity, loadLibrary, log]);
+
+  // ---- Remix: /pocket?remix=<community build id> --------------------------
+  const remixLoadedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (remixLoadedRef.current) return;
+    const id = new URLSearchParams(window.location.search).get("remix");
+    if (!id) return;
+    remixLoadedRef.current = true;
+    void (async () => {
+      setStatus("Loading remix…");
+      try {
+        const res = await fetch(`/api/public/community/${encodeURIComponent(id)}?remix=1`);
+        if (!res.ok) throw new Error(await res.text());
+        const j = (await res.json()) as { title: string; prompt: string; html: string };
+        setProject((prev) => setEntryHtml(prev, j.html));
+        setTitle(`${j.title || "Remix"} (remix)`);
+        setPrompt(j.prompt || "");
+        setInCommunity(null);
+        setStatus("Remix loaded — describe your changes");
+        log(`Remixed community build ${id}`);
+      } catch (err) {
+        setError(sanitizeErrorMessage(err, "Could not load that remix."));
+      }
+    })();
+  }, [log]);
+
+
+
   const exportProject = React.useCallback(async () => {
     const blob = new Blob([sanitizeForExport(html)], { type: "text/html" });
     const a = document.createElement("a");
