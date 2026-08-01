@@ -415,13 +415,46 @@ function LibraryPage() {
             </button>
           </div>
           <p className="mt-1 text-[11px] text-[#6b7180]">Toggle any build in or out of the public library.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-[#B6BCC8]">{selected.length} selected</span>
+            <button type="button" className={btn} onClick={() => setSelected(allBuilds.map((b) => b.id))}>
+              Select all
+            </button>
+            <button type="button" className={btn} onClick={() => setSelected([])}>
+              Clear
+            </button>
+            <button
+              type="button"
+              className={`${btn} !border-rose-400/40 !text-rose-300`}
+              disabled={bulkBusy || selected.length === 0}
+              onClick={() => void bulkSetPublic(false)}
+            >
+              {bulkBusy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Delete selected
+            </button>
+            <button
+              type="button"
+              className={`${btn} !border-emerald-400/40 !text-emerald-300`}
+              disabled={bulkBusy || selected.length === 0}
+              onClick={() => void bulkSetPublic(true)}
+            >
+              <Plus size={13} /> Add selected
+            </button>
+          </div>
           <ul className="mt-3 space-y-2">
             {allBuilds.map((b) => (
               <li
                 key={b.id}
                 className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5"
               >
+                <input
+                  type="checkbox"
+                  className="accent-[#F4A125]"
+                  checked={selected.includes(b.id)}
+                  onChange={() => toggleSelected(b.id)}
+                  aria-label={`Select ${b.title || "build"}`}
+                />
                 <span className="min-w-0 flex-1">
+
                   <span className="block truncate text-xs text-[#f2eee7]">{b.title || "Untitled"}</span>
                   <span className="block text-[10px] text-[#6b7180]">
                     {new Date(b.created_at).toLocaleDateString()} · {b.is_public ? "in library" : "hidden"}
