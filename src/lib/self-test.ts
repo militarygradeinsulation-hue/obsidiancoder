@@ -2786,6 +2786,26 @@ export async function runBuildDiscussionTests(): Promise<{ results: TestResult[]
   results.push(assert(
     routed[0].discussion.messages.length === 1 && isDiscussionEmpty(routed[1].discussion),
     "discussion: async response for build A cannot land in build B"));
+  // Functional updater: a late reply merges into the LATEST A state, never
+  // overwriting a message added to A after the request snapshot was taken.
+  type Updater = (prev: any) => any;
+  const applyToBuild = (all: S[], sid: string, up: Updater) =>
+    all.map((s) => (s.id === sid ? { ...s, discussion: up(normalizeBuildDiscussion(s.discussion)) } : s));
+  let racing: S[] = [mkSession("A"), mkSession("B")];
+  racing = applyToBuild(racing, "A", (prev) => appendDiscussionMessages(prev, [{ role: "user", content: "q1" }]));
+  const snapshot = racing[0].discussion; // what the panel held when the request began
+  racing = applyToBuild(racing, "A", (prev) => appendDiscussionMessages(prev, [{ role: "user", content: "q2" }]));
+  racing = applyToBuild(racing, "A", (prev) =>
+    updateBuildDiscussion(appendDiscussionMessages(prev, [{ role: "assistant", content: "reply" }]), {
+      lastProvider: "claude-test",
+    }));
+  results.push(assert(
+    racing[0].discussion.messages.map((m: any) => m.content).join("|") === "q1|q2|reply" &&
+    snapshot.messages.length === 1 &&
+    racing[0].discussion.lastProvider === "claude-test" &&
+    isDiscussionEmpty(racing[1].discussion),
+    "discussion: late reply merges into latest A state without stale overwrite"));
+
   // Provider request history is drawn only from the active build.
   const history = routed[0].discussion.messages.slice(-10).map((m: any) => m.content);
   results.push(assert(
