@@ -261,12 +261,49 @@ function LibraryPage() {
             No shared builds yet. Be the first — build something in Pocket and press “Share to Library”.
           </p>
         ) : (
+          <>
+          {adminCode && (
+            <div className="mt-6 flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+              <span className="text-xs text-[#B6BCC8]">{selected.length} selected</span>
+              <button
+                type="button"
+                className={btn}
+                onClick={() => setSelected(builds.map((b) => b.id))}
+              >
+                Select all
+              </button>
+              <button type="button" className={btn} onClick={() => setSelected([])}>
+                Clear
+              </button>
+              <button
+                type="button"
+                className={`${btn} !border-rose-400/40 !text-rose-300`}
+                disabled={bulkBusy || selected.length === 0}
+                onClick={() => void bulkSetPublic(false)}
+              >
+                {bulkBusy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Delete selected
+              </button>
+            </div>
+          )}
           <ul className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {builds.map((b) => {
               const url = b.share_slug ? `/api/public/share/${b.share_slug}` : null;
               return (
                 <li key={b.id} className={card}>
                   <div className="relative h-48 overflow-hidden border-b border-white/10 bg-black/60">
+                    {adminCode && (
+                      <label className="absolute left-2 top-2 z-10 flex cursor-pointer items-center gap-1 rounded-md border border-white/15 bg-black/70 px-2 py-1 text-[11px] text-[#f2eee7] backdrop-blur">
+                        <input
+                          type="checkbox"
+                          className="accent-[#F4A125]"
+                          checked={selected.includes(b.id)}
+                          onChange={() => toggleSelected(b.id)}
+                          aria-label={`Select ${b.title || "build"}`}
+                        />
+                        Select
+                      </label>
+                    )}
+
                     {url ? (
                       <iframe
                         src={url}
