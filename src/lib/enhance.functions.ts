@@ -77,12 +77,13 @@ export const enhancePrompt = createServerFn({ method: "POST" })
         body: JSON.stringify({
           model: ENHANCE_MODEL,
           messages: [
-            { role: "system", content: SYSTEM },
+            { role: "system", content: data.mode === "extend" ? SYSTEM_EXTEND : SYSTEM },
             {
               role: "user",
               content: `${data.hasHtml ? "Context: iterating on an existing build.\n" : ""}Original request:\n${data.prompt}`,
             },
           ],
+
         }),
       });
       if (!res.ok) {
