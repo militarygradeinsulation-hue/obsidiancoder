@@ -866,8 +866,42 @@ function ForgePage() {
                 {voice.error || voice.interim || (voice.processing ? "Transcribing…" : "Listening… say “send” to build")}
               </p>
             )}
+            {/* Idea categories */}
+            {!prompt.trim() && (
+              <div className="mt-2 flex flex-wrap gap-1" role="tablist" aria-label="Idea categories">
+                {POCKET_IDEA_CATEGORIES.map((c) => {
+                  const active = ideaCategory === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      disabled={aiIdeasLoading && active}
+                      onClick={() => {
+                        setIdeaCategory(c.id);
+                        setAiIdeas([]);
+                        void loadCategoryIdeas(c.id);
+                      }}
+                      className={`rounded-full border px-2 py-[3px] text-[10px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
+                        active
+                          ? "border-[#F4A125]/65 bg-[#F4A125]/15 text-[#F4A125]"
+                          : "border-white/10 bg-white/[0.03] text-[#B6BCC8] hover:text-[#E8E6E1]"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {/* Idea chips — click to append, then Enhance to expand */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {aiIdeasLoading && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#7d8494]">
+                  <Loader2 size={12} className="animate-spin" /> Finding fresh ideas…
+                </span>
+              )}
               {ideaChips.map((a) => (
                 <button
                   key={a.id}
@@ -884,10 +918,14 @@ function ForgePage() {
               ))}
               <button
                 type="button"
-                onClick={() => setIdeaOffset((o) => o + 4)}
+                onClick={() => {
+                  setIdeaOffset((o) => o + 4);
+                  if (!prompt.trim()) void loadCategoryIdeas(ideaCategory);
+                }}
                 className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[#7d8494] transition hover:text-[#E8E6E1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
               >
                 More ideas
+
               </button>
             </div>
 
