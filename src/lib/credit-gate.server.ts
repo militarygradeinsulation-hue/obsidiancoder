@@ -190,6 +190,74 @@ export async function capForUser(userId: string, env: Environment): Promise<numb
   }
 }
 
+/** Active subscription row (tier + billing window) for a verified user. */
+export async function activePlanForUser(
+  userId: string,
+  env: Environment,
+): Promise<{ tier: PlanTierId | null; periodStart: string | null; periodEnd: string | null }> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data } = await supabaseAdmin
+      .from("subscriptions")
+      .select("price_id, current_period_start, current_period_end")
+      .eq("user_id", userId)
+      .eq("environment", env)
+      .in("status", ["active", "trialing"])
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    return {
+      tier: tierForPriceId(data?.price_id)?.id ?? null,
+      periodStart: data?.current_period_start ?? null,
+      periodEnd: data?.current_period_end ?? null,
+    };
+  } catch {
+    return { tier: null, periodStart: null, periodEnd: null };
+  }
+}
+
+/**
+ * Builds consumed in the current billing window. Pocket is metered by BUILDS
+ * (POCKET_MONTHLY_BUILDS), not credits, so this counts `generate_html` usage
+ * rows that were not refunded.
+ */
+export async function buildsUsedThisPeriod(
+  userId: string,
+  env: Environment,
+  periodStart: string | null,
+): Promise<number> {
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const since = periodStart ?? new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const { count } = await supabaseAdmin
+      .from("ai_usage")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", userId)
+      .eq("environment", env)
+      .eq("operation", "generate_html")
+      .in("status", ["pending", "committed"])
+      .gte("created_at", since);
+    return Number(count ?? 0);
+  } catch {
+    return 0;
+  }
+}
+
+/** Pocket build allowance snapshot. `cap` is 0 for non-Pocket tiers. */
+export async function pocketBuildUsage(
+  userId: string,
+  env: Environment,
+): Promise<{ tier: PlanTierId | null; used: number; cap: number; remaining: number }> {
+  const plan = await activePlanForUser(userId, env);
+  if (plan.tier !== "pocket") {
+    return { tier: plan.tier, used: 0, cap: 0, remaining: 0 };
+  }
+  const used = await buildsUsedThisPeriod(userId, env, plan.periodStart);
+  const cap = POCKET_MONTHLY_BUILDS;
+  return { tier: "pocket", used, cap, remaining: Math.max(0, cap - used) };
+}
+
+
 
 export interface Reservation {
   reservationId: string;
