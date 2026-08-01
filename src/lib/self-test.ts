@@ -2680,12 +2680,12 @@ export async function runBuildDiscussionTests(): Promise<{ results: TestResult[]
     appendDiscussionMessages, toggleConfirmedSuggestion, clearBuildDiscussion,
     isDiscussionEmpty, DISCUSSION_LIMITS, readLegacyDiscussion, isDiscussionMigrated,
     finishDiscussionMigration, LEGACY_HISTORY_KEY, LEGACY_CONFIRMED_KEY,
-    DISCUSSION_MIGRATION_KEY,
+    DISCUSSION_MIGRATION_KEY, createEmptyBuildDiscussion, planLegacyDiscussionMigration,
   } = await import("./build-discussion");
 
   type S = { id: string; title: string; html: string; discussion?: any };
   const mkSession = (id: string, title = "Untitled"): S =>
-    ({ id, title, html: "", discussion: { ...EMPTY_BUILD_DISCUSSION } });
+    ({ id, title, html: "", discussion: createEmptyBuildDiscussion() });
   const setDiscussion = (all: S[], id: string, d: any) =>
     all.map((s) => (s.id === id ? { ...s, discussion: d } : s));
 
@@ -2893,6 +2893,98 @@ export async function runBuildDiscussionTests(): Promise<{ results: TestResult[]
   results.push(assert(
     stateKeys.every((k) => ["v", "messages", "confirmed", "provider", "lastProvider"].includes(k)),
     "discussion: state carries no html/secret/auth fields"));
+
+  // --- fresh empty discussions never share arrays -----------------------
+  const e1 = createEmptyBuildDiscussion();
+  const e2 = createEmptyBuildDiscussion();
+  e1.messages.push({ role: "user", content: "mutate me" });
+  e1.confirmed.push("mutated");
+  results.push(assert(
+    e1.messages !== e2.messages && e1.confirmed !== e2.confirmed &&
+    e2.messages.length === 0 && e2.confirmed.length === 0 &&
+    createEmptyBuildDiscussion().messages.length === 0,
+    "discussion: empty discussions have independent arrays"));
+  const clearedA = clearBuildDiscussion(updateBuildDiscussion(undefined, { provider: "grok" }));
+  const clearedB = clearBuildDiscussion(undefined);
+  clearedA.messages.push({ role: "user", content: "x" });
+  results.push(assert(
+    clearedA.provider === "grok" && clearedB.provider === "claude" &&
+    clearedB.messages.length === 0 && EMPTY_BUILD_DISCUSSION.messages.length === 0,
+    "discussion: clear returns fresh arrays and keeps provider"));
+
+  // --- concurrency: a late reply must not drop newer local changes ------
+  let liveA = createEmptyBuildDiscussion();
+  const applyA = (fn: (prev: any) => any) => { liveA = fn(liveA); };
+  applyA((prev) => appendDiscussionMessages(prev, [{ role: "user", content: "q1" }]));
+  const staleSnapshot = liveA; // what the request captured at send time
+  // While the request is pending the user does more work on the SAME build:
+  applyA((prev) => appendDiscussionMessages(prev, [{ role: "user", content: "q2" }]));
+  applyA((prev) => toggleConfirmedSuggestion(prev, "keep me"));
+  applyA((prev) => updateBuildDiscussion(prev, { provider: "grok" }));
+  // The response resolves and appends functionally against the latest state:
+  applyA((prev) => updateBuildDiscussion(
+    appendDiscussionMessages(prev, [{ role: "assistant", content: "a1" }]),
+    { lastProvider: "claude-test" }));
+  results.push(assert(
+    liveA.messages.map((m: any) => m.content).join(",") === "q1,q2,a1" &&
+    liveA.confirmed.includes("keep me") && liveA.provider === "grok" &&
+    liveA.lastProvider === "claude-test" && staleSnapshot.messages.length === 1,
+    "discussion: late reply appends without dropping concurrent changes"));
+
+  // --- migration planner: persist-then-commit semantics -----------------
+  const planBusy = planLegacyDiscussionMigration(
+    [{ id: "A", discussion: appendDiscussionMessages(undefined, [{ role: "user", content: "own" }]) }],
+    "A",
+    appendDiscussionMessages(undefined, [{ role: "user", content: "legacy" }]));
+  results.push(assert(planBusy.status === "defer",
+    "discussion: non-empty active build defers migration (legacy preserved)"));
+  results.push(assert(
+    planLegacyDiscussionMigration([{ id: "A" }], "missing", appendDiscussionMessages(undefined, [{ role: "user", content: "l" }])).status === "defer",
+    "discussion: missing active build defers migration"));
+  results.push(assert(planLegacyDiscussionMigration([{ id: "A" }], "A", null).status === "nothing",
+    "discussion: no legacy history marks migration complete"));
+  const planEmpty = planLegacyDiscussionMigration(
+    [{ id: "A", discussion: createEmptyBuildDiscussion() }, { id: "B", discussion: createEmptyBuildDiscussion() }],
+    "A",
+    appendDiscussionMessages(undefined, [{ role: "user", content: "legacy" }]));
+  results.push(assert(
+    planEmpty.status === "import" &&
+    (planEmpty as any).sessions[0].discussion.messages[0].content === "legacy" &&
+    (planEmpty as any).sessions[1].discussion.messages.length === 0,
+    "discussion: empty active build imports legacy exactly once"));
+
+  // Full effect simulation: failed persistence keeps legacy + marker absent.
+  const durStore = mkStore();
+  durStore.setItem(LEGACY_HISTORY_KEY, JSON.stringify([{ role: "user", content: "legacy" }]));
+  let persisted: any = null;
+  const runMigrationEffect = (sess: any[], activeId: string, persistOk: boolean): boolean => {
+    if (isDiscussionMigrated(durStore)) return false;
+    const legacy = readLegacyDiscussion(durStore);
+    const plan = planLegacyDiscussionMigration(sess, activeId, legacy);
+    if (plan.status === "defer") return false;
+    if (plan.status === "nothing") { finishDiscussionMigration(durStore); return true; }
+    if (!persistOk) return false;
+    persisted = plan.sessions;
+    finishDiscussionMigration(durStore);
+    return true;
+  };
+  const busySessions = [{ id: "A", discussion: appendDiscussionMessages(undefined, [{ role: "user", content: "own" }]) }];
+  runMigrationEffect(busySessions, "A", true);
+  results.push(assert(
+    durStore.mem.has(LEGACY_HISTORY_KEY) && !isDiscussionMigrated(durStore),
+    "discussion: busy active build leaves legacy keys and marker untouched"));
+  const emptySessions = [{ id: "B", discussion: createEmptyBuildDiscussion() }];
+  runMigrationEffect(emptySessions, "B", false);
+  results.push(assert(
+    persisted === null && durStore.mem.has(LEGACY_HISTORY_KEY) && !isDiscussionMigrated(durStore),
+    "discussion: failed persistence retains legacy for a safe retry"));
+  const committed = runMigrationEffect(emptySessions, "B", true);
+  results.push(assert(
+    committed && persisted && persisted[0].discussion.messages[0].content === "legacy" &&
+    !durStore.mem.has(LEGACY_HISTORY_KEY) && isDiscussionMigrated(durStore),
+    "discussion: legacy removed and marker set only after a durable write"));
+  const again = runMigrationEffect([{ id: "C", discussion: createEmptyBuildDiscussion() }], "C", true);
+  results.push(assert(!again, "discussion: migration never re-imports after completion"));
 
   const passed = results.filter((r) => r.ok).length;
   return { results, passed, failed: results.length - passed };
