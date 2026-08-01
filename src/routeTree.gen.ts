@@ -37,6 +37,7 @@ import { Route as ApiPublicThemeThumbnailsRouteImport } from './routes/api/publi
 import { Route as ApiPublicThemeBlueprintsRouteImport } from './routes/api/public/theme-blueprints'
 import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
 import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
+import { Route as ApiPublicCommunityRouteImport } from './routes/api/public/community'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicBaselineRouteImport } from './routes/api/public/baseline'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
@@ -195,6 +196,11 @@ const ApiPublicEntitlementRoute = ApiPublicEntitlementRouteImport.update({
   path: '/api/public/entitlement',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicCommunityRoute = ApiPublicCommunityRouteImport.update({
+  id: '/api/public/community',
+  path: '/api/public/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
   id: '/api/public/builds',
   path: '/api/public/builds',
@@ -291,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/community': typeof ApiPublicCommunityRoute
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
@@ -334,6 +341,7 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/community': typeof ApiPublicCommunityRoute
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
@@ -378,6 +386,7 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
+  '/api/public/community': typeof ApiPublicCommunityRoute
   '/api/public/entitlement': typeof ApiPublicEntitlementRoute
   '/api/public/self-test': typeof ApiPublicSelfTestRoute
   '/api/public/theme-blueprints': typeof ApiPublicThemeBlueprintsRoute
@@ -423,6 +432,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/baseline'
     | '/api/public/builds'
+    | '/api/public/community'
     | '/api/public/entitlement'
     | '/api/public/self-test'
     | '/api/public/theme-blueprints'
@@ -466,6 +476,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/baseline'
     | '/api/public/builds'
+    | '/api/public/community'
     | '/api/public/entitlement'
     | '/api/public/self-test'
     | '/api/public/theme-blueprints'
@@ -509,6 +520,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/public/baseline'
     | '/api/public/builds'
+    | '/api/public/community'
     | '/api/public/entitlement'
     | '/api/public/self-test'
     | '/api/public/theme-blueprints'
@@ -553,6 +565,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiPublicBaselineRoute: typeof ApiPublicBaselineRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
+  ApiPublicCommunityRoute: typeof ApiPublicCommunityRoute
   ApiPublicEntitlementRoute: typeof ApiPublicEntitlementRoute
   ApiPublicSelfTestRoute: typeof ApiPublicSelfTestRoute
   ApiPublicThemeBlueprintsRoute: typeof ApiPublicThemeBlueprintsRoute
@@ -766,6 +779,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicEntitlementRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/community': {
+      id: '/api/public/community'
+      path: '/api/public/community'
+      fullPath: '/api/public/community'
+      preLoaderRoute: typeof ApiPublicCommunityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/builds': {
       id: '/api/public/builds'
       path: '/api/public/builds'
@@ -911,6 +931,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiPublicBaselineRoute: ApiPublicBaselineRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
+  ApiPublicCommunityRoute: ApiPublicCommunityRoute,
   ApiPublicEntitlementRoute: ApiPublicEntitlementRoute,
   ApiPublicSelfTestRoute: ApiPublicSelfTestRoute,
   ApiPublicThemeBlueprintsRoute: ApiPublicThemeBlueprintsRoute,
