@@ -2255,9 +2255,11 @@ const unlockCss = `
   width: 100%; max-width: min(1400px, 96vw);
   margin: 0 auto 14px;
   display: grid;
-  grid-template-columns: minmax(0,1fr) auto;
+  /* Brand keeps its natural width so the wide-tracked wordmark can never be
+     squeezed under the nav links; the links column absorbs the rest. */
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  column-gap: 24px;
   padding: 10px 14px;
   background: rgba(8,8,10,0.72);
   backdrop-filter: blur(14px);
@@ -2266,10 +2268,11 @@ const unlockCss = `
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
-.unlock-topbar-brand { display: flex; align-items: center; gap: 10px; color: #f2eee7; text-decoration: none; min-width: 0; }
-.unlock-topbar-mark { width: 28px; height: 28px; border-radius: 999px; object-fit: cover; display: block; filter: drop-shadow(0 0 8px rgba(244,161,37,0.45)); }
-.unlock-topbar-name { font-family: var(--font-display, inherit); letter-spacing: 0.24em; font-weight: 700; font-size: 14px; }
-.unlock-topbar-links { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.unlock-topbar-brand { display: flex; align-items: center; gap: 10px; color: #f2eee7; text-decoration: none; white-space: nowrap; }
+.unlock-topbar-mark { width: 28px; height: 28px; border-radius: 999px; object-fit: cover; display: block; flex: 0 0 auto; filter: drop-shadow(0 0 8px rgba(244,161,37,0.45)); }
+.unlock-topbar-name { font-family: var(--font-display, inherit); letter-spacing: 0.24em; font-weight: 700; font-size: 14px; padding-right: 0.24em; }
+.unlock-topbar-links { display: flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+
 .unlock-topbar-link {
   background: transparent; border: 0; color: rgba(242,238,231,0.8);
   padding: 8px 12px; border-radius: 8px; cursor: pointer;
@@ -2467,15 +2470,22 @@ const unlockCss = `
     0 20px 60px rgba(0,0,0,0.55),
     0 0 40px rgba(244,161,37,0.06) !important;
 }
-.unlock-topbar-name { font-family: Fraunces, Georgia, serif !important; font-weight: 500 !important; letter-spacing: 0.32em !important; }
+.unlock-topbar-name { font-family: Fraunces, Georgia, serif !important; font-weight: 500 !important; letter-spacing: 0.32em !important; padding-right: 0.32em; }
+@media (max-width: 900px) {
+  /* Stack brand above the links instead of letting them collide. */
+  .unlock-topbar { grid-template-columns: 1fr !important; row-gap: 6px; border-radius: 18px !important; }
+  .unlock-topbar-links { justify-content: center; }
+  .unlock-topbar-brand { justify-content: center; }
+}
+
 .unlock-topbar-link {
   position: relative;
-  text-transform: uppercase; font-size: 11px !important; letter-spacing: 0.18em !important;
-  padding: 8px 14px !important; color: rgba(242,238,231,0.7) !important;
+  text-transform: uppercase; font-size: 11px !important; letter-spacing: 0.12em !important; white-space: nowrap;
+  padding: 8px 10px !important; color: rgba(242,238,231,0.7) !important;
   border-radius: 999px !important;
 }
 .unlock-topbar-link::after {
-  content: ""; position: absolute; left: 14px; right: 14px; bottom: 4px; height: 1px;
+  content: ""; position: absolute; left: 10px; right: 10px; bottom: 4px; height: 1px;
   background: linear-gradient(90deg, transparent, rgba(244,161,37,0.7), transparent);
   transform: scaleX(0); transform-origin: center; transition: transform .25s ease;
 }
@@ -2483,7 +2493,7 @@ const unlockCss = `
 .unlock-topbar-link:hover::after { transform: scaleX(1); }
 .unlock-topbar-cta {
   text-transform: uppercase; font-size: 11px !important; letter-spacing: 0.2em !important;
-  padding: 9px 18px !important; border-radius: 999px !important;
+  padding: 9px 14px !important; border-radius: 999px !important; white-space: nowrap;
   background: linear-gradient(180deg, #f4a125, #c9761f) !important;
   box-shadow: 0 6px 24px rgba(244,161,37,0.28), 0 1px 0 rgba(255,255,255,0.25) inset !important;
 }
