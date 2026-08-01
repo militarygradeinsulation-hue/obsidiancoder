@@ -71,6 +71,7 @@ export const Route = createFileRoute("/api/public/builds")({
           const body = (await request.json()) as {
             title?: string; prompt?: string; html?: string; model?: string;
             session_id?: string; client_id?: string; library_code?: string;
+            is_public?: boolean; author_label?: string; surface?: string;
           };
           if (!body.html || body.html.length < 20) {
             await settleOperation(entitlement, { kind: "no_provider", errorCode: "missing_html" });
