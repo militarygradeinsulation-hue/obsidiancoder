@@ -2255,9 +2255,11 @@ const unlockCss = `
   width: 100%; max-width: min(1400px, 96vw);
   margin: 0 auto 14px;
   display: grid;
-  grid-template-columns: minmax(0,1fr) auto;
+  /* Brand keeps its natural width so the wide-tracked wordmark can never be
+     squeezed under the nav links; the links column absorbs the rest. */
+  grid-template-columns: auto minmax(0, 1fr);
   align-items: center;
-  gap: 12px;
+  column-gap: 24px;
   padding: 10px 14px;
   background: rgba(8,8,10,0.72);
   backdrop-filter: blur(14px);
@@ -2266,10 +2268,11 @@ const unlockCss = `
   border-radius: 12px;
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
-.unlock-topbar-brand { display: flex; align-items: center; gap: 10px; color: #f2eee7; text-decoration: none; min-width: 0; }
-.unlock-topbar-mark { width: 28px; height: 28px; border-radius: 999px; object-fit: cover; display: block; filter: drop-shadow(0 0 8px rgba(244,161,37,0.45)); }
-.unlock-topbar-name { font-family: var(--font-display, inherit); letter-spacing: 0.24em; font-weight: 700; font-size: 14px; }
-.unlock-topbar-links { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+.unlock-topbar-brand { display: flex; align-items: center; gap: 10px; color: #f2eee7; text-decoration: none; white-space: nowrap; }
+.unlock-topbar-mark { width: 28px; height: 28px; border-radius: 999px; object-fit: cover; display: block; flex: 0 0 auto; filter: drop-shadow(0 0 8px rgba(244,161,37,0.45)); }
+.unlock-topbar-name { font-family: var(--font-display, inherit); letter-spacing: 0.24em; font-weight: 700; font-size: 14px; padding-right: 0.24em; }
+.unlock-topbar-links { display: flex; align-items: center; gap: 4px 6px; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+
 .unlock-topbar-link {
   background: transparent; border: 0; color: rgba(242,238,231,0.8);
   padding: 8px 12px; border-radius: 8px; cursor: pointer;
