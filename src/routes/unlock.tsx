@@ -21,6 +21,8 @@ import exampleVideo2 from "@/assets/example-2.mp4.asset.json";
 import exampleVideo3 from "@/assets/example-3.mp4.asset.json";
 import exampleVideo4 from "@/assets/example-4.mp4.asset.json";
 import exampleVideo5 from "@/assets/example-5.mp4.asset.json";
+import vibeShot from "@/assets/workspace-vibe.png.asset.json";
+import pocketShot from "@/assets/workspace-pocket.png.asset.json";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 
@@ -139,6 +141,24 @@ function Unlock() {
   const [activeVideo, setActiveVideo] = useState<{ url: string; label: string } | null>(null);
   const activeVideoRef = useRef<HTMLVideoElement | null>(null);
   const [pocketExpanded, setPocketExpanded] = useState(false);
+
+  // Community builds shared from Obsidian Pocket — shown right on the home
+  // screen so visitors see real work without opening /library first.
+  const [communityBuilds, setCommunityBuilds] = useState<
+    { id: string; title: string; prompt: string; share_slug: string | null; remix_count: number; byte_size: number }[]
+  >([]);
+  useEffect(() => {
+    let alive = true;
+    fetch("/api/public/community?limit=24")
+      .then((r) => (r.ok ? r.json() : { builds: [] }))
+      .then((j: { builds?: typeof communityBuilds }) => {
+        if (alive && Array.isArray(j.builds)) setCommunityBuilds(j.builds.filter((b) => b.share_slug && b.byte_size > 900).slice(0, 8));
+      })
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, []);
   useEffect(() => {
     if (!pocketExpanded) return;
     const onKey = (e: globalThis.KeyboardEvent) => {
@@ -440,6 +460,14 @@ function Unlock() {
               <h2 id="compare-heading" className="unlock-compare-title">Choose your workspace</h2>
               <div className="unlock-compare-grid">
                 <div className="unlock-compare-card is-vibe">
+                  <img
+                    className="unlock-compare-shot"
+                    src={vibeShot.url}
+                    alt="Obsidian Vibe workspace: left tool rail, live sandbox canvas, and right agent panel"
+                    loading="lazy"
+                    width={1440}
+                    height={900}
+                  />
                   <div className="unlock-compare-card-head">
                     <span className="unlock-compare-badge">Full power</span>
                     <h3 className="unlock-compare-card-title">Obsidian Vibe</h3>
@@ -452,12 +480,20 @@ function Unlock() {
                     <li>Co-designer chat, image uploads, and style guides</li>
                     <li>Best for polished apps, dashboards, and client work</li>
                   </ul>
-                  <Link to="/" search={{ demo: "1" }} className="unlock-compare-cta is-secondary">
+                  <a href="/?demo=1" className="unlock-compare-cta is-secondary">
                     Open Obsidian Vibe
-                  </Link>
+                  </a>
                 </div>
 
                 <div className="unlock-compare-card is-pocket">
+                  <img
+                    className="unlock-compare-shot"
+                    src={pocketShot.url}
+                    alt="Obsidian Pocket workspace: single prompt box with code and live preview side by side"
+                    loading="lazy"
+                    width={1440}
+                    height={900}
+                  />
                   <div className="unlock-compare-card-head">
                     <span className="unlock-compare-badge">Quick builds</span>
                     <h3 className="unlock-compare-card-title">Obsidian Pocket</h3>
@@ -470,22 +506,58 @@ function Unlock() {
                     <li>Free to use with no account required</li>
                     <li>Best for fast landing pages, ideas, and prototypes</li>
                   </ul>
-                  <Link to="/pocket" className="unlock-compare-cta">
-                    Try Obsidian Pocket
-                  </Link>
+                  <a href="/pocket" className="unlock-compare-cta">
+                    Open Obsidian Pocket
+                  </a>
                 </div>
               </div>
 
-              <div className="unlock-compare-card" style={{ marginTop: "1.25rem" }}>
-                <h3 className="unlock-compare-card-title">Community Library</h3>
-                <p className="unlock-compare-card-sub">
-                  Every build people shared from Pocket — preview it live, copy the code, or remix it into your own
-                  workspace in one click.
-                </p>
-                <Link to="/library" className="unlock-compare-cta">
-                  Browse the Library
-                </Link>
+              {/* Live builds people shared from Pocket */}
+              <div className="unlock-community" id="community-anchor">
+                <div className="unlock-community-head">
+                  <div>
+                    <h3 className="unlock-compare-card-title">Built in Pocket by the community</h3>
+                    <p className="unlock-compare-card-sub">
+                      Real, working pages people shared. Preview one live, then copy or remix it.
+                    </p>
+                  </div>
+                  <a href="/library" className="unlock-compare-cta">Browse the Library</a>
+                </div>
+                {communityBuilds.length === 0 ? (
+                  <p className="unlock-community-empty">
+                    No shared builds yet — build something in Pocket and press “Share to Library”.
+                  </p>
+                ) : (
+                  <div className="unlock-community-grid">
+                    {communityBuilds.map((b) => (
+                      <a
+                        key={b.id}
+                        className="demo-card"
+                        href={`/api/public/share/${b.share_slug}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title={b.prompt || b.title}
+                      >
+                        <span className="demo-frame">
+                          <iframe
+                            src={`/api/public/share/${b.share_slug}`}
+                            title={b.title}
+                            loading="lazy"
+                            sandbox="allow-scripts"
+                            tabIndex={-1}
+                          />
+                          <span className="demo-scrim" aria-hidden />
+                        </span>
+                        <span className="demo-meta">
+                          <span className="demo-name">{b.title || "Untitled build"}</span>
+                          <span className="demo-open">Open ↗</span>
+                        </span>
+                      </a>
+                    ))}
+                  </div>
+                )}
               </div>
+
             </section>
           </div>
         </div>
@@ -1785,7 +1857,28 @@ const unlockCss = `
 }
 
 /* ---- Vibe vs Pocket comparison ---- */
+.unlock-compare-shot {
+  display: block; width: 100%; height: auto; aspect-ratio: 16 / 10;
+  object-fit: cover; object-position: top center;
+  border-radius: 12px; margin-bottom: 14px;
+  border: 1px solid rgba(244,161,37,0.22);
+  box-shadow: 0 14px 34px rgba(0,0,0,0.55);
+}
+.unlock-community { margin-top: 22px; }
+.unlock-community-head {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  align-items: flex-end; justify-content: space-between; margin-bottom: 14px;
+}
+.unlock-community-empty { font-size: 13px; color: rgba(182,188,200,0.7); margin: 0; }
+.unlock-community-grid {
+  display: grid; gap: 14px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+.unlock-community-grid .demo-frame { display: block; }
+.unlock-community-grid .demo-meta { display: flex; }
+
 .unlock-compare {
+  pointer-events: auto;
   width: 100%;
   max-width: 1063px;
   margin: 34px auto 0;
