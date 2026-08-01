@@ -17,6 +17,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as PocketRouteImport } from './routes/pocket'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as HomeRouteImport } from './routes/home'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as ForgeRouteImport } from './routes/forge'
 import { Route as DemosRouteImport } from './routes/demos'
@@ -92,6 +93,11 @@ const McpRoute = McpRouteImport.update({
 const LibraryRoute = LibraryRouteImport.update({
   id: '/library',
   path: '/library',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryRoute = GalleryRouteImport.update({
@@ -289,6 +295,7 @@ export interface FileRoutesByFullPath {
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
+  '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
   '/mcp': typeof McpRoute
   '/pocket': typeof PocketRoute
@@ -335,6 +342,7 @@ export interface FileRoutesByTo {
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
+  '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
   '/mcp': typeof McpRoute
   '/pocket': typeof PocketRoute
@@ -382,6 +390,7 @@ export interface FileRoutesById {
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
   '/gallery': typeof GalleryRoute
+  '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
   '/mcp': typeof McpRoute
   '/pocket': typeof PocketRoute
@@ -430,6 +439,7 @@ export interface FileRouteTypes {
     | '/demos'
     | '/forge'
     | '/gallery'
+    | '/home'
     | '/library'
     | '/mcp'
     | '/pocket'
@@ -476,6 +486,7 @@ export interface FileRouteTypes {
     | '/demos'
     | '/forge'
     | '/gallery'
+    | '/home'
     | '/library'
     | '/mcp'
     | '/pocket'
@@ -522,6 +533,7 @@ export interface FileRouteTypes {
     | '/demos'
     | '/forge'
     | '/gallery'
+    | '/home'
     | '/library'
     | '/mcp'
     | '/pocket'
@@ -569,6 +581,7 @@ export interface RootRouteChildren {
   DemosRoute: typeof DemosRoute
   ForgeRoute: typeof ForgeRoute
   GalleryRoute: typeof GalleryRoute
+  HomeRoute: typeof HomeRoute
   LibraryRoute: typeof LibraryRoute
   McpRoute: typeof McpRoute
   PocketRoute: typeof PocketRoute
@@ -662,6 +675,13 @@ declare module '@tanstack/react-router' {
       path: '/library'
       fullPath: '/library'
       preLoaderRoute: typeof LibraryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery': {
@@ -960,6 +980,7 @@ const rootRouteChildren: RootRouteChildren = {
   DemosRoute: DemosRoute,
   ForgeRoute: ForgeRoute,
   GalleryRoute: GalleryRoute,
+  HomeRoute: HomeRoute,
   LibraryRoute: LibraryRoute,
   McpRoute: McpRoute,
   PocketRoute: PocketRoute,
