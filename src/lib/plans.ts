@@ -7,12 +7,16 @@ import type { LucideIcon } from "lucide-react";
 import { Rocket, Sparkles, Briefcase, Building2, Crown, Landmark } from "lucide-react";
 
 export type PlanTierId =
+  | "pocket"
   | "starter"
   | "creator"
   | "professional"
   | "business"
   | "elite"
   | "enterprise";
+
+/** Hard monthly build allowance for the Obsidian Pocket plan. */
+export const POCKET_MONTHLY_BUILDS = 10;
 
 export interface PlanTier {
   id: PlanTierId;
