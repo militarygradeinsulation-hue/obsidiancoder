@@ -205,7 +205,7 @@ export function AetherisInstructor({
         inputRef.current?.focus();
       }
     },
-    [busy, currentHtml, msgs],
+    [busy, currentHtml, msgs, controls],
   );
 
   if (!open) {
