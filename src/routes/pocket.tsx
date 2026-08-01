@@ -1478,7 +1478,25 @@ function ForgePage() {
       </div>
 
       {/* Aetheris Instructor — plain-English teacher for the whole system. */}
-      <AetherisInstructor currentHtml={html} />
+      <AetherisInstructor
+        currentHtml={html}
+        controls={{
+          getPrompt: () => promptRef.current?.value ?? prompt,
+          setPrompt: (next) => {
+            setPrompt(next);
+            requestAnimationFrame(() => promptRef.current?.focus());
+          },
+          appendPrompt: (extra) => {
+            setPrompt((p) => (p.trim() ? `${p.trim()} ${extra.trim()}` : extra.trim()));
+            requestAnimationFrame(() => promptRef.current?.focus());
+          },
+          build: () => void generate(),
+          extendIdeas: () => void runExtendIdeas(),
+          clear: clearAll,
+          busy: !!busy,
+        }}
+      />
+
 
       {/* Published build modal — always shows the live URL even if the
           browser blocked the new tab (common inside embedded previews). */}
