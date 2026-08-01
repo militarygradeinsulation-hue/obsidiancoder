@@ -99,6 +99,8 @@ function extractSuggestedPrompt(text: string): string {
   if (quoted?.[1]?.trim()) return quoted[1].trim();
   return "";
 }
+const actionChip =
+  "rounded-full border border-[#F4A125]/40 bg-[#F4A125]/10 px-2.5 py-1 text-[10px] font-medium text-[#F4A125] transition hover:bg-[#F4A125]/20 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60";
 
 export function AetherisInstructor({
   currentHtml = "",
@@ -107,8 +109,7 @@ export function AetherisInstructor({
   currentHtml?: string;
   controls?: InstructorControls;
 }) {
-const actionChip =
-  "rounded-full border border-[#F4A125]/40 bg-[#F4A125]/10 px-2.5 py-1 text-[10px] font-medium text-[#F4A125] transition hover:bg-[#F4A125]/20 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60";
+
 
 
   const [open, setOpen] = React.useState(false);
