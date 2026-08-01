@@ -55,6 +55,11 @@ export default function PocketPromoModal({
   const primaryRef = useRef<HTMLButtonElement | null>(null);
   const restoreFocusRef = useRef<HTMLElement | null>(null);
 
+  // Depend on primitives only: `search` is a fresh object literal on every
+  // parent render, and using it as a dep would reset the open timer forever.
+  const searchCheckout = search?.checkout;
+  const searchIntent = search?.intent;
+
   // Eligibility + scheduling. Client-only (runs after mount) so storage/date
   // checks never cause a hydration mismatch.
   useEffect(() => {
@@ -71,7 +76,7 @@ export default function PocketPromoModal({
       blocked,
       sessionLoading,
       signedIn,
-      search,
+      search: { checkout: searchCheckout, intent: searchIntent },
       sessionShown: wasSessionShown(campaign.campaignId),
       stored: readPromoState(storage),
     });
@@ -83,7 +88,7 @@ export default function PocketPromoModal({
       setOpen(true);
     }, campaign.initialDelayMs);
     return () => window.clearTimeout(timer);
-  }, [blocked, sessionLoading, signedIn, search, campaign, open]);
+  }, [blocked, sessionLoading, signedIn, searchCheckout, searchIntent, campaign, open]);
 
   const persist = useCallback(
     (patch: { dismissedAt?: number; engagedAt?: number }) => {
