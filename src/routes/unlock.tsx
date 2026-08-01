@@ -16,6 +16,7 @@ import { PLAN_TIERS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
+import aetherisEmblem from "@/assets/aetheris-emblem.jpg.asset.json";
 import exampleVideo1 from "@/assets/example-1.mp4.asset.json";
 import exampleVideo2 from "@/assets/example-2.mp4.asset.json";
 import exampleVideo3 from "@/assets/example-3.mp4.asset.json";
@@ -363,7 +364,7 @@ function Unlock() {
 
       <nav className="unlock-topbar" aria-label="Primary">
         <a href="#top" className="unlock-topbar-brand" aria-label="Obsidian home" onClick={() => setPanelOpen(false)}>
-          <span className="unlock-topbar-mark">◆</span>
+          <img src={aetherisEmblem.url} alt="Aetheris Business Forensics emblem" className="unlock-topbar-mark" width={28} height={28} />
           <span className="unlock-topbar-name">OBSIDIAN</span>
         </a>
         <div className="unlock-topbar-links">
@@ -2266,7 +2267,7 @@ const unlockCss = `
   box-shadow: 0 10px 40px rgba(0,0,0,0.5);
 }
 .unlock-topbar-brand { display: flex; align-items: center; gap: 10px; color: #f2eee7; text-decoration: none; min-width: 0; }
-.unlock-topbar-mark { color: #f4a125; font-size: 18px; filter: drop-shadow(0 0 8px rgba(244,161,37,0.6)); }
+.unlock-topbar-mark { width: 28px; height: 28px; border-radius: 999px; object-fit: cover; display: block; filter: drop-shadow(0 0 8px rgba(244,161,37,0.45)); }
 .unlock-topbar-name { font-family: var(--font-display, inherit); letter-spacing: 0.24em; font-weight: 700; font-size: 14px; }
 .unlock-topbar-links { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
 .unlock-topbar-link {
