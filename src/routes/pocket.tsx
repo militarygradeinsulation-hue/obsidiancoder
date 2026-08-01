@@ -798,6 +798,16 @@ function ForgePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              className={btn}
+              onClick={() => navigate({ to: "/unlock" })}
+              aria-label="Go back to Obsidian Vibe home"
+              title="Home"
+            >
+              <Home size={14} />
+              <span className="hidden sm:inline">Home</span>
+            </button>
             <span
               aria-live="polite"
               className="hidden max-w-[220px] truncate text-xs text-[#B6BCC8] sm:inline"
