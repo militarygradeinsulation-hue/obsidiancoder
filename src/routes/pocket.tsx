@@ -7,6 +7,8 @@ import * as React from "react";
 import { createFileRoute, ClientOnly, useNavigate } from "@tanstack/react-router";
 
 import { PocketBackground } from "@/components/PocketBackground";
+import pocketLogo from "@/assets/aetheris-logo.png.asset.json";
+
 import { AetherisInstructor } from "@/components/AetherisInstructor";
 
 import { useServerFn } from "@tanstack/react-start";
@@ -897,9 +899,12 @@ function ForgePage() {
             >
               <ChevronLeft size={14} className={sidebarOpen ? "" : "rotate-180"} />
             </button>
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-gradient-to-b from-[#F4A125] to-[#DD9324] text-[11px] font-black text-[#111317]">
-              OP
-            </span>
+            <img
+              src={pocketLogo.url}
+              alt="Aetheris"
+              className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#F4A125]/40"
+            />
+
             <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket</h1>
               <p className="truncate text-[10px] uppercase tracking-widest text-[#6b7180]">
@@ -908,6 +913,22 @@ function ForgePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <label className="hidden items-center gap-1.5 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
+              <span className="text-[10px] uppercase tracking-widest text-[#6b7180]">Code</span>
+              <input
+                value={libraryCode}
+                onChange={(e) => setLibraryCode(e.target.value)}
+                placeholder="e.g. 9822"
+                aria-label="Account / library code"
+                title="Enter your code to auto-save and load your projects"
+                className="w-[86px] bg-transparent text-xs text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none"
+              />
+              <span
+                className={`h-1.5 w-1.5 rounded-full ${libraryCode.trim() ? "bg-emerald-400" : "bg-[#4b5060]"}`}
+                title={libraryCode.trim() ? "Signed in — projects auto-save" : "No code — projects are not saved"}
+              />
+            </label>
+
             {buildsLeft ? (
               <span
                 className="hidden rounded-md border border-[#F4A125]/30 bg-[#F4A125]/10 px-2 py-1 text-[11px] text-[#F4A125] md:inline"
