@@ -76,7 +76,42 @@ function InstructorOrb({ size = 34, busy = false }: { size?: number; busy?: bool
   );
 }
 
-export function AetherisInstructor({ currentHtml = "" }: { currentHtml?: string }) {
+/**
+ * Optional hands-on controls. When Pocket passes these, the Instructor stops
+ * being a read-only chat and can actually drive the workspace for the learner:
+ * read their prompt, write or add to it, start a build, and reset.
+ */
+export interface InstructorControls {
+  getPrompt: () => string;
+  setPrompt: (next: string) => void;
+  appendPrompt: (extra: string) => void;
+  build?: () => void;
+  extendIdeas?: () => void;
+  clear?: () => void;
+  busy?: boolean;
+}
+
+/** Pull a suggested prompt out of an assistant answer: fenced block first. */
+function extractSuggestedPrompt(text: string): string {
+  const fenced = /```(?:prompt|text)?\s*\n([\s\S]*?)```/i.exec(text);
+  if (fenced?.[1]?.trim()) return fenced[1].trim();
+  const quoted = /"([^"]{40,600})"/.exec(text);
+  if (quoted?.[1]?.trim()) return quoted[1].trim();
+  return "";
+}
+const actionChip =
+  "rounded-full border border-[#F4A125]/40 bg-[#F4A125]/10 px-2.5 py-1 text-[10px] font-medium text-[#F4A125] transition hover:bg-[#F4A125]/20 disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60";
+
+export function AetherisInstructor({
+  currentHtml = "",
+  controls,
+}: {
+  currentHtml?: string;
+  controls?: InstructorControls;
+}) {
+
+
+
   const [open, setOpen] = React.useState(false);
   const [input, setInput] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -107,11 +142,17 @@ export function AetherisInstructor({ currentHtml = "" }: { currentHtml?: string 
       const controller = new AbortController();
       abortRef.current = controller;
       try {
+        // Give the teacher eyes on the workspace: what the learner has typed
+        // and whether anything is built yet.
+        const draft = controls?.getPrompt().trim() ?? "";
+        const workspace = controls
+          ? `\n\n[Workspace the learner is looking at]\nPrompt box: ${draft ? `"${draft.slice(0, 900)}"` : "(empty)"}\nPreview: ${currentHtml.length > 200 ? "a build is on screen" : "nothing built yet"}\nWhen you suggest wording for the prompt box, put the exact text in a fenced \`\`\`prompt block so it can be applied with one tap.`
+          : "";
         const res = await authFetch("/api/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json", "x-obs-free": "1" },
           body: JSON.stringify({
-            prompt: question,
+            prompt: `${question}${workspace}`,
             currentHtml: currentHtml ? currentHtml.slice(0, 4000) : "",
             history,
             advisory: true,
@@ -119,6 +160,7 @@ export function AetherisInstructor({ currentHtml = "" }: { currentHtml?: string 
           }),
           signal: controller.signal,
         });
+
 
         const ctype = (res.headers.get("content-type") || "").toLowerCase();
         if (ctype.includes("application/json")) {
@@ -167,7 +209,7 @@ export function AetherisInstructor({ currentHtml = "" }: { currentHtml?: string 
         inputRef.current?.focus();
       }
     },
-    [busy, currentHtml, msgs],
+    [busy, currentHtml, msgs, controls],
   );
 
   if (!open) {
@@ -225,13 +267,89 @@ export function AetherisInstructor({ currentHtml = "" }: { currentHtml?: string 
               ) : (
                 <Rich text={m.content} />
               )}
+              {m.role === "assistant" && !!controls && !busy && !!m.content && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {!!extractSuggestedPrompt(m.content) && (
+                    <>
+                      <button
+                        type="button"
+                        className={actionChip}
+                        onClick={() => controls.setPrompt(extractSuggestedPrompt(m.content))}
+                      >
+                        Use this prompt
+                      </button>
+                      <button
+                        type="button"
+                        className={actionChip}
+                        onClick={() => controls.appendPrompt(extractSuggestedPrompt(m.content))}
+                      >
+                        Add to my prompt
+                      </button>
+                    </>
+                  )}
+                  {controls.build && (
+                    <button
+                      type="button"
+                      className={actionChip}
+                      disabled={controls.busy}
+                      onClick={() => controls.build?.()}
+                    >
+                      Build it now
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
+
       </div>
 
       <div className="border-t border-white/10 px-3 py-2">
+        {controls && (
+          <div className="mb-2 flex flex-wrap gap-1 border-b border-white/10 pb-2">
+            <button
+              type="button"
+              className={actionChip}
+              disabled={busy}
+              onClick={() => void ask("Read my prompt box and tell me, in simple words, what it will build and the one thing I should improve.")}
+            >
+              Check my prompt
+            </button>
+            {controls.extendIdeas && (
+              <button
+                type="button"
+                className={actionChip}
+                disabled={busy || controls.busy}
+                onClick={() => controls.extendIdeas?.()}
+              >
+                Add ideas to it
+              </button>
+            )}
+            {controls.build && (
+              <button
+                type="button"
+                className={actionChip}
+                disabled={busy || controls.busy}
+                onClick={() => controls.build?.()}
+              >
+                Build it for me
+              </button>
+            )}
+            {controls.clear && (
+              <button
+                type="button"
+                className={actionChip}
+                disabled={busy || controls.busy}
+                onClick={() => controls.clear?.()}
+              >
+                Start over
+              </button>
+            )}
+          </div>
+        )}
         <div className="mb-2 flex flex-wrap gap-1">
+
           {QUICK.map((q) => (
             <button
               key={q}

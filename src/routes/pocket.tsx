@@ -502,25 +502,33 @@ function ForgePage() {
   }, []);
 
   // ---- Prompt enhancement (real server fn + credit gate) ------------------
-  const runEnhance = React.useCallback(async () => {
-    const p = prompt.trim();
-    if (!p || busy) return;
-    setBusy("enhancing");
-    setStatus("Enhancing prompt…");
-    try {
-      const r = await enhance({ data: { prompt: p, hasHtml: html.length > 200, surface: "pocket" } });
-      if ("paywall" in r) {
-        setStatus("Ready");
-        return;
+  const runEnhanceMode = React.useCallback(
+    async (mode: "rewrite" | "extend") => {
+      const p = prompt.trim();
+      if (!p || busy) return;
+      setBusy("enhancing");
+      setStatus(mode === "extend" ? "Reading your prompt and adding ideas…" : "Enhancing prompt…");
+      try {
+        const r = await enhance({
+          data: { prompt: p, hasHtml: html.length > 200, surface: "pocket", mode },
+        });
+        if ("paywall" in r) {
+          setStatus("Ready");
+          return;
+        }
+        setPrompt(r.prompt);
+        setStatus(mode === "extend" ? "Ideas added to your prompt" : "Prompt enhanced");
+      } catch (err) {
+        setError(sanitizeErrorMessage(err, "Could not enhance the prompt."));
+      } finally {
+        setBusy(null);
       }
-      setPrompt(r.prompt);
-      setStatus("Prompt enhanced");
-    } catch (err) {
-      setError(sanitizeErrorMessage(err, "Could not enhance the prompt."));
-    } finally {
-      setBusy(null);
-    }
-  }, [prompt, busy, enhance, html]);
+    },
+    [prompt, busy, enhance, html],
+  );
+  const runEnhance = React.useCallback(() => runEnhanceMode("rewrite"), [runEnhanceMode]);
+  const runExtendIdeas = React.useCallback(() => runEnhanceMode("extend"), [runEnhanceMode]);
+
 
   // ---- Voice assist (same engine as the main Obsidian composer) -----------
   const voice = useVoiceControl({
@@ -1143,6 +1151,16 @@ function ForgePage() {
                 >
                   <Wand2 size={13} /> Enhance
                 </button>
+                <button
+                  type="button"
+                  className={btn}
+                  onClick={() => void runExtendIdeas()}
+                  disabled={!!busy || !prompt.trim()}
+                  title="Reads what you wrote and adds more ideas on top — your words are kept"
+                >
+                  <Sparkles size={13} /> Extend ideas
+                </button>
+
                 {voice.supported && (
                   <button
                     type="button"
@@ -1460,7 +1478,25 @@ function ForgePage() {
       </div>
 
       {/* Aetheris Instructor — plain-English teacher for the whole system. */}
-      <AetherisInstructor currentHtml={html} />
+      <AetherisInstructor
+        currentHtml={html}
+        controls={{
+          getPrompt: () => promptRef.current?.value ?? prompt,
+          setPrompt: (next) => {
+            setPrompt(next);
+            requestAnimationFrame(() => promptRef.current?.focus());
+          },
+          appendPrompt: (extra) => {
+            setPrompt((p) => (p.trim() ? `${p.trim()} ${extra.trim()}` : extra.trim()));
+            requestAnimationFrame(() => promptRef.current?.focus());
+          },
+          build: () => void generate(),
+          extendIdeas: () => void runExtendIdeas(),
+          clear: clearAll,
+          busy: !!busy,
+        }}
+      />
+
 
       {/* Published build modal — always shows the live URL even if the
           browser blocked the new tab (common inside embedded previews). */}
