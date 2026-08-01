@@ -15,6 +15,15 @@ import {
 import { useVoiceControl } from "@/lib/voice-control";
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
+import {
+  type BuildDiscussionState,
+  EMPTY_BUILD_DISCUSSION,
+  finishDiscussionMigration,
+  isDiscussionEmpty,
+  isDiscussionMigrated,
+  normalizeBuildDiscussion,
+  readLegacyDiscussion,
+} from "@/lib/build-discussion";
 import { MessageSquare, ZoomIn, ZoomOut, Maximize2, ClipboardList, Palette, History as HistoryIcon } from "lucide-react";
 import { useServerFn } from "@tanstack/react-start";
 import { enhancePrompt as enhancePromptFn } from "@/lib/enhance.functions";
@@ -225,6 +234,8 @@ type Session = {
   themeName?: string;
   themeBlueprintId?: string;
   qaStatus?: QaSessionStatus | null;
+  /** Per-build "Discuss this build" conversation. Browser/session-local. */
+  discussion?: BuildDiscussionState;
 
 };
 
@@ -281,6 +292,7 @@ function newSession(): Session {
     rules: reconcileRules(undefined),
     runtimeEvents: [],
     cost: { ...EMPTY_COST },
+    discussion: { ...EMPTY_BUILD_DISCUSSION },
   };
 }
 
@@ -1106,6 +1118,8 @@ function Index() {
             ...current.messages,
             { role: "assistant", content: `Loaded "${data.title ?? "Untitled"}" from your library.` },
           ],
+          // A different project in this tab must not inherit the old chat.
+          discussion: { ...EMPTY_BUILD_DISCUSSION },
         });
         setTab("preview");
         setLibraryOpen(false);
@@ -1187,6 +1201,7 @@ function Index() {
           feedback: Array.isArray(partial.feedback) ? partial.feedback : [],
           components: Array.isArray(partial.components) ? partial.components : [],
           templates: Array.isArray(partial.templates) ? partial.templates : [],
+          discussion: normalizeBuildDiscussion(partial.discussion),
         };
       });
       setSessions(normalized);
@@ -1195,6 +1210,27 @@ function Index() {
     }
     setHydrated(true);
   }, []);
+
+  // One-time import of the legacy global discussion into the active build.
+  // Runs once after hydration; never duplicates into a second build.
+  const migratedRef = useRef(false);
+  useEffect(() => {
+    if (!hydrated || migratedRef.current) return;
+    migratedRef.current = true;
+    try {
+      if (isDiscussionMigrated()) return;
+      const legacy = readLegacyDiscussion();
+      if (!legacy) { finishDiscussionMigration(); return; }
+      let imported = false;
+      setSessions((all) => all.map((s) => {
+        if (s.id !== activeId || !isDiscussionEmpty(s.discussion)) return s;
+        imported = true;
+        return { ...s, discussion: legacy };
+      }));
+      if (imported) finishDiscussionMigration();
+    } catch { /* migration must never break the workspace */ }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
 
   // Debounced persistence — quota failures surface once via terminal, non-destructive.
   useEffect(() => {
@@ -4745,6 +4781,14 @@ function Index() {
         <span className="dl-fab-dot" /> Design
       </button>
       <BuildChatPanel
+        key={current.id}
+        buildId={current.id}
+        buildTitle={current.title || "Untitled"}
+        discussion={normalizeBuildDiscussion(current.discussion)}
+        onDiscussionChange={(next) => {
+          const sid = current.id;
+          setSessions((all) => all.map((s) => (s.id === sid ? { ...s, discussion: next } : s)));
+        }}
         open={buildChatOpen}
         onClose={() => setBuildChatOpen(false)}
         currentHtml={current.html || ""}

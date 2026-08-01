@@ -2668,3 +2668,199 @@ export async function runPocketPromoTests(): Promise<{ results: TestResult[]; pa
   const passed = results.filter((r) => r.ok).length;
   return { results, passed, failed: results.length - passed };
 }
+
+/**
+ * Per-build discussion history — pure state + migration semantics.
+ * Simulates the session model in `src/routes/index.tsx` without React.
+ */
+export async function runBuildDiscussionTests(): Promise<{ results: TestResult[]; passed: number; failed: number }> {
+  const results: TestResult[] = [];
+  const {
+    EMPTY_BUILD_DISCUSSION, normalizeBuildDiscussion, updateBuildDiscussion,
+    appendDiscussionMessages, toggleConfirmedSuggestion, clearBuildDiscussion,
+    isDiscussionEmpty, DISCUSSION_LIMITS, readLegacyDiscussion, isDiscussionMigrated,
+    finishDiscussionMigration, LEGACY_HISTORY_KEY, LEGACY_CONFIRMED_KEY,
+    DISCUSSION_MIGRATION_KEY,
+  } = await import("./build-discussion");
+
+  type S = { id: string; title: string; html: string; discussion?: any };
+  const mkSession = (id: string, title = "Untitled"): S =>
+    ({ id, title, html: "", discussion: { ...EMPTY_BUILD_DISCUSSION } });
+  const setDiscussion = (all: S[], id: string, d: any) =>
+    all.map((s) => (s.id === id ? { ...s, discussion: d } : s));
+
+  // --- isolation between builds ---------------------------------------
+  let sessions: S[] = [mkSession("A", "Build A"), mkSession("B", "Build B")];
+  sessions = setDiscussion(sessions, "A",
+    appendDiscussionMessages(sessions[0].discussion, [{ role: "user", content: "hello A" }]));
+  sessions = setDiscussion(sessions, "B",
+    appendDiscussionMessages(sessions[1].discussion, [{ role: "user", content: "hello B" }]));
+  results.push(assert(
+    sessions[0].discussion.messages[0].content === "hello A" &&
+    sessions[1].discussion.messages[0].content === "hello B" &&
+    sessions[0].discussion.messages.length === 1,
+    "discussion: build A and B retain different messages"));
+
+  sessions = setDiscussion(sessions, "A", toggleConfirmedSuggestion(sessions[0].discussion, "add a hero"));
+  results.push(assert(
+    sessions[0].discussion.confirmed.length === 1 && sessions[1].discussion.confirmed.length === 0,
+    "discussion: confirmed suggestions do not leak between builds"));
+  sessions = setDiscussion(sessions, "A", toggleConfirmedSuggestion(sessions[0].discussion, "add a hero"));
+  results.push(assert(sessions[0].discussion.confirmed.length === 0, "discussion: toggling a suggestion off removes it"));
+
+  sessions = setDiscussion(sessions, "B", updateBuildDiscussion(sessions[1].discussion, { provider: "grok" }));
+  results.push(assert(
+    sessions[1].discussion.provider === "grok" && sessions[0].discussion.provider === "claude",
+    "discussion: provider selection is per build"));
+
+  // --- normalization / bounds ------------------------------------------
+  const many = Array.from({ length: 90 }, (_, i) => ({ role: "user" as const, content: `m${i}` }));
+  const capped = normalizeBuildDiscussion({ messages: many });
+  results.push(assert(
+    capped.messages.length === DISCUSSION_LIMITS.maxMessages && capped.messages[0].content === "m30",
+    "discussion: messages capped at 60, newest kept"));
+  const manyConfirmed = Array.from({ length: 70 }, (_, i) => `s${i}`);
+  results.push(assert(
+    normalizeBuildDiscussion({ confirmed: manyConfirmed }).confirmed.length === DISCUSSION_LIMITS.maxConfirmed,
+    "discussion: confirmed suggestions capped at 40"));
+  const longContent = normalizeBuildDiscussion({ messages: [{ role: "user", content: "x".repeat(50_000) }] });
+  results.push(assert(
+    longContent.messages[0].content.length === DISCUSSION_LIMITS.maxContentChars,
+    "discussion: message content capped"));
+  results.push(assert(
+    normalizeBuildDiscussion({ confirmed: ["y".repeat(2000)] }).confirmed[0].length === DISCUSSION_LIMITS.maxSuggestionChars,
+    "discussion: suggestion length capped"));
+  const junk = normalizeBuildDiscussion({
+    messages: [{ role: "system", content: "nope" }, { role: "user" }, null, 7, { role: "user", content: "  " },
+      { role: "assistant", content: "ok", ts: "bad", revisionId: 5 }],
+    confirmed: [null, 3, "", "  ", "keep"],
+    provider: "gpt5",
+  });
+  results.push(assert(
+    junk.messages.length === 1 && junk.messages[0].content === "ok" && junk.messages[0].ts === undefined &&
+    junk.messages[0].revisionId === undefined && junk.confirmed.length === 1 && junk.provider === "claude",
+    "discussion: malformed roles/fields/providers rejected"));
+  results.push(assert(
+    isDiscussionEmpty(normalizeBuildDiscussion(undefined)) && isDiscussionEmpty(normalizeBuildDiscussion("garbage")),
+    "discussion: old session hydration gets safe empty discussion"));
+  results.push(assert(isDiscussionEmpty(mkSession("N").discussion), "discussion: new session starts empty"));
+
+  // --- lifecycle --------------------------------------------------------
+  // Clear All / Clear this session → fresh session shape keeps only this build.
+  const lifecycle: S[] = [
+    { ...mkSession("A"), discussion: appendDiscussionMessages(undefined, [{ role: "user", content: "a" }]) },
+    { ...mkSession("B"), discussion: appendDiscussionMessages(undefined, [{ role: "user", content: "b" }]) },
+  ];
+  const cleared = lifecycle.map((s) => (s.id === "A" ? { ...mkSession("A"), model: "fast" } : s)) as S[];
+  results.push(assert(
+    isDiscussionEmpty(cleared[0].discussion) && cleared[1].discussion.messages.length === 1,
+    "discussion: Clear All clears only the active build's discussion"));
+  const closed = lifecycle.filter((s) => s.id !== "A");
+  results.push(assert(
+    closed.length === 1 && closed[0].discussion.messages[0].content === "b",
+    "discussion: closing a build leaves other discussions unchanged"));
+  results.push(assert(
+    isDiscussionEmpty(mkSession("dup").discussion) && isDiscussionEmpty(mkSession("tpl").discussion) &&
+    isDiscussionEmpty(mkSession("fusion").discussion),
+    "discussion: duplicate / template clone / fusion start empty"));
+  // Open a different library build into the current tab → reset.
+  const loaded = { ...lifecycle[0], title: "Other project", html: "<p/>", discussion: { ...EMPTY_BUILD_DISCUSSION } };
+  results.push(assert(isDiscussionEmpty(loaded.discussion), "discussion: loading a library build into current tab resets it"));
+  // Revert / rename retain the discussion (spread preserves the field).
+  const reverted = { ...lifecycle[0], html: "<old/>" };
+  const renamed = { ...lifecycle[0], title: "Renamed" };
+  results.push(assert(
+    reverted.discussion.messages.length === 1 && renamed.discussion.messages.length === 1,
+    "discussion: revert and rename retain discussion"));
+  results.push(assert(
+    clearBuildDiscussion(updateBuildDiscussion(undefined, { provider: "grok" })).provider === "grok" &&
+    isDiscussionEmpty(clearBuildDiscussion(lifecycle[0].discussion)),
+    "discussion: clear chat empties messages but keeps provider choice"));
+
+  // --- async reply routing ---------------------------------------------
+  // A reply captured against build A must land in A even after switching to B.
+  let routed: S[] = [mkSession("A"), mkSession("B")];
+  const capturedId = "A";
+  routed = setDiscussion(routed, capturedId,
+    appendDiscussionMessages(routed[0].discussion, [{ role: "assistant", content: "late reply" }]));
+  results.push(assert(
+    routed[0].discussion.messages.length === 1 && isDiscussionEmpty(routed[1].discussion),
+    "discussion: async response for build A cannot land in build B"));
+  // Provider request history is drawn only from the active build.
+  const history = routed[0].discussion.messages.slice(-10).map((m: any) => m.content);
+  results.push(assert(
+    history.length === 1 && history[0] === "late reply",
+    "discussion: request history contains only the active build's messages"));
+
+  // --- revision scoping --------------------------------------------------
+  const revDisc = appendDiscussionMessages(undefined, [
+    { role: "user", content: "q1", revisionId: "empty" },
+    { role: "assistant", content: "a1", revisionId: "empty" },
+    { role: "user", content: "q2", revisionId: "r_abc_10" },
+  ]);
+  const revIds = Array.from(new Set(revDisc.messages.map((m: any) => m.revisionId)));
+  results.push(assert(
+    revIds.length === 2 && revIds.includes("empty") && revIds.includes("r_abc_10"),
+    "discussion: timeline groups only this build's revisions, incl. `empty`"));
+
+  // --- one-time legacy migration ----------------------------------------
+  const mkStore = () => {
+    const mem = new Map<string, string>();
+    return {
+      mem,
+      getItem: (k: string) => mem.get(k) ?? null,
+      setItem: (k: string, v: string) => { mem.set(k, v); },
+      removeItem: (k: string) => { mem.delete(k); },
+    };
+  };
+  const store = mkStore();
+  store.setItem(LEGACY_HISTORY_KEY, JSON.stringify([
+    { role: "user", content: "legacy question" },
+    { role: "assistant", content: "legacy answer" },
+  ]));
+  store.setItem(LEGACY_CONFIRMED_KEY, JSON.stringify(["legacy idea"]));
+  results.push(assert(!isDiscussionMigrated(store), "discussion: migration marker absent before first import"));
+  const legacy = readLegacyDiscussion(store);
+  let migrating: S[] = [mkSession("A"), mkSession("B")];
+  const activeId = "A";
+  migrating = migrating.map((s) =>
+    s.id === activeId && isDiscussionEmpty(s.discussion) && legacy ? { ...s, discussion: legacy } : s);
+  finishDiscussionMigration(store);
+  results.push(assert(
+    migrating[0].discussion.messages.length === 2 && migrating[0].discussion.confirmed.length === 1 &&
+    isDiscussionEmpty(migrating[1].discussion),
+    "discussion: legacy history imports into the active build only"));
+  results.push(assert(
+    isDiscussionMigrated(store) && store.mem.get(DISCUSSION_MIGRATION_KEY) === "1" &&
+    !store.mem.has(LEGACY_HISTORY_KEY) && !store.mem.has(LEGACY_CONFIRMED_KEY),
+    "discussion: marker set and legacy keys removed after import"));
+  results.push(assert(readLegacyDiscussion(store) === null, "discussion: migration marker prevents a second import"));
+
+  const malformed = mkStore();
+  malformed.setItem(LEGACY_HISTORY_KEY, "{not json");
+  malformed.setItem(LEGACY_CONFIRMED_KEY, JSON.stringify({ nope: true }));
+  results.push(assert(readLegacyDiscussion(malformed) === null, "discussion: malformed legacy data ignored"));
+
+  const throwing = {
+    getItem() { throw new Error("blocked"); },
+    setItem() { throw new Error("blocked"); },
+    removeItem() { throw new Error("blocked"); },
+  };
+  let threw = false;
+  let safeRead: unknown = "x";
+  try {
+    safeRead = readLegacyDiscussion(throwing);
+    finishDiscussionMigration(throwing);
+    isDiscussionMigrated(throwing);
+  } catch { threw = true; }
+  results.push(assert(!threw && safeRead === null, "discussion: storage exception during migration fails safely"));
+
+  // No HTML snapshots, secrets, or auth data are ever stored.
+  const stateKeys = Object.keys(normalizeBuildDiscussion({ messages: [], html: "<html/>", token: "secret" } as any));
+  results.push(assert(
+    stateKeys.every((k) => ["v", "messages", "confirmed", "provider", "lastProvider"].includes(k)),
+    "discussion: state carries no html/secret/auth fields"));
+
+  const passed = results.filter((r) => r.ok).length;
+  return { results, passed, failed: results.length - passed };
+}

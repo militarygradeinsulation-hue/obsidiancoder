@@ -14,13 +14,17 @@ import {
 import { useServerFn } from "@tanstack/react-start";
 import { discussBuild } from "@/lib/build-chat.functions";
 import { containsTradesOnlyLanguage, isExplicitTradesContext } from "@/lib/suggestion-safety";
+import {
+  type BuildDiscussionState,
+  type DiscussionMessage,
+  type DiscussionProvider,
+  clearBuildDiscussion,
+  normalizeBuildDiscussion,
+  toggleConfirmedSuggestion,
+  updateBuildDiscussion,
+} from "@/lib/build-discussion";
 
-type Msg = {
-  role: "user" | "assistant";
-  content: string;
-  revisionId?: string;
-  ts?: number;
-};
+type Msg = DiscussionMessage;
 
 interface Props {
   open: boolean;
@@ -29,11 +33,12 @@ interface Props {
   draftPrompt: string;
   onInsertToPrompt: (text: string) => void;
   onApplyAndRebuild?: (prompt: string) => void;
+  /** Active build/tab identity — the discussion is scoped to exactly this build. */
+  buildId: string;
+  buildTitle: string;
+  discussion: BuildDiscussionState;
+  onDiscussionChange: (next: BuildDiscussionState) => void;
 }
-
-const STORAGE_KEY = "obs.build-chat.history.v3";
-const CONFIRMED_KEY = "obs.build-chat.confirmed.v2";
-const STALE_KEYS = ["obs.build-chat.history.v2", "obs.build-chat.confirmed.v1"];
 
 /** Cheap revision id from HTML content. */
 function revisionOf(html: string): string {
@@ -66,15 +71,20 @@ export function BuildChatPanel({
   draftPrompt,
   onInsertToPrompt,
   onApplyAndRebuild,
+  buildId,
+  buildTitle,
+  discussion,
+  onDiscussionChange,
 }: Props) {
   const discuss = useServerFn(discussBuild);
-  const [messages, setMessages] = useState<Msg[]>([]);
+  const state = useMemo(() => normalizeBuildDiscussion(discussion), [discussion]);
+  const messages = state.messages;
+  const confirmed = state.confirmed;
+  const provider = state.provider;
+  const lastProvider = state.lastProvider ?? "";
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
-  const [provider, setProvider] = useState<"claude" | "grok" | "auto">("claude");
-  const [lastProvider, setLastProvider] = useState<string>("");
   const [error, setError] = useState<string>("");
-  const [confirmed, setConfirmed] = useState<string[]>([]);
   const [view, setView] = useState<"chat" | "timeline">("chat");
   const [revisionFilter, setRevisionFilter] = useState<string>("all");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -82,28 +92,11 @@ export function BuildChatPanel({
 
   const currentRevision = useMemo(() => revisionOf(currentHtml), [currentHtml]);
 
-  // Load persisted state.
-  useEffect(() => {
-    try {
-      STALE_KEYS.forEach((key) => localStorage.removeItem(key));
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as Msg[];
-        setMessages(parsed);
-      }
-      const c = localStorage.getItem(CONFIRMED_KEY);
-      if (c) {
-        const parsed = JSON.parse(c) as string[];
-        setConfirmed(parsed);
-      }
-    } catch { /* ignore */ }
-  }, []);
-  useEffect(() => {
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(messages.slice(-60))); } catch { /* ignore */ }
-  }, [messages]);
-  useEffect(() => {
-    try { localStorage.setItem(CONFIRMED_KEY, JSON.stringify(confirmed.slice(-40))); } catch { /* ignore */ }
-  }, [confirmed]);
+  // Discussion state lives on the active build/session — no global storage.
+  const stateRef = useRef(state);
+  stateRef.current = state;
+  const patch = (p: Partial<BuildDiscussionState>) =>
+    onDiscussionChange(updateBuildDiscussion(stateRef.current, p));
 
   useEffect(() => {
     if (open) setTimeout(() => inputRef.current?.focus(), 60);
@@ -121,7 +114,7 @@ export function BuildChatPanel({
     const liveHtml = currentHtml || "";
     const liveDraft = draftPrompt || "";
     const next: Msg[] = [...messages, { role: "user", content: q, revisionId: currentRevision, ts: Date.now() }];
-    setMessages(next);
+    patch({ messages: next });
     setBusy(true);
     try {
       const res = await discuss({
@@ -146,8 +139,10 @@ export function BuildChatPanel({
       if (!allowTrades && containsTradesOnlyLanguage(res.reply)) {
         throw new Error("domain_mismatch");
       }
-      setLastProvider(res.providerUsed);
-      setMessages([...next, { role: "assistant", content: res.reply, revisionId: currentRevision, ts: Date.now() }]);
+      patch({
+        lastProvider: res.providerUsed,
+        messages: [...next, { role: "assistant", content: res.reply, revisionId: currentRevision, ts: Date.now() }],
+      });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "unknown";
       setError(msg === "build_chat_unavailable"
@@ -160,7 +155,7 @@ export function BuildChatPanel({
   };
 
   const toggleConfirm = (s: string) => {
-    setConfirmed((prev) => (prev.includes(s) ? prev.filter((x) => x !== s) : [...prev, s]));
+    onDiscussionChange(toggleConfirmedSuggestion(stateRef.current, s));
   };
 
   const applyConfirmedBatch = () => {
@@ -169,7 +164,7 @@ export function BuildChatPanel({
       .map((s, i) => `${i + 1}. ${s}`)
       .join("\n")}`;
     onInsertToPrompt(batch);
-    setConfirmed([]);
+    patch({ confirmed: [] });
   };
 
   const applyTopAndRebuild = () => {
@@ -302,12 +297,19 @@ export function BuildChatPanel({
                 <RefreshCw className="h-2.5 w-2.5" />
                 Live sync · HTML {htmlKb}KB · draft {draftLen} chars
               </div>
+              <div
+                className="text-[10px] mt-0.5 truncate max-w-[240px]"
+                style={{ color: "#7a8290" }}
+                title={`Discussion scoped to build ${buildTitle || "Untitled"} (${buildId})`}
+              >
+                {buildTitle || "Untitled"} · This build only
+              </div>
             </div>
           </div>
           <div className="flex items-center gap-1">
             <select
               value={provider}
-              onChange={(e) => setProvider(e.target.value as "claude" | "grok" | "auto")}
+              onChange={(e) => patch({ provider: e.target.value as DiscussionProvider })}
               className="text-[11px] rounded px-2 py-1"
               style={{ background: "rgba(0,0,0,0.5)", color: "#f2eee7", border: "1px solid rgba(244,161,37,0.25)" }}
               title="Which model powers the chat"
@@ -516,7 +518,7 @@ export function BuildChatPanel({
             {confirmed.length > 0 && (
               <button
                 type="button"
-                onClick={() => setConfirmed([])}
+                onClick={() => patch({ confirmed: [] })}
                 className="text-[10px] ml-auto hover:text-amber-400"
                 style={{ color: "#b6bcc8" }}
               >
@@ -556,7 +558,7 @@ export function BuildChatPanel({
             {messages.length > 0 && (
               <button
                 type="button"
-                onClick={() => { setMessages([]); setError(""); setLastProvider(""); setConfirmed([]); }}
+                onClick={() => { onDiscussionChange(clearBuildDiscussion(stateRef.current)); setError(""); }}
                 className="hover:text-amber-400"
               >
                 Clear chat
