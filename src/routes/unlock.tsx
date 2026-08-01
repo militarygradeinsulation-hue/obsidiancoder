@@ -1772,6 +1772,134 @@ const unlockCss = `
   transform: scale(1.05);
 }
 
+/* ---- Vibe vs Pocket comparison ---- */
+.unlock-compare {
+  width: 100%;
+  max-width: 1063px;
+  margin: 34px auto 0;
+  padding: 26px;
+  border-radius: 20px;
+  border: 1px solid rgba(244,161,37,0.22);
+  background: linear-gradient(180deg, rgba(8,8,10,0.62), rgba(8,8,10,0.42));
+  backdrop-filter: blur(14px);
+  box-shadow:
+    0 24px 70px rgba(0,0,0,0.5),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+.unlock-compare-title {
+  margin: 0 0 18px;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 20px;
+  text-align: center;
+  color: #f2eee7;
+  letter-spacing: 0.04em;
+}
+.unlock-compare-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+.unlock-compare-card {
+  position: relative;
+  padding: 22px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background: rgba(0,0,0,0.32);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.unlock-compare-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(244,161,37,0.35);
+  box-shadow: 0 16px 40px rgba(0,0,0,0.35);
+}
+.unlock-compare-card.is-vibe { border-top: 2px solid rgba(244,161,37,0.55); }
+.unlock-compare-card.is-pocket { border-top: 2px solid rgba(221,147,36,0.55); }
+.unlock-compare-card-head { display: flex; flex-direction: column; gap: 6px; }
+.unlock-compare-badge {
+  align-self: flex-start;
+  font-size: 10px; letter-spacing: 1.4px; text-transform: uppercase;
+  color: #F4A125;
+  border: 1px solid rgba(244,161,37,0.35);
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: rgba(244,161,37,0.08);
+}
+.unlock-compare-card-title {
+  margin: 0;
+  font-family: Fraunces, Georgia, serif;
+  font-size: 22px;
+  color: #f2eee7;
+}
+.unlock-compare-card-sub {
+  margin: 0;
+  font-size: 12.5px;
+  color: rgba(182,188,200,0.85);
+  line-height: 1.45;
+}
+.unlock-compare-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 12.5px;
+  color: rgba(242,238,231,0.85);
+}
+.unlock-compare-list li {
+  position: relative;
+  padding-left: 18px;
+  line-height: 1.45;
+}
+.unlock-compare-list li::before {
+  content: "✓";
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: #F4A125;
+  font-weight: 700;
+  font-size: 11px;
+}
+.unlock-compare-cta {
+  margin-top: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  color: #111317;
+  background: linear-gradient(180deg, #F4A125, #DD9324);
+  transition: transform .2s ease, box-shadow .2s ease;
+}
+.unlock-compare-cta:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 10px 28px rgba(244,161,37,0.32);
+}
+.unlock-compare-cta.is-secondary {
+  background: transparent;
+  color: #F4A125;
+  border: 1px solid rgba(244,161,37,0.4);
+  box-shadow: none;
+}
+.unlock-compare-cta.is-secondary:hover {
+  background: rgba(244,161,37,0.1);
+  box-shadow: 0 8px 24px rgba(244,161,37,0.14);
+}
+@media (max-width: 720px) {
+  .unlock-compare { padding: 20px 18px; margin-top: 26px; }
+  .unlock-compare-grid { grid-template-columns: 1fr; }
+  .unlock-compare-title { font-size: 18px; }
+  .unlock-compare-card-title { font-size: 20px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .pocket-spotlight, .pocket-spotlight-glow, .pocket-spotlight-typed, .pocket-spotlight-caret { animation: none; }
   .pocket-spotlight-typed { width: auto; }
