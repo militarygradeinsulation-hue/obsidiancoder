@@ -145,7 +145,7 @@ export default function PocketPromoModal({
         root.querySelectorAll<HTMLElement>(
           'a[href], button:not([disabled]), input, select, textarea, [tabindex]:not([tabindex="-1"])',
         ),
-      ).filter((el) => el.offsetParent !== null || el === document.activeElement);
+      ).filter((el) => el.getClientRects().length > 0);
       if (nodes.length === 0) return;
       const first = nodes[0];
       const last = nodes[nodes.length - 1];
