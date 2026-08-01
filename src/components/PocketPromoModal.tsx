@@ -6,6 +6,7 @@ import {
   emitPromoEvent,
   isPromoEligible,
   readPromoState,
+  shouldForceClosePromo,
   writePromoState,
   type PromoCampaign,
   type PromoDismissSource,
