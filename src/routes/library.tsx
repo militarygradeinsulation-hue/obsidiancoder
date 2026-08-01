@@ -74,6 +74,12 @@ function LibraryPage() {
   const [manageOpen, setManageOpen] = React.useState(false);
   const [allBuilds, setAllBuilds] = React.useState<AdminBuildRow[]>([]);
   const [adminBusy, setAdminBusy] = React.useState<string | null>(null);
+  const [selected, setSelected] = React.useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = React.useState(false);
+
+  const toggleSelected = React.useCallback((id: string) => {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
 
 
 
