@@ -41,7 +41,10 @@ import { sanitizeForExport } from "@/lib/clean-export";
 import { DEFAULT_MODEL, MODEL_REGISTRY, ROUTELLM_MODELS } from "@/lib/models";
 import { updateContent, createFile, type Project } from "@/lib/project-model";
 import { enhancePrompt } from "@/lib/enhance.functions";
-import { suggestAddons } from "@/lib/prompt-enhance";
+import { suggestAddons, type Addon } from "@/lib/prompt-enhance";
+import { generateStarterIdeas } from "@/lib/ideas.functions";
+import { suggestionAllowed } from "@/lib/suggestion-safety";
+
 
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { getAccountCode, setAccountCode, isFullAccessCode } from "@/lib/account-code";
@@ -98,6 +101,20 @@ interface LibraryBuild {
   share_slug?: string | null;
 }
 
+const POCKET_IDEA_CATEGORIES: Array<{ id: string; label: string }> = [
+  { id: "all", label: "All ideas" },
+  { id: "ai", label: "AI" },
+  { id: "app", label: "App" },
+  { id: "game", label: "Game" },
+  { id: "productivity", label: "Productivity" },
+  { id: "education", label: "Education" },
+  { id: "presentation", label: "Presentation" },
+  { id: "landing", label: "Landing page" },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "portfolio", label: "Portfolio" },
+];
+
+
 const EMPTY_DOC = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New project</title></head>
 <body style="margin:0;display:grid;place-items:center;height:100vh;background:#0b0c0f;color:#8b8f98;font-family:Inter,system-ui;font-size:14px">Describe what to build, then press Generate.</body></html>`;
@@ -116,10 +133,40 @@ function ForgePage() {
   const [versions, setVersions] = React.useState<ForgeVersion[]>([]);
   const [prompt, setPrompt] = React.useState("");
   const [ideaOffset, setIdeaOffset] = React.useState(0);
-  const ideaChips = React.useMemo(
+  const [ideaCategory, setIdeaCategory] = React.useState("all");
+  const [aiIdeas, setAiIdeas] = React.useState<Addon[]>([]);
+  const [aiIdeasLoading, setAiIdeasLoading] = React.useState(false);
+  const seenIdeasRef = React.useRef<Set<string>>(new Set());
+  const genIdeas = useServerFn(generateStarterIdeas);
+  const baseIdeas = React.useMemo(
     () => suggestAddons(prompt, false, ideaOffset, 7),
     [prompt, ideaOffset],
   );
+  const ideaChips = React.useMemo(
+    () => (!prompt.trim() && aiIdeas.length ? aiIdeas.slice(0, 6) : baseIdeas),
+    [prompt, aiIdeas, baseIdeas],
+  );
+  const loadCategoryIdeas = React.useCallback(
+    async (category: string) => {
+      setAiIdeasLoading(true);
+      try {
+        const exclude = Array.from(seenIdeasRef.current).slice(-120);
+        const res = await genIdeas({ data: { exclude, count: 8, category: category as never } });
+        const allowTrades = category === "trades";
+        const fresh = (res.ideas ?? [])
+          .filter((i) => suggestionAllowed(`${i.label} ${i.snippet}`, allowTrades))
+          .map((i) => ({ id: i.id, label: i.label, snippet: i.snippet }) as Addon);
+        fresh.forEach((f) => seenIdeasRef.current.add(f.label.toLowerCase()));
+        setAiIdeas(fresh);
+      } catch {
+        setAiIdeas([]);
+      } finally {
+        setAiIdeasLoading(false);
+      }
+    },
+    [genIdeas],
+  );
+
 
 
   const [mode, setMode] = React.useState<BuildMode>("build");
@@ -833,8 +880,42 @@ function ForgePage() {
                 {voice.error || voice.interim || (voice.processing ? "Transcribing…" : "Listening… say “send” to build")}
               </p>
             )}
+            {/* Idea categories */}
+            {!prompt.trim() && (
+              <div className="mt-2 flex flex-wrap gap-1" role="tablist" aria-label="Idea categories">
+                {POCKET_IDEA_CATEGORIES.map((c) => {
+                  const active = ideaCategory === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      disabled={aiIdeasLoading && active}
+                      onClick={() => {
+                        setIdeaCategory(c.id);
+                        setAiIdeas([]);
+                        void loadCategoryIdeas(c.id);
+                      }}
+                      className={`rounded-full border px-2 py-[3px] text-[10px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
+                        active
+                          ? "border-[#F4A125]/65 bg-[#F4A125]/15 text-[#F4A125]"
+                          : "border-white/10 bg-white/[0.03] text-[#B6BCC8] hover:text-[#E8E6E1]"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
             {/* Idea chips — click to append, then Enhance to expand */}
             <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {aiIdeasLoading && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#7d8494]">
+                  <Loader2 size={12} className="animate-spin" /> Finding fresh ideas…
+                </span>
+              )}
               {ideaChips.map((a) => (
                 <button
                   key={a.id}
@@ -851,10 +932,14 @@ function ForgePage() {
               ))}
               <button
                 type="button"
-                onClick={() => setIdeaOffset((o) => o + 4)}
+                onClick={() => {
+                  setIdeaOffset((o) => o + 4);
+                  if (!prompt.trim()) void loadCategoryIdeas(ideaCategory);
+                }}
                 className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[#7d8494] transition hover:text-[#E8E6E1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
               >
                 More ideas
+
               </button>
             </div>
 
