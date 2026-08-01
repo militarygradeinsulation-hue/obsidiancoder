@@ -16,6 +16,7 @@ import {
   Download,
   Github,
   Home,
+  Library,
   Loader2,
   Monitor,
   Rocket,
@@ -1168,6 +1169,15 @@ function ForgePage() {
               <button type="button" className={btn} onClick={() => void deploy()} disabled={!!busy}>
                 <Rocket size={13} /> Publish
               </button>
+              <button
+                type="button"
+                className={`${btn} ${inCommunity ? "!border-emerald-400/50 !text-emerald-300" : ""}`}
+                onClick={() => void shareToLibrary()}
+                disabled={!!busy}
+                title={inCommunity ? "In the community library — click to remove" : "Share this build to the public community library"}
+              >
+                <Library size={13} /> {inCommunity ? "In Library" : "Share to Library"}
+              </button>
               {isAdminCode && (
                 <button
                   type="button"
@@ -1518,6 +1528,14 @@ function ForgePage() {
               </button>
               <button type="button" className={btn} onClick={() => void deploy()}>
                 <Rocket size={13} /> Publish
+              </button>
+              <button
+                type="button"
+                className={`${btn} col-span-2 ${inCommunity ? "!border-emerald-400/50 !text-emerald-300" : ""}`}
+                onClick={() => void shareToLibrary()}
+                disabled={!!busy}
+              >
+                <Library size={13} /> {inCommunity ? "In Library (click to remove)" : "Share to Library"}
               </button>
               {isAdminCode && (
                 <button
