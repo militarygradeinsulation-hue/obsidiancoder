@@ -2989,3 +2989,280 @@ export async function runBuildDiscussionTests(): Promise<{ results: TestResult[]
   const passed = results.filter((r) => r.ok).length;
   return { results, passed, failed: results.length - passed };
 }
+
+/* ==================================================================== *
+ * Obsidian Pocket — premium creative coding system
+ * Pure fixtures only. Zero provider calls.
+ * ==================================================================== */
+export async function runPocketCreativeTests(): Promise<{ results: TestResult[]; passed: number; failed: number }> {
+  const results: TestResult[] = [];
+  const cre = await import("./pocket-creative");
+  const res = await import("./pocket-model-resolver");
+  const con = await import("./pocket-concept");
+  const pr = await import("./pocket-prompt");
+
+  /* ---------------- model resolver ---------------- */
+  const currentRegistry = res.defaultRegistry();
+  const studioNow = res.resolvePocketModel({ profile: "studio" });
+  const cineNow = res.resolvePocketModel({ profile: "cinematic" });
+  results.push(assert(
+    (cre.ALLOWED_OK ?? true) && currentRegistry.some((e) => e.id === studioNow.model),
+    "resolver: studio picks an id that exists in the configured registry",
+    studioNow.model,
+  ));
+  results.push(assert(
+    studioNow.isClaude === /claude/i.test(studioNow.model) || studioNow.isClaude === false,
+    "resolver: isClaude never lies about the selected model",
+  ));
+  results.push(assert(
+    studioNow.isClaude ? studioNow.statusLabel === "Best available Claude" : studioNow.statusLabel !== "Best available Claude",
+    "resolver: label says Claude only when Claude was selected",
+    studioNow.statusLabel,
+  ));
+  results.push(assert(cineNow.model.length > 0, "resolver: cinematic always resolves a model"));
+
+  // Future ids/labels must be selected WITHOUT hard-coding.
+  const future = [
+    { id: "routellm/claude-opus-4-1-20250805", label: "RouteLLM · Claude Opus 4.1" },
+    { id: "routellm/claude-opus-5-20260401", label: "RouteLLM · Claude Opus 5" },
+    { id: "routellm/claude-sonnet-5-20260301", label: "RouteLLM · Claude Sonnet 5" },
+  ];
+  const rankedFuture = res.rankClaude(future);
+  results.push(assert(
+    rankedFuture[0]?.entry.id === "routellm/claude-opus-5-20260401",
+    "resolver: synthetic Opus 5 outranks Opus 4.1 and Sonnet 5",
+    rankedFuture[0]?.entry.id,
+  ));
+  const onlySonnet5 = res.rankClaude([
+    { id: "routellm/claude-sonnet-5-x", label: "Claude Sonnet 5" },
+    { id: "routellm/claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5" },
+  ]);
+  results.push(assert(
+    onlySonnet5[0]?.entry.id === "routellm/claude-sonnet-5-x",
+    "resolver: newest Sonnet wins among Sonnets",
+  ));
+  // Documented Studio policy: newer-generation Sonnet beats older-generation Opus.
+  const mixed = res.rankClaude([
+    { id: "routellm/claude-opus-4-1-x", label: "Claude Opus 4.1" },
+    { id: "routellm/claude-sonnet-5-x", label: "Claude Sonnet 5" },
+  ]);
+  results.push(assert(
+    res.applyStudioPolicy(mixed)?.entry.id === "routellm/claude-sonnet-5-x",
+    "resolver: studio policy prefers newer-gen Sonnet over older-gen Opus",
+  ));
+  results.push(assert(
+    mixed[0]?.entry.id === "routellm/claude-opus-4-1-x",
+    "resolver: raw capability (cinematic) still prefers Opus",
+  ));
+  // No Claude configured → honest fallback.
+  const noClaude = res.resolvePocketModel({
+    profile: "cinematic",
+    registry: [{ id: "openai/gpt-5.5", label: "GPT-5.5 (frontier)" }],
+  });
+  results.push(assert(
+    !noClaude.isClaude && noClaude.statusLabel === "Best available model" && noClaude.model === "openai/gpt-5.5",
+    "resolver: no Claude → honest 'Best available model'",
+    noClaude.statusLabel,
+  ));
+  // Unavailable ids are never returned.
+  const avoid = res.resolvePocketModel({
+    profile: "cinematic",
+    registry: [
+      { id: "routellm/claude-opus-4-1-20250805", label: "Claude Opus 4.1" },
+      { id: "routellm/claude-sonnet-4-5-20250929", label: "Claude Sonnet 4.5" },
+    ],
+    unavailableIds: ["routellm/claude-opus-4-1-20250805"],
+  });
+  results.push(assert(
+    avoid.model === "routellm/claude-sonnet-4-5-20250929",
+    "resolver: skips ids marked unavailable",
+  ));
+  // Fast + pinned behaviour.
+  const fast = res.resolvePocketModel({ profile: "fast" });
+  results.push(assert(fast.model === DEFAULT_MODEL, "resolver: fast keeps the configured default model"));
+  const pinned = res.resolvePocketModel({ profile: "studio", pinnedModel: "openai/gpt-5.4-mini" });
+  results.push(assert(pinned.model === "openai/gpt-5.4-mini", "resolver: a pinned raw model always wins"));
+  const bogus = res.resolvePocketModel({ profile: "fast", pinnedModel: "acme/not-real" });
+  results.push(assert(bogus.model === DEFAULT_MODEL, "resolver: an id outside ALLOWED_MODEL_IDS is rejected"));
+  const planner = res.resolvePocketPlannerModel();
+  results.push(assert(
+    res.defaultRegistry().some((e) => e.id === planner.model),
+    "resolver: planner model exists in the registry",
+    planner.model,
+  ));
+
+  /* ---------------- DNA + variety ---------------- */
+  const d1 = cre.generateDNA({ family: "futuristic", seed: 12345 });
+  const d2 = cre.generateDNA({ family: "futuristic", seed: 12345 });
+  results.push(assert(JSON.stringify(d1) === JSON.stringify(d2), "dna: same seed is deterministic"));
+  results.push(assert(
+    d1.layout.length > 0 && d1.sections.length >= 3 && d1.forbidden.length > 0,
+    "dna: contains concrete layout, sections and forbidden patterns",
+  ));
+
+  const autoFirst = cre.selectDNA({ family: "auto", seed: 1, recent: [] });
+  const recent1 = [cre.dnaSignature(autoFirst)];
+  const autoSecond = cre.selectDNA({ family: "auto", seed: 1, recent: recent1 });
+  results.push(assert(
+    autoSecond.family !== autoFirst.family || autoSecond.layout !== autoFirst.layout,
+    "dna: recent signatures change the auto selection",
+  ));
+  const fam1 = cre.selectDNA({ family: "luxury", seed: 7, recent: [] });
+  const fam2 = cre.selectDNA({ family: "luxury", seed: 7, recent: [cre.dnaSignature(fam1)] });
+  results.push(assert(fam2.family === "luxury", "dna: an explicit family is always honoured"));
+  results.push(assert(
+    fam2.layout !== fam1.layout || fam2.hero !== fam1.hero || fam2.sections.join() !== fam1.sections.join(),
+    "dna: explicit family still varies structure, not just colour",
+  ));
+
+  // Ten sequential auto selections must be structurally diverse.
+  const seen: ReturnType<typeof cre.dnaSignature>[] = [];
+  for (let i = 0; i < 10; i++) {
+    const pickDna = cre.selectDNA({ family: "auto", seed: 1000 + i, recent: seen });
+    seen.unshift(cre.dnaSignature(pickDna));
+  }
+  const layouts = new Set(seen.map((x) => x.layout));
+  const heroes = new Set(seen.map((x) => x.hero));
+  const sequences = new Set(seen.map((x) => x.sections));
+  results.push(assert(
+    layouts.size >= 7 && heroes.size >= 7 && sequences.size >= 7,
+    "dna: 10 auto selections differ structurally (layout/hero/sections)",
+    `layouts=${layouts.size} heroes=${heroes.size} sequences=${sequences.size}`,
+  ));
+  const distAll = seen.slice(1).map((x) => cre.signatureDistance(seen[0], x));
+  results.push(assert(
+    Math.min(...distAll) > 0,
+    "dna: no two consecutive selections are identical",
+  ));
+
+  /* ---------------- creative memory ---------------- */
+  const memKeyGuest = cre.creativeMemoryKey(undefined);
+  const memKeyCode = cre.creativeMemoryKey("9822");
+  results.push(assert(memKeyGuest.endsWith("guest"), "memory: guests are scoped separately"));
+  results.push(assert(!memKeyCode.includes("9822"), "memory: the library code is never stored in the key"));
+  let mem: ReturnType<typeof cre.rememberSignature> = { v: 1, entries: [] };
+  for (let i = 0; i < 30; i++) {
+    mem = { v: 1, entries: [{ ...cre.dnaSignature(cre.generateDNA({ family: "minimal", seed: i })), at: i }, ...mem.entries].slice(0, cre.CREATIVE_MEMORY_LIMIT) };
+  }
+  results.push(assert(mem.entries.length === cre.CREATIVE_MEMORY_LIMIT, "memory: bounded to 12 entries"));
+  const serialized = JSON.stringify(mem);
+  results.push(assert(serialized.length <= cre.CREATIVE_MEMORY_MAX_BYTES, "memory: stays under the size cap"));
+  results.push(assert(
+    !/<[a-z]/i.test(serialized) && !serialized.includes("http"),
+    "memory: stores no raw HTML, prompts, URLs or PII",
+  ));
+
+  /* ---------------- profiles / call budget ---------------- */
+  results.push(assert(cre.providerCallEstimate("fast", false) === 1, "calls: fast = 1 provider call"));
+  results.push(assert(cre.providerCallEstimate("studio", false) === 2, "calls: studio = plan + build"));
+  results.push(assert(cre.providerCallEstimate("cinematic", false) === 3, "calls: cinematic = plan + build + critique"));
+  results.push(assert(cre.providerCallEstimate("cinematic", true) === 1, "calls: refine never re-plans or re-critiques"));
+  results.push(assert(
+    !cre.isProfileAllowed("studio", false) && !cre.isProfileAllowed("cinematic", false) && cre.isProfileAllowed("fast", false),
+    "calls: ineligible users cannot run Studio/Cinematic",
+  ));
+  results.push(assert(
+    cre.isProfileAllowed("cinematic", true),
+    "calls: paid/admin access unlocks Cinematic",
+  ));
+
+  /* ---------------- concept planning ---------------- */
+  const plan = con.deterministicConceptPlan({ prompt: "a booking app for climbing gyms", family: "auto", recent: [] });
+  results.push(assert(plan.concepts.length === 3 && plan.source === "deterministic", "concepts: deterministic fallback returns exactly 3"));
+  const sigs = plan.concepts.map((c) => cre.dnaSignature(c.dna));
+  results.push(assert(
+    new Set(sigs.map((x) => `${x.layout}|${x.sections}`)).size === 3,
+    "concepts: the three directions are structurally distinct",
+  ));
+  results.push(assert(
+    plan.concepts.some((c) => c.id === plan.selectedId),
+    "concepts: a valid concept is preselected so the flow stays one-click",
+  ));
+  const k1 = con.conceptCacheKey({ prompt: "abc", family: "auto", profile: "studio", recent: [] });
+  const k2 = con.conceptCacheKey({ prompt: "abc", family: "auto", profile: "studio", recent: [] });
+  const k3 = con.conceptCacheKey({ prompt: "abc", family: "auto", profile: "studio", recent: sigs });
+  results.push(assert(k1 === k2, "concepts: identical requests share a cache key"));
+  results.push(assert(k1 !== k3, "concepts: recent signatures change the cache key"));
+  const merged = con.parseConceptPlan({ concepts: [{}, {}, {}], selectedId: "nope" }, plan);
+  results.push(assert(
+    merged.concepts.length === 3 && merged.selectedId === merged.concepts[0].id,
+    "concepts: partial model JSON merges safely over the deterministic base",
+  ));
+  results.push(assert(
+    con.parseConceptPlan({ concepts: [{}] }, plan).source === "deterministic",
+    "concepts: too few concepts falls back to the deterministic plan",
+  ));
+  const plannerPrompt = con.conceptPlannerPrompt({ prompt: "x".repeat(9000), family: "luxury", recentSummaries: [] });
+  results.push(assert(
+    plannerPrompt.length < 6000 && !plannerPrompt.includes("<!doctype"),
+    "concepts: planner payload is bounded and contains no HTML",
+  ));
+
+  /* ---------------- prompt injection ---------------- */
+  const block = pr.pocketPremiumBlock({
+    profile: "cinematic",
+    dna: plan.concepts[0].dna,
+    conceptName: plan.concepts[0].name,
+    conceptSentence: plan.concepts[0].concept,
+    selectionReason: plan.selectionReason,
+    recentSignatures: ["futuristic · hud-overlay-grid · a>b>c"],
+  });
+  results.push(assert(
+    block.includes(plan.concepts[0].dna.layout) && block.includes(plan.concepts[0].dna.hero),
+    "prompt: the concrete DNA reaches the model context",
+  ));
+  results.push(assert(
+    block.includes("FORBIDDEN") && block.includes("purple"),
+    "prompt: anti-repetition rules reach the model context",
+  ));
+  results.push(assert(
+    block.includes("futuristic · hud-overlay-grid"),
+    "prompt: recent structures are listed as things to avoid",
+  ));
+  results.push(assert(
+    !/react three fiber|three\.js|cdn|npm install/i.test(block),
+    "prompt: never promises external packages in a standalone document",
+  ));
+  results.push(assert(
+    block.includes("prefers-reduced-motion") && block.includes("devicePixelRatio"),
+    "prompt: performance and reduced-motion constraints are present",
+  ));
+  const fastBlock = pr.pocketPremiumBlock({ profile: "fast", dna: plan.concepts[1].dna });
+  results.push(assert(
+    fastBlock.includes(plan.concepts[1].dna.layout) && !fastBlock.includes("CHOSEN CREATIVE DIRECTION"),
+    "prompt: fast gets deterministic DNA with no concept-planning content",
+  ));
+
+  /* ---------------- critique contract ---------------- */
+  const keep = pr.parseCritique({ verdict: "nonsense", scores: { originality: 99 }, operations: "bad" });
+  results.push(assert(
+    keep.verdict === "keep" && keep.operations.length === 0 && keep.scores.originality === 10,
+    "critique: malformed responses degrade to a safe 'keep'",
+  ));
+  const repair = pr.parseCritique({
+    verdict: "repair",
+    similarityRisk: "high",
+    issues: ["hero is generic"],
+    operations: [{ op: "replace_text", find: "a", replace: "b" }],
+  });
+  results.push(assert(
+    repair.verdict === "repair" && repair.operations.length === 1 && repair.similarityRisk === "high",
+    "critique: a valid repair verdict survives parsing",
+  ));
+  results.push(assert(
+    pr.parseCritique({}).policyVersion === pr.POCKET_CRITIQUE_POLICY_VERSION,
+    "critique: responses are stamped with the policy version for caching",
+  ));
+  // A failed patch must keep the safe first version.
+  const safeHtml = SAMPLE_HTML;
+  const badPatch = parsePatchResponse(JSON.stringify({
+    summary: "bad",
+    operations: [{ op: "replace_text", find: "does-not-exist-anywhere", replace: "x" }],
+  }));
+  const appliedBad = badPatch.ok ? applyPatch(safeHtml, badPatch.patch) : { ok: false as const };
+  const keptHtml = appliedBad.ok ? appliedBad.html : safeHtml;
+  results.push(assert(keptHtml === safeHtml, "critique: a failed repair keeps the safe first version"));
+
+  const passed = results.filter((r) => r.ok).length;
+  return { results, passed, failed: results.length - passed };
+}

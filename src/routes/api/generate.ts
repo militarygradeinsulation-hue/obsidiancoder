@@ -25,6 +25,34 @@ const messageSchema = z.object({
   content: z.string(),
 });
 
+// Obsidian Pocket — strictly bounded creative payloads. No unbounded objects.
+const pocketDnaSchema = z.object({
+  id: z.string().max(80),
+  v: z.number().int().min(1).max(99).optional(),
+  seed: z.number().int().optional(),
+  family: z.string().max(24),
+  layout: z.string().max(80),
+  hero: z.string().max(300),
+  sections: z.array(z.string().max(60)).max(12),
+  typography: z.string().max(240),
+  palette: z.string().max(240),
+  spacing: z.string().max(160),
+  shape: z.string().max(200),
+  depth: z.string().max(200),
+  motion: z.string().max(200),
+  signatureInteraction: z.string().max(200),
+  techniques: z.array(z.string().max(48)).max(8),
+  mobileRules: z.array(z.string().max(160)).max(6),
+  forbidden: z.array(z.string().max(160)).max(10),
+});
+
+const pocketConceptSchema = z.object({
+  name: z.string().max(80),
+  concept: z.string().max(300),
+  selectionReason: z.string().max(240).optional(),
+});
+
+
 const inputSchema = z.object({
   prompt: z.string().min(1).max(6_000_000),
   currentHtml: z.string().max(6_000_000).optional().default(""),
@@ -47,7 +75,17 @@ const inputSchema = z.object({
   // preserves the blueprint across generations/edits.
   themeBlueprintId: z.string().max(120).optional(),
 
+  // ---- Obsidian Pocket premium creative fields (bounded, Pocket-only) ----
+  // Every field is optional; non-Pocket callers are completely unaffected.
+  surface: z.enum(["default", "pocket"]).optional().default("default"),
+  pocketProfile: z.enum(["fast", "studio", "cinematic"]).optional(),
+  pocketStyleFamily: z.string().max(24).optional(),
+  pocketDesignDNA: pocketDnaSchema.optional(),
+  pocketConcept: pocketConceptSchema.optional(),
+  pocketRecentSignatures: z.array(z.string().max(200)).max(12).optional(),
+  pocketCritiqueContext: z.string().max(4000).optional(),
 });
+
 
 
 
@@ -736,6 +774,32 @@ export const Route = createFileRoute("/api/generate")({
               if (bp) messages.push({ role: "system", content: blueprintToSystemPrompt(bp) });
             } catch { /* blueprint injection is non-fatal */ }
           }
+          // Obsidian Pocket premium creative direction. Injected ONLY for the
+          // Pocket surface, and only when the client supplied a concrete DNA.
+          if (!data.advisory && data.surface === "pocket" && data.pocketDesignDNA) {
+            try {
+              const { pocketPremiumBlock } = await import("@/lib/pocket-prompt");
+              messages.push({
+                role: "system",
+                content: pocketPremiumBlock({
+                  profile: data.pocketProfile ?? "fast",
+                  dna: data.pocketDesignDNA as Parameters<typeof pocketPremiumBlock>[0]["dna"],
+                  conceptName: data.pocketConcept?.name,
+                  conceptSentence: data.pocketConcept?.concept,
+                  selectionReason: data.pocketConcept?.selectionReason,
+                  recentSignatures: data.pocketRecentSignatures,
+                }),
+              });
+              if (data.pocketCritiqueContext) {
+                messages.push({
+                  role: "system",
+                  content: `DESIGN REVIEW NOTES to address in this revision:\n${data.pocketCritiqueContext}`,
+                });
+              }
+            } catch { /* pocket premium injection is non-fatal */ }
+          }
+
+
 
 
           if (!data.advisory && contextHtml) {

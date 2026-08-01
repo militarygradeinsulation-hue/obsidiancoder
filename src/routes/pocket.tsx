@@ -72,6 +72,38 @@ import {
   type ForgeDevice,
   type ForgeVersion,
 } from "@/lib/forge/forge-state";
+import {
+  POCKET_PROFILES,
+  POCKET_STYLE_FAMILIES,
+  getFamily,
+  getProfile,
+  isProfileAllowed,
+  providerCallEstimate,
+  selectDNA,
+  dnaSignature,
+  dnaSummaryLine,
+  readCreativeMemory,
+  rememberSignature,
+  readCreativePrefs,
+  writeCreativePrefs,
+  hashString,
+  type PocketDesignDNA,
+  type PocketProfile,
+  type PocketStyleFamily,
+} from "@/lib/pocket-creative";
+import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
+import {
+  conceptCacheKey,
+  conceptPlannerPrompt,
+  deterministicConceptPlan,
+  parseConceptPlan,
+  selectedConcept,
+  type PocketConceptPlan,
+} from "@/lib/pocket-concept";
+import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
+import { parseCritique, dnaPromptBlock } from "@/lib/pocket-prompt";
+import { patchSchema } from "@/lib/patch-protocol";
+import { applyPatch } from "@/lib/patch-engine";
 
 export const Route = createFileRoute("/pocket")({
   head: () => ({
@@ -190,6 +222,12 @@ function ForgePage() {
   // Bumped on Clear all so the sandbox iframe remounts blank even if a
   // streaming load was aborted mid-swap.
   const [previewNonce, setPreviewNonce] = React.useState(0);
+  // ---- Premium creative coding state ----
+  const [profile, setProfile] = React.useState<PocketProfile>("fast");
+  const [styleFamily, setStyleFamily] = React.useState<PocketStyleFamily>("auto");
+  const [dna, setDna] = React.useState<PocketDesignDNA | null>(null);
+  const [conceptPlan, setConceptPlan] = React.useState<PocketConceptPlan | null>(null);
+  const [lastCritiqueRan, setLastCritiqueRan] = React.useState(false);
   const [busy, setBusy] = React.useState<
     null | "generating" | "saving" | "enhancing" | "deploying"
   >(null);
@@ -210,7 +248,14 @@ function ForgePage() {
     if (stored) setLibraryCode(stored);
     const storedModel = safeGet<string>("forge.model");
     if (storedModel) setModel(storedModel);
+    const prefs = readCreativePrefs();
+    setProfile(prefs.profile);
+    setStyleFamily(prefs.family);
   }, []);
+
+  React.useEffect(() => {
+    writeCreativePrefs({ profile, family: styleFamily });
+  }, [profile, styleFamily]);
 
 
   const [library, setLibrary] = React.useState<LibraryBuild[]>([]);
@@ -222,6 +267,16 @@ function ForgePage() {
   const isAdminCode = isFullAccessCode(libraryCode);
   /** Paid Pocket access: an active subscription, or the admin library code. */
   const paidAccess = paid || isAdminCode;
+  /** Resolved model for the selected profile (dynamic best-available Claude). */
+  const modelChoice = React.useMemo(
+    () =>
+      resolvePocketModel({
+        profile,
+        pinnedModel: model && model !== DEFAULT_MODEL ? model : undefined,
+      }),
+    [profile, model],
+  );
+  const callEstimate = providerCallEstimate(profile, mode === "refine");
   const buildsLeft = snap.builds && snap.builds.cap > 0 ? snap.builds : null;
   const requireAccount = React.useCallback((what: string) => {
     setError(`${what} needs an Obsidian Pocket account — $10/month for ${POCKET_MONTHLY_BUILDS} builds, saving, and code export.`);
@@ -232,6 +287,8 @@ function ForgePage() {
   const abortRef = React.useRef<AbortController | null>(null);
   const promptRef = React.useRef<HTMLTextAreaElement>(null);
   const enhance = useServerFn(enhancePrompt);
+  const planConcepts = useServerFn(planPocketConcepts);
+  const runCritique = useServerFn(critiquePocketBuild);
 
   const html = entryHtml(project);
   const activeFile =
@@ -259,6 +316,11 @@ function ForgePage() {
     prompt: string;
     versions: ForgeVersion[];
     at: number;
+    // Creative state (backward compatible — older sessions simply omit these).
+    profile?: PocketProfile;
+    styleFamily?: PocketStyleFamily;
+    dna?: PocketDesignDNA | null;
+    conceptNames?: string[];
   };
   const sessionKey = React.useCallback(
     (code: string) => `pocket.session.${(code || "guest").trim() || "guest"}`,
@@ -276,6 +338,9 @@ function ForgePage() {
       setTitle(saved.title || "Untitled build");
       setPrompt(saved.prompt || "");
       setVersions(saved.versions ?? []);
+      if (saved.profile) setProfile(saved.profile);
+      if (saved.styleFamily) setStyleFamily(saved.styleFamily);
+      setDna(saved.dna ?? null);
       setPane("preview");
       setStatus("Restored your last build");
       return true;
@@ -304,10 +369,14 @@ function ForgePage() {
         prompt,
         versions: versions.slice(0, 10),
         at: Date.now(),
+        profile,
+        styleFamily,
+        dna,
+        conceptNames: conceptPlan?.concepts.map((c) => c.name).slice(0, 3),
       } satisfies PocketSession);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [html, title, prompt, versions, libraryCode, sessionKey]);
+  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan]);
 
 
   // Personal library (real builds rows, scoped by the user's library code).
@@ -408,7 +477,9 @@ function ForgePage() {
     setError(null);
     setPane("preview");
     setStatus("Cleared — ready for a new build");
-    setPreviewNonce((n) => n + 1);
+    setDna(null);
+    setConceptPlan(null);
+    setLastCritiqueRan(false);
     setPreviewNonce((n) => n + 1);
     restoredRef.current = libraryCode.trim();
     promptRef.current?.focus();
@@ -419,15 +490,65 @@ function ForgePage() {
   const generate = React.useCallback(async () => {
     const p = prompt.trim();
     if (!p || busy) return;
+    if (!isProfileAllowed(profile, paidAccess)) {
+      requireAccount(`${getProfile(profile).label} builds`);
+      return;
+    }
     setError(null);
     setBusy("generating");
-    setStatus("Generating…");
     setPane("preview");
     const controller = new AbortController();
     abortRef.current = controller;
     const previous = html;
     const t0 = performance.now();
+    const isRefine = mode === "refine";
+    let providerCalls = 0;
+    let critiqueRan = false;
     try {
+      // ---- 1. Choose a creative direction --------------------------------
+      setStatus("Choosing direction…");
+      const recent = readCreativeMemory(libraryCode).entries;
+      let plan: PocketConceptPlan | null = conceptPlan;
+      let buildDna: PocketDesignDNA;
+      if (isRefine && dna) {
+        // Refine preserves the current build's DNA — no planning call.
+        buildDna = dna;
+      } else {
+        const base = deterministicConceptPlan({ prompt: p, family: styleFamily, recent });
+        plan = base;
+        if (profile !== "fast" && paidAccess) {
+          const planner = resolvePocketPlannerModel();
+          try {
+            const res = await planConcepts({
+              data: {
+                cacheKey: conceptCacheKey({ prompt: p, family: styleFamily, profile, recent }),
+                model: planner.model,
+                plannerPrompt: conceptPlannerPrompt({
+                  prompt: p,
+                  family: styleFamily,
+                  recentSummaries: recent.map((r) => `${r.family} · ${r.layout} · ${r.sections}`),
+                }),
+              },
+            });
+            if ("paywall" in res) {
+              requireAccount("Studio art direction");
+            } else if (res.ok) {
+              if (!res.cached) providerCalls += 1;
+              plan = parseConceptPlan(JSON.parse(res.rawJson) as unknown, base);
+              log(`Direction planned with ${planner.entryLabel}${res.cached ? " (cached)" : ""}`);
+            }
+          } catch {
+            log("Planner unavailable — using deterministic directions.");
+          }
+        }
+        buildDna = selectedConcept(plan).dna;
+      }
+      setConceptPlan(plan);
+      setDna(buildDna);
+      const chosen = plan ? selectedConcept(plan) : null;
+
+      // ---- 2. Build --------------------------------------------------------
+      setStatus(`Building with ${modelChoice.entryLabel}…`);
       const res = await authFetch("/api/generate", {
         method: "POST",
         headers: {
@@ -436,15 +557,30 @@ function ForgePage() {
           ...(paidAccess ? {} : { "x-obs-free": "1" }),
         },
         body: JSON.stringify({
-          prompt: mode === "refine" ? `[FOCUSED CHANGE] ${p}` : p,
-          currentHtml: mode === "refine" ? previous : previous.slice(0, 8000),
+          prompt: isRefine ? `[FOCUSED CHANGE] ${p}` : p,
+          currentHtml: isRefine ? previous : previous.slice(0, 8000),
           history: [],
-          model,
+          model: modelChoice.model,
           pickerModel: model,
           advisory: false,
+          surface: "pocket",
+          pocketProfile: profile,
+          pocketStyleFamily: styleFamily,
+          pocketDesignDNA: buildDna,
+          pocketConcept: chosen
+            ? {
+                name: chosen.name,
+                concept: chosen.concept,
+                selectionReason: plan?.selectionReason,
+              }
+            : undefined,
+          pocketRecentSignatures: recent
+            .slice(0, 12)
+            .map((r) => `${r.family} · ${r.layout} · ${r.sections}`),
         }),
         signal: controller.signal,
       });
+      providerCalls += 1;
 
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       if (ctype.includes("application/json")) {
@@ -455,13 +591,14 @@ function ForgePage() {
       }
       if (!res.ok || !res.body) throw new Error(`Generation failed (${res.status})`);
       if (res.headers.get("x-obs-demo") === "1") log("Free demo claim committed server-side.");
+      const servedModel = res.headers.get("x-obs-model") || modelChoice.model;
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
       let acc = "";
       let lastPaint = 0;
-      const clean = (s: string) =>
-        s
+      const clean = (str: string) =>
+        str
           .replace(/\s*<!--OBS_(?:TIMING|PLACEHOLDERS):[\s\S]*?-->\s*$/g, "")
           .replace(/^```(?:html)?\s*/i, "")
           .replace(/```\s*$/i, "");
@@ -481,13 +618,70 @@ function ForgePage() {
           }
         }
       }
-      const finalHtml = clean(acc).trim();
+      let finalHtml = clean(acc).trim();
       if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
+
+      // ---- 3. Originality + polish (Cinematic only) -----------------------
+      setStatus("Checking originality…");
+      if (profile === "cinematic" && paidAccess) {
+        setStatus("Polishing…");
+        const safeFirstVersion = finalHtml;
+        try {
+          const cacheKey = `${hashString(finalHtml).toString(36)}:${buildDna.id}:v1`;
+          const cres = await runCritique({
+            data: {
+              cacheKey,
+              model: modelChoice.model,
+              html: finalHtml,
+              dnaSummary: dnaPromptBlock(buildDna).slice(0, 3000),
+            },
+          });
+          if (!("paywall" in cres) && cres.ok) {
+            if (!cres.cached) providerCalls += 1;
+            critiqueRan = true;
+            const critique = parseCritique(JSON.parse(cres.critiqueJson) as unknown);
+            if (critique.verdict === "repair" && critique.operations.length) {
+              const parsed = patchSchema.safeParse({
+                summary: critique.issues[0]?.slice(0, 200) || "Design review repair",
+                operations: critique.operations,
+              });
+              if (parsed.success) {
+                const applied = applyPatch(finalHtml, parsed.data);
+                // A failed patch must never ship a broken page.
+                finalHtml = applied.ok && applied.html.length > 200 ? applied.html : safeFirstVersion;
+                log(applied.ok ? `Polish applied (${applied.applied.length} ops)` : "Polish skipped — kept the safe version.");
+              } else {
+                log("Polish skipped — review operations were not valid.");
+              }
+            } else {
+              log(`Design review verdict: ${critique.verdict}`);
+            }
+          }
+        } catch {
+          log("Design review unavailable — kept the first version.");
+        }
+      }
+
+      // ---- 4. Commit -------------------------------------------------------
       setProject((prev) => setEntryHtml(prev, finalHtml));
-      setVersions((v) => pushVersion(v, makeForgeVersion(finalHtml, titleFromPrompt(p))));
+      const label = [
+        titleFromPrompt(p),
+        `· ${getProfile(profile).label}`,
+        `· ${getFamily(buildDna.family).label}`,
+        `· ${buildDna.id}`,
+        `· ${servedModel}`,
+        critiqueRan ? "· polished" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+      setVersions((v) => pushVersion(v, makeForgeVersion(finalHtml, label)));
+      setLastCritiqueRan(critiqueRan);
+      rememberSignature(dnaSignature(buildDna), libraryCode);
       if (title === "Untitled build") setTitle(titleFromPrompt(p));
-      setStatus(`Built in ${Math.round(performance.now() - t0)}ms`);
-      log(`Generated ${finalHtml.length.toLocaleString()} chars with ${model}`);
+      setStatus("Ready");
+      log(
+        `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"}`,
+      );
     } catch (err) {
       if ((err as { name?: string })?.name === "AbortError") {
         setProject((prev) => setEntryHtml(prev, previous));
@@ -500,7 +694,25 @@ function ForgePage() {
       abortRef.current = null;
       setBusy(null);
     }
-  }, [prompt, busy, html, mode, model, title, log]);
+  }, [
+    prompt,
+    busy,
+    html,
+    mode,
+    model,
+    title,
+    log,
+    profile,
+    styleFamily,
+    paidAccess,
+    requireAccount,
+    dna,
+    conceptPlan,
+    libraryCode,
+    modelChoice,
+    planConcepts,
+    runCritique,
+  ]);
 
   const stop = React.useCallback(() => {
     abortRef.current?.abort();
@@ -1046,7 +1258,8 @@ function ForgePage() {
           {/* Demo banner */}
           {!paid && (
             <div className="mb-3 rounded-lg border border-[#F4A125]/30 bg-[#F4A125]/10 px-3 py-2 text-xs text-[#E8E6E1] backdrop-blur-sm">
-              Obsidian Pocket is completely free — unlimited builds, saving, export, and publishing. No card, no sign-in.
+              Fast builds are free to try. Saving, export, publishing and the Studio/Cinematic
+              profiles need an Obsidian Pocket account — $10/month for {POCKET_MONTHLY_BUILDS} builds.
             </div>
           )}
 
@@ -1133,6 +1346,88 @@ function ForgePage() {
 
               </button>
             </div>
+
+            {/* Creative profile + style family */}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1" role="group" aria-label="Build profile">
+                {POCKET_PROFILES.map((pf) => {
+                  const active = profile === pf.id;
+                  const locked = pf.paidOnly && !paidAccess;
+                  return (
+                    <button
+                      key={pf.id}
+                      type="button"
+                      onClick={() => {
+                        if (locked) { requireAccount(`${pf.label} builds`); return; }
+                        setProfile(pf.id);
+                      }}
+                      aria-pressed={active}
+                      title={`${pf.blurb}${locked ? " Requires an Obsidian Pocket account." : ""}`}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
+                        active
+                          ? "border-[#F4A125]/70 bg-[#F4A125]/15 text-[#F4A125]"
+                          : "border-white/10 text-[#7d8494] hover:text-[#E8E6E1]"
+                      } ${locked ? "opacity-60" : ""}`}
+                    >
+                      {pf.label}
+                      {locked ? " · $" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+              <label className="sr-only" htmlFor="pocket-style">Style family</label>
+              <select
+                id="pocket-style"
+                value={styleFamily}
+                onChange={(e) => setStyleFamily(e.target.value as PocketStyleFamily)}
+                className="rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+              >
+                {POCKET_STYLE_FAMILIES.map((f) => (
+                  <option key={f} value={f}>
+                    {f === "auto" ? "Auto style" : getFamily(f).label}
+                  </option>
+                ))}
+              </select>
+              <span
+                className="text-[11px] text-[#7d8494]"
+                title="Model availability depends on the configured AI gateway."
+              >
+                {profile === "fast" ? modelChoice.entryLabel : modelChoice.statusLabel} ·{" "}
+                {callEstimate} call{callEstimate === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {/* Design DNA summary + alternative directions */}
+            {dna && (
+              <p className="mt-1.5 truncate text-[11px] text-[#7d8494]" title={dnaSummaryLine(dna)}>
+                Design DNA · {dnaSummaryLine(dna)}
+                {lastCritiqueRan ? " · polished" : ""}
+              </p>
+            )}
+            {conceptPlan && profile !== "fast" && (
+              <div className="mt-1 flex flex-wrap items-center gap-1" aria-label="Creative directions">
+                <span className="text-[11px] text-[#4b5060]">Directions:</span>
+                {conceptPlan.concepts.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setConceptPlan({ ...conceptPlan, selectedId: c.id });
+                      setDna(c.dna);
+                    }}
+                    aria-pressed={conceptPlan.selectedId === c.id}
+                    title={c.concept}
+                    className={`rounded-full border px-2 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
+                      conceptPlan.selectedId === c.id
+                        ? "border-[#F4A125]/70 text-[#F4A125]"
+                        : "border-white/10 text-[#7d8494] hover:text-[#E8E6E1]"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
 
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:justify-between">
               <div className="flex min-w-0 items-center gap-2">
