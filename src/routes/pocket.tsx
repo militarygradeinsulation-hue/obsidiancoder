@@ -113,6 +113,8 @@ function ForgePage() {
   const [activeFileId, setActiveFileId] = React.useState<string>(() => "");
   const [versions, setVersions] = React.useState<ForgeVersion[]>([]);
   const [prompt, setPrompt] = React.useState("");
+  const [ideaOffset, setIdeaOffset] = React.useState(0);
+
   const [mode, setMode] = React.useState<BuildMode>("build");
   const [model, setModel] = React.useState<string>(
     () => safeGet<string>("forge.model") ?? DEFAULT_MODEL,
