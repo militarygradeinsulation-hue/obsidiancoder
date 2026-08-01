@@ -147,6 +147,33 @@ export function isPromoEligible(input: PromoEligibilityInput): boolean {
   return true;
 }
 
+/**
+ * Higher-priority flows that must reclaim the screen from an ALREADY-OPEN
+ * promo. Deliberately excludes cooldown/session-shown state: those describe
+ * whether the promo may *open*, not whether an open one must yield.
+ *
+ * A true result triggers an automatic safety close — not a user dismissal —
+ * so it records no timestamp and emits no dismissal event.
+ */
+export function shouldForceClosePromo(input: {
+  campaign: PromoCampaign;
+  now: number;
+  blocked: boolean;
+  sessionLoading: boolean;
+  signedIn: boolean;
+  search?: { checkout?: string; intent?: string };
+}): boolean {
+  const { campaign, now } = input;
+  if (!campaign.enabled) return true;
+  if (!withinWindow(campaign, now)) return true;
+  if (input.sessionLoading || input.signedIn) return true;
+  if (input.blocked) return true;
+  const search = input.search ?? {};
+  if (search.checkout === "1") return true;
+  if (search.intent === "buy" || search.intent === "code") return true;
+  return false;
+}
+
 export type PromoAnalyticsEvent =
   | "pocket_promo_impression"
   | "pocket_promo_cta_clicked"
