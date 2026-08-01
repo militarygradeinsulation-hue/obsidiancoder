@@ -361,6 +361,15 @@ function ForgePage() {
         /* ignore */
       }
     }
+    // Stop any in-flight generation first — otherwise its stream keeps writing
+    // HTML back into the sandbox right after we wipe it.
+    try {
+      abortRef.current?.abort();
+    } catch {
+      /* ignore */
+    }
+    abortRef.current = null;
+    setBusy(null);
     const next = projectFromHtml(EMPTY_DOC);
     setProject(next);
     setActiveFileId(next.entryFileId);
@@ -369,12 +378,15 @@ function ForgePage() {
     setVersions([]);
     setShareUrl(null);
     setPublishedUrl(null);
+    setDemoLive(null);
+    setLogs([]);
     setError(null);
     setPane("preview");
     setStatus("Cleared — ready for a new build");
     restoredRef.current = libraryCode.trim();
     promptRef.current?.focus();
   }, [libraryCode, sessionKey]);
+
 
   // ---- Real generation (streaming /api/generate) --------------------------
   const generate = React.useCallback(async () => {
