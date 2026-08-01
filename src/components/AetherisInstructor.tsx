@@ -263,9 +263,42 @@ export function AetherisInstructor({
               ) : (
                 <Rich text={m.content} />
               )}
+              {m.role === "assistant" && !!controls && !busy && !!m.content && (
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {!!extractSuggestedPrompt(m.content) && (
+                    <>
+                      <button
+                        type="button"
+                        className={actionChip}
+                        onClick={() => controls.setPrompt(extractSuggestedPrompt(m.content))}
+                      >
+                        Use this prompt
+                      </button>
+                      <button
+                        type="button"
+                        className={actionChip}
+                        onClick={() => controls.appendPrompt(extractSuggestedPrompt(m.content))}
+                      >
+                        Add to my prompt
+                      </button>
+                    </>
+                  )}
+                  {controls.build && (
+                    <button
+                      type="button"
+                      className={actionChip}
+                      disabled={controls.busy}
+                      onClick={() => controls.build?.()}
+                    >
+                      Build it now
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}
+
       </div>
 
       <div className="border-t border-white/10 px-3 py-2">
