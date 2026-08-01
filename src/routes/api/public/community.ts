@@ -34,15 +34,33 @@ export const Route = createFileRoute("/api/public/community")({
           )
           .eq("is_public", true)
           .order("created_at", { ascending: false })
-          .limit(limit);
+          // Over-fetch: iterative saves of the same build share a title/prompt,
+          // so we collapse them below and still want a full page of results.
+          .limit(Math.min(limit * 6, 600));
         if (q) query = query.or(`title.ilike.%${q}%,prompt.ilike.%${q}%`);
 
         const { data, error } = await query;
         if (error) return new Response(error.message, { status: 500 });
+
+        // Collapse duplicate builds (successive versions of the same project)
+        // down to the newest revision so the gallery shows one tile each.
+        const norm = (s: string | null) =>
+          (s || "").toLowerCase().replace(/\s+/g, " ").trim().slice(0, 90);
+        const seen = new Set<string>();
+        const builds: CommunityBuild[] = [];
+        for (const b of (data ?? []) as CommunityBuild[]) {
+          const key = norm(b.title) || norm(b.prompt) || b.id;
+          if (seen.has(key)) continue;
+          seen.add(key);
+          builds.push(b);
+          if (builds.length >= limit) break;
+        }
+
         return Response.json(
-          { builds: (data ?? []) as CommunityBuild[] },
+          { builds },
           { headers: { "cache-control": "public, max-age=30" } },
         );
+
       },
 
       // Toggle an existing build's presence in the community library.
