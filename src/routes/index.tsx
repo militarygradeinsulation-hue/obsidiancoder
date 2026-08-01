@@ -3105,7 +3105,7 @@ function Index() {
               <Rocket className="h-3.5 w-3.5" /> Go Live
             </button>
 
-            {(isFullAccessCode(libraryCode) || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (() => {
+            {hydrated && (isFullAccessCode(libraryCode) || (authEmail ?? "").toLowerCase() === "aisystemsarchitect@gmail.com") && (() => {
               const existing = demoBySession[current.id];
               const isLive = pushedDemoIds.has(current.id) || !!existing;
               const doPublishAndPromote = async (label: string) => {
