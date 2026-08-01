@@ -96,8 +96,6 @@ export function BuildChatPanel({
   const currentRevision = useMemo(() => revisionOf(currentHtml), [currentHtml]);
 
   // Discussion state lives on the active build/session — no global storage.
-  const stateRef = useRef(state);
-  stateRef.current = state;
   const patch = (p: Partial<BuildDiscussionState>) =>
     onDiscussionChange((prev) => updateBuildDiscussion(prev, p));
 
