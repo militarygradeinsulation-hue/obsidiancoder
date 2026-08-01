@@ -897,9 +897,12 @@ function ForgePage() {
             >
               <ChevronLeft size={14} className={sidebarOpen ? "" : "rotate-180"} />
             </button>
-            <span className="grid h-7 w-7 shrink-0 place-items-center rounded-md bg-gradient-to-b from-[#F4A125] to-[#DD9324] text-[11px] font-black text-[#111317]">
-              OP
-            </span>
+            <img
+              src={pocketLogo.url}
+              alt="Aetheris"
+              className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#F4A125]/40"
+            />
+
             <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket</h1>
               <p className="truncate text-[10px] uppercase tracking-widest text-[#6b7180]">
