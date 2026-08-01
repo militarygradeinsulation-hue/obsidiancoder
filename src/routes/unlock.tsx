@@ -433,6 +433,48 @@ function Unlock() {
                 </div>
               )}
             </section>
+
+            {/* Product comparison: Vibe vs Pocket */}
+            <section className="unlock-compare" aria-labelledby="compare-heading">
+              <h2 id="compare-heading" className="unlock-compare-title">Choose your workspace</h2>
+              <div className="unlock-compare-grid">
+                <div className="unlock-compare-card is-vibe">
+                  <div className="unlock-compare-card-head">
+                    <span className="unlock-compare-badge">Full power</span>
+                    <h3 className="unlock-compare-card-title">Obsidian Vibe</h3>
+                    <p className="unlock-compare-card-sub">The complete builder for serious projects.</p>
+                  </div>
+                  <ul className="unlock-compare-list">
+                    <li>Multi-file project editor with version history</li>
+                    <li>Advanced model routing, GitHub deploy, and QA gates</li>
+                    <li>Deep customization: themes, design library, voice control</li>
+                    <li>Co-designer chat, image uploads, and style guides</li>
+                    <li>Best for polished apps, dashboards, and client work</li>
+                  </ul>
+                  <Link to="/" search={{ demo: "1" }} className="unlock-compare-cta is-secondary">
+                    Open Obsidian Vibe
+                  </Link>
+                </div>
+
+                <div className="unlock-compare-card is-pocket">
+                  <div className="unlock-compare-card-head">
+                    <span className="unlock-compare-badge">Quick builds</span>
+                    <h3 className="unlock-compare-card-title">Obsidian Pocket</h3>
+                    <p className="unlock-compare-card-sub">One prompt, one working page, zero setup.</p>
+                  </div>
+                  <ul className="unlock-compare-list">
+                    <li>Single-box prompt-to-app with live preview</li>
+                    <li>No panels to learn — type and generate</li>
+                    <li>Instant publish, save, and export</li>
+                    <li>Free to use with no account required</li>
+                    <li>Best for fast landing pages, ideas, and prototypes</li>
+                  </ul>
+                  <Link to="/pocket" className="unlock-compare-cta">
+                    Try Obsidian Pocket
+                  </Link>
+                </div>
+              </div>
+            </section>
           </div>
         </div>
       )}
