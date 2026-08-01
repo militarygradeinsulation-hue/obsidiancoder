@@ -4,7 +4,7 @@
 // the shared project model, the real entitlement/credit gate, the real cloud
 // save + share endpoints, the real GitHub modal and outbound QA gate).
 import * as React from "react";
-import { createFileRoute, ClientOnly, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, ClientOnly, useNavigate, Link } from "@tanstack/react-router";
 
 import { PocketBackground } from "@/components/PocketBackground";
 import pocketLogo from "@/assets/aetheris-logo.png.asset.json";
@@ -1138,6 +1138,15 @@ function ForgePage() {
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Link
+              to="/"
+              className={btn}
+              data-testid="pocket-topbar-coder"
+              title="Switch to the full Obsidian Coder workspace"
+            >
+              Coder
+            </Link>
+
             <label className="hidden items-center gap-1.5 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
               <span className="text-[10px] uppercase tracking-widest text-[#6b7180]">Code</span>
               <input

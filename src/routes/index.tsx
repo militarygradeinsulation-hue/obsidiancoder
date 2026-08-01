@@ -3031,6 +3031,15 @@ function Index() {
             </div>
           </div>
           <div className="obs-topbar-right">
+            <Link
+              to="/pocket"
+              className="obs-chip"
+              data-testid="topbar-pocket"
+              title="Switch to Obsidian Pocket"
+              style={{ borderColor: "rgba(244,161,37,0.45)", color: "#f4a125" }}
+            >
+              <Rocket className="h-3.5 w-3.5" /> Pocket
+            </Link>
             <button
               type="button"
               className={"obs-chip " + (buildChatOpen ? "is-on" : "")}
