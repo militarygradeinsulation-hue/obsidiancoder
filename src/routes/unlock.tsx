@@ -364,7 +364,7 @@ function Unlock() {
 
       <nav className="unlock-topbar" aria-label="Primary">
         <a href="#top" className="unlock-topbar-brand" aria-label="Obsidian home" onClick={() => setPanelOpen(false)}>
-          <span className="unlock-topbar-mark">◆</span>
+          <img src={aetherisEmblem.url} alt="Aetheris Business Forensics emblem" className="unlock-topbar-mark" width={28} height={28} />
           <span className="unlock-topbar-name">OBSIDIAN</span>
         </a>
         <div className="unlock-topbar-links">
