@@ -340,6 +340,7 @@ function Unlock() {
           <button type="button" className="unlock-topbar-link" onClick={() => { openPanel("buy"); setPlansOpen(true); requestAnimationFrame(() => document.getElementById("plans-heading")?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>Pricing</button>
           <button type="button" className="unlock-topbar-link" onClick={() => { setDemosOpen(true); requestAnimationFrame(() => document.getElementById("demos-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Live Demos</button>
           <Link to="/pocket" className="unlock-topbar-link" title="Obsidian Pocket — simplified prompt-to-app workspace">Pocket</Link>
+          <Link to="/library" className="unlock-topbar-link" title="Community Library — browse, copy and remix builds">Library</Link>
           <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Access Code</button>
           <Link
             to="/"
@@ -473,6 +474,17 @@ function Unlock() {
                     Try Obsidian Pocket
                   </Link>
                 </div>
+              </div>
+
+              <div className="unlock-compare-card" style={{ marginTop: "1.25rem" }}>
+                <h3 className="unlock-compare-card-title">Community Library</h3>
+                <p className="unlock-compare-card-sub">
+                  Every build people shared from Pocket — preview it live, copy the code, or remix it into your own
+                  workspace in one click.
+                </p>
+                <Link to="/library" className="unlock-compare-cta">
+                  Browse the Library
+                </Link>
               </div>
             </section>
           </div>
