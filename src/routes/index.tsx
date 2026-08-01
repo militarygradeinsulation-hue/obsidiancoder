@@ -344,7 +344,11 @@ function Index() {
   const [themesOpen, setThemesOpen] = useState(false);
   const [designLibraryOpen, setDesignLibraryOpen] = useState(false);
   const [ideaOffset, setIdeaOffset] = useState(0);
-  const ideaSeed = useMemo(() => Math.floor(Math.random() * 100000) + 1, []);
+  // Deterministic on first render (SSR + hydration must match); randomized after mount.
+  const [ideaSeed, setIdeaSeed] = useState(1);
+  useEffect(() => {
+    setIdeaSeed(Math.floor(Math.random() * 100000) + 1);
+  }, []);
   const [aiIdeas, setAiIdeas] = useState<Addon[]>([]);
   const [aiIdeasLoading, setAiIdeasLoading] = useState(false);
   const [ideaCategory, setIdeaCategory] = useState<string>("all");
