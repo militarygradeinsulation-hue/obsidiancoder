@@ -1220,15 +1220,16 @@ function Index() {
     try {
       if (isDiscussionMigrated()) return;
       const legacy = readLegacyDiscussion();
-      if (!legacy) { finishDiscussionMigration(); return; }
-      let imported = false;
-      setSessions((all) => all.map((s) => {
-        if (s.id !== activeId || !isDiscussionEmpty(s.discussion)) return s;
-        imported = true;
-        return { ...s, discussion: legacy };
-      }));
-      if (imported) finishDiscussionMigration();
+      if (legacy) {
+        // The updater below runs during render, so decide the target here and
+        // retire the legacy keys unconditionally — a legacy import happens once.
+        setSessions((all) => all.map((s) => (
+          s.id === activeId && isDiscussionEmpty(s.discussion) ? { ...s, discussion: legacy } : s
+        )));
+      }
+      finishDiscussionMigration();
     } catch { /* migration must never break the workspace */ }
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hydrated]);
 
