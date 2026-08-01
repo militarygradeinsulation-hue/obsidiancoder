@@ -170,6 +170,29 @@ function LibraryPage() {
     [adminCode, load, q],
   );
 
+  const bulkSetPublic = React.useCallback(
+    async (next: boolean) => {
+      if (!adminCode || selected.length === 0) return;
+      setBulkBusy(true);
+      try {
+        const ids = [...selected];
+        let done = 0;
+        for (const id of ids) {
+          const r = await setLibraryBuildPublic({ data: { adminCode, id, is_public: next } });
+          if (r.ok) done += 1;
+        }
+        setAllBuilds((prev) => prev.map((b) => (ids.includes(b.id) ? { ...b, is_public: next } : b)));
+        setSelected([]);
+        setNotice(`${next ? "Added" : "Removed"} ${done} build${done === 1 ? "" : "s"}`);
+        await Promise.all([load(q.trim()), refreshAll(adminCode)]);
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [adminCode, selected, load, q, refreshAll],
+  );
+
+
 
 
   return (
