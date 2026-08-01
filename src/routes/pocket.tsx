@@ -207,6 +207,8 @@ function ForgePage() {
 
   const [library, setLibrary] = React.useState<LibraryBuild[]>([]);
   const [demoLive, setDemoLive] = React.useState<{ id: string; slug: string } | null>(null);
+  /** Set once this build has been shared into the public community library. */
+  const [inCommunity, setInCommunity] = React.useState<{ id: string; slug: string } | null>(null);
 
   /** Admin library code: full access to save, publish, export and Demos. */
   const isAdminCode = isFullAccessCode(libraryCode);
