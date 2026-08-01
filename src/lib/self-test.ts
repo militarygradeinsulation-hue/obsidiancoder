@@ -3006,7 +3006,7 @@ export async function runPocketCreativeTests(): Promise<{ results: TestResult[];
   const studioNow = res.resolvePocketModel({ profile: "studio" });
   const cineNow = res.resolvePocketModel({ profile: "cinematic" });
   results.push(assert(
-    (cre.ALLOWED_OK ?? true) && currentRegistry.some((e) => e.id === studioNow.model),
+    currentRegistry.some((e) => e.id === studioNow.model),
     "resolver: studio picks an id that exists in the configured registry",
     studioNow.model,
   ));
