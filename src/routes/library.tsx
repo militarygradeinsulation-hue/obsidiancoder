@@ -74,6 +74,12 @@ function LibraryPage() {
   const [manageOpen, setManageOpen] = React.useState(false);
   const [allBuilds, setAllBuilds] = React.useState<AdminBuildRow[]>([]);
   const [adminBusy, setAdminBusy] = React.useState<string | null>(null);
+  const [selected, setSelected] = React.useState<string[]>([]);
+  const [bulkBusy, setBulkBusy] = React.useState(false);
+
+  const toggleSelected = React.useCallback((id: string) => {
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }, []);
 
 
 
@@ -164,6 +170,29 @@ function LibraryPage() {
     [adminCode, load, q],
   );
 
+  const bulkSetPublic = React.useCallback(
+    async (next: boolean) => {
+      if (!adminCode || selected.length === 0) return;
+      setBulkBusy(true);
+      try {
+        const ids = [...selected];
+        let done = 0;
+        for (const id of ids) {
+          const r = await setLibraryBuildPublic({ data: { adminCode, id, is_public: next } });
+          if (r.ok) done += 1;
+        }
+        setAllBuilds((prev) => prev.map((b) => (ids.includes(b.id) ? { ...b, is_public: next } : b)));
+        setSelected([]);
+        setNotice(`${next ? "Added" : "Removed"} ${done} build${done === 1 ? "" : "s"}`);
+        await Promise.all([load(q.trim()), refreshAll(adminCode)]);
+      } finally {
+        setBulkBusy(false);
+      }
+    },
+    [adminCode, selected, load, q, refreshAll],
+  );
+
+
 
 
   return (
@@ -232,12 +261,49 @@ function LibraryPage() {
             No shared builds yet. Be the first — build something in Pocket and press “Share to Library”.
           </p>
         ) : (
+          <>
+          {adminCode && (
+            <div className="mt-6 flex flex-wrap items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2">
+              <span className="text-xs text-[#B6BCC8]">{selected.length} selected</span>
+              <button
+                type="button"
+                className={btn}
+                onClick={() => setSelected(builds.map((b) => b.id))}
+              >
+                Select all
+              </button>
+              <button type="button" className={btn} onClick={() => setSelected([])}>
+                Clear
+              </button>
+              <button
+                type="button"
+                className={`${btn} !border-rose-400/40 !text-rose-300`}
+                disabled={bulkBusy || selected.length === 0}
+                onClick={() => void bulkSetPublic(false)}
+              >
+                {bulkBusy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Delete selected
+              </button>
+            </div>
+          )}
           <ul className="mt-8 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
             {builds.map((b) => {
               const url = b.share_slug ? `/api/public/share/${b.share_slug}` : null;
               return (
                 <li key={b.id} className={card}>
                   <div className="relative h-48 overflow-hidden border-b border-white/10 bg-black/60">
+                    {adminCode && (
+                      <label className="absolute left-2 top-2 z-10 flex cursor-pointer items-center gap-1 rounded-md border border-white/15 bg-black/70 px-2 py-1 text-[11px] text-[#f2eee7] backdrop-blur">
+                        <input
+                          type="checkbox"
+                          className="accent-[#F4A125]"
+                          checked={selected.includes(b.id)}
+                          onChange={() => toggleSelected(b.id)}
+                          aria-label={`Select ${b.title || "build"}`}
+                        />
+                        Select
+                      </label>
+                    )}
+
                     {url ? (
                       <iframe
                         src={url}
@@ -296,6 +362,7 @@ function LibraryPage() {
               );
             })}
           </ul>
+          </>
         )}
       </div>
 
@@ -348,13 +415,46 @@ function LibraryPage() {
             </button>
           </div>
           <p className="mt-1 text-[11px] text-[#6b7180]">Toggle any build in or out of the public library.</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <span className="text-[11px] text-[#B6BCC8]">{selected.length} selected</span>
+            <button type="button" className={btn} onClick={() => setSelected(allBuilds.map((b) => b.id))}>
+              Select all
+            </button>
+            <button type="button" className={btn} onClick={() => setSelected([])}>
+              Clear
+            </button>
+            <button
+              type="button"
+              className={`${btn} !border-rose-400/40 !text-rose-300`}
+              disabled={bulkBusy || selected.length === 0}
+              onClick={() => void bulkSetPublic(false)}
+            >
+              {bulkBusy ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />} Delete selected
+            </button>
+            <button
+              type="button"
+              className={`${btn} !border-emerald-400/40 !text-emerald-300`}
+              disabled={bulkBusy || selected.length === 0}
+              onClick={() => void bulkSetPublic(true)}
+            >
+              <Plus size={13} /> Add selected
+            </button>
+          </div>
           <ul className="mt-3 space-y-2">
             {allBuilds.map((b) => (
               <li
                 key={b.id}
                 className="flex items-center gap-2 rounded-md border border-white/10 bg-white/[0.03] px-2 py-1.5"
               >
+                <input
+                  type="checkbox"
+                  className="accent-[#F4A125]"
+                  checked={selected.includes(b.id)}
+                  onChange={() => toggleSelected(b.id)}
+                  aria-label={`Select ${b.title || "build"}`}
+                />
                 <span className="min-w-0 flex-1">
+
                   <span className="block truncate text-xs text-[#f2eee7]">{b.title || "Untitled"}</span>
                   <span className="block text-[10px] text-[#6b7180]">
                     {new Date(b.created_at).toLocaleDateString()} · {b.is_public ? "in library" : "hidden"}
