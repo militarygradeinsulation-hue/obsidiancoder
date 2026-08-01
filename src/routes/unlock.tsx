@@ -1786,6 +1786,7 @@ const unlockCss = `
 
 /* ---- Vibe vs Pocket comparison ---- */
 .unlock-compare {
+  pointer-events: auto;
   width: 100%;
   max-width: 1063px;
   margin: 34px auto 0;
