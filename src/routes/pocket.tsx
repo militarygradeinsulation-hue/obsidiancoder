@@ -769,7 +769,11 @@ function ForgePage() {
     requireAccount,
     dna,
     conceptPlan,
+    planKey,
+    hasRawPinnedModel,
+    pickerModel,
     libraryCode,
+
     modelChoice,
     planConcepts,
     runCritique,
