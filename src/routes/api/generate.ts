@@ -603,7 +603,7 @@ export const Route = createFileRoute("/api/generate")({
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
           const routellmApiKey = routellmKey();
-          if (!apiKey && !routellmApiKey) {
+          if (!apiKey && !routellmApiKey && !googleAiKey()) {
             throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "AI is not configured." });
           }
 
