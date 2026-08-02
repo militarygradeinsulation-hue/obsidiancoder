@@ -2836,7 +2836,7 @@ function Index() {
       {/* ========== SIDEBAR ========== */}
       <aside className={"obs-sidebar " + (sidebarOpen ? "is-open" : "")}>
         <div className="obs-brand">
-          <img src={aetherisLogo.url} alt="Aetheris" className="obs-mark obs-mark-img" />
+          <img src={aetherisLogo.url} alt="Aetheris Obsidian Logo" className="obs-mark obs-mark-img" />
           <span className="obs-brand-word">OBSIDIAN</span>
           <button type="button" className="obs-icon-btn obs-sidebar-close" aria-label="Close menu" onClick={() => setSidebarOpen(false)}>
             <X className="h-4 w-4" />
@@ -2948,7 +2948,7 @@ function Index() {
             >
               <Menu className="h-4 w-4" />
             </button>
-            <img src={aetherisLogo.url} alt="Aetheris" className="obs-mark obs-mark-img obs-topbar-logo" />
+            <img src={aetherisLogo.url} alt="Aetheris Obsidian Logo" className="obs-mark obs-mark-img obs-topbar-logo" />
             <button
               type="button"
               className="obs-icon-btn obs-rail-toggle-btn"

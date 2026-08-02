@@ -1196,12 +1196,12 @@ function ForgePage() {
             </button>
             <img
               src={pocketLogo.url}
-              alt="Aetheris"
+              alt="Aetheris Obsidian Logo"
               className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#F4A125]/40"
             />
 
             <div className="min-w-0">
-              <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket</h1>
+              <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket — Fast One-Prompt Prototyping</h1>
               <p className="truncate text-[10px] uppercase tracking-widest text-[#6b7180]">
                 Pocket workspace
               </p>
