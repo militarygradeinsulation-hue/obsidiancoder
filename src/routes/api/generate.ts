@@ -930,6 +930,7 @@ export const Route = createFileRoute("/api/generate")({
 
             let res: Awaited<ReturnType<typeof aiFetch>> | null = null;
             let lastErr: unknown = null;
+            let usedAttempt: Attempt | null = null;
             for (let i = 0; i < attempts.length; i++) {
               const a = attempts[i];
               try {
@@ -959,6 +960,7 @@ export const Route = createFileRoute("/api/generate")({
                     totalTimeoutMs: budgetMs,
                   },
                 );
+                usedAttempt = a;
                 break;
               } catch (err) {
                 lastErr = err;
@@ -966,7 +968,15 @@ export const Route = createFileRoute("/api/generate")({
                 if (!canFallback) throw err;
               }
             }
-            if (!res) throw lastErr ?? new AiError({ code: "ai_internal", stage: "generate", requestId });
+            if (!res || !usedAttempt) throw lastErr ?? new AiError({ code: "ai_internal", stage: "generate", requestId });
+
+            // Truthful served model. A RouteLLM request that fell back to the
+            // Lovable gateway reports the Lovable equivalent it actually ran,
+            // never the originally requested RouteLLM id. RouteLLM's own
+            // auto-router does not reveal its downstream pick before headers,
+            // so it is reported honestly as the router id itself.
+            const servedModel = usedAttempt.routed ? model : usedAttempt.wireModel;
+
 
 
             const body = res.response.body;
