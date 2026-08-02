@@ -3501,7 +3501,11 @@ export async function runPocketHardeningTests(): Promise<{ results: TestResult[]
   results.push(assert(hostileBlock.includes("AUTHORITATIVE OUTPUT RULES"), "metadata: authoritative rules are restated last"));
   results.push(assert(hostileBlock.indexOf("AUTHORITATIVE OUTPUT RULES") > hostileBlock.indexOf("UNTRUSTED DESIGN METADATA"), "metadata: authoritative rules outrank metadata by position"));
   results.push(assert(!hostileBlock.includes("x".repeat(1000)), "metadata: every metadata string is length-capped"));
-  results.push(assert(h.sanitizeMetadataValue("a\r\nb\u0007c", 100) === "a b c" || !/[\r\n\u0007]/.test(h.sanitizeMetadataValue("a\r\nb\u0007c", 100)), "metadata: control characters are stripped"));
+  const sanitizedCtrl = h.sanitizeMetadataValue("a\r\nb\u0007c", 100);
+  results.push(assert(
+    ![...sanitizedCtrl].some((ch) => ch.charCodeAt(0) < 0x20 || ch.charCodeAt(0) === 0x7f),
+    "metadata: control characters are stripped",
+  ));
   results.push(assert(h.sanitizeMetadataList(["a", 5, null, "b"], 10, 2).length === 2, "metadata: lists are filtered and count-capped"));
 
   const passed = results.filter((r) => r.ok).length;
