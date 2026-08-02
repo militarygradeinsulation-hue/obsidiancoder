@@ -81,7 +81,7 @@ const inputSchema = z.object({
   // Every field is optional; non-Pocket callers are completely unaffected.
   surface: z.enum(["default", "pocket"]).optional().default("default"),
   pocketProfile: z.enum(["fast", "studio", "cinematic"]).optional(),
-  pocketStyleFamily: z.string().max(24).optional(),
+  pocketStyleFamily: z.enum(POCKET_STYLE_FAMILIES as unknown as [string, ...string[]]).optional(),
   pocketDesignDNA: pocketDnaSchema.optional(),
   pocketConcept: pocketConceptSchema.optional(),
   pocketRecentSignatures: z.array(z.string().max(200)).max(12).optional(),
