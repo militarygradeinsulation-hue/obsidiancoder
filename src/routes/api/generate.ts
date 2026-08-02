@@ -18,6 +18,8 @@ import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
+import { CONCRETE_FAMILIES, POCKET_STYLE_FAMILIES } from "@/lib/pocket-creative";
+
 
 
 const messageSchema = z.object({
