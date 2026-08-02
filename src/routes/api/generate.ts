@@ -18,6 +18,8 @@ import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
+import { CONCRETE_FAMILIES, POCKET_STYLE_FAMILIES } from "@/lib/pocket-creative";
+
 
 
 const messageSchema = z.object({
@@ -30,7 +32,7 @@ const pocketDnaSchema = z.object({
   id: z.string().max(80),
   v: z.number().int().min(1).max(99).optional(),
   seed: z.number().int().optional(),
-  family: z.string().max(24),
+  family: z.enum(CONCRETE_FAMILIES as unknown as [string, ...string[]]),
   layout: z.string().max(80),
   hero: z.string().max(300),
   sections: z.array(z.string().max(60)).max(12),
@@ -79,7 +81,7 @@ const inputSchema = z.object({
   // Every field is optional; non-Pocket callers are completely unaffected.
   surface: z.enum(["default", "pocket"]).optional().default("default"),
   pocketProfile: z.enum(["fast", "studio", "cinematic"]).optional(),
-  pocketStyleFamily: z.string().max(24).optional(),
+  pocketStyleFamily: z.enum(POCKET_STYLE_FAMILIES as unknown as [string, ...string[]]).optional(),
   pocketDesignDNA: pocketDnaSchema.optional(),
   pocketConcept: pocketConceptSchema.optional(),
   pocketRecentSignatures: z.array(z.string().max(200)).max(12).optional(),
@@ -928,6 +930,7 @@ export const Route = createFileRoute("/api/generate")({
 
             let res: Awaited<ReturnType<typeof aiFetch>> | null = null;
             let lastErr: unknown = null;
+            let usedAttempt: Attempt | null = null;
             for (let i = 0; i < attempts.length; i++) {
               const a = attempts[i];
               try {
@@ -957,6 +960,7 @@ export const Route = createFileRoute("/api/generate")({
                     totalTimeoutMs: budgetMs,
                   },
                 );
+                usedAttempt = a;
                 break;
               } catch (err) {
                 lastErr = err;
@@ -964,7 +968,15 @@ export const Route = createFileRoute("/api/generate")({
                 if (!canFallback) throw err;
               }
             }
-            if (!res) throw lastErr ?? new AiError({ code: "ai_internal", stage: "generate", requestId });
+            if (!res || !usedAttempt) throw lastErr ?? new AiError({ code: "ai_internal", stage: "generate", requestId });
+
+            // Truthful served model. A RouteLLM request that fell back to the
+            // Lovable gateway reports the Lovable equivalent it actually ran,
+            // never the originally requested RouteLLM id. RouteLLM's own
+            // auto-router does not reveal its downstream pick before headers,
+            // so it is reported honestly as the router id itself.
+            const servedModel = usedAttempt.routed ? model : usedAttempt.wireModel;
+
 
 
             const body = res.response.body;
@@ -1018,7 +1030,7 @@ export const Route = createFileRoute("/api/generate")({
                 message: sanitizeUpstreamMessage(sniff, "Upstream returned a non-stream response."),
               });
             }
-            return { reader: rdr, sniffBuffer: sniff, firstChunk: first, model, openedAt: t_open, headersAt: performance.now() };
+            return { reader: rdr, sniffBuffer: sniff, firstChunk: first, model: servedModel, openedAt: t_open, headersAt: performance.now() };
           }
 
           // 3) Open upstream. On any first-byte failure — timeout, malformed
