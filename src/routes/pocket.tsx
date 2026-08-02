@@ -501,6 +501,19 @@ function ForgePage() {
   }, [libraryCode, sessionKey]);
 
 
+  // Changing the style family is an intentional redesign: drop the DNA, the
+  // concept plan and its key so Refine cannot preserve stale art direction.
+  const changeStyleFamily = React.useCallback((next: PocketStyleFamily) => {
+    setStyleFamily((prev) => {
+      if (prev !== next) {
+        setDna(null);
+        setConceptPlan(null);
+        setPlanKey("");
+      }
+      return next;
+    });
+  }, []);
+
   // ---- Real generation (streaming /api/generate) --------------------------
   const generate = React.useCallback(async () => {
     const p = prompt.trim();
@@ -1435,7 +1448,7 @@ function ForgePage() {
               <select
                 id="pocket-style"
                 value={styleFamily}
-                onChange={(e) => setStyleFamily(e.target.value as PocketStyleFamily)}
+                onChange={(e) => changeStyleFamily(e.target.value as PocketStyleFamily)}
                 className="rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
               >
                 {POCKET_STYLE_FAMILIES.map((f) => (
