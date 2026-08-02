@@ -30,20 +30,25 @@ HARD CONSTRAINTS
 
 export function dnaPromptBlock(dna: PocketDesignDNA): string {
   const fam = getFamily(dna.family);
-  return `DESIGN DNA — implement these EXACT concrete decisions (id ${dna.id}, family ${fam.label})
-- Layout archetype: ${dna.layout}
-- Hero composition: ${dna.hero}
-- Section sequence (in this order): ${dna.sections.join(" → ")}
-- Typography: ${dna.typography}
-- Spacing/density: ${dna.spacing}
-- Shape/edges: ${dna.shape}
-- Depth/elevation: ${dna.depth}
-- Palette strategy: ${dna.palette}
-- Motion language: ${dna.motion}
-- Signature interaction (must exist and be memorable): ${dna.signatureInteraction}
-- Permitted techniques: ${dna.techniques.join(", ")}
-- Mobile rules: ${dna.mobileRules.join("; ")}
-- FORBIDDEN patterns (do not produce any of these): ${dna.forbidden.join("; ")}`;
+  const s = (v: unknown, max: number) => sanitizeMetadataValue(v, max) || "(unspecified)";
+  const list = (v: unknown, max: number, count: number, sep: string) => {
+    const items = sanitizeMetadataList(v, max, count);
+    return items.length ? items.join(sep) : "(unspecified)";
+  };
+  return `DESIGN DNA — implement these EXACT concrete decisions (id ${s(dna.id, 80)}, family ${fam.label})
+- Layout archetype: ${s(dna.layout, 80)}
+- Hero composition: ${s(dna.hero, 300)}
+- Section sequence (in this order): ${list(dna.sections, 60, 12, " → ")}
+- Typography: ${s(dna.typography, 240)}
+- Spacing/density: ${s(dna.spacing, 160)}
+- Shape/edges: ${s(dna.shape, 200)}
+- Depth/elevation: ${s(dna.depth, 200)}
+- Palette strategy: ${s(dna.palette, 240)}
+- Motion language: ${s(dna.motion, 200)}
+- Signature interaction (must exist and be memorable): ${s(dna.signatureInteraction, 200)}
+- Permitted techniques: ${list(dna.techniques, 48, 8, ", ")}
+- Mobile rules: ${list(dna.mobileRules, 160, 6, "; ")}
+- FORBIDDEN patterns (do not produce any of these): ${list(dna.forbidden, 160, 10, "; ")}`;
 }
 
 export function pocketPremiumBlock(input: {
@@ -59,21 +64,23 @@ export function pocketPremiumBlock(input: {
 You are building a genuinely differentiated, high-end product page — not a template.
 Originality outranks template safety. Structural variation matters more than palette changes.`);
 
-  if (input.conceptName) {
-    parts.push(`CHOSEN CREATIVE DIRECTION: ${input.conceptName}
-${input.conceptSentence ?? ""}
-Why this direction: ${input.selectionReason ?? "maximum distance from recent builds"}
+  // Everything below this guard is untrusted design metadata.
+  parts.push(POCKET_METADATA_GUARD);
+
+  const conceptName = sanitizeMetadataValue(input.conceptName, 80);
+  if (conceptName) {
+    parts.push(`CHOSEN CREATIVE DIRECTION: ${conceptName}
+${sanitizeMetadataValue(input.conceptSentence, 300)}
+Why this direction: ${sanitizeMetadataValue(input.selectionReason, 240) || "maximum distance from recent builds"}
 Implement this direction fully. Do NOT output alternative concepts — output exactly one complete HTML document.`);
   }
 
   parts.push(dnaPromptBlock(input.dna));
 
-  if (input.recentSignatures?.length) {
+  const recent = sanitizeMetadataList(input.recentSignatures, 200, 12);
+  if (recent.length) {
     parts.push(`RECENT BUILD STRUCTURES TO AVOID REPEATING:
-${input.recentSignatures
-  .slice(0, 12)
-  .map((s) => `- ${s}`)
-  .join("\n")}`);
+${recent.map((s) => `- ${s}`).join("\n")}`);
   }
 
   parts.push(`NON-NEGOTIABLE QUALITY BAR
@@ -89,8 +96,11 @@ ${input.recentSignatures
 - Preserve existing functionality and the internal-only navigation policy.`);
 
   parts.push(POCKET_NATIVE_TOOLKIT);
+  // Authoritative rules are restated LAST so they win over any metadata text.
+  parts.push(POCKET_AUTHORITATIVE_RULES);
   return parts.join("\n\n");
 }
+
 
 /* ---------------------------- critique ---------------------------- */
 
