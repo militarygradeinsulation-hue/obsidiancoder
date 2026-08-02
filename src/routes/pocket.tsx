@@ -226,6 +226,10 @@ function ForgePage() {
   const [styleFamily, setStyleFamily] = React.useState<PocketStyleFamily>("auto");
   const [dna, setDna] = React.useState<PocketDesignDNA | null>(null);
   const [conceptPlan, setConceptPlan] = React.useState<PocketConceptPlan | null>(null);
+  // Bounded identity of the inputs the current plan was produced for. When it
+  // still matches, a fresh Generate reuses the plan AND the user's selected
+  // direction with zero planner calls.
+  const [planKey, setPlanKey] = React.useState<string>("");
   const [lastCritiqueRan, setLastCritiqueRan] = React.useState(false);
   const [busy, setBusy] = React.useState<
     null | "generating" | "saving" | "enhancing" | "deploying"
@@ -267,13 +271,18 @@ function ForgePage() {
   /** Paid Pocket access: an active subscription, or the admin library code. */
   const paidAccess = paid || isAdminCode;
   /** Resolved model for the selected profile (dynamic best-available Claude). */
+  // A profile-managed model must never look user-pinned to /api/generate.
+  const { hasRawPinnedModel, pickerModel } = React.useMemo(
+    () => pocketPickerModel(model, DEFAULT_MODEL),
+    [model],
+  );
   const modelChoice = React.useMemo(
     () =>
       resolvePocketModel({
         profile,
-        pinnedModel: model && model !== DEFAULT_MODEL ? model : undefined,
+        pinnedModel: hasRawPinnedModel ? model : undefined,
       }),
-    [profile, model],
+    [profile, model, hasRawPinnedModel],
   );
   const callEstimate = providerCallEstimate(profile, mode === "refine");
   const buildsLeft = snap.builds && snap.builds.cap > 0 ? snap.builds : null;
@@ -320,6 +329,8 @@ function ForgePage() {
     styleFamily?: PocketStyleFamily;
     dna?: PocketDesignDNA | null;
     conceptNames?: string[];
+    conceptPlan?: PocketConceptPlan | null;
+    conceptPlanKey?: string;
   };
   const sessionKey = React.useCallback(
     (code: string) => `pocket.session.${(code || "guest").trim() || "guest"}`,
@@ -340,6 +351,8 @@ function ForgePage() {
       if (saved.profile) setProfile(saved.profile);
       if (saved.styleFamily) setStyleFamily(saved.styleFamily);
       setDna(saved.dna ?? null);
+      setConceptPlan(saved.conceptPlan ?? null);
+      setPlanKey(saved.conceptPlan ? (saved.conceptPlanKey ?? "") : "");
       setPane("preview");
       setStatus("Restored your last build");
       return true;
@@ -372,10 +385,12 @@ function ForgePage() {
         styleFamily,
         dna,
         conceptNames: conceptPlan?.concepts.map((c) => c.name).slice(0, 3),
+        conceptPlan,
+        conceptPlanKey: planKey,
       } satisfies PocketSession);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan]);
+  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan, planKey]);
 
 
   // Personal library (real builds rows, scoped by the user's library code).
@@ -478,6 +493,7 @@ function ForgePage() {
     setStatus("Cleared — ready for a new build");
     setDna(null);
     setConceptPlan(null);
+    setPlanKey("");
     setLastCritiqueRan(false);
     setPreviewNonce((n) => n + 1);
     restoredRef.current = libraryCode.trim();
