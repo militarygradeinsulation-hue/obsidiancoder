@@ -30,7 +30,7 @@ const pocketDnaSchema = z.object({
   id: z.string().max(80),
   v: z.number().int().min(1).max(99).optional(),
   seed: z.number().int().optional(),
-  family: z.string().max(24),
+  family: z.enum(CONCRETE_FAMILIES as unknown as [string, ...string[]]),
   layout: z.string().max(80),
   hero: z.string().max(300),
   sections: z.array(z.string().max(60)).max(12),
