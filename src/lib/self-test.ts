@@ -3283,7 +3283,7 @@ export async function runPocketHardeningTests(): Promise<{ results: TestResult[]
   /* ---------------- 1. deterministic gate before/after polish ---------------- */
   const goodHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Gate</title></head><body><h1>Gate</h1><p>Body copy.</p></body></html>`;
   const firstOk = ca.assessCandidateForCommit({ html: goodHtml });
-  results.push(assert(firstOk.ok && firstOk.repairedHtml.length > 0, "gate: a clean candidate passes and yields repaired HTML"));
+  results.push(assert(firstOk.ok && firstOk.repairedHtml.length > 0, "gate: a clean candidate passes and yields repaired HTML", JSON.stringify(firstOk.blockers)));
 
   const leakyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Leak</title></head><body><h1>Leak</h1><a href="https://evil.example.com" target="_top">go</a></body></html>`;
   const leakAssessment = ca.assessCandidateForCommit({ html: leakyHtml });
