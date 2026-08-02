@@ -3281,11 +3281,11 @@ export async function runPocketHardeningTests(): Promise<{ results: TestResult[]
   const ca = await import("./candidate-assess");
 
   /* ---------------- 1. deterministic gate before/after polish ---------------- */
-  const goodHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Gate</title></head><body><h1>Gate</h1><p>Body copy.</p></body></html>`;
+  const goodHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Gate</title></head><body><h1>Gate</h1><section><h2>Section</h2><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p></section></body></html>`;
   const firstOk = ca.assessCandidateForCommit({ html: goodHtml });
-  results.push(assert(firstOk.ok && firstOk.repairedHtml.length > 0, "gate: a clean candidate passes and yields repaired HTML", JSON.stringify(firstOk.blockers)));
+  results.push(assert(firstOk.ok && firstOk.repairedHtml.length > 0, "gate: a clean candidate passes and yields repaired HTML"));
 
-  const leakyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Leak</title></head><body><h1>Leak</h1><a href="https://evil.example.com" target="_top">go</a></body></html>`;
+  const leakyHtml = `<!doctype html><html lang="en"><head><meta charset="utf-8"><title>Leak</title></head><body><h1>Leak</h1><section><h2>Section</h2><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p></section><a href="https://evil.example.com" target="_top">go</a></body></html>`;
   const leakAssessment = ca.assessCandidateForCommit({ html: leakyHtml });
   results.push(assert(
     leakAssessment.repairedHtml !== leakyHtml || leakAssessment.repairs.length > 0 || leakAssessment.ok,
@@ -3308,7 +3308,7 @@ export async function runPocketHardeningTests(): Promise<{ results: TestResult[]
 
   // Post-patch blockers must fall back to the safe first version.
   const safeFirst = firstOk.repairedHtml;
-  const patched = `<!doctype html><html lang="en"><head><title>P</title></head><body><h1>P</h1><a href="https://evil.example.com" target="_blank" rel="noopener">x</a><script src="https://cdn.example.com/x.js"></script></body></html>`;
+  const patched = `<!doctype html><html lang="en"><head><title>P</title></head><body><h1>P</h1><section><h2>Section</h2><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p><p>Substantial body copy for the deterministic gate fixture.</p></section><a href="https://evil.example.com" target="_blank" rel="noopener">x</a><script src="https://cdn.example.com/x.js"></script></body></html>`;
   const post = ca.assessCandidateForCommit({ html: patched });
   const finalAfterPatch = post.ok ? post.repairedHtml : safeFirst;
   results.push(assert(
