@@ -515,7 +515,6 @@ function ForgePage() {
     const controller = new AbortController();
     abortRef.current = controller;
     const previous = html;
-    const t0 = performance.now();
     const isRefine = mode === "refine";
     let providerCalls = 0;
     let critiqueRan = false;
@@ -523,25 +522,38 @@ function ForgePage() {
       // ---- 1. Choose a creative direction --------------------------------
       setStatus("Choosing direction…");
       const recent = readCreativeMemory(libraryCode).entries;
+      const recentDigest = recent.map((r) => `${r.family} · ${r.layout} · ${r.sections}`);
+      const nextPlanKey = conceptPlanKey({
+        prompt: p,
+        family: styleFamily,
+        profile,
+        recentDigest,
+      });
       let plan: PocketConceptPlan | null = conceptPlan;
+      let activePlanKey = planKey;
       let buildDna: PocketDesignDNA;
       if (isRefine && dna) {
         // Refine preserves the current build's DNA — no planning call.
         buildDna = dna;
+      } else if (plan && activePlanKey === nextPlanKey) {
+        // Same inputs → reuse the existing plan AND the user's selected
+        // direction. Zero planner calls.
+        buildDna = selectedConcept(plan).dna;
+        log(`Reusing selected direction: ${selectedConcept(plan).name}`);
       } else {
         const base = deterministicConceptPlan({ prompt: p, family: styleFamily, recent });
         plan = base;
+        activePlanKey = nextPlanKey;
         if (profile !== "fast" && paidAccess) {
           const planner = resolvePocketPlannerModel();
           try {
             const res = await planConcepts({
               data: {
-                cacheKey: conceptCacheKey({ prompt: p, family: styleFamily, profile, recent }),
                 model: planner.model,
                 plannerPrompt: conceptPlannerPrompt({
                   prompt: p,
                   family: styleFamily,
-                  recentSummaries: recent.map((r) => `${r.family} · ${r.layout} · ${r.sections}`),
+                  recentSummaries: recentDigest,
                 }),
               },
             });
@@ -559,6 +571,7 @@ function ForgePage() {
         buildDna = selectedConcept(plan).dna;
       }
       setConceptPlan(plan);
+      setPlanKey(activePlanKey);
       setDna(buildDna);
       const chosen = plan ? selectedConcept(plan) : null;
 
@@ -576,7 +589,7 @@ function ForgePage() {
           currentHtml: isRefine ? previous : previous.slice(0, 8000),
           history: [],
           model: modelChoice.model,
-          pickerModel: model,
+          pickerModel: hasRawPinnedModel ? model : pickerModel,
           advisory: false,
           surface: "pocket",
           pocketProfile: profile,
@@ -589,13 +602,10 @@ function ForgePage() {
                 selectionReason: plan?.selectionReason,
               }
             : undefined,
-          pocketRecentSignatures: recent
-            .slice(0, 12)
-            .map((r) => `${r.family} · ${r.layout} · ${r.sections}`),
+          pocketRecentSignatures: recentDigest.slice(0, 12),
         }),
         signal: controller.signal,
       });
-      providerCalls += 1;
 
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       if (ctype.includes("application/json")) {
@@ -605,8 +615,10 @@ function ForgePage() {
         throw new Error(`Generation failed (${res.status})`);
       }
       if (!res.ok || !res.body) throw new Error(`Generation failed (${res.status})`);
+      // Only now has the request actually reached a streaming provider response.
+      providerCalls += 1;
       if (res.headers.get("x-obs-demo") === "1") log("Free demo claim committed server-side.");
-      const servedModel = res.headers.get("x-obs-model") || modelChoice.model;
+      const servedModel = readServedModel(res.headers, modelChoice.model);
 
       const reader = res.body.getReader();
       const decoder = new TextDecoder();
@@ -636,16 +648,27 @@ function ForgePage() {
       let finalHtml = clean(acc).trim();
       if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
 
-      // ---- 3. Originality + polish (Cinematic only) -----------------------
+      // ---- 3. Deterministic safety/parity gate (non-waivable) -------------
+      setStatus("Running safety checks…");
+      const firstAssessment = assessCandidateForCommit({ html: finalHtml });
+      if (!firstAssessment.ok) {
+        setProject((prev) => setEntryHtml(prev, previous));
+        const blockers = firstAssessment.blockers.slice(0, 3).join(" · ");
+        setError(`Build blocked by the safety gate: ${blockers}`);
+        setStatus("Blocked by safety gate");
+        log(`Safety gate blocked this build — ${firstAssessment.blockers.join(" | ")}`);
+        return;
+      }
+      finalHtml = firstAssessment.repairedHtml;
+      const safeFirstVersion = finalHtml;
+
+      // ---- 4. Originality + polish (Cinematic only) -----------------------
       setStatus("Checking originality…");
       if (profile === "cinematic" && paidAccess) {
         setStatus("Polishing…");
-        const safeFirstVersion = finalHtml;
         try {
-          const cacheKey = `${hashString(finalHtml).toString(36)}:${buildDna.id}:v1`;
           const cres = await runCritique({
             data: {
-              cacheKey,
               model: modelChoice.model,
               html: finalHtml,
               dnaSummary: dnaPromptBlock(buildDna).slice(0, 3000),
@@ -662,9 +685,18 @@ function ForgePage() {
               });
               if (parsed.success) {
                 const applied = applyPatch(finalHtml, parsed.data);
-                // A failed patch must never ship a broken page.
-                finalHtml = applied.ok && applied.html.length > 200 ? applied.html : safeFirstVersion;
-                log(applied.ok ? `Polish applied (${applied.applied.length} ops)` : "Polish skipped — kept the safe version.");
+                // A failed patch — or one that fails the gate on rerun — must
+                // never ship. Fall back to the safe first repaired version.
+                const post =
+                  applied.ok && applied.html.length > 200
+                    ? assessCandidateForCommit({ html: applied.html })
+                    : null;
+                finalHtml = post?.ok ? post.repairedHtml : safeFirstVersion;
+                log(
+                  post?.ok
+                    ? `Polish applied (${applied.applied.length} ops)`
+                    : `Polish skipped — kept the safe version${post ? ` (${post.blockers.slice(0, 2).join(" · ")})` : ""}.`,
+                );
               } else {
                 log("Polish skipped — review operations were not valid.");
               }
@@ -677,7 +709,7 @@ function ForgePage() {
         }
       }
 
-      // ---- 4. Commit -------------------------------------------------------
+      // ---- 5. Commit -------------------------------------------------------
       setProject((prev) => setEntryHtml(prev, finalHtml));
       const label = [
         titleFromPrompt(p),
