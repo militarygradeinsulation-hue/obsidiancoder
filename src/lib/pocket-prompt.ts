@@ -2,6 +2,13 @@
 // Pure strings. Injected server-side only when `surface === "pocket"`.
 
 import { getFamily, type PocketDesignDNA, type PocketProfile } from "./pocket-creative";
+import {
+  POCKET_AUTHORITATIVE_RULES,
+  POCKET_METADATA_GUARD,
+  sanitizeMetadataList,
+  sanitizeMetadataValue,
+} from "./pocket-hardening";
+
 
 export const POCKET_PROMPT_VERSION = 1 as const;
 
