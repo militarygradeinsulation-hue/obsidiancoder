@@ -3470,7 +3470,7 @@ function Index() {
                   <span className="obs-mini-orb-ring" />
                   <span className="obs-mini-orb-ring is-outer" />
                 </span>
-                <h1>{current.title === "Untitled" ? "Vibe Coder" : current.title}</h1>
+                <h1>{current.title === "Untitled" ? "Vibe Coder — Intelligent Prompt-to-App Builder" : current.title}</h1>
               </div>
               <div className="obs-mode-group" role="tablist" aria-label="Development mode">
                 {MODES.map((m) => (
