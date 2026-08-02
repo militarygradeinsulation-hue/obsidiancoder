@@ -125,9 +125,13 @@ export function conceptCacheMaterial(input: {
   model: string;
   policyVersion: string;
 }): string {
-  return ["concept", input.policyVersion, input.model, String(input.plannerPrompt.length), input.plannerPrompt].join(
-    "\u0000",
-  );
+  return [
+    "concept",
+    input.policyVersion,
+    input.model,
+    String(input.plannerPrompt.length),
+    input.plannerPrompt,
+  ].join("\u0000");
 }
 
 /** Critique cache key: exact HTML + DNA summary + model + policy version. */
@@ -190,18 +194,10 @@ const CONTROL_CHARS = /[\u0000-\u001f\u007f-\u009f\u2028\u2029]/g;
  */
 export function sanitizeMetadataValue(value: unknown, max: number): string {
   if (typeof value !== "string") return "";
-  return value
-    .replace(CONTROL_CHARS, " ")
-    .replace(/\s+/g, " ")
-    .trim()
-    .slice(0, Math.max(1, max));
+  return value.replace(CONTROL_CHARS, " ").replace(/\s+/g, " ").trim().slice(0, Math.max(1, max));
 }
 
-export function sanitizeMetadataList(
-  value: unknown,
-  max: number,
-  maxItems: number,
-): string[] {
+export function sanitizeMetadataList(value: unknown, max: number, maxItems: number): string[] {
   if (!Array.isArray(value)) return [];
   const out: string[] = [];
   for (const v of value) {

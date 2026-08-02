@@ -15,7 +15,9 @@ export const POCKET_CACHE_MAX = 64;
 
 /** Bounded parsed decisions only — never raw HTML or prompts. */
 export const planCache = new LruCache<{ rawJson: string; model: string }>(POCKET_CACHE_MAX);
-export const critiqueCache = new LruCache<{ critiqueJson: string; model: string }>(POCKET_CACHE_MAX);
+export const critiqueCache = new LruCache<{ critiqueJson: string; model: string }>(
+  POCKET_CACHE_MAX,
+);
 
 export const CONCEPT_POLICY_VERSION = `pocket-concept-v${POCKET_CONCEPT_VERSION}`;
 export const CRITIQUE_POLICY_VERSION = POCKET_CRITIQUE_POLICY_VERSION;

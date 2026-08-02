@@ -86,7 +86,13 @@ export const planPocketConcepts = createServerFn({ method: "POST" })
       return { ok: false, reason: "provider_failed" };
     }
     await settleQuietly(() =>
-      settlePocketSuccess(ent, "enhance_prompt", outcome.provider, outcome.wireModel, outcome.usage),
+      settlePocketSuccess(
+        ent,
+        "enhance_prompt",
+        outcome.provider,
+        outcome.wireModel,
+        outcome.usage,
+      ),
     );
 
     const raw = parseJsonLoose(outcome.text);
@@ -141,7 +147,13 @@ export const critiquePocketBuild = createServerFn({ method: "POST" })
       return { ok: false, reason: "provider_failed" };
     }
     await settleQuietly(() =>
-      settlePocketSuccess(ent, "enhance_prompt", outcome.provider, outcome.wireModel, outcome.usage),
+      settlePocketSuccess(
+        ent,
+        "enhance_prompt",
+        outcome.provider,
+        outcome.wireModel,
+        outcome.usage,
+      ),
     );
 
     const raw = parseJsonLoose(outcome.text);

@@ -230,8 +230,11 @@ export async function runSinglePocketChat(input: PocketChatInput): Promise<Pocke
     };
   } catch (err) {
     const code =
-      typeof err === "object" && err && "code" in err && typeof (err as { code?: unknown }).code === "string"
-        ? ((err as { code: string }).code)
+      typeof err === "object" &&
+      err &&
+      "code" in err &&
+      typeof (err as { code?: unknown }).code === "string"
+        ? (err as { code: string }).code
         : "ai_internal";
     return {
       ok: false,
