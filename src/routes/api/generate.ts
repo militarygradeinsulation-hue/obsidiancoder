@@ -1009,7 +1009,13 @@ export const Route = createFileRoute("/api/generate")({
                 break;
               } catch (err) {
                 lastErr = err;
-                const canFallback = i < attempts.length - 1 && isRouteLLMKeyExhausted(err);
+                // Google is the primary provider: any failure on it (quota
+                // exhausted, rejected key, upstream error) switches straight
+                // to ChatLLM. Later attempts only chain on key exhaustion.
+                const exhausted = a.google
+                  ? isGoogleKeyExhausted(err) || !(err instanceof AiError && err.code === "ai_cancelled")
+                  : isRouteLLMKeyExhausted(err);
+                const canFallback = i < attempts.length - 1 && exhausted;
                 if (!canFallback) throw err;
               }
             }
