@@ -1030,7 +1030,7 @@ export const Route = createFileRoute("/api/generate")({
                 message: sanitizeUpstreamMessage(sniff, "Upstream returned a non-stream response."),
               });
             }
-            return { reader: rdr, sniffBuffer: sniff, firstChunk: first, model, openedAt: t_open, headersAt: performance.now() };
+            return { reader: rdr, sniffBuffer: sniff, firstChunk: first, model: servedModel, openedAt: t_open, headersAt: performance.now() };
           }
 
           // 3) Open upstream. On any first-byte failure — timeout, malformed
