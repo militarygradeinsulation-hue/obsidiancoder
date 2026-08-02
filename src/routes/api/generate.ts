@@ -19,6 +19,11 @@ import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
 import { CONCRETE_FAMILIES, POCKET_STYLE_FAMILIES } from "@/lib/pocket-creative";
+import {
+  RECENT_SIGNATURE_INPUT_MAX,
+  RECENT_SIGNATURE_LIMIT,
+  normalizeRecentSignatureInput,
+} from "@/lib/pocket-hardening";
 
 
 
@@ -84,9 +89,35 @@ const inputSchema = z.object({
   pocketStyleFamily: z.enum(POCKET_STYLE_FAMILIES as unknown as [string, ...string[]]).optional(),
   pocketDesignDNA: pocketDnaSchema.optional(),
   pocketConcept: pocketConceptSchema.optional(),
-  pocketRecentSignatures: z.array(z.string().max(200)).max(12).optional(),
+  // Legacy Pocket clients may still send longer digests. Accept a bounded
+  // upper limit, then normalize + truncate to 200 instead of rejecting.
+  pocketRecentSignatures: z
+    .array(z.string().max(RECENT_SIGNATURE_INPUT_MAX))
+    .max(RECENT_SIGNATURE_LIMIT)
+    .optional()
+    .transform((list) =>
+      list ? list.map(normalizeRecentSignatureInput).filter(Boolean) : undefined,
+    ),
   pocketCritiqueContext: z.string().max(4000).optional(),
 });
+
+/**
+ * Schema failures must never surface raw Zod JSON (or internal schema paths)
+ * to the UI. Log a bounded technical detail server-side and return a concise
+ * human message instead.
+ */
+function normalizeValidationMessage(err: unknown, requestId: string): string {
+  const detail = err instanceof Error ? err.message : String(err ?? "");
+  const isPocket = detail.includes("pocket");
+  console.warn(
+    `[generate:${requestId}] input validation failed: ${detail.replace(/\s+/g, " ").slice(0, 600)}`,
+  );
+  return isPocket
+    ? "Pocket creative metadata was invalid. Please retry."
+    : "That request was invalid. Please retry.";
+}
+
+
 
 
 
@@ -584,7 +615,7 @@ export const Route = createFileRoute("/api/generate")({
               code: "ai_bad_request",
               stage: "validate",
               requestId,
-              message: err instanceof Error ? err.message : "Invalid input.",
+              message: normalizeValidationMessage(err, requestId),
             });
           }
 

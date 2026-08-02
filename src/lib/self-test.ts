@@ -3508,6 +3508,74 @@ export async function runPocketHardeningTests(): Promise<{ results: TestResult[]
   ));
   results.push(assert(h.sanitizeMetadataList(["a", 5, null, "b"], 10, 2).length === 2, "metadata: lists are filtered and count-capped"));
 
+  /* ---------------- 9. bounded recent signatures ---------------- */
+  const { z: zod } = await import("zod");
+  const longSections = Array.from({ length: 12 }, (_, i) => `section-with-a-very-long-name-${i}`).join(">");
+  const worstCase = {
+    family: "cinematic",
+    layout: "an-extremely-long-layout-archetype-identifier-for-worst-case-testing",
+    hero: "hero composition text ".repeat(40),
+    sections: longSections,
+    typeClass: "abc",
+    paletteClass: "def",
+    interaction: "signature interaction text ".repeat(40),
+  };
+  const compact = h.compactRecentSignature(worstCase);
+  results.push(assert(compact.length <= 200, "recent: worst-case signature compacts to <= 200 chars"));
+  results.push(assert(compact.includes("cinematic"), "recent: compact signature retains the family"));
+  results.push(assert(
+    h.compactRecentSignature(worstCase) === compact,
+    "recent: compact signature is deterministic",
+  ));
+  results.push(assert(
+    h.compactRecentSignature({ ...worstCase, sections: `${longSections}>extra` }) !== compact,
+    "recent: compact signature changes when the structure changes",
+  ));
+  results.push(assert(
+    !compact.includes("\n") && !/https?:\/\//.test(compact),
+    "recent: compact signature carries no newlines, URLs or raw prompt text",
+  ));
+
+  // The exact schema shape used by /api/generate for recent signatures.
+  const recentSchema = zod
+    .array(zod.string().max(h.RECENT_SIGNATURE_INPUT_MAX))
+    .max(h.RECENT_SIGNATURE_LIMIT)
+    .optional()
+    .transform((list) => (list ? list.map(h.normalizeRecentSignatureInput).filter(Boolean) : undefined));
+
+  // Screenshot-shaped failure: a legacy 200+ char digest must now be accepted.
+  const legacyLong = `${worstCase.family} · ${worstCase.layout} · ${longSections}`;
+  results.push(assert(legacyLong.length > 200, "recent: legacy digest fixture is genuinely over the old limit"));
+  const parsedLegacy = recentSchema.parse([legacyLong]);
+  results.push(assert(
+    !!parsedLegacy && parsedLegacy[0].length <= 200,
+    "recent: an overlong legacy signature is truncated, not rejected",
+  ));
+
+  const legacyLedger = Array.from({ length: 20 }, () => ({ ...worstCase, at: Date.now() }));
+  const fromLedger = h.compactRecentSignatures(legacyLedger);
+  results.push(assert(
+    fromLedger.length === 12 && fromLedger.every((s) => s.length <= 200),
+    "recent: an old long local ledger yields <= 12 bounded signatures",
+  ));
+  results.push(assert(
+    recentSchema.safeParse(fromLedger).success,
+    "recent: compacted ledger signatures pass the generate schema",
+  ));
+  results.push(assert(
+    !recentSchema.safeParse(Array.from({ length: 13 }, () => "x")).success,
+    "recent: the 12-item cap still rejects longer arrays",
+  ));
+  results.push(assert(
+    !recentSchema.safeParse(["x".repeat(20000)]).success,
+    "recent: an arbitrarily huge malicious string is rejected",
+  ));
+  results.push(assert(
+    h.normalizeRecentSignatureInput("a\u0000b\n".repeat(500)).length <= 200,
+    "recent: normalization bounds and strips control characters",
+  ));
+
+
   const passed = results.filter((r) => r.ok).length;
   return { results, passed, failed: results.length - passed };
 }
