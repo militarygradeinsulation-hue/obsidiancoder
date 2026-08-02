@@ -87,7 +87,7 @@ Implement this direction fully. Do NOT output alternative concepts — output ex
   const recent = sanitizeMetadataList(input.recentSignatures, 200, 12);
   if (recent.length) {
     parts.push(`RECENT BUILD STRUCTURES TO AVOID REPEATING:
-${recent.map((s) => `- ${s}`).join("\n")}`);
+${recent.map((line) => `- ${line}`).join("\n")}`);
   }
 
   parts.push(`NON-NEGOTIABLE QUALITY BAR
