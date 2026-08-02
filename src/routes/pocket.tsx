@@ -700,6 +700,7 @@ function ForgePage() {
                 const applied = applyPatch(finalHtml, parsed.data);
                 // A failed patch — or one that fails the gate on rerun — must
                 // never ship. Fall back to the safe first repaired version.
+                const opCount = applied.ok ? applied.applied.length : 0;
                 const post =
                   applied.ok && applied.html.length > 200
                     ? assessCandidateForCommit({ html: applied.html })
@@ -707,7 +708,7 @@ function ForgePage() {
                 finalHtml = post?.ok ? post.repairedHtml : safeFirstVersion;
                 log(
                   post?.ok
-                    ? `Polish applied (${applied.applied.length} ops)`
+                    ? `Polish applied (${opCount} ops)`
                     : `Polish skipped — kept the safe version${post ? ` (${post.blockers.slice(0, 2).join(" · ")})` : ""}.`,
                 );
               } else {
