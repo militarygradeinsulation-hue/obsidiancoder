@@ -40,7 +40,7 @@ function HomeChooser() {
     <main className="min-h-screen bg-[#050607] text-[#E8E6E1] flex flex-col items-center justify-center px-4 py-16">
       <img
         src={aetherisLogo.url}
-        alt="Aetheris"
+        alt="Aetheris Obsidian Logo"
         className="h-14 w-14 rounded-full object-cover ring-1 ring-[#F4A125]/40"
       />
       <h1 className="mt-5 text-center text-2xl font-semibold tracking-tight sm:text-3xl">
