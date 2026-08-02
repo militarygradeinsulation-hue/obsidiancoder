@@ -99,7 +99,12 @@ import {
 } from "@/lib/pocket-concept";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
-import { conceptPlanKey, pocketPickerModel, readServedModel } from "@/lib/pocket-hardening";
+import {
+  compactRecentSignatures,
+  conceptPlanKey,
+  pocketPickerModel,
+  readServedModel,
+} from "@/lib/pocket-hardening";
 import { parseCritique, dnaPromptBlock } from "@/lib/pocket-prompt";
 import { patchSchema } from "@/lib/patch-protocol";
 import { applyPatch } from "@/lib/patch-engine";
@@ -535,7 +540,7 @@ function ForgePage() {
       // ---- 1. Choose a creative direction --------------------------------
       setStatus("Choosing direction…");
       const recent = readCreativeMemory(libraryCode).entries;
-      const recentDigest = recent.map((r) => `${r.family} · ${r.layout} · ${r.sections}`);
+      const recentDigest = compactRecentSignatures(recent);
       const nextPlanKey = conceptPlanKey({
         prompt: p,
         family: styleFamily,
