@@ -79,21 +79,18 @@ import {
   getProfile,
   isProfileAllowed,
   providerCallEstimate,
-  selectDNA,
   dnaSignature,
   dnaSummaryLine,
   readCreativeMemory,
   rememberSignature,
   readCreativePrefs,
   writeCreativePrefs,
-  hashString,
   type PocketDesignDNA,
   type PocketProfile,
   type PocketStyleFamily,
 } from "@/lib/pocket-creative";
 import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
 import {
-  conceptCacheKey,
   conceptPlannerPrompt,
   deterministicConceptPlan,
   parseConceptPlan,
@@ -101,6 +98,8 @@ import {
   type PocketConceptPlan,
 } from "@/lib/pocket-concept";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
+import { assessCandidateForCommit } from "@/lib/candidate-assess";
+import { conceptPlanKey, pocketPickerModel, readServedModel } from "@/lib/pocket-hardening";
 import { parseCritique, dnaPromptBlock } from "@/lib/pocket-prompt";
 import { patchSchema } from "@/lib/patch-protocol";
 import { applyPatch } from "@/lib/patch-engine";
