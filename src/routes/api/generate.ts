@@ -916,19 +916,31 @@ export const Route = createFileRoute("/api/generate")({
           ) {
             const t_open = performance.now();
             const viaRouteLLM = isRouteLLMModel(model);
-            if (viaRouteLLM && !routellmApiKey && !apiKey) {
+            const googleKey = googleAiKey();
+            if (viaRouteLLM && !routellmApiKey && !apiKey && !googleKey) {
               throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "RouteLLM (Abacus) key is not configured." });
             }
-            if (!viaRouteLLM && !apiKey) {
+            if (!viaRouteLLM && !apiKey && !googleKey) {
               throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." });
             }
 
-            // Attempt chain: every configured RouteLLM key in priority order,
-            // then (when RouteLLM credits are exhausted) the Lovable gateway
-            // with the closest equivalent model, so builds never hard-fail on
-            // a billing problem at one provider.
-            type Attempt = { key: string; url: string; wireModel: string; routed: boolean; label: string };
+            // Attempt chain: Google first (while its quota lasts), then every
+            // configured ChatLLM/RouteLLM key in priority order, then the
+            // Lovable gateway with the closest equivalent model — so builds
+            // never hard-fail on a billing problem at one provider.
+            type Attempt = { key: string; url: string; wireModel: string; routed: boolean; label: string; google?: boolean };
             const attempts: Attempt[] = [];
+            if (googleKey) {
+              const gm = googleModelFor(model);
+              attempts.push({
+                key: googleKey,
+                url: GOOGLE_OPENAI_CHAT_URL,
+                wireModel: gm,
+                routed: false,
+                label: `google/generate:${gm}`,
+                google: true,
+              });
+            }
             if (viaRouteLLM) {
               for (const k of routellmKeys()) {
                 attempts.push({
@@ -949,15 +961,16 @@ export const Route = createFileRoute("/api/generate")({
                   label: `lovable/generate:${equiv}`,
                 });
               }
-            } else {
+            } else if (apiKey) {
               attempts.push({
-                key: apiKey!,
+                key: apiKey,
                 url: "https://ai.gateway.lovable.dev/v1/chat/completions",
                 wireModel: model,
                 routed: false,
                 label: `lovable/generate:${model}`,
               });
             }
+
 
             let res: Awaited<ReturnType<typeof aiFetch>> | null = null;
             let lastErr: unknown = null;
