@@ -526,6 +526,7 @@ function Unlock() {
               </div>
 
               {/* Live builds people shared from Pocket */}
+              {communityBuilds.length > 0 && (
               <div className="unlock-community" id="community-anchor">
                 <div className="unlock-community-head">
                   <div>
@@ -536,11 +537,6 @@ function Unlock() {
                   </div>
                   <a href="/library" className="unlock-compare-cta">Browse the Library</a>
                 </div>
-                {communityBuilds.length === 0 ? (
-                  <p className="unlock-community-empty">
-                    No shared builds yet — build something in Pocket and press “Share to Library”.
-                  </p>
-                ) : (
                   <div className="unlock-community-grid">
                     {communityBuilds.map((b) => (
                       <a
