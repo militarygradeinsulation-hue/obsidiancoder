@@ -101,6 +101,12 @@ const inputSchema = z.object({
       list ? list.map(normalizeRecentSignatureInput).filter(Boolean) : undefined,
     ),
   pocketCritiqueContext: z.string().max(4000).optional(),
+  /** Matched reusable components from the client-side registry — injected as system context. */
+  reusableComponents: z.array(z.object({
+    label: z.string(),
+    kind: z.string(),
+    markup: z.string().max(1600),
+  })).max(4).optional(),
   // Per-build project memory (purpose, audience, brand, constraints, etc.)
   // Sent from both the main IDE and Pocket. Injected as a system message so
   // every generation is aware of the user's running project context.
@@ -847,6 +853,22 @@ ${memBlock}`,
                 timing.spec_sections = spec.sections.length;
               }
             } catch { /* spec injection is non-fatal */ }
+          }
+
+          // Reusable components from the client registry — injected for fresh builds.
+          if (!data.advisory && !contextHtml && data.reusableComponents?.length) {
+            const compLines = [
+              "REUSABLE PATTERNS FROM YOUR BUILD HISTORY:",
+              "These are components you've built before. Reuse their structure where relevant.",
+              "",
+            ];
+            for (const c of data.reusableComponents) {
+              compLines.push(`--- ${c.label} (${c.kind}) ---`);
+              compLines.push(c.markup.slice(0, 1500));
+              compLines.push("");
+            }
+            compLines.push("Adapt these patterns to fit the current build.");
+            messages.push({ role: "system", content: compLines.join("\n") });
           }
 
           // Design Contract injection — applies to both fresh builds and edits

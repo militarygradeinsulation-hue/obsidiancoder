@@ -61,6 +61,7 @@ import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
 import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
+import { extractComponents, saveToRegistry } from "@/lib/component-registry";
 import { requirePaidAction } from "@/lib/action-guard";
 import { authFetch } from "@/lib/auth-fetch";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
@@ -2273,6 +2274,16 @@ function Index() {
           designContract: loadDesignContract(current.id),
           themeBlueprintId: current.themeBlueprintId,
           projectMemory: current.memory,
+          // Inject reusable components for fresh builds only.
+          ...(!stableHtml && !previewMode
+            ? (() => {
+                try {
+                  const { matchComponents } = require("@/lib/component-registry") as typeof import("@/lib/component-registry");
+                  const comps = matchComponents(prompt, 3);
+                  return comps.length ? { reusableComponents: comps.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) } : {};
+                } catch { return {}; }
+              })()
+            : {}),
         }),
 
         signal: controller.signal,
@@ -2623,6 +2634,15 @@ function Index() {
             versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
           }
         : s));
+
+      // Extract reusable components from the just-built HTML and save to
+      // the local registry for future builds. Best-effort, never blocks.
+      if (committedFinalHtml && committedFinalHtml.length > 200) {
+        try {
+          const extracted = extractComponents(committedFinalHtml);
+          if (extracted.length > 0) saveToRegistry(extracted);
+        } catch { /* component extraction is non-fatal */ }
+      }
 
       // Client demo complete — only after the generated result was committed
       // to the local project. Emit once per lifecycle.

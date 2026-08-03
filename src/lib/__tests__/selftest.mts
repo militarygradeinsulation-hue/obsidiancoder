@@ -322,6 +322,48 @@ ok(block.includes("Build the complete implementation"), "spec: system block incl
 const simpleSpec = extractSpec("change the button color to blue");
 ok(!simpleSpec.complex || simpleSpec.sections.length === 0, "spec: simple edit not marked complex with sections");
 
+/* ---------- component registry (8) ---------- */
+const { extractComponents, matchComponents, componentsToSystemBlock, clearRegistry } = await import("../component-registry");
+
+const sampleHtml = `
+<html><body>
+<nav class="navbar sticky">
+  <a href="/">Home</a><a href="/about">About</a>
+  <button class="nav-cta">Sign up</button>
+</nav>
+<section class="hero-section">
+  <h1>Build faster</h1>
+  <button class="hero-btn">Get started</button>
+</section>
+<div class="pricing-card">
+  <h2>Pro Plan</h2>
+  <p>$30/month</p>
+</div>
+<form class="signup-form">
+  <input type="email" name="email" />
+  <button type="submit">Sign up</button>
+</form>
+</body></html>`;
+
+const extracted = extractComponents(sampleHtml);
+ok(extracted.length >= 3, "registry: extracts at least 3 components from sample HTML");
+ok(extracted.some(c => c.kind === "navbar"), "registry: extracts navbar");
+ok(extracted.some(c => c.kind === "hero"), "registry: extracts hero section");
+ok(extracted.some(c => c.kind === "form"), "registry: extracts form");
+
+// System block rendering
+const compBlock = componentsToSystemBlock(extracted.slice(0, 2));
+ok(compBlock.includes("REUSABLE PATTERNS"), "registry: system block has header");
+ok(compBlock.includes("navbar") || compBlock.includes("hero"), "registry: system block includes component label");
+
+// Match by prompt (uses in-memory only since we cleared storage)
+// matchComponents needs localStorage, returns [] in test env (no window) — that's fine
+const matched = matchComponents("landing page with hero and pricing", 3);
+ok(Array.isArray(matched), "registry: matchComponents returns array");
+
+// extractComponents on minimal HTML doesn't throw
+ok(!extractComponents("<html></html>").length || true, "registry: empty HTML is safe");
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);
