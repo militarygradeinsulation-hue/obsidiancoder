@@ -304,9 +304,15 @@ function ForgePage() {
   const callEstimate = providerCallEstimate(profile, mode === "refine");
   const buildsLeft = snap.builds && snap.builds.cap > 0 ? snap.builds : null;
   const requireAccount = React.useCallback((what: string) => {
-    setError(`${what} needs an Obsidian Pocket account — $10/month for ${POCKET_MONTHLY_BUILDS} builds, saving, and code export.`);
-    setPricingOpen(true);
-  }, []);
+    // Signed-out users: show nudge with not_pro reason + open pricing.
+    // Gives a contextual bottom-bar message before opening the full modal.
+    if (!authUserId) {
+      setNudge({ reason: "not_pro" });
+    } else {
+      setError(`${what} requires an upgraded plan.`);
+      setPricingOpen(true);
+    }
+  }, [authUserId]);
 
 
   const abortRef = React.useRef<AbortController | null>(null);
@@ -432,6 +438,26 @@ function ForgePage() {
   React.useEffect(() => {
     void loadLibrary(libraryCode);
   }, [libraryCode, loadLibrary]);
+
+  // On sign-in: if the canvas is blank, restore the most recent cloud project.
+  React.useEffect(() => {
+    if (!authUserId) return;
+    const blank = html === EMPTY_DOC || html.length < 40;
+    if (!blank) return;
+    void cloudProjects.refresh().then(() => {
+      const top = cloudProjects.projects[0];
+      if (!top) return;
+      cloudProjects.load(top.id).then((full) => {
+        if (!full) return;
+        const next = projectFromHtml(full.html);
+        setProject(next);
+        setTitle(full.projectName ?? "Cloud project");
+        if (full.prompt) setPrompt(full.prompt);
+        if (!cloudProjectId) setCloudProjectId(top.id);
+        log(`☁ Restored: ${full.projectName ?? "Cloud project"}`);
+      });
+    });
+  }, [authUserId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const openLibraryBuild = React.useCallback(
     async (id: string) => {

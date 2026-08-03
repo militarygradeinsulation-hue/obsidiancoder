@@ -710,8 +710,15 @@ function Unlock() {
                 </div>
                 )}
 
+                <button
+                  type="button"
+                  style={{ width: "100%", padding: "11px 0", borderRadius: 10, background: "rgba(244,161,37,0.12)", color: "#F4A125", border: "1px solid rgba(244,161,37,0.35)", fontWeight: 600, fontSize: 13, cursor: "pointer", marginBottom: 8 }}
+                  onClick={() => window.location.assign("/auth?mode=signup")}
+                >
+                  Create free account — 1 AI build/day, no card
+                </button>
                 <button type="button" className="unlock-btn-secondary" onClick={goSignIn}>
-                  Already purchased? Sign in
+                  Already have an account? Sign in
                 </button>
 
 
@@ -755,8 +762,8 @@ function Unlock() {
                     </div>
 
                     <div className="detail-block">
-                      <h3>What stays free &amp; local</h3>
-                      <p>Local editing, previews, local project storage, deterministic tools, exports, screenshots, and local history remain free and never leave your browser. Credits are consumed only for cloud AI and provider work.</p>
+                      <h3>What stays free</h3>
+                      <p>Create a free account and get <strong>1 AI build per day</strong> — no card, no trial, always on. Local editing, previews, exports, and screenshots are always free too. Cloud saves, GitHub export, and deploy require Pro.</p>
                     </div>
 
                     <p className="detail-trust">Secure billing through Stripe. Cancel anytime.</p>
