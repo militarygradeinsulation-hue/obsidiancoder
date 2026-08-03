@@ -41,7 +41,7 @@ export interface CloudSaveResult {
   error?: string;
 }
 
-export function useCloudProjects({ isAuthenticated }: UseCloudProjectsOptions) {
+export function useCloudProjects({ isAuthenticated, surface = "coder" }: UseCloudProjectsOptions) {
   const [projects, setProjects] = useState<CloudProjectMeta[]>([]);
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
