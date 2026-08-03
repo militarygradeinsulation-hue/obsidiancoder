@@ -271,7 +271,7 @@ export interface Reservation {
 }
 
 export interface EntitlementResult {
-  kind: "owner" | "pro" | "free_demo" | "free_open" | "denied";
+  kind: "owner" | "pro" | "free_demo" | "free_open" | "free_build" | "denied";
   user?: AuthedUser;
   reservation?: Reservation;
   denial?: CreditsRequiredEnvelope;
@@ -468,6 +468,27 @@ export async function requirePaidOperation(
 
   const pro = await hasActivePro(user, env);
   if (!pro) {
+    // Signed-in free users get one AI generation per calendar day (UTC).
+    // This is the only operation granted on the free path; all others deny.
+    if (operation === "generate_html") {
+      const { claimFreeBuild } = await import("@/lib/free-build.server");
+      const claim = await claimFreeBuild(user, env);
+      if (claim.ok) {
+        return { kind: "free_build", env, requestId, user };
+      }
+      // Claim failed: either already used today or DB unavailable.
+      const msg = claim.reason === "already_used"
+        ? "You've used your free build for today. Upgrade to Pro to keep building, or come back tomorrow."
+        : "This feature requires Obsidian Pro. Local editing remains free.";
+      return {
+        kind: "denied", env, requestId, user,
+        denial: creditsRequiredEnvelope({
+          code: claim.reason === "already_used" ? "credits_required" : "not_pro",
+          operation,
+          message: msg,
+        }),
+      };
+    }
     return {
       kind: "denied", env, requestId, user,
       denial: creditsRequiredEnvelope({
@@ -584,6 +605,17 @@ export async function settleOperation(
     if (outcome.kind === "no_provider" && ent.freeDemoFingerprint) {
       const { releaseFreeDemo } = await import("@/lib/free-demo.server");
       await releaseFreeDemo(ent.freeDemoFingerprint, ent.env);
+    }
+    return;
+  }
+
+  if (ent.kind === "free_build") {
+    // Same contract as free_demo: refund if provider never ran so the user
+    // keeps their daily build. Success/failed-with-usage = provider ran,
+    // claim is consumed for the day.
+    if (outcome.kind === "no_provider" && ent.user) {
+      const { releaseFreeBuild } = await import("@/lib/free-build.server");
+      await releaseFreeBuild(ent.user, ent.env);
     }
     return;
   }

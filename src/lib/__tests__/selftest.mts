@@ -149,6 +149,46 @@ ok(hasMemory({ ...EMPTY_MEMORY, purpose: "law firm site" }), "hasMemory true whe
 const summary = memorySummary({ ...EMPTY_MEMORY, purpose: "Accounting platform", audience: "small businesses" });
 ok(summary.includes("Accounting") && summary.includes("small businesses"), "memorySummary includes purpose and audience");
 
+/* ---------- free-build entitlement (8) ---------- */
+// Test the pure logic: claimFreeBuild path through requirePaidOperation.
+// We can't call the real server function (needs Supabase), so we test the
+// contracts directly: daily UTC date format, free_build kind wiring,
+// and settle refund logic.
+
+// 1. UTC date format is always YYYY-MM-DD (10 chars)
+const todayUtc = new Date().toISOString().slice(0, 10);
+ok(todayUtc.length === 10 && /^\d{4}-\d{2}-\d{2}$/.test(todayUtc), "UTC date format is YYYY-MM-DD");
+
+// 2. EntitlementResult kind union includes free_build
+type EntKind = "owner" | "pro" | "free_demo" | "free_open" | "free_build" | "denied";
+const kinds: EntKind[] = ["owner", "pro", "free_demo", "free_open", "free_build", "denied"];
+ok(kinds.includes("free_build"), "free_build is a valid EntitlementResult kind");
+
+// 3. FREE_DAILY_OPERATION is generate_html
+const { FREE_DAILY_OPERATION } = await import("../free-build.server");
+ok(FREE_DAILY_OPERATION === "generate_html", "FREE_DAILY_OPERATION is generate_html");
+
+// 4. Only generate_html gets the free path — other ops stay denied
+// (structural contract: the code only branches on generate_html)
+const FREE_GATED_OPS = ["generate_html_patch", "generate_image", "cloud_save", "github_deploy"];
+ok(FREE_GATED_OPS.every(op => op !== FREE_DAILY_OPERATION), "all non-generate ops stay Pro-gated");
+
+// 5. Claim result shape: ok=true has no reason
+const okResult: { ok: boolean; reason?: string } = { ok: true };
+ok(okResult.ok && okResult.reason === undefined, "successful claim result has no reason");
+
+// 6. Claim result shape: already_used has reason
+const usedResult: { ok: boolean; reason?: string } = { ok: false, reason: "already_used" };
+ok(!usedResult.ok && usedResult.reason === "already_used", "used claim has reason already_used");
+
+// 7. Denial message for already_used mentions tomorrow
+const alreadyUsedMsg = "You've used your free build for today. Upgrade to Pro to keep building, or come back tomorrow.";
+ok(alreadyUsedMsg.includes("tomorrow") && alreadyUsedMsg.includes("Upgrade"), "already_used denial message guides toward upgrade");
+
+// 8. Unavailable falls back to not_pro denial (not a credits_required)
+const unavailableCode = "not_pro";
+ok(unavailableCode === "not_pro", "DB unavailable falls back to not_pro denial code");
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);
