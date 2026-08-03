@@ -9,117 +9,57 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as DemosRouteImport } from './routes/demos'
-import { Route as ForgeRouteImport } from './routes/forge'
-import { Route as GalleryRouteImport } from './routes/gallery'
-import { Route as HomeRouteImport } from './routes/home'
-import { Route as LibraryRouteImport } from './routes/library'
-import { Route as McpRouteImport } from './routes/mcp'
-import { Route as PocketRouteImport } from './routes/pocket'
-import { Route as PrivacyRouteImport } from './routes/privacy'
-import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
-import { Route as TermsRouteImport } from './routes/terms'
-import { Route as UnlockRouteImport } from './routes/unlock'
 import { Route as WaitlistRouteImport } from './routes/waitlist'
-import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
-import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
-import { Route as AdminWaitlistRouteImport } from './routes/admin.waitlist'
-import { Route as ApiGenerateRouteImport } from './routes/api/generate'
-import { Route as ApiGithubRouteImport } from './routes/api/github'
-import { Route as ApiHealthRouteImport } from './routes/api/health'
-import { Route as ApiPatchRouteImport } from './routes/api/patch'
-import { Route as ApiProjectsRouteImport } from './routes/api/projects'
-import { Route as ApiQaRouteImport } from './routes/api/qa'
-import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
+import { Route as UnlockRouteImport } from './routes/unlock'
+import { Route as TermsRouteImport } from './routes/terms'
+import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as PocketRouteImport } from './routes/pocket'
+import { Route as McpRouteImport } from './routes/mcp'
+import { Route as LibraryRouteImport } from './routes/library'
+import { Route as HomeRouteImport } from './routes/home'
+import { Route as GalleryRouteImport } from './routes/gallery'
+import { Route as ForgeRouteImport } from './routes/forge'
+import { Route as DemosRouteImport } from './routes/demos'
+import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as AuthRouteImport } from './routes/auth'
+import { Route as IndexRouteImport } from './routes/index'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
-import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
-import { Route as ApiDashboardStatsRouteImport } from './routes/api/dashboard/stats'
-import { Route as ApiPublicBaselineRouteImport } from './routes/api/public/baseline'
-import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
-import { Route as ApiPublicCommunityRouteImport } from './routes/api/public/community'
-import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
-import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
-import { Route as ApiPublicThemeBlueprintsRouteImport } from './routes/api/public/theme-blueprints'
-import { Route as ApiPublicThemeThumbnailsRouteImport } from './routes/api/public/theme-thumbnails'
+import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
+import { Route as ApiQaRouteImport } from './routes/api/qa'
+import { Route as ApiProjectsRouteImport } from './routes/api/projects'
+import { Route as ApiPatchRouteImport } from './routes/api/patch'
+import { Route as ApiHealthRouteImport } from './routes/api/health'
+import { Route as ApiGithubRouteImport } from './routes/api/github'
+import { Route as ApiGenerateRouteImport } from './routes/api/generate'
+import { Route as AdminWaitlistRouteImport } from './routes/admin.waitlist'
+import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
+import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
 import { Route as ApiPublicWaitlistRouteImport } from './routes/api/public/waitlist'
-import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
-import { Route as ApiPublicCommunityIdRouteImport } from './routes/api/public/community.$id'
-import { Route as ApiPublicFreeDemoStatusRouteImport } from './routes/api/public/free-demo.status'
-import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/library.$code'
-import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
-import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public/saved-ideas.$code'
-import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/share.$slug'
-import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
-import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
+import { Route as ApiPublicThemeThumbnailsRouteImport } from './routes/api/public/theme-thumbnails'
+import { Route as ApiPublicThemeBlueprintsRouteImport } from './routes/api/public/theme-blueprints'
+import { Route as ApiPublicSelfTestRouteImport } from './routes/api/public/self-test'
+import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/entitlement'
+import { Route as ApiPublicCommunityRouteImport } from './routes/api/public/community'
+import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
+import { Route as ApiPublicBaselineRouteImport } from './routes/api/public/baseline'
+import { Route as ApiDashboardStatsRouteImport } from './routes/api/dashboard/stats'
+import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
+import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
+import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/share.$slug'
+import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public/saved-ideas.$code'
+import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
+import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/library.$code'
+import { Route as ApiPublicFreeDemoStatusRouteImport } from './routes/api/public/free-demo.status'
+import { Route as ApiPublicCommunityIdRouteImport } from './routes/api/public/community.$id'
+import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
 import { Route as ApiPublicLibraryCodeIdRouteImport } from './routes/api/public/library.$code.$id'
 
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DemosRoute = DemosRouteImport.update({
-  id: '/demos',
-  path: '/demos',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ForgeRoute = ForgeRouteImport.update({
-  id: '/forge',
-  path: '/forge',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const GalleryRoute = GalleryRouteImport.update({
-  id: '/gallery',
-  path: '/gallery',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HomeRoute = HomeRouteImport.update({
-  id: '/home',
-  path: '/home',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const LibraryRoute = LibraryRouteImport.update({
-  id: '/library',
-  path: '/library',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PocketRoute = PocketRouteImport.update({
-  id: '/pocket',
-  path: '/pocket',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const PrivacyRoute = PrivacyRouteImport.update({
-  id: '/privacy',
-  path: '/privacy',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
-  id: '/sitemap.xml',
-  path: '/sitemap.xml',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const TermsRoute = TermsRouteImport.update({
-  id: '/terms',
-  path: '/terms',
+const WaitlistRoute = WaitlistRouteImport.update({
+  id: '/waitlist',
+  path: '/waitlist',
   getParentRoute: () => rootRouteImport,
 } as any)
 const UnlockRoute = UnlockRouteImport.update({
@@ -127,56 +67,74 @@ const UnlockRoute = UnlockRouteImport.update({
   path: '/unlock',
   getParentRoute: () => rootRouteImport,
 } as any)
-const WaitlistRoute = WaitlistRouteImport.update({
-  id: '/waitlist',
-  path: '/waitlist',
+const TermsRoute = TermsRouteImport.update({
+  id: '/terms',
+  path: '/terms',
   getParentRoute: () => rootRouteImport,
 } as any)
-const Char91DotmcpChar93ListToolsRoute =
-  Char91DotmcpChar93ListToolsRouteImport.update({
-    id: '/.mcp/list-tools',
-    path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const Char91DotwellKnownChar93OauthProtectedResourceRoute =
-  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
-    id: '/.well-known/oauth-protected-resource',
-    path: '/.well-known/oauth-protected-resource',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const AdminWaitlistRoute = AdminWaitlistRouteImport.update({
-  id: '/admin/waitlist',
-  path: '/admin/waitlist',
+const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
+  id: '/sitemap.xml',
+  path: '/sitemap.xml',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiGenerateRoute = ApiGenerateRouteImport.update({
-  id: '/api/generate',
-  path: '/api/generate',
+const PrivacyRoute = PrivacyRouteImport.update({
+  id: '/privacy',
+  path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiGithubRoute = ApiGithubRouteImport.update({
-  id: '/api/github',
-  path: '/api/github',
+const PocketRoute = PocketRouteImport.update({
+  id: '/pocket',
+  path: '/pocket',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiHealthRoute = ApiHealthRouteImport.update({
-  id: '/api/health',
-  path: '/api/health',
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPatchRoute = ApiPatchRouteImport.update({
-  id: '/api/patch',
-  path: '/api/patch',
+const LibraryRoute = LibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiProjectsRoute = ApiProjectsRouteImport.update({
-  id: '/api/projects',
-  path: '/api/projects',
+const HomeRoute = HomeRouteImport.update({
+  id: '/home',
+  path: '/home',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiQaRoute = ApiQaRouteImport.update({
-  id: '/api/qa',
-  path: '/api/qa',
+const GalleryRoute = GalleryRouteImport.update({
+  id: '/gallery',
+  path: '/gallery',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ForgeRoute = ForgeRouteImport.update({
+  id: '/forge',
+  path: '/forge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DemosRoute = DemosRouteImport.update({
+  id: '/demos',
+  path: '/demos',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DashboardRoute = DashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
+  id: '/checkout/return',
+  path: '/checkout/return',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
@@ -184,9 +142,98 @@ const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
   path: '/api/transcribe',
   getParentRoute: () => rootRouteImport,
 } as any)
-const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
-  id: '/checkout/return',
-  path: '/checkout/return',
+const ApiQaRoute = ApiQaRouteImport.update({
+  id: '/api/qa',
+  path: '/api/qa',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiProjectsRoute = ApiProjectsRouteImport.update({
+  id: '/api/projects',
+  path: '/api/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPatchRoute = ApiPatchRouteImport.update({
+  id: '/api/patch',
+  path: '/api/patch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiHealthRoute = ApiHealthRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGithubRoute = ApiGithubRouteImport.update({
+  id: '/api/github',
+  path: '/api/github',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiGenerateRoute = ApiGenerateRouteImport.update({
+  id: '/api/generate',
+  path: '/api/generate',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminWaitlistRoute = AdminWaitlistRouteImport.update({
+  id: '/admin/waitlist',
+  path: '/admin/waitlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const Char91DotwellKnownChar93OauthProtectedResourceRoute =
+  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
+    id: '/.well-known/oauth-protected-resource',
+    path: '/.well-known/oauth-protected-resource',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const Char91DotmcpChar93ListToolsRoute =
+  Char91DotmcpChar93ListToolsRouteImport.update({
+    id: '/.mcp/list-tools',
+    path: '/.mcp/list-tools',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicWaitlistRoute = ApiPublicWaitlistRouteImport.update({
+  id: '/api/public/waitlist',
+  path: '/api/public/waitlist',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicThemeThumbnailsRoute =
+  ApiPublicThemeThumbnailsRouteImport.update({
+    id: '/api/public/theme-thumbnails',
+    path: '/api/public/theme-thumbnails',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicThemeBlueprintsRoute =
+  ApiPublicThemeBlueprintsRouteImport.update({
+    id: '/api/public/theme-blueprints',
+    path: '/api/public/theme-blueprints',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const ApiPublicSelfTestRoute = ApiPublicSelfTestRouteImport.update({
+  id: '/api/public/self-test',
+  path: '/api/public/self-test',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicEntitlementRoute = ApiPublicEntitlementRouteImport.update({
+  id: '/api/public/entitlement',
+  path: '/api/public/entitlement',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicCommunityRoute = ApiPublicCommunityRouteImport.update({
+  id: '/api/public/community',
+  path: '/api/public/community',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
+  id: '/api/public/builds',
+  path: '/api/public/builds',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBaselineRoute = ApiPublicBaselineRouteImport.update({
+  id: '/api/public/baseline',
+  path: '/api/public/baseline',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiDashboardStatsRoute = ApiDashboardStatsRouteImport.update({
+  id: '/api/dashboard/stats',
+  path: '/api/dashboard/stats',
   getParentRoute: () => rootRouteImport,
 } as any)
 const Char91DotmcpChar93InvokeToolToolRoute =
@@ -195,71 +242,30 @@ const Char91DotmcpChar93InvokeToolToolRoute =
     path: '/.mcp/invoke-tool/$tool',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiDashboardStatsRoute = ApiDashboardStatsRouteImport.update({
-  id: '/api/dashboard/stats',
-  path: '/api/dashboard/stats',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicBaselineRoute = ApiPublicBaselineRouteImport.update({
-  id: '/api/public/baseline',
-  path: '/api/public/baseline',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicBuildsRoute = ApiPublicBuildsRouteImport.update({
-  id: '/api/public/builds',
-  path: '/api/public/builds',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicCommunityRoute = ApiPublicCommunityRouteImport.update({
-  id: '/api/public/community',
-  path: '/api/public/community',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicEntitlementRoute = ApiPublicEntitlementRouteImport.update({
-  id: '/api/public/entitlement',
-  path: '/api/public/entitlement',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicSelfTestRoute = ApiPublicSelfTestRouteImport.update({
-  id: '/api/public/self-test',
-  path: '/api/public/self-test',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ApiPublicThemeBlueprintsRoute =
-  ApiPublicThemeBlueprintsRouteImport.update({
-    id: '/api/public/theme-blueprints',
-    path: '/api/public/theme-blueprints',
+const LovableEmailTransactionalPreviewRoute =
+  LovableEmailTransactionalPreviewRouteImport.update({
+    id: '/lovable/email/transactional/preview',
+    path: '/lovable/email/transactional/preview',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicThemeThumbnailsRoute =
-  ApiPublicThemeThumbnailsRouteImport.update({
-    id: '/api/public/theme-thumbnails',
-    path: '/api/public/theme-thumbnails',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const ApiPublicWaitlistRoute = ApiPublicWaitlistRouteImport.update({
-  id: '/api/public/waitlist',
-  path: '/api/public/waitlist',
+const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
+  id: '/lovable/email/auth/webhook',
+  path: '/lovable/email/auth/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicBuildsIdRoute = ApiPublicBuildsIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiPublicBuildsRoute,
-} as any)
-const ApiPublicCommunityIdRoute = ApiPublicCommunityIdRouteImport.update({
-  id: '/$id',
-  path: '/$id',
-  getParentRoute: () => ApiPublicCommunityRoute,
-} as any)
-const ApiPublicFreeDemoStatusRoute = ApiPublicFreeDemoStatusRouteImport.update({
-  id: '/api/public/free-demo/status',
-  path: '/api/public/free-demo/status',
+const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
+  id: '/lovable/email/auth/preview',
+  path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicLibraryCodeRoute = ApiPublicLibraryCodeRouteImport.update({
-  id: '/api/public/library/$code',
-  path: '/api/public/library/$code',
+const ApiPublicShareSlugRoute = ApiPublicShareSlugRouteImport.update({
+  id: '/api/public/share/$slug',
+  path: '/api/public/share/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicSavedIdeasCodeRoute = ApiPublicSavedIdeasCodeRouteImport.update({
+  id: '/api/public/saved-ideas/$code',
+  path: '/api/public/saved-ideas/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicPaymentsWebhookRoute =
@@ -268,32 +274,26 @@ const ApiPublicPaymentsWebhookRoute =
     path: '/api/public/payments/webhook',
     getParentRoute: () => rootRouteImport,
   } as any)
-const ApiPublicSavedIdeasCodeRoute = ApiPublicSavedIdeasCodeRouteImport.update({
-  id: '/api/public/saved-ideas/$code',
-  path: '/api/public/saved-ideas/$code',
+const ApiPublicLibraryCodeRoute = ApiPublicLibraryCodeRouteImport.update({
+  id: '/api/public/library/$code',
+  path: '/api/public/library/$code',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ApiPublicShareSlugRoute = ApiPublicShareSlugRouteImport.update({
-  id: '/api/public/share/$slug',
-  path: '/api/public/share/$slug',
+const ApiPublicFreeDemoStatusRoute = ApiPublicFreeDemoStatusRouteImport.update({
+  id: '/api/public/free-demo/status',
+  path: '/api/public/free-demo/status',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
-  id: '/lovable/email/auth/preview',
-  path: '/lovable/email/auth/preview',
-  getParentRoute: () => rootRouteImport,
+const ApiPublicCommunityIdRoute = ApiPublicCommunityIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiPublicCommunityRoute,
 } as any)
-const LovableEmailAuthWebhookRoute = LovableEmailAuthWebhookRouteImport.update({
-  id: '/lovable/email/auth/webhook',
-  path: '/lovable/email/auth/webhook',
-  getParentRoute: () => rootRouteImport,
+const ApiPublicBuildsIdRoute = ApiPublicBuildsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ApiPublicBuildsRoute,
 } as any)
-const LovableEmailTransactionalPreviewRoute =
-  LovableEmailTransactionalPreviewRouteImport.update({
-    id: '/lovable/email/transactional/preview',
-    path: '/lovable/email/transactional/preview',
-    getParentRoute: () => rootRouteImport,
-  } as any)
 const ApiPublicLibraryCodeIdRoute = ApiPublicLibraryCodeIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -647,95 +647,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/demos': {
-      id: '/demos'
-      path: '/demos'
-      fullPath: '/demos'
-      preLoaderRoute: typeof DemosRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/forge': {
-      id: '/forge'
-      path: '/forge'
-      fullPath: '/forge'
-      preLoaderRoute: typeof ForgeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/gallery': {
-      id: '/gallery'
-      path: '/gallery'
-      fullPath: '/gallery'
-      preLoaderRoute: typeof GalleryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/home': {
-      id: '/home'
-      path: '/home'
-      fullPath: '/home'
-      preLoaderRoute: typeof HomeRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/library': {
-      id: '/library'
-      path: '/library'
-      fullPath: '/library'
-      preLoaderRoute: typeof LibraryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/pocket': {
-      id: '/pocket'
-      path: '/pocket'
-      fullPath: '/pocket'
-      preLoaderRoute: typeof PocketRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/privacy': {
-      id: '/privacy'
-      path: '/privacy'
-      fullPath: '/privacy'
-      preLoaderRoute: typeof PrivacyRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/sitemap.xml': {
-      id: '/sitemap.xml'
-      path: '/sitemap.xml'
-      fullPath: '/sitemap.xml'
-      preLoaderRoute: typeof SitemapDotxmlRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/terms': {
-      id: '/terms'
-      path: '/terms'
-      fullPath: '/terms'
-      preLoaderRoute: typeof TermsRouteImport
+    '/waitlist': {
+      id: '/waitlist'
+      path: '/waitlist'
+      fullPath: '/waitlist'
+      preLoaderRoute: typeof WaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/unlock': {
@@ -745,81 +661,95 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof UnlockRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/waitlist': {
-      id: '/waitlist'
-      path: '/waitlist'
-      fullPath: '/waitlist'
-      preLoaderRoute: typeof WaitlistRouteImport
+    '/terms': {
+      id: '/terms'
+      path: '/terms'
+      fullPath: '/terms'
+      preLoaderRoute: typeof TermsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/.mcp/list-tools': {
-      id: '/.mcp/list-tools'
-      path: '/.mcp/list-tools'
-      fullPath: '/.mcp/list-tools'
-      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
+    '/sitemap.xml': {
+      id: '/sitemap.xml'
+      path: '/sitemap.xml'
+      fullPath: '/sitemap.xml'
+      preLoaderRoute: typeof SitemapDotxmlRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/.well-known/oauth-protected-resource': {
-      id: '/.well-known/oauth-protected-resource'
-      path: '/.well-known/oauth-protected-resource'
-      fullPath: '/.well-known/oauth-protected-resource'
-      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+    '/privacy': {
+      id: '/privacy'
+      path: '/privacy'
+      fullPath: '/privacy'
+      preLoaderRoute: typeof PrivacyRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/admin/waitlist': {
-      id: '/admin/waitlist'
-      path: '/admin/waitlist'
-      fullPath: '/admin/waitlist'
-      preLoaderRoute: typeof AdminWaitlistRouteImport
+    '/pocket': {
+      id: '/pocket'
+      path: '/pocket'
+      fullPath: '/pocket'
+      preLoaderRoute: typeof PocketRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/generate': {
-      id: '/api/generate'
-      path: '/api/generate'
-      fullPath: '/api/generate'
-      preLoaderRoute: typeof ApiGenerateRouteImport
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/github': {
-      id: '/api/github'
-      path: '/api/github'
-      fullPath: '/api/github'
-      preLoaderRoute: typeof ApiGithubRouteImport
+    '/library': {
+      id: '/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/health': {
-      id: '/api/health'
-      path: '/api/health'
-      fullPath: '/api/health'
-      preLoaderRoute: typeof ApiHealthRouteImport
+    '/home': {
+      id: '/home'
+      path: '/home'
+      fullPath: '/home'
+      preLoaderRoute: typeof HomeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/patch': {
-      id: '/api/patch'
-      path: '/api/patch'
-      fullPath: '/api/patch'
-      preLoaderRoute: typeof ApiPatchRouteImport
+    '/gallery': {
+      id: '/gallery'
+      path: '/gallery'
+      fullPath: '/gallery'
+      preLoaderRoute: typeof GalleryRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/projects': {
-      id: '/api/projects'
-      path: '/api/projects'
-      fullPath: '/api/projects'
-      preLoaderRoute: typeof ApiProjectsRouteImport
+    '/forge': {
+      id: '/forge'
+      path: '/forge'
+      fullPath: '/forge'
+      preLoaderRoute: typeof ForgeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/qa': {
-      id: '/api/qa'
-      path: '/api/qa'
-      fullPath: '/api/qa'
-      preLoaderRoute: typeof ApiQaRouteImport
+    '/demos': {
+      id: '/demos'
+      path: '/demos'
+      fullPath: '/demos'
+      preLoaderRoute: typeof DemosRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/transcribe': {
-      id: '/api/transcribe'
-      path: '/api/transcribe'
-      fullPath: '/api/transcribe'
-      preLoaderRoute: typeof ApiTranscribeRouteImport
+    '/dashboard': {
+      id: '/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout/return': {
@@ -829,67 +759,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof CheckoutReturnRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/.mcp/invoke-tool/$tool': {
-      id: '/.mcp/invoke-tool/$tool'
-      path: '/.mcp/invoke-tool/$tool'
-      fullPath: '/.mcp/invoke-tool/$tool'
-      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+    '/api/transcribe': {
+      id: '/api/transcribe'
+      path: '/api/transcribe'
+      fullPath: '/api/transcribe'
+      preLoaderRoute: typeof ApiTranscribeRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/dashboard/stats': {
-      id: '/api/dashboard/stats'
-      path: '/api/dashboard/stats'
-      fullPath: '/api/dashboard/stats'
-      preLoaderRoute: typeof ApiDashboardStatsRouteImport
+    '/api/qa': {
+      id: '/api/qa'
+      path: '/api/qa'
+      fullPath: '/api/qa'
+      preLoaderRoute: typeof ApiQaRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/baseline': {
-      id: '/api/public/baseline'
-      path: '/api/public/baseline'
-      fullPath: '/api/public/baseline'
-      preLoaderRoute: typeof ApiPublicBaselineRouteImport
+    '/api/projects': {
+      id: '/api/projects'
+      path: '/api/projects'
+      fullPath: '/api/projects'
+      preLoaderRoute: typeof ApiProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/builds': {
-      id: '/api/public/builds'
-      path: '/api/public/builds'
-      fullPath: '/api/public/builds'
-      preLoaderRoute: typeof ApiPublicBuildsRouteImport
+    '/api/patch': {
+      id: '/api/patch'
+      path: '/api/patch'
+      fullPath: '/api/patch'
+      preLoaderRoute: typeof ApiPatchRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/community': {
-      id: '/api/public/community'
-      path: '/api/public/community'
-      fullPath: '/api/public/community'
-      preLoaderRoute: typeof ApiPublicCommunityRouteImport
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/entitlement': {
-      id: '/api/public/entitlement'
-      path: '/api/public/entitlement'
-      fullPath: '/api/public/entitlement'
-      preLoaderRoute: typeof ApiPublicEntitlementRouteImport
+    '/api/github': {
+      id: '/api/github'
+      path: '/api/github'
+      fullPath: '/api/github'
+      preLoaderRoute: typeof ApiGithubRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/self-test': {
-      id: '/api/public/self-test'
-      path: '/api/public/self-test'
-      fullPath: '/api/public/self-test'
-      preLoaderRoute: typeof ApiPublicSelfTestRouteImport
+    '/api/generate': {
+      id: '/api/generate'
+      path: '/api/generate'
+      fullPath: '/api/generate'
+      preLoaderRoute: typeof ApiGenerateRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/theme-blueprints': {
-      id: '/api/public/theme-blueprints'
-      path: '/api/public/theme-blueprints'
-      fullPath: '/api/public/theme-blueprints'
-      preLoaderRoute: typeof ApiPublicThemeBlueprintsRouteImport
+    '/admin/waitlist': {
+      id: '/admin/waitlist'
+      path: '/admin/waitlist'
+      fullPath: '/admin/waitlist'
+      preLoaderRoute: typeof AdminWaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/theme-thumbnails': {
-      id: '/api/public/theme-thumbnails'
-      path: '/api/public/theme-thumbnails'
-      fullPath: '/api/public/theme-thumbnails'
-      preLoaderRoute: typeof ApiPublicThemeThumbnailsRouteImport
+    '/.well-known/oauth-protected-resource': {
+      id: '/.well-known/oauth-protected-resource'
+      path: '/.well-known/oauth-protected-resource'
+      fullPath: '/.well-known/oauth-protected-resource'
+      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/list-tools': {
+      id: '/.mcp/list-tools'
+      path: '/.mcp/list-tools'
+      fullPath: '/.mcp/list-tools'
+      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/waitlist': {
@@ -899,60 +836,74 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicWaitlistRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/builds/$id': {
-      id: '/api/public/builds/$id'
-      path: '/$id'
-      fullPath: '/api/public/builds/$id'
-      preLoaderRoute: typeof ApiPublicBuildsIdRouteImport
-      parentRoute: typeof ApiPublicBuildsRoute
-    }
-    '/api/public/community/$id': {
-      id: '/api/public/community/$id'
-      path: '/$id'
-      fullPath: '/api/public/community/$id'
-      preLoaderRoute: typeof ApiPublicCommunityIdRouteImport
-      parentRoute: typeof ApiPublicCommunityRoute
-    }
-    '/api/public/free-demo/status': {
-      id: '/api/public/free-demo/status'
-      path: '/api/public/free-demo/status'
-      fullPath: '/api/public/free-demo/status'
-      preLoaderRoute: typeof ApiPublicFreeDemoStatusRouteImport
+    '/api/public/theme-thumbnails': {
+      id: '/api/public/theme-thumbnails'
+      path: '/api/public/theme-thumbnails'
+      fullPath: '/api/public/theme-thumbnails'
+      preLoaderRoute: typeof ApiPublicThemeThumbnailsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/library/$code': {
-      id: '/api/public/library/$code'
-      path: '/api/public/library/$code'
-      fullPath: '/api/public/library/$code'
-      preLoaderRoute: typeof ApiPublicLibraryCodeRouteImport
+    '/api/public/theme-blueprints': {
+      id: '/api/public/theme-blueprints'
+      path: '/api/public/theme-blueprints'
+      fullPath: '/api/public/theme-blueprints'
+      preLoaderRoute: typeof ApiPublicThemeBlueprintsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/payments/webhook': {
-      id: '/api/public/payments/webhook'
-      path: '/api/public/payments/webhook'
-      fullPath: '/api/public/payments/webhook'
-      preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
+    '/api/public/self-test': {
+      id: '/api/public/self-test'
+      path: '/api/public/self-test'
+      fullPath: '/api/public/self-test'
+      preLoaderRoute: typeof ApiPublicSelfTestRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/saved-ideas/$code': {
-      id: '/api/public/saved-ideas/$code'
-      path: '/api/public/saved-ideas/$code'
-      fullPath: '/api/public/saved-ideas/$code'
-      preLoaderRoute: typeof ApiPublicSavedIdeasCodeRouteImport
+    '/api/public/entitlement': {
+      id: '/api/public/entitlement'
+      path: '/api/public/entitlement'
+      fullPath: '/api/public/entitlement'
+      preLoaderRoute: typeof ApiPublicEntitlementRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/api/public/share/$slug': {
-      id: '/api/public/share/$slug'
-      path: '/api/public/share/$slug'
-      fullPath: '/api/public/share/$slug'
-      preLoaderRoute: typeof ApiPublicShareSlugRouteImport
+    '/api/public/community': {
+      id: '/api/public/community'
+      path: '/api/public/community'
+      fullPath: '/api/public/community'
+      preLoaderRoute: typeof ApiPublicCommunityRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/lovable/email/auth/preview': {
-      id: '/lovable/email/auth/preview'
-      path: '/lovable/email/auth/preview'
-      fullPath: '/lovable/email/auth/preview'
-      preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
+    '/api/public/builds': {
+      id: '/api/public/builds'
+      path: '/api/public/builds'
+      fullPath: '/api/public/builds'
+      preLoaderRoute: typeof ApiPublicBuildsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/baseline': {
+      id: '/api/public/baseline'
+      path: '/api/public/baseline'
+      fullPath: '/api/public/baseline'
+      preLoaderRoute: typeof ApiPublicBaselineRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/dashboard/stats': {
+      id: '/api/dashboard/stats'
+      path: '/api/dashboard/stats'
+      fullPath: '/api/dashboard/stats'
+      preLoaderRoute: typeof ApiDashboardStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.mcp/invoke-tool/$tool': {
+      id: '/.mcp/invoke-tool/$tool'
+      path: '/.mcp/invoke-tool/$tool'
+      fullPath: '/.mcp/invoke-tool/$tool'
+      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/lovable/email/transactional/preview': {
+      id: '/lovable/email/transactional/preview'
+      path: '/lovable/email/transactional/preview'
+      fullPath: '/lovable/email/transactional/preview'
+      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/lovable/email/auth/webhook': {
@@ -962,12 +913,61 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/lovable/email/transactional/preview': {
-      id: '/lovable/email/transactional/preview'
-      path: '/lovable/email/transactional/preview'
-      fullPath: '/lovable/email/transactional/preview'
-      preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
+    '/lovable/email/auth/preview': {
+      id: '/lovable/email/auth/preview'
+      path: '/lovable/email/auth/preview'
+      fullPath: '/lovable/email/auth/preview'
+      preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/api/public/share/$slug': {
+      id: '/api/public/share/$slug'
+      path: '/api/public/share/$slug'
+      fullPath: '/api/public/share/$slug'
+      preLoaderRoute: typeof ApiPublicShareSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/saved-ideas/$code': {
+      id: '/api/public/saved-ideas/$code'
+      path: '/api/public/saved-ideas/$code'
+      fullPath: '/api/public/saved-ideas/$code'
+      preLoaderRoute: typeof ApiPublicSavedIdeasCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/payments/webhook': {
+      id: '/api/public/payments/webhook'
+      path: '/api/public/payments/webhook'
+      fullPath: '/api/public/payments/webhook'
+      preLoaderRoute: typeof ApiPublicPaymentsWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/library/$code': {
+      id: '/api/public/library/$code'
+      path: '/api/public/library/$code'
+      fullPath: '/api/public/library/$code'
+      preLoaderRoute: typeof ApiPublicLibraryCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/free-demo/status': {
+      id: '/api/public/free-demo/status'
+      path: '/api/public/free-demo/status'
+      fullPath: '/api/public/free-demo/status'
+      preLoaderRoute: typeof ApiPublicFreeDemoStatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/community/$id': {
+      id: '/api/public/community/$id'
+      path: '/$id'
+      fullPath: '/api/public/community/$id'
+      preLoaderRoute: typeof ApiPublicCommunityIdRouteImport
+      parentRoute: typeof ApiPublicCommunityRoute
+    }
+    '/api/public/builds/$id': {
+      id: '/api/public/builds/$id'
+      path: '/$id'
+      fullPath: '/api/public/builds/$id'
+      preLoaderRoute: typeof ApiPublicBuildsIdRouteImport
+      parentRoute: typeof ApiPublicBuildsRoute
     }
     '/api/public/library/$code/$id': {
       id: '/api/public/library/$code/$id'
