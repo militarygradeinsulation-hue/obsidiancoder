@@ -68,7 +68,13 @@ export function useCloudProjects({ isAuthenticated, surface = "coder" }: UseClou
     if (!isAuthenticated) return { ok: false, cloudId: args.cloudId ?? "", error: "Not signed in." };
     const cloudId = args.cloudId ?? newCloudProjectId();
     setSaveStatus("saving");
-    const result = await saveCloudProject({ ...args, id: cloudId });
+    const result = await saveCloudProject({
+      ...args,
+      id: cloudId,
+      surface: args.surface ?? surface,
+      device: args.device ?? thisDeviceId(),
+    });
+
     if (result.ok) {
       setSaveStatus("saved");
       // Reset to idle after 3 s so the UI indicator clears.
