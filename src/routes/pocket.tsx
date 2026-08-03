@@ -771,11 +771,25 @@ function ForgePage() {
       setVersions((v) => pushVersion(v, makeForgeVersion(finalHtml, label)));
       setLastCritiqueRan(critiqueRan);
       rememberSignature(dnaSignature(buildDna), libraryCode);
-      if (title === "Untitled build") setTitle(titleFromPrompt(p));
+      const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
+      if (title === "Untitled build") setTitle(buildTitle);
       setStatus("Ready");
       log(
         `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"}`,
       );
+
+      // Autosave to cloud for signed-in users after every successful build.
+      if (authUserId) {
+        void cloudProjects.save({
+          cloudId: cloudProjectId,
+          name: buildTitle,
+          html: finalHtml,
+          prompt: p,
+          model: servedModel,
+        }).then((r) => {
+          if (r.ok && !cloudProjectId) setCloudProjectId(r.cloudId);
+        });
+      }
     } catch (err) {
       if ((err as { name?: string })?.name === "AbortError") {
         setProject((prev) => setEntryHtml(prev, previous));

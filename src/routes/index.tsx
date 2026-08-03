@@ -2513,6 +2513,33 @@ function Index() {
           }
         : s));
 
+      // Autosave to cloud for signed-in users — fires after every successful
+      // generation without requiring a manual Save. Silent: no terminal noise
+      // unless it fails. Debounced via setTimeout so it doesn't race the
+      // setSessions state update.
+      if (authUserId) {
+        setTimeout(() => {
+          const sess = sessions.find((s) => s.id === sessionId);
+          const name = sess?.title && sess.title !== "Untitled"
+            ? sess.title
+            : (sess?.messages.find((m) => m.role === "user")?.content?.slice(0, 60) || "Untitled");
+          void cloudProjects.save({
+            cloudId: sess?.cloudId,
+            name,
+            html: committedFinalHtml,
+            prompt: sess?.messages.find((m) => m.role === "user")?.content?.slice(0, 2000) || "",
+            projectJson: sess?.project ?? null,
+            model: modelForServer,
+          }).then((r) => {
+            if (r.ok && !sess?.cloudId) {
+              setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, cloudId: r.cloudId } : s));
+            }
+            if (!r.ok && r.error && !r.error.includes("Not signed in")) {
+              setTerminal((t) => [...t, `⚠ Autosave failed: ${r.error}`]);
+            }
+          });
+        }, 800);
+      }
 
       // Client demo complete — only after the generated result was committed
       // to the local project. Emit once per lifecycle.
