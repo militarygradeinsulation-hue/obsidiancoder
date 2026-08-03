@@ -120,7 +120,7 @@ const inputSchema = z.object({
       deploymentTarget: z.string().max(200).optional().default(""),
       knownWarnings: z.string().max(400).optional().default(""),
       workingFeatures: z.string().max(400).optional().default(""),
-      locked: z.record(z.boolean()).optional().default({}),
+      locked: z.record(z.string(), z.boolean()).optional().default({}),
     })
     .optional(),
 });
