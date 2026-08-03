@@ -103,9 +103,12 @@ export type Database = {
           created_at: string
           html: string
           id: string
+          is_cloud: boolean
           is_public: boolean
           library_code: string | null
           model: string | null
+          project_json: Json | null
+          project_name: string | null
           prompt: string
           published_at: string | null
           remix_count: number
@@ -113,6 +116,8 @@ export type Database = {
           share_slug: string | null
           surface: string | null
           title: string
+          updated_at: string
+          user_id: string | null
         }
         Insert: {
           author_label?: string | null
@@ -121,9 +126,12 @@ export type Database = {
           created_at?: string
           html: string
           id?: string
+          is_cloud?: boolean
           is_public?: boolean
           library_code?: string | null
           model?: string | null
+          project_json?: Json | null
+          project_name?: string | null
           prompt?: string
           published_at?: string | null
           remix_count?: number
@@ -131,6 +139,8 @@ export type Database = {
           share_slug?: string | null
           surface?: string | null
           title?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Update: {
           author_label?: string | null
@@ -139,9 +149,12 @@ export type Database = {
           created_at?: string
           html?: string
           id?: string
+          is_cloud?: boolean
           is_public?: boolean
           library_code?: string | null
           model?: string | null
+          project_json?: Json | null
+          project_name?: string | null
           prompt?: string
           published_at?: string | null
           remix_count?: number
@@ -149,6 +162,8 @@ export type Database = {
           share_slug?: string | null
           surface?: string | null
           title?: string
+          updated_at?: string
+          user_id?: string | null
         }
         Relationships: []
       }
@@ -482,6 +497,30 @@ export type Database = {
         }
         Relationships: []
       }
+      user_daily_builds: {
+        Row: {
+          build_date: string
+          created_at: string
+          environment: string
+          id: string
+          user_id: string
+        }
+        Insert: {
+          build_date: string
+          created_at?: string
+          environment: string
+          id?: string
+          user_id: string
+        }
+        Update: {
+          build_date?: string
+          created_at?: string
+          environment?: string
+          id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       waitlist_entries: {
         Row: {
           amount_paid: number | null
@@ -538,6 +577,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      claim_free_build: {
+        Args: { _date: string; _environment: string; _user_id: string }
+        Returns: boolean
+      }
       claim_free_demo: {
         Args: { _environment: string; _fingerprint: string; _ip_prefix: string }
         Returns: boolean
@@ -565,6 +608,10 @@ export type Database = {
           used: number
         }[]
       }
+      delete_cloud_project: {
+        Args: { _id: string; _user_id: string }
+        Returns: boolean
+      }
       finalize_credits: {
         Args: {
           _actual_credits: number
@@ -573,19 +620,53 @@ export type Database = {
         }
         Returns: boolean
       }
+      free_build_used: {
+        Args: { _date: string; _environment: string; _user_id: string }
+        Returns: boolean
+      }
       free_demo_used: {
         Args: { _environment: string; _fingerprint: string }
         Returns: boolean
       }
+      get_cloud_project: {
+        Args: { _id: string; _user_id: string }
+        Returns: {
+          byte_size: number
+          created_at: string
+          html: string
+          id: string
+          model: string
+          project_json: Json
+          project_name: string
+          prompt: string
+          updated_at: string
+        }[]
+      }
       has_active_pro: {
         Args: { check_env?: string; user_uuid: string }
         Returns: boolean
+      }
+      list_cloud_projects: {
+        Args: { _environment: string; _user_id: string }
+        Returns: {
+          byte_size: number
+          created_at: string
+          id: string
+          model: string
+          project_name: string
+          prompt: string
+          updated_at: string
+        }[]
       }
       log_owner_usage: {
         Args: { _credits: number; _operation: string; _request_id: string }
         Returns: undefined
       }
       refund_credits: { Args: { _reservation_id: string }; Returns: boolean }
+      release_free_build: {
+        Args: { _date: string; _environment: string; _user_id: string }
+        Returns: undefined
+      }
       release_free_demo: {
         Args: { _environment: string; _fingerprint: string }
         Returns: boolean
@@ -620,6 +701,19 @@ export type Database = {
           reservation_id: string
           used_before: number
         }[]
+      }
+      upsert_cloud_project: {
+        Args: {
+          _environment: string
+          _html: string
+          _id: string
+          _model: string
+          _name: string
+          _project_json: Json
+          _prompt: string
+          _user_id: string
+        }
+        Returns: string
       }
       usage_balance: {
         Args: { _cap: number; _env: string; _user_id: string }
