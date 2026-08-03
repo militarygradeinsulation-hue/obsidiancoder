@@ -376,15 +376,14 @@ function Unlock() {
           <Link to="/pocket" className="unlock-topbar-link" title="Obsidian Pocket — simplified prompt-to-app workspace">Pocket</Link>
           <Link to="/library" className="unlock-topbar-link" title="Community Library — browse, copy and remix builds">Library</Link>
           <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Access Code</button>
-          <Link
-            to="/"
-            search={{ demo: "1" }}
+          <a
+            href="/?demo=1"
             className="unlock-topbar-link"
             style={{ color: "#f4a125", border: "1px solid rgba(244,161,37,0.35)" }}
             aria-label="Try a free demo — one build, no card required"
           >
             Try a Free Demo
-          </Link>
+          </a>
 
           {session ? (
             <>
