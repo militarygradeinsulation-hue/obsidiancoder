@@ -252,6 +252,45 @@ ok(nudgeSource.includes("Sign up free"), "demo_used shows free sign-up path");
 const ideNudge = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/routes/index.tsx", "utf-8"));
 ok(ideNudge.includes("setNudge") && ideNudge.includes("UpgradeNudge"), "IDE wires UpgradeNudge");
 
+/* ---------- intent patterns (10) ---------- */
+const { matchIntentPatterns } = await import("../intent-patterns");
+const { classifyTask } = await import("../task-classifier");
+
+// Aesthetic patterns
+ok(matchIntentPatterns("make it feel more premium") !== null, "intent: premium → style-edit");
+ok(matchIntentPatterns("make it feel more premium")?.taskType === "style-edit", "intent: premium taskType");
+ok(matchIntentPatterns("switch to dark mode") !== null, "intent: dark mode → style-edit");
+ok(matchIntentPatterns("switch to dark mode")!.confidence >= 0.85, "intent: dark mode high confidence");
+
+// Structural patterns
+ok(matchIntentPatterns("make the nav sticky") !== null, "intent: sticky nav → layout-edit");
+ok(matchIntentPatterns("make it responsive for mobile") !== null, "intent: responsive → layout-edit");
+
+// Content patterns
+ok(matchIntentPatterns("translate everything to Spanish") !== null, "intent: translate → content-replacement");
+
+// Rebuild patterns
+ok(matchIntentPatterns("completely redesign this") !== null, "intent: redesign → full-generation");
+
+// Integration: low-confidence prompt falls through to intent patterns
+const fuzzyResult = classifyTask("make it look premium and minimal", { hasHtml: true, mode: "agent" });
+ok(fuzzyResult.taskType === "style-edit" && fuzzyResult.confidence >= 0.55,
+  "classifier: 'premium and minimal' routes to style-edit via intent patterns");
+
+// No false positive on clear keyword match
+ok(matchIntentPatterns("add a submit button") === null || matchIntentPatterns("add a submit button")!.confidence < 0.9,
+  "intent: 'add a submit button' not claimed by intent patterns (task-classifier handles it)");
+
+/* ---------- MCP tools (4) ---------- */
+const { existsSync: _exMcp } = await import("node:fs");
+ok(_exMcp("/home/claude/repo/src/lib/mcp/tools/generate-build.ts"), "MCP generate_build tool exists");
+ok(_exMcp("/home/claude/repo/src/lib/mcp/tools/patch-build.ts"), "MCP patch_build tool exists");
+ok(_exMcp("/home/claude/repo/src/lib/mcp/tools/classify-prompt.ts"), "MCP classify_prompt tool exists");
+
+const mcpIdx = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/lib/mcp/index.ts", "utf-8"));
+ok(mcpIdx.includes("generate-build") && mcpIdx.includes("patch-build") && mcpIdx.includes("classify-prompt"),
+  "MCP index registers all three new tools");
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);

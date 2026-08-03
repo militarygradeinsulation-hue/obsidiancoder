@@ -1,6 +1,8 @@
 // Task classifier — decides how a user prompt should be executed.
 // No AI call; pure heuristics over the prompt string.
 
+import { matchIntentPatterns } from "./intent-patterns";
+
 export type TaskType =
   | "text-edit"
   | "style-edit"
@@ -83,7 +85,19 @@ export function classifyTask(prompt: string, opts: { mode?: string; hasHtml: boo
   if (COMPONENT_WORDS.test(p)) return mk("component-change", "low-cost-ai", 0.6, "Component keywords.");
   if (FEATURE_WORDS.test(p)) return mk("new-feature", "advanced-ai", 0.7, "Add/create language.");
 
-  if (p.length < 120) return mk("text-edit", "low-cost-ai", 0.4, "Short unspecified edit.");
+  if (p.length < 120) {
+    // Low confidence short prompt — try extended intent patterns before defaulting.
+    if (opts.hasHtml) {
+      const extended = matchIntentPatterns(p);
+      if (extended) return extended;
+    }
+    return mk("text-edit", "low-cost-ai", 0.4, "Short unspecified edit.");
+  }
+  // Long unspecified — try extended patterns first.
+  if (opts.hasHtml) {
+    const extended = matchIntentPatterns(p);
+    if (extended) return extended;
+  }
   return mk("new-feature", "advanced-ai", 0.4, "Long unspecified prompt.");
 }
 
