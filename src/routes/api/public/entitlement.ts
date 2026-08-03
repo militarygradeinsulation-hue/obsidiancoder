@@ -27,6 +27,8 @@ export interface EntitlementSnapshot {
   tier?: string | null;
   /** Pocket build allowance for this billing period (cap 0 when not on Pocket). */
   builds?: { used: number; cap: number; remaining: number };
+  /** True when mode=free+authed and the daily free build has not been used yet. */
+  freeBuildAvailable?: boolean;
 }
 
 const NO_STORE = { "Cache-Control": "no-store", "Content-Type": "application/json; charset=utf-8" };
@@ -56,10 +58,29 @@ export const Route = createFileRoute("/api/public/entitlement")({
         }
         const pro = await hasActivePro(user, env);
         if (!pro) {
+          // Free authenticated users get 1 generate_html per UTC day.
+          // Check whether they've already used it today so the client can
+          // show the right state (remaining: 1 = can build, remaining: 0 = used).
+          let freeBuildUsed = false;
+          try {
+            const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+            const todayUtc = new Date().toISOString().slice(0, 10);
+            const { data } = await supabaseAdmin.rpc("free_build_used" as never, {
+              _user_id: user.userId,
+              _date: todayUtc,
+              _environment: env,
+            } as never);
+            freeBuildUsed = data === true;
+          } catch { /* best-effort — default to not-used so we don't block */ }
           const snap: EntitlementSnapshot = {
             mode: "free", authed: true, subStatus: "none", environment: env,
-            periodStart: null, periodEnd: null,
-            used: 0, reserved: 0, cap: 0, remaining: 0,
+            periodStart: new Date().toISOString().slice(0, 10),
+            periodEnd: new Date().toISOString().slice(0, 10),
+            used: freeBuildUsed ? 1 : 0,
+            reserved: 0,
+            cap: 1,
+            remaining: freeBuildUsed ? 0 : 1,
+            freeBuildAvailable: !freeBuildUsed,
           };
           return new Response(JSON.stringify(snap), { headers: NO_STORE });
         }
