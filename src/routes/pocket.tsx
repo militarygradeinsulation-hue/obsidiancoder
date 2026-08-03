@@ -40,6 +40,8 @@ import { useVoiceControl } from "@/lib/voice-control";
 import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
 import { useAuth } from "@/hooks/useSubscription";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
+import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
+
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
 import { buildArtifact } from "@/lib/publish-artifact";
@@ -178,7 +180,8 @@ function ForgePage() {
   const paid = isPaidMode(snap.mode);
   const { userId: authUserId } = useAuth();
   const [cloudProjectId, setCloudProjectId] = React.useState<string | undefined>(undefined);
-  const cloudProjects = useCloudProjects({ isAuthenticated: !!authUserId });
+  const cloudProjects = useCloudProjects({ isAuthenticated: !!authUserId, surface: "pocket" });
+
 
   const [project, setProject] = React.useState<Project>(() => projectFromHtml(EMPTY_DOC));
   const [activeFileId, setActiveFileId] = React.useState<string>(() => "");
@@ -438,6 +441,42 @@ function ForgePage() {
   React.useEffect(() => {
     void loadLibrary(libraryCode);
   }, [libraryCode, loadLibrary]);
+
+  // Live sync — mirrors this Pocket build across devices and owns its
+  // optional public live URL.
+  const liveSync = useLiveSync({
+    cloudId: cloudProjectId,
+    isAuthenticated: !!authUserId,
+    onRemoteRevision: (u) => {
+      if (!cloudProjectId) return;
+      void cloudProjects.load(cloudProjectId).then((full) => {
+        if (!full) return;
+        setProject(projectFromHtml(full.html));
+        if (full.projectName) setTitle(full.projectName);
+        log(`☁ Live sync: pulled r${u.revision} from ${u.device ?? "another device"}`);
+      });
+    },
+  });
+
+  // Autosave a few seconds after the last change so other devices catch up.
+  useAutosave(
+    `${cloudProjectId ?? ""}:${html.length}:${title}`,
+    () => {
+      if (!authUserId || html === EMPTY_DOC || html.length < 40) return;
+      void cloudProjects.save({
+        cloudId: cloudProjectId,
+        name: title || "Pocket build",
+        html,
+        prompt: prompt.slice(0, 2000),
+        projectJson: project,
+        model: undefined,
+      }).then((r) => {
+        if (r.ok && !cloudProjectId) setCloudProjectId(r.cloudId);
+      });
+    },
+    { enabled: !!authUserId, delayMs: 5000 },
+  );
+
 
   // On sign-in: if the canvas is blank, restore the most recent cloud project.
   React.useEffect(() => {
@@ -1352,6 +1391,40 @@ function ForgePage() {
                : cloudProjects.saveStatus === "error" ? "☁ Save failed"
                : status}
             </span>
+            {authUserId && cloudProjectId && (
+              <button
+                type="button"
+                className={btn}
+                disabled={liveSync.busy}
+                onClick={() => {
+                  void liveSync.toggleLive().then((r) => {
+                    if (!r) { log("⚠ Live sync toggle failed."); return; }
+                    log(r.live && r.shareSlug
+                      ? `◉ Live at ${window.location.origin}/api/public/share/${r.shareSlug}`
+                      : "◌ Live URL turned off");
+                  });
+                }}
+                style={liveSync.live ? { color: "#F4A125" } : undefined}
+                aria-label={liveSync.live ? "Turn off the public live URL" : "Turn on a public live URL"}
+                title={liveSync.live
+                  ? "Live: public URL always serves your latest save"
+                  : "Turn on a public live URL for this build"}
+              >
+                {liveSync.live ? "◉ Live" : "◌ Go live"}
+              </button>
+            )}
+            {liveSync.liveUrl && (
+              <a
+                href={liveSync.liveUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={btn}
+                title="Open the public live URL"
+              >
+                Open link
+              </a>
+            )}
+
             <button
               type="button"
               className={btn}

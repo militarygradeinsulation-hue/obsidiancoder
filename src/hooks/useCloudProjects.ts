@@ -12,13 +12,18 @@ import {
   type CloudProjectMeta,
   type CloudProjectFull,
 } from "@/lib/cloud-projects";
+import { thisDeviceId } from "@/hooks/useLiveSync";
+
 
 export type { CloudProjectMeta, CloudProjectFull };
 
 export interface UseCloudProjectsOptions {
   /** Only fetch the list when the user is authenticated. */
   isAuthenticated: boolean;
+  /** Which builder these saves come from — recorded for live sync. */
+  surface?: "coder" | "pocket";
 }
+
 
 export interface CloudSaveArgs {
   cloudId?: string;            // undefined = first save; we generate a new id
@@ -27,7 +32,10 @@ export interface CloudSaveArgs {
   prompt: string;
   projectJson?: unknown;
   model?: string;
+  surface?: "coder" | "pocket";
+  device?: string;
 }
+
 
 export interface CloudSaveResult {
   ok: boolean;
@@ -35,7 +43,7 @@ export interface CloudSaveResult {
   error?: string;
 }
 
-export function useCloudProjects({ isAuthenticated }: UseCloudProjectsOptions) {
+export function useCloudProjects({ isAuthenticated, surface = "coder" }: UseCloudProjectsOptions) {
   const [projects, setProjects] = useState<CloudProjectMeta[]>([]);
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -62,7 +70,13 @@ export function useCloudProjects({ isAuthenticated }: UseCloudProjectsOptions) {
     if (!isAuthenticated) return { ok: false, cloudId: args.cloudId ?? "", error: "Not signed in." };
     const cloudId = args.cloudId ?? newCloudProjectId();
     setSaveStatus("saving");
-    const result = await saveCloudProject({ ...args, id: cloudId });
+    const result = await saveCloudProject({
+      ...args,
+      id: cloudId,
+      surface: args.surface ?? surface,
+      device: args.device ?? thisDeviceId(),
+    });
+
     if (result.ok) {
       setSaveStatus("saved");
       // Reset to idle after 3 s so the UI indicator clears.
@@ -76,7 +90,7 @@ export function useCloudProjects({ isAuthenticated }: UseCloudProjectsOptions) {
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => setSaveStatus("idle"), 4000);
     return { ok: false, cloudId, error: result.error };
-  }, [isAuthenticated, refresh]);
+  }, [isAuthenticated, refresh, surface]);
 
   /** Load a full project by id. */
   const load = useCallback(async (id: string): Promise<CloudProjectFull | null> => {

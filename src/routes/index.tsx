@@ -77,6 +77,8 @@ import { validateHtml, blockingIssues } from "@/lib/validation";
 import { metricsFromClassification, formatDuration, type GenerationMetrics } from "@/lib/generation-metrics";
 import { extractOutline, outlineToPrompt } from "@/lib/document-outline";
 import { EMPTY_MEMORY, memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
+import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
+
 import { applyPatch, preflightPatch } from "@/lib/patch-engine";
 import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
@@ -707,6 +709,32 @@ function Index() {
   // Cloud project storage — save/load/list for signed-in users.
   const cloudProjects = useCloudProjects({ isAuthenticated: !!authUserId });
 
+  // Live sync — mirrors this build across every signed-in device and owns
+  // the per-build project memory + public live URL.
+  const currentCloudId = sessions.find((s) => s.id === activeId)?.cloudId;
+  const liveSync = useLiveSync({
+    cloudId: currentCloudId,
+    isAuthenticated: !!authUserId,
+    onRemoteRevision: (u) => {
+      if (!currentCloudId) return;
+      void cloudProjects.load(currentCloudId).then((full) => {
+        if (!full) return;
+        setSessions((all) => all.map((s) => s.id === activeId
+          ? {
+              ...s,
+              title: full.projectName ?? s.title,
+              html: full.html,
+              project: typeof full.projectJson === "object" && full.projectJson
+                ? (full.projectJson as import("@/lib/project-model").Project)
+                : s.project,
+            }
+          : s));
+        setTerminal((t) => [...t, `☁ Live sync: pulled r${u.revision} from ${u.device ?? "another device"}`]);
+      });
+    },
+  });
+
+
   // Global paywall handler — authFetch dispatches obs:paywall on 401/402
   // from any gated route. Open PricingModal and surface a terminal note
   // without losing the user's in-flight work.
@@ -1257,6 +1285,54 @@ function Index() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, current?.html, current?.themeCss, current?.themeName, current?.themeBlueprintId]);
+
+  // ── Live sync: autosave + per-build project memory ───────────────────
+  // Autosave pushes the current build to the cloud a few seconds after the
+  // last change, which bumps the sync revision other devices listen to.
+  useAutosave(
+    `${current?.cloudId ?? ""}:${current?.html?.length ?? 0}:${current?.title ?? ""}`,
+    () => {
+      if (!authUserId || !current?.html) return;
+      void cloudProjects.save({
+        cloudId: current.cloudId,
+        name: current.title && current.title !== "Untitled"
+          ? current.title
+          : (current.messages.find((m) => m.role === "user")?.content?.slice(0, 60) || "Untitled"),
+        html: current.html,
+        prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 2000) || "",
+        projectJson: current.project ?? null,
+        model: current.model,
+      }).then((r) => {
+        if (r.ok && !current.cloudId) updateCurrent({ cloudId: r.cloudId } as Partial<Session>);
+      });
+    },
+    { enabled: !!authUserId && !!current?.html, delayMs: 5000 },
+  );
+
+  // Hydrate project memory from the cloud when a build is opened.
+  const memoryHydrated = useRef<string>("");
+  useEffect(() => {
+    const id = current?.cloudId;
+    const remoteMem = liveSync.state?.memory;
+    if (!id || !remoteMem || memoryHydrated.current === id) return;
+    memoryHydrated.current = id;
+    if (Object.keys(remoteMem).length === 0) return;
+    setSessions((all) => all.map((s) => s.id === activeId
+      ? { ...s, memory: { ...EMPTY_MEMORY, ...(remoteMem as Partial<ProjectMemory>) } }
+      : s));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.cloudId, liveSync.state?.memory]);
+
+  // Persist project memory (debounced) so it follows the build everywhere.
+  const memorySignature = JSON.stringify(current?.memory ?? {});
+  useEffect(() => {
+    if (!authUserId || !current?.cloudId) return;
+    const t = setTimeout(() => {
+      void liveSync.pushMemory(JSON.parse(memorySignature) as Record<string, unknown>);
+    }, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memorySignature, authUserId, current?.cloudId]);
 
 
   useEffect(() => {
@@ -4756,6 +4832,47 @@ function Index() {
             {authUserId && current.cloudId && cloudProjects.saveStatus === "idle" && (
               <span style={{ fontSize: 11, color: "#8a919b" }} title="Synced to cloud">☁</span>
             )}
+            {authUserId && current.cloudId && (
+              <button
+                type="button"
+                onClick={() => {
+                  void liveSync.toggleLive().then((r) => {
+                    if (!r) { setTerminal((t) => [...t, "⚠ Live sync toggle failed."]); return; }
+                    setTerminal((t) => [...t, r.live && r.shareSlug
+                      ? `◉ Live at ${window.location.origin}/api/public/share/${r.shareSlug}`
+                      : "◌ Live URL turned off"]);
+                  });
+                }}
+                disabled={liveSync.busy}
+                className="obs-muted"
+                style={{
+                  fontSize: 11,
+                  cursor: liveSync.busy ? "wait" : "pointer",
+                  color: liveSync.live ? "#F4A125" : undefined,
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                }}
+                title={liveSync.live
+                  ? "Live: this build has a public URL that always serves the latest save"
+                  : "Turn on a public live URL for this build"}
+              >
+                {liveSync.live ? "◉ Live" : "◌ Go live"}
+              </button>
+            )}
+            {liveSync.liveUrl && (
+              <a
+                href={liveSync.liveUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="obs-muted"
+                style={{ fontSize: 11 }}
+                title="Open the public live URL"
+              >
+                Open link
+              </a>
+            )}
+
             <span className="obs-muted" title="Rework ratio: user turns per saved version (specification tax)">Spec-tax {specTax}%</span>
             <span className="obs-muted">{kb} KB</span>
           </div>

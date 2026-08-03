@@ -24,6 +24,8 @@ import {
   getCloudProject,
   deleteCloudProject,
 } from "@/lib/cloud-projects.server";
+import { touchProjectSync } from "@/lib/project-sync.server";
+
 import { makeUsage } from "@/lib/usage-record";
 
 const MAX_HTML_BYTES = 6_000_000;  // 6 MB — matches generate.ts ceiling
@@ -70,13 +72,15 @@ export const Route = createFileRoute("/api/projects")({
         let body: {
           id?: string; name?: string; html?: string;
           prompt?: string; projectJson?: unknown; model?: string;
+          surface?: string; device?: string;
         };
         try {
           body = await request.json();
         } catch {
           return jsonError(400, "Invalid JSON body.", requestId);
         }
-        const { id, name, html, prompt, projectJson, model } = body;
+        const { id, name, html, prompt, projectJson, model, surface, device } = body;
+
         if (!id || typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id)) {
           return jsonError(400, "id must be a valid UUID.", requestId);
         }
@@ -112,6 +116,21 @@ export const Route = createFileRoute("/api/projects")({
             },
             env,
           );
+
+          // Bump the sync revision so other signed-in devices mirror this
+          // save in realtime. Never blocks or fails the save itself.
+          if (user) {
+            try {
+              await touchProjectSync(user, {
+                projectId: savedId,
+                title: name.slice(0, MAX_NAME_CHARS),
+                surface: surface === "pocket" ? "pocket" : "coder",
+                device: typeof device === "string" ? device : undefined,
+              }, env);
+            } catch { /* sync state is best-effort */ }
+          }
+
+
 
           // Settle the credit charge (cloud_save = 1 credit minimum).
           if (entitlement && entitlement.kind !== "denied") {
