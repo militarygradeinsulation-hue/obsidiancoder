@@ -70,13 +70,15 @@ export const Route = createFileRoute("/api/projects")({
         let body: {
           id?: string; name?: string; html?: string;
           prompt?: string; projectJson?: unknown; model?: string;
+          surface?: string; device?: string;
         };
         try {
           body = await request.json();
         } catch {
           return jsonError(400, "Invalid JSON body.", requestId);
         }
-        const { id, name, html, prompt, projectJson, model } = body;
+        const { id, name, html, prompt, projectJson, model, surface, device } = body;
+
         if (!id || typeof id !== "string" || !/^[0-9a-f-]{36}$/.test(id)) {
           return jsonError(400, "id must be a valid UUID.", requestId);
         }
