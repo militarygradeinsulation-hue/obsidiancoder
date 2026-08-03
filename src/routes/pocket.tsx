@@ -1391,6 +1391,40 @@ function ForgePage() {
                : cloudProjects.saveStatus === "error" ? "☁ Save failed"
                : status}
             </span>
+            {authUserId && cloudProjectId && (
+              <button
+                type="button"
+                className={btn}
+                disabled={liveSync.busy}
+                onClick={() => {
+                  void liveSync.toggleLive().then((r) => {
+                    if (!r) { log("⚠ Live sync toggle failed."); return; }
+                    log(r.live && r.shareSlug
+                      ? `◉ Live at ${window.location.origin}/api/public/share/${r.shareSlug}`
+                      : "◌ Live URL turned off");
+                  });
+                }}
+                style={liveSync.live ? { color: "#F4A125" } : undefined}
+                aria-label={liveSync.live ? "Turn off the public live URL" : "Turn on a public live URL"}
+                title={liveSync.live
+                  ? "Live: public URL always serves your latest save"
+                  : "Turn on a public live URL for this build"}
+              >
+                {liveSync.live ? "◉ Live" : "◌ Go live"}
+              </button>
+            )}
+            {liveSync.liveUrl && (
+              <a
+                href={liveSync.liveUrl}
+                target="_blank"
+                rel="noreferrer"
+                className={btn}
+                title="Open the public live URL"
+              >
+                Open link
+              </a>
+            )}
+
             <button
               type="button"
               className={btn}
