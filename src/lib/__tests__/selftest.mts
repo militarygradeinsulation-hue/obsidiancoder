@@ -291,6 +291,37 @@ const mcpIdx = await import("node:fs").then(m => m.readFileSync("/home/claude/re
 ok(mcpIdx.includes("generate-build") && mcpIdx.includes("patch-build") && mcpIdx.includes("classify-prompt"),
   "MCP index registers all three new tools");
 
+/* ---------- spec extractor (12) ---------- */
+const { extractSpec, specToSystemBlock } = await import("../spec-extractor");
+
+// Section detection
+const landingSpec = extractSpec("Build a landing page with a hero, pricing section, and testimonials");
+ok(landingSpec.sections.includes("Hero section"), "spec: detects hero section");
+ok(landingSpec.sections.includes("Pricing"), "spec: detects pricing section");
+ok(landingSpec.sections.includes("Testimonials"), "spec: detects testimonials");
+ok(landingSpec.complex, "spec: landing page is complex");
+
+// Entity detection
+const dashSpec = extractSpec("Create a dashboard showing user stats, product inventory, and recent orders");
+ok(dashSpec.entities.includes("User"), "spec: detects user entity");
+ok(dashSpec.entities.includes("Product"), "spec: detects product entity");
+ok(dashSpec.entities.includes("Order"), "spec: detects order entity");
+
+// Interaction detection
+const formSpec = extractSpec("Build a signup form with drag and drop file upload and real-time validation");
+ok(formSpec.interactions.includes("file upload"), "spec: detects file upload interaction");
+ok(formSpec.interactions.includes("real-time updates"), "spec: detects real-time");
+
+// System block rendering
+const blockSpec = extractSpec("Build a SaaS dashboard with user table, charts, and search filter");
+const block = specToSystemBlock(blockSpec);
+ok(block.includes("DETECTED BUILD SPEC"), "spec: system block renders header");
+ok(block.includes("Build the complete implementation"), "spec: system block includes completion instruction");
+
+// Simple prompt → not complex
+const simpleSpec = extractSpec("change the button color to blue");
+ok(!simpleSpec.complex || simpleSpec.sections.length === 0, "spec: simple edit not marked complex with sections");
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);

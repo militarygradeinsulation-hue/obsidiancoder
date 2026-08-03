@@ -835,6 +835,20 @@ ${memBlock}`,
               timing.archetype = pick.id;
             } catch { /* directive injection is best-effort */ }
           }
+          // Spec extractor — for fresh full-generation builds with complex prompts,
+          // inject a structured spec block so the model doesn't omit sections.
+          if (!data.advisory && !contextHtml) {
+            try {
+              const { extractSpec, specToSystemBlock } = await import("@/lib/spec-extractor");
+              const spec = extractSpec(data.prompt);
+              const specBlock = specToSystemBlock(spec);
+              if (specBlock) {
+                messages.push({ role: "system", content: specBlock });
+                timing.spec_sections = spec.sections.length;
+              }
+            } catch { /* spec injection is non-fatal */ }
+          }
+
           // Design Contract injection — applies to both fresh builds and edits
           // so follow-up prompts preserve the chosen direction.
           if (!data.advisory && data.designContract && typeof data.designContract === "object") {
