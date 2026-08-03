@@ -24,6 +24,8 @@ import {
   getCloudProject,
   deleteCloudProject,
 } from "@/lib/cloud-projects.server";
+import { touchProjectSync } from "@/lib/project-sync.server";
+
 import { makeUsage } from "@/lib/usage-record";
 
 const MAX_HTML_BYTES = 6_000_000;  // 6 MB — matches generate.ts ceiling
