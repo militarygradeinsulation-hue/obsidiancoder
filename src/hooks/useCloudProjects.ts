@@ -27,7 +27,10 @@ export interface CloudSaveArgs {
   prompt: string;
   projectJson?: unknown;
   model?: string;
+  surface?: "coder" | "pocket";
+  device?: string;
 }
+
 
 export interface CloudSaveResult {
   ok: boolean;
