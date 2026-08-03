@@ -18,13 +18,17 @@ type Props = {
 export function CreditBar({ mode, used, cap, remaining, cost, onUpgrade }: Props) {
   const isOwner = mode === "owner";
   const isPro = mode === "pro";
-  const showBar = isOwner || isPro;
+  // Free signed-in users have cap:1 (daily build); free unsigned have cap:0.
+  const isFreeBuild = mode === "free" && cap === 1;
+  const showBar = isOwner || isPro || isFreeBuild;
   const pct = showBar && cap > 0 ? Math.min(100, Math.round((used / cap) * 100)) : 0;
   const barLabel = isOwner
     ? "Unlimited"
     : isPro
       ? `${remaining} / ${cap} left`
-      : "Locked";
+      : isFreeBuild
+        ? remaining > 0 ? "1 free build today" : "Daily build used"
+        : "Locked";
   const editVsBuild = `${cost.deterministicEdits} edit${cost.deterministicEdits === 1 ? "" : "s"} · ${cost.aiCalls} build${cost.aiCalls === 1 ? "" : "s"}`;
 
   return (
@@ -35,7 +39,9 @@ export function CreditBar({ mode, used, cap, remaining, cost, onUpgrade }: Props
           ? `Owner — unlimited. Session: ${editVsBuild} · ~$${cost.estimatedCostUsd.toFixed(4)}`
           : isPro
             ? `Plan: ${used}/${cap} credits used this period. Session: ${editVsBuild} · ~$${cost.estimatedCostUsd.toFixed(4)}`
-            : `Upgrade to unlock credits. Session: ${editVsBuild}`
+            : isFreeBuild
+              ? remaining > 0 ? `1 free AI build available today. Session: ${editVsBuild}` : `Daily build used — resets tomorrow. Upgrade for 1,000/month. Session: ${editVsBuild}`
+              : `Upgrade to unlock credits. Session: ${editVsBuild}`
       }
       role="group"
       aria-label="Credit usage"
