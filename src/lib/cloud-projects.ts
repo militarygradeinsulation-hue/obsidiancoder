@@ -31,6 +31,8 @@ export async function saveCloudProject(args: {
   prompt: string;
   projectJson?: unknown;
   model?: string;
+  surface?: "coder" | "pocket";
+  device?: string;
 }): Promise<CloudResult<{ id: string }>> {
   try {
     const res = await authFetch("/api/projects", {
@@ -38,6 +40,7 @@ export async function saveCloudProject(args: {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(args),
     });
+
     const json = await res.json() as { ok: boolean; id?: string; error?: string };
     if (!json.ok) return { ok: false, error: json.error ?? "Save failed.", status: res.status };
     return { ok: true, data: { id: json.id! } };
