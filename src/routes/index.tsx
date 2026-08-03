@@ -77,6 +77,8 @@ import { validateHtml, blockingIssues } from "@/lib/validation";
 import { metricsFromClassification, formatDuration, type GenerationMetrics } from "@/lib/generation-metrics";
 import { extractOutline, outlineToPrompt } from "@/lib/document-outline";
 import { EMPTY_MEMORY, memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
+import { useLiveSync, useAutosave, thisDeviceId } from "@/hooks/useLiveSync";
+
 import { applyPatch, preflightPatch } from "@/lib/patch-engine";
 import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
