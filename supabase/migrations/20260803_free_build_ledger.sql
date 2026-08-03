@@ -1,23 +1,20 @@
--- Free daily build ledger for signed-in free-tier users.
--- One row per user per UTC date per environment.
--- claim_free_build: atomic INSERT — returns true on first claim, false on duplicate.
--- release_free_build: DELETE within 10-min safety window (refund if provider never ran).
--- free_build_used: read-only existence check.
+-- Per-user daily free build entitlement.
+-- NOTE: The free_build_ledger table already existed with a fingerprint-based
+-- schema (for anonymous demo builds). The per-user daily build table was
+-- created as user_daily_builds instead to avoid conflict.
+-- This migration documents what was applied directly to the database.
 
-CREATE TABLE IF NOT EXISTS public.free_build_ledger (
+CREATE TABLE IF NOT EXISTS public.user_daily_builds (
   id          uuid        PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  build_date  date        NOT NULL,  -- UTC calendar date, e.g. '2026-08-03'
+  build_date  date        NOT NULL,
   environment text        NOT NULL CHECK (environment IN ('sandbox', 'live')),
   created_at  timestamptz NOT NULL DEFAULT now(),
   UNIQUE (user_id, build_date, environment)
 );
 
--- Service-role only; no RLS needed — all access via functions with SECURITY DEFINER.
-ALTER TABLE public.free_build_ledger ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_daily_builds ENABLE ROW LEVEL SECURITY;
 
--- claim_free_build: INSERT OR IGNORE pattern.
--- Returns TRUE on fresh insert (claim granted), FALSE when row already exists (already used).
 CREATE OR REPLACE FUNCTION public.claim_free_build(
   _user_id     uuid,
   _date        date,
@@ -25,14 +22,13 @@ CREATE OR REPLACE FUNCTION public.claim_free_build(
 ) RETURNS boolean
   LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  INSERT INTO public.free_build_ledger (user_id, build_date, environment)
+  INSERT INTO public.user_daily_builds (user_id, build_date, environment)
   VALUES (_user_id, _date, _environment)
   ON CONFLICT (user_id, build_date, environment) DO NOTHING;
   RETURN FOUND;
 END;
 $$;
 
--- release_free_build: DELETE only within 10-minute safety window.
 CREATE OR REPLACE FUNCTION public.release_free_build(
   _user_id     uuid,
   _date        date,
@@ -40,7 +36,7 @@ CREATE OR REPLACE FUNCTION public.release_free_build(
 ) RETURNS void
   LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 BEGIN
-  DELETE FROM public.free_build_ledger
+  DELETE FROM public.user_daily_builds
   WHERE user_id    = _user_id
     AND build_date = _date
     AND environment = _environment
@@ -48,7 +44,6 @@ BEGIN
 END;
 $$;
 
--- free_build_used: read-only check.
 CREATE OR REPLACE FUNCTION public.free_build_used(
   _user_id     uuid,
   _date        date,
@@ -56,7 +51,7 @@ CREATE OR REPLACE FUNCTION public.free_build_used(
 ) RETURNS boolean
   LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT EXISTS (
-    SELECT 1 FROM public.free_build_ledger
+    SELECT 1 FROM public.user_daily_builds
     WHERE user_id    = _user_id
       AND build_date = _date
       AND environment = _environment
