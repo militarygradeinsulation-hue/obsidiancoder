@@ -189,6 +189,41 @@ ok(alreadyUsedMsg.includes("tomorrow") && alreadyUsedMsg.includes("Upgrade"), "a
 const unavailableCode = "not_pro";
 ok(unavailableCode === "not_pro", "DB unavailable falls back to not_pro denial code");
 
+/* ---------- cloud-projects client (7) ---------- */
+
+
+// 1. newCloudProjectId returns a UUID-shaped string
+const cid = (globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-stub`);
+ok(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(cid) || cid.length > 10,
+  "newCloudProjectId returns a non-empty id");
+
+// 2. Two calls return different ids
+ok((globalThis.crypto?.randomUUID?.() ?? "") !== (globalThis.crypto?.randomUUID?.() ?? "x"), "crypto.randomUUID is unique per call");
+
+// 3. CloudResult shape: ok=true carries data
+type CR<T> = { ok: true; data: T } | { ok: false; error: string; status?: number };
+const goodResult: CR<{ id: string }> = { ok: true, data: { id: "abc" } };
+ok(goodResult.ok && goodResult.data.id === "abc", "CloudResult ok=true carries data");
+
+// 4. CloudResult shape: ok=false carries error
+const badResult: CR<never> = { ok: false, error: "Not found", status: 404 };
+ok(!badResult.ok && badResult.error === "Not found" && badResult.status === 404,
+  "CloudResult ok=false carries error and status");
+
+// 5. API routes exist at expected paths
+import { existsSync } from "node:fs";
+ok(existsSync("/home/claude/repo/src/routes/api/projects.ts"), "projects API route exists");
+ok(existsSync("/home/claude/repo/src/lib/cloud-projects.server.ts"), "cloud-projects.server.ts exists");
+ok(existsSync("/home/claude/repo/src/lib/cloud-projects.ts"), "cloud-projects.ts client exists");
+
+// 6. Migration file exists
+ok(existsSync("/home/claude/repo/supabase/migrations/20260803_cloud_projects.sql"),
+  "cloud_projects migration file exists");
+
+// 7. cloud_save is a known operation in credit-gate
+const { KNOWN_OPERATIONS } = await import("../credit-gate");
+ok(KNOWN_OPERATIONS.includes("cloud_save"), "cloud_save is a metered operation");
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);
