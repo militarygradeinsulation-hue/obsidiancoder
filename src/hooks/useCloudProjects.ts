@@ -18,7 +18,10 @@ export type { CloudProjectMeta, CloudProjectFull };
 export interface UseCloudProjectsOptions {
   /** Only fetch the list when the user is authenticated. */
   isAuthenticated: boolean;
+  /** Which builder these saves come from — recorded for live sync. */
+  surface?: "coder" | "pocket";
 }
+
 
 export interface CloudSaveArgs {
   cloudId?: string;            // undefined = first save; we generate a new id
