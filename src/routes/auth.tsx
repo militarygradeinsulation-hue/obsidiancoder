@@ -90,11 +90,22 @@ function AuthPage() {
       <div className="w-full max-w-sm rounded-2xl border border-[#c9953d]/30 bg-[#0a0b0d] p-6 shadow-2xl">
         <Link to="/unlock" className="text-xs text-[#B6BCC8] hover:text-[#f2eee7]">← Back</Link>
         <h1 className="mt-2 text-lg font-semibold text-[#f2eee7]">
-          {mode === "signin" ? "Sign in to Aetheris Obsidian" : "Create your account"}
+          {mode === "signin" ? "Sign in to Aetheris Obsidian" : "Create your free account"}
         </h1>
         <p className="mt-1 text-xs text-[#B6BCC8]">
-          {mode === "signin" ? "Access your builds and Pro subscription." : "Save builds and unlock Obsidian Pro."}
+          {mode === "signin"
+            ? "Access your builds, cloud projects, and Pro subscription."
+            : "Free accounts get 1 AI build every day. No card required."}
         </p>
+        {mode === "signup" && (
+          <div className="mt-3 flex flex-col gap-1">
+            {["1 free AI build per day", "Cloud saves across devices", "Upgrade to Pro anytime"].map((f) => (
+              <div key={f} className="flex items-center gap-1.5 text-xs text-[#B6BCC8]">
+                <span className="text-[#4ade80]">✓</span> {f}
+              </div>
+            ))}
+          </div>
+        )}
 
         <button
           onClick={handleGoogle}

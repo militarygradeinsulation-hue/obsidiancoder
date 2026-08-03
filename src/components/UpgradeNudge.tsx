@@ -98,6 +98,7 @@ export function UpgradeNudge({ reason, envelope, onUpgrade, onDismiss }: Props) 
         {reason === "demo_used" && (
           <Link
             to="/auth"
+            search={{ mode: "signup" } as Record<string, string>}
             style={{
               padding: "6px 12px",
               borderRadius: 8,
