@@ -26,6 +26,7 @@ import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
+import { Route as ApiSyncRouteImport } from './routes/api/sync'
 import { Route as ApiQaRouteImport } from './routes/api/qa'
 import { Route as ApiProjectsRouteImport } from './routes/api/projects'
 import { Route as ApiPatchRouteImport } from './routes/api/patch'
@@ -140,6 +141,11 @@ const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
 const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
   id: '/api/transcribe',
   path: '/api/transcribe',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiSyncRoute = ApiSyncRouteImport.update({
+  id: '/api/sync',
+  path: '/api/sync',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiQaRoute = ApiQaRouteImport.update({
@@ -325,6 +331,7 @@ export interface FileRoutesByFullPath {
   '/api/patch': typeof ApiPatchRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/qa': typeof ApiQaRoute
+  '/api/sync': typeof ApiSyncRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -374,6 +381,7 @@ export interface FileRoutesByTo {
   '/api/patch': typeof ApiPatchRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/qa': typeof ApiQaRoute
+  '/api/sync': typeof ApiSyncRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -424,6 +432,7 @@ export interface FileRoutesById {
   '/api/patch': typeof ApiPatchRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/qa': typeof ApiQaRoute
+  '/api/sync': typeof ApiSyncRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -475,6 +484,7 @@ export interface FileRouteTypes {
     | '/api/patch'
     | '/api/projects'
     | '/api/qa'
+    | '/api/sync'
     | '/api/transcribe'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
@@ -524,6 +534,7 @@ export interface FileRouteTypes {
     | '/api/patch'
     | '/api/projects'
     | '/api/qa'
+    | '/api/sync'
     | '/api/transcribe'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
@@ -573,6 +584,7 @@ export interface FileRouteTypes {
     | '/api/patch'
     | '/api/projects'
     | '/api/qa'
+    | '/api/sync'
     | '/api/transcribe'
     | '/checkout/return'
     | '/.mcp/invoke-tool/$tool'
@@ -623,6 +635,7 @@ export interface RootRouteChildren {
   ApiPatchRoute: typeof ApiPatchRoute
   ApiProjectsRoute: typeof ApiProjectsRoute
   ApiQaRoute: typeof ApiQaRoute
+  ApiSyncRoute: typeof ApiSyncRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
@@ -764,6 +777,13 @@ declare module '@tanstack/react-router' {
       path: '/api/transcribe'
       fullPath: '/api/transcribe'
       preLoaderRoute: typeof ApiTranscribeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/sync': {
+      id: '/api/sync'
+      path: '/api/sync'
+      fullPath: '/api/sync'
+      preLoaderRoute: typeof ApiSyncRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/qa': {
@@ -1039,6 +1059,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPatchRoute: ApiPatchRoute,
   ApiProjectsRoute: ApiProjectsRoute,
   ApiQaRoute: ApiQaRoute,
+  ApiSyncRoute: ApiSyncRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
