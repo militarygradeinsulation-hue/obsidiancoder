@@ -8,7 +8,7 @@
   "mcp": {
     "server": {
       "name": "obsidian-vibe-mcp",
-      "version": "0.1.0",
+      "version": "0.2.0",
       "title": "Obsidian Vibe"
     },
     "tools": [
@@ -85,6 +85,137 @@
           },
           "required": [
             "slug"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "classify_prompt",
+        "title": "Classify prompt",
+        "description": "Preview how Obsidian would route a given prompt — task type, strategy (deterministic patch / ai-patch / full-generation / advisory), model tier, and confidence — without consuming any credits.",
+        "annotations": {
+          "readOnlyHint": true,
+          "idempotentHint": true,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "minLength": 1,
+              "maxLength": 4000,
+              "description": "The prompt to classify."
+            },
+            "has_html": {
+              "default": false,
+              "description": "Whether an existing HTML document is present (affects routing).",
+              "type": "boolean"
+            },
+            "mode": {
+              "default": "agent",
+              "description": "Editing mode.",
+              "type": "string",
+              "enum": [
+                "agent",
+                "chat",
+                "plan"
+              ]
+            }
+          },
+          "required": [
+            "prompt"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "generate_build",
+        "title": "Generate build",
+        "description": "Generate a complete HTML/CSS/JS application from a natural language prompt. Returns the committed HTML. Requires an Obsidian account (1 free build/day, or Pro for 1,000 credits/month). Pass your Bearer token in the Authorization header when calling this tool via the MCP server.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "prompt": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 4000,
+              "description": "What to build — describe the app, page, or tool."
+            },
+            "model": {
+              "default": "fast",
+              "description": "Model tier: 'fast' (default, cheapest), 'balanced' (GPT-5.4-mini), 'deep' (Gemini Pro).",
+              "type": "string",
+              "enum": [
+                "auto",
+                "fast",
+                "balanced",
+                "deep"
+              ]
+            },
+            "surface": {
+              "default": "mcp",
+              "description": "Which surface is calling this tool (for analytics).",
+              "type": "string",
+              "enum": [
+                "ide",
+                "pocket",
+                "mcp"
+              ]
+            }
+          },
+          "required": [
+            "prompt"
+          ]
+        },
+        "outputSchema": null
+      },
+      {
+        "name": "patch_build",
+        "title": "Patch build",
+        "description": "Apply a natural-language instruction to an existing HTML build. Cheaper and faster than full regeneration for targeted edits. Returns the patched HTML. Requires an Obsidian account.",
+        "annotations": {
+          "readOnlyHint": false,
+          "idempotentHint": false,
+          "openWorldHint": false
+        },
+        "inputSchema": {
+          "$schema": "http://json-schema.org/draft-07/schema#",
+          "type": "object",
+          "properties": {
+            "html": {
+              "type": "string",
+              "minLength": 10,
+              "maxLength": 6000000,
+              "description": "The current HTML to modify."
+            },
+            "instruction": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 2000,
+              "description": "What to change — plain English."
+            },
+            "model": {
+              "default": "fast",
+              "description": "Model tier for the patch (default: fast).",
+              "type": "string",
+              "enum": [
+                "auto",
+                "fast",
+                "balanced"
+              ]
+            }
+          },
+          "required": [
+            "html",
+            "instruction"
           ]
         },
         "outputSchema": null

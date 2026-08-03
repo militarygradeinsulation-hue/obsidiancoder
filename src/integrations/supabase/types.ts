@@ -545,23 +545,29 @@ export type Database = {
       user_daily_builds: {
         Row: {
           build_date: string
+          builds_count: number
           created_at: string
           environment: string
           id: string
+          updated_at: string
           user_id: string
         }
         Insert: {
           build_date: string
+          builds_count?: number
           created_at?: string
           environment: string
           id?: string
+          updated_at?: string
           user_id: string
         }
         Update: {
           build_date?: string
+          builds_count?: number
           created_at?: string
           environment?: string
           id?: string
+          updated_at?: string
           user_id?: string
         }
         Relationships: []

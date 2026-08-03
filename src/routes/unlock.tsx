@@ -84,16 +84,16 @@ export const Route = createFileRoute("/unlock")({
   },
   head: () => ({
     meta: [
-      { title: "Unlock Obsidian Access — Obsidian" },
-      { name: "description", content: "Start Obsidian Creator for $79/month or enter your access code. Build production-ready software with an AI engineering team." },
-      { property: "og:title", content: "Unlock Obsidian Access — Obsidian" },
-      { property: "og:description", content: "Build production-ready software with an AI engineering team. $79/month, 1,000 AI credits per billing period." },
-      { property: "og:url", content: "https://obsidianvibe.live/unlock" },
+      { title: "Build the software your business needs — Obsidian" },
+      { name: "description", content: "Describe the tool your business needs and watch it get built. Work orders, quotes, intake forms, dashboards. Free daily builds, no card required." },
+      { property: "og:title", content: "Build the software your business needs — Obsidian" },
+      { property: "og:description", content: "Describe the tool your business needs and watch it get built. Free daily builds, no card. Creator from $49/month." },
+      { property: "og:url", content: "https://obsidianvibe.live/" },
       { property: "og:type", content: "website" },
-      { name: "twitter:title", content: "Unlock Obsidian Access — Obsidian" },
-      { name: "twitter:description", content: "Start Obsidian Creator for $79/month or enter your access code." },
+      { name: "twitter:title", content: "Build the software your business needs — Obsidian" },
+      { name: "twitter:description", content: "Describe the tool your business needs and watch it get built. Free daily builds, no card required." },
     ],
-    links: [{ rel: "canonical", href: "https://obsidianvibe.live/unlock" }],
+    links: [{ rel: "canonical", href: "https://obsidianvibe.live/" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -105,10 +105,10 @@ export const Route = createFileRoute("/unlock")({
           description: "Obsidian Creator plan — build production-ready software with an AI engineering team. Includes 1,000 AI credits per billing period.",
           offers: {
             "@type": "Offer",
-            price: "79",
+            price: "49",
             priceCurrency: "USD",
             availability: "https://schema.org/InStock",
-            url: "https://obsidianvibe.live/unlock",
+            url: "https://obsidianvibe.live/",
           },
         }),
       },
@@ -376,15 +376,14 @@ function Unlock() {
           <Link to="/pocket" className="unlock-topbar-link" title="Obsidian Pocket — simplified prompt-to-app workspace">Pocket</Link>
           <Link to="/library" className="unlock-topbar-link" title="Community Library — browse, copy and remix builds">Library</Link>
           <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Access Code</button>
-          <Link
-            to="/"
-            search={{ demo: "1" }}
+          <a
+            href="/?demo=1"
             className="unlock-topbar-link"
             style={{ color: "#f4a125", border: "1px solid rgba(244,161,37,0.35)" }}
             aria-label="Try a free demo — one build, no card required"
           >
             Try a Free Demo
-          </Link>
+          </a>
 
           {session ? (
             <>
@@ -495,7 +494,7 @@ function Unlock() {
                     <li>Best for polished apps, dashboards, and client work</li>
                   </ul>
                   <a href="/?demo=1" className="unlock-compare-cta is-secondary">
-                    Open Obsidian Vibe
+                    Try Obsidian Vibe free
                   </a>
                 </div>
 
@@ -521,12 +520,13 @@ function Unlock() {
                     <li>Best for fast landing pages, ideas, and prototypes</li>
                   </ul>
                   <a href="/pocket" className="unlock-compare-cta">
-                    Open Obsidian Pocket
+                    Start building free — no account
                   </a>
                 </div>
               </div>
 
               {/* Live builds people shared from Pocket */}
+              {communityBuilds.length > 0 && (
               <div className="unlock-community" id="community-anchor">
                 <div className="unlock-community-head">
                   <div>
@@ -537,11 +537,6 @@ function Unlock() {
                   </div>
                   <a href="/library" className="unlock-compare-cta">Browse the Library</a>
                 </div>
-                {communityBuilds.length === 0 ? (
-                  <p className="unlock-community-empty">
-                    No shared builds yet — build something in Pocket and press “Share to Library”.
-                  </p>
-                ) : (
                   <div className="unlock-community-grid">
                     {communityBuilds.map((b) => (
                       <a
@@ -569,8 +564,8 @@ function Unlock() {
                       </a>
                     ))}
                   </div>
-                )}
               </div>
+              )}
 
             </section>
           </div>
@@ -715,7 +710,7 @@ function Unlock() {
                   style={{ width: "100%", padding: "11px 0", borderRadius: 10, background: "rgba(244,161,37,0.12)", color: "#F4A125", border: "1px solid rgba(244,161,37,0.35)", fontWeight: 600, fontSize: 13, cursor: "pointer", marginBottom: 8 }}
                   onClick={() => window.location.assign("/auth?mode=signup")}
                 >
-                  Create free account — 1 AI build/day, no card
+                  Create free account — 3 AI builds/day, no card
                 </button>
                 <button type="button" className="unlock-btn-secondary" onClick={goSignIn}>
                   Already have an account? Sign in
@@ -763,7 +758,7 @@ function Unlock() {
 
                     <div className="detail-block">
                       <h3>What stays free</h3>
-                      <p>Create a free account and get <strong>1 AI build per day</strong> — no card, no trial, always on. Local editing, previews, exports, and screenshots are always free too. Cloud saves, GitHub export, and deploy require Pro.</p>
+                      <p>Create a free account and get <strong>3 AI builds per day</strong> — no card, no trial, always on. Local editing, previews, exports, and screenshots are always free too. Cloud saves, GitHub export, and deploy require Pro.</p>
                     </div>
 
                     <p className="detail-trust">Secure billing through Stripe. Cancel anytime.</p>
@@ -861,7 +856,7 @@ function Unlock() {
       <section className="unlock-demos" aria-labelledby="demos-heading" id="demos-anchor">
         <div className="demos-header">
           <h2 id="demos-heading" className="demos-title">Live Demos</h2>
-          <p className="demos-sub">Explore builds crafted with Obsidian. View-only — the vibe coder requires access.</p>
+          <p className="demos-sub">Real builds made with Obsidian. Open any one, then build your own free.</p>
           <button
             type="button"
             className="demos-toggle"
