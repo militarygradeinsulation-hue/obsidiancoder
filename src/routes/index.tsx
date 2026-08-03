@@ -1286,6 +1286,54 @@ function Index() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, current?.html, current?.themeCss, current?.themeName, current?.themeBlueprintId]);
 
+  // ── Live sync: autosave + per-build project memory ───────────────────
+  // Autosave pushes the current build to the cloud a few seconds after the
+  // last change, which bumps the sync revision other devices listen to.
+  useAutosave(
+    `${current?.cloudId ?? ""}:${current?.html?.length ?? 0}:${current?.title ?? ""}`,
+    () => {
+      if (!authUserId || !current?.html) return;
+      void cloudProjects.save({
+        cloudId: current.cloudId,
+        name: current.title && current.title !== "Untitled"
+          ? current.title
+          : (current.messages.find((m) => m.role === "user")?.content?.slice(0, 60) || "Untitled"),
+        html: current.html,
+        prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 2000) || "",
+        projectJson: current.project ?? null,
+        model: current.model,
+      }).then((r) => {
+        if (r.ok && !current.cloudId) updateCurrent({ cloudId: r.cloudId } as Partial<Session>);
+      });
+    },
+    { enabled: !!authUserId && !!current?.html, delayMs: 5000 },
+  );
+
+  // Hydrate project memory from the cloud when a build is opened.
+  const memoryHydrated = useRef<string>("");
+  useEffect(() => {
+    const id = current?.cloudId;
+    const remoteMem = liveSync.state?.memory;
+    if (!id || !remoteMem || memoryHydrated.current === id) return;
+    memoryHydrated.current = id;
+    if (Object.keys(remoteMem).length === 0) return;
+    setSessions((all) => all.map((s) => s.id === activeId
+      ? { ...s, memory: { ...EMPTY_MEMORY, ...(remoteMem as Partial<ProjectMemory>) } }
+      : s));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [current?.cloudId, liveSync.state?.memory]);
+
+  // Persist project memory (debounced) so it follows the build everywhere.
+  const memorySignature = JSON.stringify(current?.memory ?? {});
+  useEffect(() => {
+    if (!authUserId || !current?.cloudId) return;
+    const t = setTimeout(() => {
+      void liveSync.pushMemory(JSON.parse(memorySignature) as Record<string, unknown>);
+    }, 1500);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [memorySignature, authUserId, current?.cloudId]);
+
 
   useEffect(() => {
     // Session-scoped: every new browser session starts blank. To continue
