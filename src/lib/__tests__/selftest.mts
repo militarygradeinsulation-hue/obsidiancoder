@@ -116,6 +116,19 @@ ok(getTheme('clean saas')?.name === 'Clean SaaS', 'getTheme resolves case-insens
 ok(axisDiff(THEMES[0], THEMES[0]) === 0, 'axisDiff of a theme with itself is 0');
 ok(axisDiff(THEMES[0], THEMES[5]) >= 4, 'Dark Tech vs Brutalist differ broadly');
 
+/* ---------- theme director (6) ---------- */
+const { pickArchetype, fnv1a } = await import('../theme-director');
+ok(fnv1a('obsidian') === fnv1a('obsidian'), 'hash is deterministic');
+const p1 = pickArchetype('accounting dashboard for a CPA firm');
+ok(['A3', 'A7', 'A5'].includes(p1.id), 'trust vertical stays in its subject pool');
+ok(p1.directive.includes(p1.id) && p1.directive.includes('no substitutes'), 'directive names the pick and forbids substitution');
+const p2 = pickArchetype('accounting dashboard for a CPA firm');
+ok(p1.id === p2.id, 'same prompt, same recent state -> same pick');
+const p3 = pickArchetype('accounting dashboard for a CPA firm', [p1.id]);
+ok(p3.id !== p1.id, 'rotation avoids the recent pick when alternatives exist');
+const p4 = pickArchetype('accounting dashboard for a CPA firm', ['A3', 'A7', 'A5']);
+ok(['A3', 'A7', 'A5'].includes(p4.id), 'exhausted rotation falls back to the full pool');
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);

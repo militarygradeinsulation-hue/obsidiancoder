@@ -787,6 +787,15 @@ export const Route = createFileRoute("/api/generate")({
           if (!data.advisory && !contextHtml) {
             const { STYLE_LIBRARY } = await import("@/lib/style-library");
             messages.push({ role: "system", content: STYLE_LIBRARY });
+            // Deterministic archetype variety: the director makes the pick so
+            // similar prompts stop collapsing into the same look. Rotates away
+            // from recent picks. Non-fatal if it ever throws.
+            try {
+              const { archetypeDirective } = await import("@/lib/theme-director");
+              const pick = archetypeDirective(data.prompt);
+              messages.push({ role: "system", content: pick.directive });
+              timing.archetype = pick.id;
+            } catch { /* directive injection is best-effort */ }
           }
           // Design Contract injection — applies to both fresh builds and edits
           // so follow-up prompts preserve the chosen direction.
