@@ -738,6 +738,42 @@ function Index() {
   // snapshot reflects the current session immediately after sign-in/out.
   useEffect(() => { void refreshEntitlement(); }, [authUserId]);
 
+  // On sign-in: fetch cloud project list and, if the current session is
+  // blank (just opened, no html), restore the most recently saved cloud
+  // project automatically. Silent — never overwrites work the user started.
+  useEffect(() => {
+    if (!authUserId) return;
+    void cloudProjects.refresh().then(() => {
+      // Snapshot sessions at this moment. If the active session has no html
+      // yet, replace it with the most recent cloud project.
+      setSessions((all) => {
+        const active = all.find((s) => s.id === activeId);
+        if (active?.html) return all; // user has work — don't touch it
+        const top = cloudProjects.projects[0];
+        if (!top) return all;
+        // Load the full project in the background; don't block the render.
+        cloudProjects.load(top.id).then((full) => {
+          if (!full) return;
+          setSessions((curr) => curr.map((s) => s.id === activeId && !s.html
+            ? {
+                ...s,
+                title: full.projectName ?? "Cloud project",
+                html: full.html,
+                messages: [{ role: "user" as const, content: full.prompt || "" }],
+                model: (full.model as PickerModelId) ?? s.model,
+                cloudId: top.id,
+                project: typeof full.projectJson === "object" && full.projectJson
+                  ? full.projectJson as import("@/lib/project-model").Project
+                  : s.project,
+              }
+            : s));
+          setTerminal((t) => [...t, `☁ Restored: ${full.projectName ?? "Cloud project"}`]);
+        });
+        return all; // return unchanged synchronously; setState above handles the update
+      });
+    });
+  }, [authUserId]); // eslint-disable-line react-hooks/exhaustive-deps
+
 
   const [libraryBuilds, setLibraryBuilds] = useState<Array<{ id: string; title: string; created_at: string; prompt: string; share_slug: string; byte_size: number }>>([]);
   const [composerHeight, setComposerHeight] = useState<number>(() => {
@@ -2081,6 +2117,28 @@ function Index() {
                 }
               : s));
 
+            // Autosave patch result to cloud — same pattern as full generation.
+            if (authUserId) {
+              setTimeout(() => {
+                const sess = sessions.find((s) => s.id === sessionId);
+                if (!sess) return;
+                const name = sess.title && sess.title !== "Untitled"
+                  ? sess.title
+                  : (sess.messages.find((m) => m.role === "user")?.content?.slice(0, 60) || "Untitled");
+                void cloudProjects.save({
+                  cloudId: sess.cloudId,
+                  name,
+                  html: committedPatchHtml,
+                  prompt: sess.messages.find((m) => m.role === "user")?.content?.slice(0, 2000) || "",
+                  projectJson: sess.project ?? null,
+                  model: pJson.model,
+                }).then((r) => {
+                  if (r.ok && !sess.cloudId) {
+                    setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, cloudId: r.cloudId } : s));
+                  }
+                });
+              }, 800);
+            }
 
             const durationMs = performance.now() - t0;
             setTerminal((t) => [
