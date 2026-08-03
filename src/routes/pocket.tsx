@@ -40,6 +40,8 @@ import { useVoiceControl } from "@/lib/voice-control";
 import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
 import { useAuth } from "@/hooks/useSubscription";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
+import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
+
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
 import { buildArtifact } from "@/lib/publish-artifact";
