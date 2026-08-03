@@ -69,3 +69,41 @@ export function sanitizeErrorMessage(err: unknown, fallback = "Something went wr
     .trim()
     .slice(0, 240) || fallback;
 }
+
+// ---- Dual-write helpers: sessionStorage primary, localStorage backup ----
+// Used for IDE sessions so non-signed-in users don't lose work on tab close.
+// Reads always prefer sessionStorage; localStorage is the cold fallback.
+
+const LOCAL_BACKUP_PREFIX = "obs.backup.";
+const BACKUP_CAP = 3_000_000; // 3 MB — leave headroom for other localStorage use
+
+export function dualSafeSet(key: string, value: unknown): boolean {
+  const s = (() => { try { return JSON.stringify(value); } catch { return null; } })();
+  if (!s) return false;
+  // Always try sessionStorage first.
+  const sessionOk = sessionSafeSet(key, value);
+  // Mirror to localStorage as backup, within the tighter cap.
+  if (s.length <= BACKUP_CAP) {
+    try {
+      window.localStorage.setItem(LOCAL_BACKUP_PREFIX + key, s);
+    } catch { /* quota — skip backup silently */ }
+  }
+  return sessionOk;
+}
+
+export function dualSafeGet<T>(key: string): T | undefined {
+  // Prefer sessionStorage (fresh tab or hydrated from prior session).
+  const fromSession = sessionSafeGet<T>(key);
+  if (fromSession !== undefined) return fromSession;
+  // Cold start fallback: read from localStorage backup.
+  try {
+    const raw = window.localStorage.getItem(LOCAL_BACKUP_PREFIX + key);
+    if (!raw) return undefined;
+    return JSON.parse(raw) as T;
+  } catch { return undefined; }
+}
+
+export function dualSafeRemove(key: string): void {
+  try { window.sessionStorage.removeItem(key); } catch { /* ignore */ }
+  try { window.localStorage.removeItem(LOCAL_BACKUP_PREFIX + key); } catch { /* ignore */ }
+}

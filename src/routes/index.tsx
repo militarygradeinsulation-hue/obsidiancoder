@@ -83,7 +83,7 @@ import { applyPatch, preflightPatch } from "@/lib/patch-engine";
 import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
 import { repairHtml } from "@/lib/repair";
-import { safeGet, safeSet, sessionSafeGet, sessionSafeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import { safeGet, safeSet, sessionSafeGet, sessionSafeSet, dualSafeGet, dualSafeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { isAiErrorEnvelope, type AiErrorEnvelope } from "@/lib/ai-errors";
 import type { VersionMetadata, RepairAttempt } from "@/lib/version-metadata";
 import { MemoryPanel } from "@/components/panels/MemoryPanel";
@@ -1338,8 +1338,8 @@ function Index() {
   useEffect(() => {
     // Session-scoped: every new browser session starts blank. To continue
     // prior work, the user enters their library code and opens a build.
-    const parsed = sessionSafeGet<Session[]>(STORAGE_KEY);
-    const activeRaw = sessionSafeGet<string>(ACTIVE_KEY);
+    const parsed = dualSafeGet<Session[]>(STORAGE_KEY);
+    const activeRaw = dualSafeGet<string>(ACTIVE_KEY);
     if (Array.isArray(parsed) && parsed.length) {
       const normalized: Session[] = parsed.map((s) => {
         const partial = s as Partial<Session>;
@@ -1395,14 +1395,14 @@ function Index() {
     if (!hydrated) return;
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
     writeTimerRef.current = setTimeout(() => {
-      const ok = sessionSafeSet(STORAGE_KEY, sessions);
+      const ok = dualSafeSet(STORAGE_KEY, sessions);
       if (!ok) setTerminal((t) => (t[t.length - 1]?.includes("Storage quota") ? t : [...t, "! Storage quota exceeded — session not persisted"]));
     }, 250);
     return () => { if (writeTimerRef.current) clearTimeout(writeTimerRef.current); };
   }, [sessions, hydrated]);
   useEffect(() => {
     if (!hydrated) return;
-    sessionSafeSet(ACTIVE_KEY, activeId);
+    dualSafeSet(ACTIVE_KEY, activeId);
     // Parallel builds: switching tabs must NOT abort other tabs' work.
   }, [activeId, hydrated]);
 
@@ -2193,29 +2193,6 @@ function Index() {
                 }
               : s));
 
-            // Autosave patch result to cloud — same pattern as full generation.
-            if (authUserId) {
-              setTimeout(() => {
-                const sess = sessions.find((s) => s.id === sessionId);
-                if (!sess) return;
-                const name = sess.title && sess.title !== "Untitled"
-                  ? sess.title
-                  : (sess.messages.find((m) => m.role === "user")?.content?.slice(0, 60) || "Untitled");
-                void cloudProjects.save({
-                  cloudId: sess.cloudId,
-                  name,
-                  html: committedPatchHtml,
-                  prompt: sess.messages.find((m) => m.role === "user")?.content?.slice(0, 2000) || "",
-                  projectJson: sess.project ?? null,
-                  model: pJson.model,
-                }).then((r) => {
-                  if (r.ok && !sess.cloudId) {
-                    setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, cloudId: r.cloudId } : s));
-                  }
-                });
-              }, 800);
-            }
-
             const durationMs = performance.now() - t0;
             setTerminal((t) => [
               ...t,
@@ -2646,34 +2623,6 @@ function Index() {
             versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
           }
         : s));
-
-      // Autosave to cloud for signed-in users — fires after every successful
-      // generation without requiring a manual Save. Silent: no terminal noise
-      // unless it fails. Debounced via setTimeout so it doesn't race the
-      // setSessions state update.
-      if (authUserId) {
-        setTimeout(() => {
-          const sess = sessions.find((s) => s.id === sessionId);
-          const name = sess?.title && sess.title !== "Untitled"
-            ? sess.title
-            : (sess?.messages.find((m) => m.role === "user")?.content?.slice(0, 60) || "Untitled");
-          void cloudProjects.save({
-            cloudId: sess?.cloudId,
-            name,
-            html: committedFinalHtml,
-            prompt: sess?.messages.find((m) => m.role === "user")?.content?.slice(0, 2000) || "",
-            projectJson: sess?.project ?? null,
-            model: modelForServer,
-          }).then((r) => {
-            if (r.ok && !sess?.cloudId) {
-              setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, cloudId: r.cloudId } : s));
-            }
-            if (!r.ok && r.error && !r.error.includes("Not signed in")) {
-              setTerminal((t) => [...t, `⚠ Autosave failed: ${r.error}`]);
-            }
-          });
-        }, 800);
-      }
 
       // Client demo complete — only after the generated result was committed
       // to the local project. Emit once per lifecycle.
