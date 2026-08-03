@@ -4832,6 +4832,47 @@ function Index() {
             {authUserId && current.cloudId && cloudProjects.saveStatus === "idle" && (
               <span style={{ fontSize: 11, color: "#8a919b" }} title="Synced to cloud">☁</span>
             )}
+            {authUserId && current.cloudId && (
+              <button
+                type="button"
+                onClick={() => {
+                  void liveSync.toggleLive().then((r) => {
+                    if (!r) { setTerminal((t) => [...t, "⚠ Live sync toggle failed."]); return; }
+                    setTerminal((t) => [...t, r.live && r.shareSlug
+                      ? `◉ Live at ${window.location.origin}/api/public/share/${r.shareSlug}`
+                      : "◌ Live URL turned off"]);
+                  });
+                }}
+                disabled={liveSync.busy}
+                className="obs-muted"
+                style={{
+                  fontSize: 11,
+                  cursor: liveSync.busy ? "wait" : "pointer",
+                  color: liveSync.live ? "#F4A125" : undefined,
+                  background: "transparent",
+                  border: "none",
+                  padding: 0,
+                }}
+                title={liveSync.live
+                  ? "Live: this build has a public URL that always serves the latest save"
+                  : "Turn on a public live URL for this build"}
+              >
+                {liveSync.live ? "◉ Live" : "◌ Go live"}
+              </button>
+            )}
+            {liveSync.liveUrl && (
+              <a
+                href={liveSync.liveUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="obs-muted"
+                style={{ fontSize: 11 }}
+                title="Open the public live URL"
+              >
+                Open link
+              </a>
+            )}
+
             <span className="obs-muted" title="Rework ratio: user turns per saved version (specification tax)">Spec-tax {specTax}%</span>
             <span className="obs-muted">{kb} KB</span>
           </div>
