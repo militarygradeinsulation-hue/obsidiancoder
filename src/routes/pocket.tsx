@@ -61,6 +61,8 @@ import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
 import { PocketBuildOrb } from "@/components/PocketBuildOrb";
 
 import { PricingModal } from "@/components/PricingModal";
+import { UpgradeNudge, type NudgeReason } from "@/components/UpgradeNudge";
+import type { CreditsRequiredEnvelope } from "@/lib/credit-gate";
 import { POCKET_MONTHLY_BUILDS } from "@/lib/plans";
 import {
   FORGE_DEVICES,
@@ -229,6 +231,7 @@ function ForgePage() {
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [ghOpen, setGhOpen] = React.useState(false);
   const [pricingOpen, setPricingOpen] = React.useState(false);
+  const [nudge, setNudge] = React.useState<{ reason: NudgeReason; envelope?: CreditsRequiredEnvelope } | null>(null);
   const [status, setStatus] = React.useState<string>("Ready");
   // Bumped on Clear all so the sandbox iframe remounts blank even if a
   // streaming load was aborted mid-swap.
@@ -644,7 +647,16 @@ function ForgePage() {
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       if (ctype.includes("application/json")) {
         const envelope: unknown = await res.json().catch(() => null);
-        if (isCreditsRequiredEnvelope(envelope)) throw new Error(envelope.message);
+        if (isCreditsRequiredEnvelope(envelope)) {
+          if (envelope.code === "credits_required") {
+            setNudge({ reason: "daily_limit", envelope });
+          } else if (envelope.code === "free_demo_used" || envelope.code === "free_demo_unavailable") {
+            setNudge({ reason: "demo_used", envelope });
+          } else {
+            setNudge({ reason: "not_pro", envelope });
+          }
+          throw new Error(envelope.message);
+        }
         if (isAiErrorEnvelope(envelope)) throw new Error(envelope.message);
         throw new Error(`Generation failed (${res.status})`);
       }
@@ -2072,6 +2084,14 @@ function ForgePage() {
         }}
         onLog={log}
       />
+      {nudge && (
+        <UpgradeNudge
+          reason={nudge.reason}
+          envelope={nudge.envelope}
+          onUpgrade={(priceId) => { setPricingOpen(true); setNudge(null); }}
+          onDismiss={() => setNudge(null)}
+        />
+      )}
       {pricingOpen && <PricingModal onClose={() => setPricingOpen(false)} />}
       </div>
     </div>

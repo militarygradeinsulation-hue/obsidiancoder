@@ -51,6 +51,8 @@ import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId, type ModeId as ModelModeId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
 import { PricingModal } from "@/components/PricingModal";
+import { UpgradeNudge, type NudgeReason } from "@/components/UpgradeNudge";
+import type { CreditsRequiredEnvelope } from "@/lib/credit-gate";
 import { AccountModal } from "@/components/AccountModal";
 import { ThemesPanel } from "@/components/panels/ThemesPanel";
 import { DesignLibraryPanel } from "@/components/panels/DesignLibraryPanel";
@@ -698,6 +700,7 @@ function Index() {
   const [pricingOpen, setPricingOpen] = useState(false);
   const [pricingInitialPrice, setPricingInitialPrice] = useState<string | undefined>(undefined);
   const [accountOpen, setAccountOpen] = useState(false);
+  const [nudge, setNudge] = useState<{ reason: NudgeReason; envelope?: CreditsRequiredEnvelope } | null>(null);
   const { userId: authUserId, email: authEmail } = useAuth();
   const { isPro } = useSubscription();
 
@@ -712,6 +715,17 @@ function Index() {
       const ce = e as CustomEvent<{ envelope: { code: string; message: string; suggestedPriceId?: string } }>;
       const env = ce.detail?.envelope;
       if (!env) return;
+      // Targeted nudge for high-conversion moments; full modal for everything else.
+      if (env.code === "credits_required") {
+        setNudge({ reason: "daily_limit", envelope: env as CreditsRequiredEnvelope });
+        setTerminal((t) => [...t, `⚠ ${env.message}`]);
+        return;
+      }
+      if (env.code === "free_demo_used" || env.code === "free_demo_unavailable") {
+        setNudge({ reason: "demo_used", envelope: env as CreditsRequiredEnvelope });
+        setTerminal((t) => [...t, `⚠ ${env.message}`]);
+        return;
+      }
       setPricingInitialPrice(env.suggestedPriceId);
       setPricingOpen(true);
       setTerminal((t) => [...t, `⚠ ${env.message}`]);
@@ -2195,7 +2209,7 @@ function Index() {
             setDemoAvailable(false);
             setDemoLedgerUnavailable(true);
           }
-          setPricingOpen(true);
+          setNudge({ reason: "demo_used", envelope });
           throw new Error(envelope.message);
         }
         if (isAiErrorEnvelope(envelope)) {
@@ -4734,6 +4748,14 @@ function Index() {
         onImport={(html) => updateCurrent({ html })}
         onLog={(line) => setTerminal((t) => [...t, line])}
       />
+      {nudge && (
+        <UpgradeNudge
+          reason={nudge.reason}
+          envelope={nudge.envelope}
+          onUpgrade={(priceId) => { setPricingInitialPrice(priceId); setPricingOpen(true); }}
+          onDismiss={() => setNudge(null)}
+        />
+      )}
       {pricingOpen && <PricingModal onClose={() => { setPricingOpen(false); setPricingInitialPrice(undefined); }} initialPriceId={pricingInitialPrice} />}
       {demoMode && (
         <div

@@ -239,6 +239,19 @@ ok(ideSource.includes("Cloud Projects"), "library modal has Cloud Projects secti
 const pocketSource = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/routes/pocket.tsx", "utf-8"));
 ok(pocketSource.includes("cloudProjects.save"), "pocket.tsx calls cloudProjects.save");
 
+/* ---------- upgrade nudge (5) ---------- */
+const { existsSync: _ex3 } = await import("node:fs");
+ok(_ex3("/home/claude/repo/src/components/UpgradeNudge.tsx"), "UpgradeNudge component exists");
+
+const nudgeSource = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/components/UpgradeNudge.tsx", "utf-8"));
+ok(nudgeSource.includes("daily_limit") && nudgeSource.includes("demo_used") && nudgeSource.includes("not_pro"),
+  "UpgradeNudge covers all three nudge reasons");
+ok(nudgeSource.includes("You built something"), "daily_limit copy is motivational");
+ok(nudgeSource.includes("Sign up free"), "demo_used shows free sign-up path");
+
+const ideNudge = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/routes/index.tsx", "utf-8"));
+ok(ideNudge.includes("setNudge") && ideNudge.includes("UpgradeNudge"), "IDE wires UpgradeNudge");
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);
