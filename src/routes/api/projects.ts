@@ -115,6 +115,21 @@ export const Route = createFileRoute("/api/projects")({
             env,
           );
 
+          // Bump the sync revision so other signed-in devices mirror this
+          // save in realtime. Never blocks or fails the save itself.
+          if (user) {
+            try {
+              await touchProjectSync(user, {
+                projectId: savedId,
+                title: name.slice(0, MAX_NAME_CHARS),
+                surface: surface === "pocket" ? "pocket" : "coder",
+                device: typeof device === "string" ? device : undefined,
+              }, env);
+            } catch { /* sync state is best-effort */ }
+          }
+
+
+
           // Settle the credit charge (cloud_save = 1 credit minimum).
           if (entitlement && entitlement.kind !== "denied") {
             const usage = makeUsage({
