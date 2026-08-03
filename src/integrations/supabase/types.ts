@@ -371,6 +371,51 @@ export type Database = {
         }
         Relationships: []
       }
+      project_sync: {
+        Row: {
+          created_at: string
+          environment: string
+          last_device: string | null
+          live: boolean
+          memory: Json
+          project_id: string
+          revision: number
+          share_slug: string | null
+          surface: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          environment?: string
+          last_device?: string | null
+          live?: boolean
+          memory?: Json
+          project_id: string
+          revision?: number
+          share_slug?: string | null
+          surface?: string
+          title?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          environment?: string
+          last_device?: string | null
+          live?: boolean
+          memory?: Json
+          project_id?: string
+          revision?: number
+          share_slug?: string | null
+          surface?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       saved_ideas: {
         Row: {
           ideas: Json
@@ -661,6 +706,51 @@ export type Database = {
       log_owner_usage: {
         Args: { _credits: number; _operation: string; _request_id: string }
         Returns: undefined
+      }
+      project_sync_get: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: {
+          last_device: string
+          live: boolean
+          memory: Json
+          project_id: string
+          revision: number
+          share_slug: string
+          surface: string
+          title: string
+          updated_at: string
+        }[]
+      }
+      project_sync_set_live: {
+        Args: {
+          _live: boolean
+          _project_id: string
+          _slug: string
+          _user_id: string
+        }
+        Returns: {
+          live: boolean
+          share_slug: string
+        }[]
+      }
+      project_sync_set_memory: {
+        Args: { _memory: Json; _project_id: string; _user_id: string }
+        Returns: boolean
+      }
+      project_sync_touch: {
+        Args: {
+          _device: string
+          _environment: string
+          _project_id: string
+          _surface: string
+          _title: string
+          _user_id: string
+        }
+        Returns: {
+          live: boolean
+          revision: number
+          share_slug: string
+        }[]
       }
       refund_credits: { Args: { _reservation_id: string }; Returns: boolean }
       release_free_build: {
