@@ -178,7 +178,8 @@ function ForgePage() {
   const paid = isPaidMode(snap.mode);
   const { userId: authUserId } = useAuth();
   const [cloudProjectId, setCloudProjectId] = React.useState<string | undefined>(undefined);
-  const cloudProjects = useCloudProjects({ isAuthenticated: !!authUserId });
+  const cloudProjects = useCloudProjects({ isAuthenticated: !!authUserId, surface: "pocket" });
+
 
   const [project, setProject] = React.useState<Project>(() => projectFromHtml(EMPTY_DOC));
   const [activeFileId, setActiveFileId] = React.useState<string>(() => "");
