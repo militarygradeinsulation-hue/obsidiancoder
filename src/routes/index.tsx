@@ -707,6 +707,32 @@ function Index() {
   // Cloud project storage — save/load/list for signed-in users.
   const cloudProjects = useCloudProjects({ isAuthenticated: !!authUserId });
 
+  // Live sync — mirrors this build across every signed-in device and owns
+  // the per-build project memory + public live URL.
+  const currentCloudId = sessions.find((s) => s.id === activeId)?.cloudId;
+  const liveSync = useLiveSync({
+    cloudId: currentCloudId,
+    isAuthenticated: !!authUserId,
+    onRemoteRevision: (u) => {
+      if (!currentCloudId) return;
+      void cloudProjects.load(currentCloudId).then((full) => {
+        if (!full) return;
+        setSessions((all) => all.map((s) => s.id === activeId
+          ? {
+              ...s,
+              title: full.projectName ?? s.title,
+              html: full.html,
+              project: typeof full.projectJson === "object" && full.projectJson
+                ? (full.projectJson as import("@/lib/project-model").Project)
+                : s.project,
+            }
+          : s));
+        setTerminal((t) => [...t, `☁ Live sync: pulled r${u.revision} from ${u.device ?? "another device"}`]);
+      });
+    },
+  });
+
+
   // Global paywall handler — authFetch dispatches obs:paywall on 401/402
   // from any gated route. Open PricingModal and surface a terminal note
   // without losing the user's in-flight work.
