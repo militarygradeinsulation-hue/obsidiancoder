@@ -1,81 +1,83 @@
-# Staged Architecture Rollout
+# Shared Live Builds — cloud memory + collaborative live URL
 
-This is a large, multi-phase change. To keep it safe (Stripe/pricing/plans/free-demo/webhooks untouched) and reviewable, I'll ship it in **five sequential turns**, each independently verifiable, rather than one giant commit. Each phase ends with `tsgo`, focused self-tests, `bun run build`, and a diff report vs `d14d9c7`.
+Add a top-bar button in both Obsidian Vibe (the normal coder) and Obsidian Pocket that turns the
+open build into a **shared live build**: it gets a public URL, its memory and content live in the
+cloud, and anyone who has the URL *plus* the build's login code can view and change it. Every change
+syncs to everyone viewing, anywhere, in real time. Last save wins.
 
-You approve this plan → I execute Phase 0 in the next turn and stop for your review before Phase 1. Same rhythm through Phase 4.
+## What Joseph sees
 
-## Payment/pricing lockdown (all phases)
-Do not touch: `src/lib/stripe*`, `src/lib/plans.ts`, `src/routes/checkout*`, `src/routes/api/public/payments/*`, `src/hooks/useSubscription.ts`, `src/hooks/useEntitlement.ts`, `src/lib/credit-gate*`, `src/lib/free-demo*`, `src/routes/api/public/free-demo*`, `src/routes/api/public/entitlement.ts`, `src/utils/payments.functions.ts`, `.env*`. Read-only type imports only if unavoidable.
+1. In the top bar of both surfaces, next to the existing "Go live" control, a new
+   **"Share build"** button (shows **"Shared"** with a dot once active).
+2. Clicking it opens a small panel with:
+   - the public URL (copy button),
+   - the **edit code** for that build (auto-generated 6 digits, editable, defaults to `9822`),
+   - a toggle for **"Visitors can edit"** (on by default),
+   - "Stop sharing", which kills the URL immediately.
+3. While shared, the button shows a live count-free indicator plus "last edited on <device>", and
+   any change made by a visitor lands in Joseph's canvas automatically (existing realtime path).
 
----
+## What a visitor sees
 
-## Phase 0 — Cold-build baseline (measurement only, no behavior change)
-Deliverables:
-- `src/lib/baseline/harness.ts` — invokes existing `/api/generate` path in-process against the three prompts (B2B analytics, editorial hospitality, playful edu) using dev harness; no ledger writes (bypass via test flag on server route guarded by `NODE_ENV !== "production"`).
-- `src/lib/baseline/fixtures/*.json` + `baseline-report.md` — records: model, strategy, section pattern, tokens present, every button/link/form + working?, external/dead-target violations, latency, cost meta. Uses existing `knowledge-graph`, `validation`, and a new lightweight interaction extractor.
-- If provider can't be safely called in sandbox: use the three most recent representative fixtures already committed (or stubbed provider replaying last generation) and state the limitation in the report.
-- Screenshots via existing Playwright script under `/tmp/browser/` only.
+Opening the URL loads a full page (not the raw sandbox file) with the build rendered plus a slim
+bottom bar:
 
-No src route/UI changes. Purely additive files.
+- **View mode** by default — the build just works.
+- **"Unlock editing"** asks for the build's code. Correct code stores an editor token for that
+  browser and reveals a prompt box.
+- With editing unlocked, a visitor can type a change request ("make the header green", "add a
+  contact form") and the build regenerates, saves to the cloud, and pushes to every other open
+  viewer within a second or two.
+- Concurrent edits: last save wins; other viewers get a quiet "updated by someone else" toast and
+  the new version.
 
----
+## Technical section
 
-## Phase 1 — Real ThemeBlueprint bundles
-Deliverables:
-- `src/lib/themes/blueprint.ts` — `ThemeBlueprint` type covering all nine axes (fonts, ratio, spacing, radius, edges, elevation, layout archetype, color strategy, motion) plus button/card/input/nav/table/badge/background/imagery treatments.
-- `src/lib/themes/builtins.ts` — 10 built-ins: Swiss Editorial, Neo-Brutalist, Terminal, Soft Consumer, Dense Ops, Luxe Dark, Clean SaaS, Playful Clay, Neon Circuit, Brutalist Signal.
-- `src/lib/themes/signature.ts` + tests — deterministic signature vector; test fails if any two built-ins differ only by color or match on ≥8 axes.
-- `src/lib/themes/apply.ts` — deterministic HTML rewriter: single `<style data-obs-theme>` layer, replaces on re-apply, resets cleanly. Rewrites body/headings/nav/section/button/card/input/form/dialog/table/badge + remaps dominant colors + injects density/radius/edge/elevation/motion + layout hints. Not just CSS vars.
-- `src/lib/themes/normalize-21st.ts` — normalizes 21st.dev hits to `ThemeBlueprint`; when only colors are provided, assigns a deterministic structural bundle by hashing identifier/name so remote themes don't collapse.
-- `ThemesPanel.tsx` updates: Built-ins tab first, then 21st.dev search; each preview renders a mini sample UI (type + nav + button + card + input); "Surprise me" picks a blueprint with maximum signature distance from current; 9-axis compact summary chips.
-- Persist selected blueprint id in existing per-session/project store; inject into generation/edit context so subsequent generation respects it.
-- Playwright thumbnail test: renders one fixture at 200px under all built-ins, saves PNGs, asserts signature-vector uniqueness. Honest note if pixel-diff not feasible in sandbox.
+**Database (one migration)**
+- Add to `public.project_sync`: `share_editable boolean not null default false`,
+  `edit_code_hash text`, `edit_code_set_at timestamptz`, `shared_at timestamptz`.
+- New RPCs (security definer, service_role only, matching the existing `project_sync_*` style):
+  - `project_sync_set_share(_user_id, _project_id, _live, _editable, _code_hash, _slug)` — owner-side.
+  - `project_share_lookup(_slug)` — returns `project_id`, `user_id`, `editable`, `edit_code_hash`,
+    `revision` for a slug, with no owner check (used by the public route only).
+  - `project_share_apply(_project_id, _html, _device)` — writes new HTML to `builds`, bumps
+    `project_sync.revision`, records `last_device`. No RLS exposure; called only after code check.
+- No new client-readable grants: all public access goes through server routes with `supabaseAdmin`.
 
-Only `ThemesPanel.tsx` and generation context wiring change in existing files.
+**Server**
+- `src/lib/project-sync.server.ts`: add `setProjectShare`, `lookupShare`, `applyShareEdit`.
+  Code hashing with SHA-256 + per-project salt (Web Crypto, already used elsewhere).
+- `src/routes/api/sync.ts`: extend `PUT` to accept `{ editable, editCode }` alongside `live`.
+- New `src/routes/api/public/share-edit.$slug.ts`:
+  - `POST { code }` → verifies code, returns a short-lived signed editor token (HMAC with
+    `SESSION_SECRET`, 12h) — never returns the code or hash.
+  - `PUT { token, prompt }` → verifies token, rate-limits (per token, e.g. 10 edits / 10 min),
+    runs the existing generate/patch pipeline against the current HTML, saves via
+    `project_share_apply`. Cost is metered against the **owner's** ledger with the existing
+    `requirePaidOperation` path so anonymous edits can't run unbounded; when the owner is a
+    full-access code (9822) it's unmetered like today.
+- Existing `src/routes/api/public/share.$slug.ts` stays as the raw-HTML endpoint the iframe loads.
 
----
+**Client**
+- New public route `src/routes/live.$slug.tsx` — renders the build in a sandboxed iframe pointed at
+  `/api/public/share/<slug>` plus the unlock/prompt bar. Subscribes to Supabase Realtime for the
+  slug's `project_sync` row and reloads the frame on a revision bump. Public route, SSR on, with
+  `head()` metadata.
+- `src/lib/project-sync.ts` + `src/hooks/useLiveSync.ts`: add `setShare(...)` and expose
+  `editable`, `sharedAt`.
+- New `src/components/ShareBuildButton.tsx` (the top-bar button + panel), mounted in
+  `src/routes/index.tsx` and `src/routes/pocket.tsx` next to the current live toggle. Visible when
+  signed in with a saved cloud project; full controls gated behind `isFullAccessCode`.
 
-## Phase 2 — InteractionManifest + deterministic linter
-Deliverables:
-- `src/lib/interaction/manifest.ts` — `InteractionManifest` type: sections, views/tabs, modals/drawers/menus, accordions/carousels/details, form/state/calculator actions, CTA→target map.
-- `src/lib/interaction/graph.ts` — parses generated single-file HTML: ids, hrefs, buttons + accessible names, forms/actions/methods, aria-controls/expanded, inline handlers, addEventListener targets (best-effort static), `window.open`, `location.*`, modal/tab/accordion relationships.
-- `src/lib/interaction/linter.ts` — blocking violation types listed in your spec; allowed-behavior whitelist enforced.
-- `src/lib/interaction/repair.ts` — deterministic patch pass using manifest + violations only. Max 3 loops. After loop 3, disable remaining offenders (`disabled` / `aria-disabled="true"`, remove href/onclick, keep visible label). If any external-nav or structural blocker remains → reject candidate, keep previous stable HTML.
-- Wire into `src/lib/commit-gate.ts` behind `source === "full-generation" | "ai-patch"`.
-- Generation prompt language updated to reference the manifest; linter is authoritative.
-- Tests in `src/lib/self-test.ts` for all cases you listed (valid, external, `_blank`, `window.open`, `location.href`, mailto/tel, `href="#"`, missing id, dup ids, dead button, broken aria-controls, external/unhandled form, undeclared manifest target, disable fallback, previous-HTML retention).
-- Runtime smoke: Playwright loads a fixture, clicks every interactive control, asserts no navigation/network egress and a visible internal state change or valid same-doc target.
+**Verification**
+- Extend `src/lib/__tests__/selftest.mts` with cases for code hashing/verification, token
+  expiry, rate-limit counting, and share-state transitions.
+- Browser check: share a build, open the live URL in a second session, unlock with the code, submit
+  an edit, confirm both the visitor page and the owner canvas update.
 
----
+## Notes
 
-## Phase 3 — CreativeBrief layer
-Deliverables:
-- `src/lib/creative/brief.ts` — `CreativeBrief` type per your spec (blueprint, thesis, signature element, layout strategy, typography, interaction concept, imagery, 3 differentiators, anti-patterns).
-- Levels: `controlled | creative | bold` (creative = default fresh full builds). Persist per project via existing store.
-- Small selector added inside existing `DesignLibraryPanel` or `RulesPanel` — no shell redesign.
-- Fresh-generation prompt injects the brief; explicitly bans "centered hero + 2 buttons + logo strip + 3 equal cards + CTA" unless brief asks for it. Small edits force `controlled`.
-- Bold never bypasses linter, a11y, security, or manifest.
-
----
-
-## Phase 4 — Feature-flagged L0–L6 pipeline (scaffold + canary)
-Deliverables:
-- `src/lib/pipeline/layers/{classify,architect,design,implement,validate,repair,critique}.ts` — typed schemas (zod), each with its own retry-on-malformed-JSON and role-based model selection via existing `model-router` + fallback chain. No unknown model ids.
-- `src/lib/pipeline/contract.ts` — deterministic L1+L2 → `GenerationContract` reconciler.
-- `src/lib/pipeline/orchestrator.ts` — runs L0–L6; skips heavy layers on deterministic edits / small patches; per-layer latency/model/token/cost telemetry; hard cap on repair loops (3).
-- Feature flag `OBS_LAYERED_PIPELINE` (env + per-request header for canary). Default **OFF**. Legacy path unchanged when off.
-- `src/lib/pipeline/cost-estimate.ts` — reports estimated calls/credits per build type for legacy vs layered.
-- Surface per-layer progress in existing `ExecutionGraphPanel` / `IntelligencePanel` only (no shell changes).
-
----
-
-## Verification (every phase)
-- `bunx tsgo --noEmit`
-- Prettier/ESLint on changed files only
-- Focused new self-tests + full `bun run self-tests`
-- `bun run build`
-- Diff report vs `d14d9c7` proving no payment/pricing/plan/subscription/webhook/free-demo files changed
-- After Phase 4: re-run Phase 0 baseline; publish before/after diversity + interaction-defect comparison and latency/cost delta
-
-## What I need from you
-Reply "go" to start **Phase 0**. I'll stop after each phase for review before continuing. If you want a different order or want to skip Phase 0 (baseline) and jump to Phase 1 (real theme bundles — the most user-visible fix), say so.
+- The public URL is unguessable (14-char slug) and read-only until the code is entered, so a leaked
+  link alone can't change a build.
+- AI cost for visitor edits is charged to the build owner — worth knowing before handing the code out
+  widely. The rate limit caps the damage.
