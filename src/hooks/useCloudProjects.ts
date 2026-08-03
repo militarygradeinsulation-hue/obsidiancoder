@@ -12,6 +12,8 @@ import {
   type CloudProjectMeta,
   type CloudProjectFull,
 } from "@/lib/cloud-projects";
+import { thisDeviceId } from "@/hooks/useLiveSync";
+
 
 export type { CloudProjectMeta, CloudProjectFull };
 
