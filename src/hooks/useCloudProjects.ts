@@ -90,7 +90,7 @@ export function useCloudProjects({ isAuthenticated, surface = "coder" }: UseClou
     if (saveTimer.current) clearTimeout(saveTimer.current);
     saveTimer.current = setTimeout(() => setSaveStatus("idle"), 4000);
     return { ok: false, cloudId, error: result.error };
-  }, [isAuthenticated, refresh]);
+  }, [isAuthenticated, refresh, surface]);
 
   /** Load a full project by id. */
   const load = useCallback(async (id: string): Promise<CloudProjectFull | null> => {
