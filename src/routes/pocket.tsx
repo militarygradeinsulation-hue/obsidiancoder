@@ -106,6 +106,8 @@ import {
   readServedModel,
 } from "@/lib/pocket-hardening";
 import { parseCritique, dnaPromptBlock } from "@/lib/pocket-prompt";
+import { newPocketMemory, updateMemoryFromPrompt, hasMemory, memorySummary } from "@/lib/pocket-memory";
+import type { ProjectMemory } from "@/lib/project-memory";
 import { patchSchema } from "@/lib/patch-protocol";
 import { applyPatch } from "@/lib/patch-engine";
 
@@ -268,6 +270,8 @@ function ForgePage() {
 
   const [library, setLibrary] = React.useState<LibraryBuild[]>([]);
   const [demoLive, setDemoLive] = React.useState<{ id: string; slug: string } | null>(null);
+  // Pocket session memory: auto-extracted from prompts, sent with every build
+  const [pocketMemory, setPocketMemory] = React.useState<ProjectMemory>(() => newPocketMemory());
   /** Set once this build has been shared into the public community library. */
   const [inCommunity, setInCommunity] = React.useState<{ id: string; slug: string } | null>(null);
 
@@ -534,6 +538,12 @@ function ForgePage() {
     abortRef.current = controller;
     const previous = html;
     const isRefine = mode === "refine";
+    // Auto-extract project facts from this prompt and merge into session memory.
+    // Only fills blank fields; never overwrites anything the user or a prior
+    // extraction already set.
+    if (!isRefine) {
+      setPocketMemory((prev) => updateMemoryFromPrompt(prev, p));
+    }
     let providerCalls = 0;
     let critiqueRan = false;
     try {
@@ -610,6 +620,7 @@ function ForgePage() {
           pickerModel: hasRawPinnedModel ? model : pickerModel,
           advisory: false,
           surface: "pocket",
+          projectMemory: pocketMemory,
           pocketProfile: profile,
           pocketStyleFamily: styleFamily,
           pocketDesignDNA: buildDna,

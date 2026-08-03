@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { memoryToPrompt, isEmpty as isMemoryEmpty } from "@/lib/project-memory";
 import { z } from "zod";
 import { resolveModel, isFastTier, DEFAULT_MODEL, isRouteLLMModel, stripRouteLLMPrefix } from "@/lib/models";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
@@ -100,6 +101,28 @@ const inputSchema = z.object({
       list ? list.map(normalizeRecentSignatureInput).filter(Boolean) : undefined,
     ),
   pocketCritiqueContext: z.string().max(4000).optional(),
+  // Per-build project memory (purpose, audience, brand, constraints, etc.)
+  // Sent from both the main IDE and Pocket. Injected as a system message so
+  // every generation is aware of the user's running project context.
+  projectMemory: z
+    .object({
+      purpose: z.string().max(400).optional().default(""),
+      audience: z.string().max(400).optional().default(""),
+      design: z.string().max(400).optional().default(""),
+      constraints: z.string().max(400).optional().default(""),
+      doNotChange: z.string().max(400).optional().default(""),
+      brandColors: z.string().max(200).optional().default(""),
+      fonts: z.string().max(200).optional().default(""),
+      layout: z.string().max(200).optional().default(""),
+      framework: z.string().max(200).optional().default(""),
+      dependencies: z.string().max(200).optional().default(""),
+      protectedElements: z.string().max(400).optional().default(""),
+      deploymentTarget: z.string().max(200).optional().default(""),
+      knownWarnings: z.string().max(400).optional().default(""),
+      workingFeatures: z.string().max(400).optional().default(""),
+      locked: z.record(z.boolean()).optional().default({}),
+    })
+    .optional(),
 });
 
 /**
@@ -782,6 +805,21 @@ export const Route = createFileRoute("/api/generate")({
             },
             ...data.history,
           ];
+          // Project memory — injected on every build and edit (advisory excluded).
+          // Carries the user's running brief: purpose, audience, brand, constraints.
+          if (!data.advisory && data.projectMemory && !isMemoryEmpty(data.projectMemory)) {
+            const memBlock = memoryToPrompt(data.projectMemory);
+            if (memBlock.trim()) {
+              messages.push({
+                role: "system",
+                content: `PROJECT MEMORY — non-negotiable standing brief for this build. Every response must honour these constraints:
+
+${memBlock}`,
+              });
+              timing.memory_keys = Object.values(data.projectMemory).filter((v) => typeof v === "string" && v.trim()).length;
+            }
+          }
+
           // Inject the style archetype library only for FRESH builds (no
           // existing HTML). On edits we preserve the archetype already chosen.
           if (!data.advisory && !contextHtml) {

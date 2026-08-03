@@ -2118,6 +2118,7 @@ function Index() {
           advisory: !previewMode,
           designContract: loadDesignContract(current.id),
           themeBlueprintId: current.themeBlueprintId,
+          projectMemory: current.memory,
         }),
 
         signal: controller.signal,

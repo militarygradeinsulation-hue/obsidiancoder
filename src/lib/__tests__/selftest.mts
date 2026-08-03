@@ -129,6 +129,26 @@ ok(p3.id !== p1.id, 'rotation avoids the recent pick when alternatives exist');
 const p4 = pickArchetype('accounting dashboard for a CPA firm', ['A3', 'A7', 'A5']);
 ok(['A3', 'A7', 'A5'].includes(p4.id), 'exhausted rotation falls back to the full pool');
 
+/* ---------- pocket memory extractor (8) ---------- */
+const { extractMemoryFromPrompt, updateMemoryFromPrompt, hasMemory, memorySummary } = await import("../pocket-memory");
+const em = extractMemoryFromPrompt("build a landing page for a law firm that uses dark navy and gold, keep the logo as-is");
+ok(em.brandColors?.includes("navy") || em.brandColors?.includes("gold"), "extracts brand colors");
+ok(em.doNotChange?.includes("logo"), "extracts do-not-change");
+const em2 = extractMemoryFromPrompt("");
+ok(Object.keys(em2).length === 0, "empty prompt yields empty extraction");
+const { EMPTY_MEMORY } = await import("../project-memory");
+const base = { ...EMPTY_MEMORY, purpose: "SaaS app", brandColors: "#2563EB" };
+const merged = updateMemoryFromPrompt(base, "accounting dashboard with green accents");
+ok(merged.purpose === "SaaS app", "updateMemoryFromPrompt does not overwrite existing purpose");
+ok(merged.brandColors === "#2563EB", "updateMemoryFromPrompt does not overwrite existing colors");
+const empty = { ...EMPTY_MEMORY };
+const filled = updateMemoryFromPrompt(empty, "build a portfolio site for a freelance designer");
+ok((filled.purpose || filled.audience || filled.design || "").length > 0, "fills empty memory from prompt");
+ok(!hasMemory({ ...EMPTY_MEMORY }), "hasMemory false on empty");
+ok(hasMemory({ ...EMPTY_MEMORY, purpose: "law firm site" }), "hasMemory true when purpose set");
+const summary = memorySummary({ ...EMPTY_MEMORY, purpose: "Accounting platform", audience: "small businesses" });
+ok(summary.includes("Accounting") && summary.includes("small businesses"), "memorySummary includes purpose and audience");
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);
