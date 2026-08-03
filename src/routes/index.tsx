@@ -58,6 +58,7 @@ import { loadContract as loadDesignContract } from "@/lib/design-library";
 import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
 import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
+import { useCloudProjects } from "@/hooks/useCloudProjects";
 import { requirePaidAction } from "@/lib/action-guard";
 import { authFetch } from "@/lib/auth-fetch";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
@@ -236,7 +237,8 @@ type Session = {
   qaStatus?: QaSessionStatus | null;
   /** Per-build "Discuss this build" conversation. Browser/session-local. */
   discussion?: BuildDiscussionState;
-
+  /** Stable cloud project id — set on first cloud save, reused on all subsequent saves. */
+  cloudId?: string;
 };
 
 const WORKSPACE_NAV = [
@@ -699,6 +701,9 @@ function Index() {
   const { userId: authUserId, email: authEmail } = useAuth();
   const { isPro } = useSubscription();
 
+  // Cloud project storage — save/load/list for signed-in users.
+  const cloudProjects = useCloudProjects({ isAuthenticated: !!authUserId });
+
   // Global paywall handler — authFetch dispatches obs:paywall on 401/402
   // from any gated route. Open PricingModal and surface a terminal note
   // without losing the user's in-flight work.
@@ -1061,13 +1066,14 @@ function Index() {
       : (current.messages.find((m) => m.role === "user")?.content?.slice(0, 60) || "Untitled");
     const title = window.prompt("Save project as:", suggested);
     if (!title) return;
-    setTerminal((t) => [...t, `→ Saving "${title}" to library…`]);
+    setTerminal((t) => [...t, `→ Saving "${title}"…`]);
     try {
       let clientId = localStorage.getItem("obs.client_id");
       if (!clientId) {
         clientId = (globalThis.crypto?.randomUUID?.() ?? String(Date.now() + Math.random()));
         localStorage.setItem("obs.client_id", clientId);
       }
+      // 1. Public library save (account-code scoped, existing behaviour)
       const res = await authFetch("/api/public/builds", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1085,6 +1091,29 @@ function Index() {
       updateCurrent({ title });
       setTerminal((t) => [...t, `✓ Saved "${title}" to library (${code})`]);
       refreshLibrary();
+
+      // 2. Cloud save — signed-in users only; runs in background so it never
+      //    blocks or errors the primary save flow.
+      if (authUserId) {
+        void cloudProjects.save({
+          cloudId: current.cloudId,
+          name: title,
+          html: current.html,
+          prompt: current.messages.find((m) => m.role === "user")?.content?.slice(0, 2000) || "",
+          projectJson: current.project ?? null,
+          model: current.model,
+        }).then((r) => {
+          if (r.ok && !current.cloudId) {
+            // Persist the new cloud id so future saves update the same row.
+            updateCurrent({ cloudId: r.cloudId } as Partial<Session>);
+          }
+          if (!r.ok) {
+            setTerminal((t) => [...t, `⚠ Cloud sync failed: ${r.error ?? "unknown"}`]);
+          } else {
+            setTerminal((t) => [...t, `☁ Synced to cloud`]);
+          }
+        });
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "save failed";
       setTerminal((t) => [...t, `✗ Save failed: ${msg}`]);
@@ -3290,7 +3319,7 @@ function Index() {
             <button
               type="button"
               className="obs-chip"
-              onClick={() => { setLibraryOpen(true); refreshLibrary(); }}
+              onClick={() => { setLibraryOpen(true); refreshLibrary(); void cloudProjects.refresh(); }}
               title="Open your personal library — only builds saved under your code appear"
             >
               <FolderOpen className="h-3.5 w-3.5" /> My Library
@@ -4905,6 +4934,66 @@ function Index() {
                   );
                 })}
               </ul>
+            )}
+
+            {/* ---- Cloud Projects (signed-in users) ---- */}
+            {authUserId && (
+              <div style={{ marginTop: 24, borderTop: "1px solid #22262d", paddingTop: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                  <h3 style={{ fontFamily: "Fraunces, Georgia, serif", color: "#F4A125", margin: 0, fontSize: 16 }}>☁ Cloud Projects</h3>
+                  <button type="button" onClick={() => cloudProjects.refresh()} style={{ background: "transparent", color: "#8a919b", border: "1px solid #22262d", borderRadius: 6, padding: "3px 8px", cursor: "pointer", fontSize: 11 }}>
+                    {cloudProjects.loading ? "Loading…" : "Refresh"}
+                  </button>
+                </div>
+                {cloudProjects.projects.length === 0 ? (
+                  <p style={{ color: "#8a919b", fontSize: 12 }}>
+                    {cloudProjects.loading ? "Loading your cloud projects…" : "No cloud projects yet. Save a project to sync it here."}
+                  </p>
+                ) : (
+                  <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 6 }}>
+                    {cloudProjects.projects.map((p) => (
+                      <li key={p.id} style={{ border: "1px solid #22262d", borderRadius: 8, padding: "10px 12px", background: "#0f1216", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <div style={{ minWidth: 0 }}>
+                          <div style={{ color: "#f2eee7", fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.projectName ?? "Untitled"}</div>
+                          <div style={{ color: "#8a919b", fontSize: 11, marginTop: 2 }}>{new Date(p.updatedAt).toLocaleString()} · {(p.byteSize / 1024).toFixed(1)} KB</div>
+                          {p.prompt && <div style={{ color: "#B6BCC8", fontSize: 11, marginTop: 2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.prompt.slice(0, 80)}</div>}
+                        </div>
+                        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+                          <button
+                            type="button"
+                            onClick={async () => {
+                              const full = await cloudProjects.load(p.id);
+                              if (!full) { setTerminal((t) => [...t, "✗ Cloud project not found."]); return; }
+                              const s: Session = {
+                                ...newSession(),
+                                title: full.projectName ?? "Cloud project",
+                                html: full.html,
+                                messages: [{ role: "user" as const, content: full.prompt || "" }],
+                                model: (full.model as PickerModelId) ?? "fast",
+                                cloudId: p.id,
+                                project: typeof full.projectJson === "object" && full.projectJson ? full.projectJson as import("@/lib/project-model").Project : undefined,
+                              };
+                              setSessions((all) => [...all, s]);
+                              setActiveId(s.id);
+                              setInput("");
+                              setError(null);
+                              setTab("preview");
+                              setLibraryOpen(false);
+                              setTerminal((t) => [...t, `✓ Opened cloud project: ${s.title}`]);
+                            }}
+                            style={{ background: "#F4A125", color: "#111317", border: 0, borderRadius: 6, padding: "4px 10px", cursor: "pointer", fontSize: 11, fontWeight: 600 }}
+                          >Open</button>
+                          <button
+                            type="button"
+                            onClick={async () => { if (window.confirm(`Delete "${p.projectName ?? "Untitled"}"?`)) await cloudProjects.remove(p.id); }}
+                            style={{ background: "transparent", color: "#ef4444", border: "1px solid #ef4444", borderRadius: 6, padding: "4px 8px", cursor: "pointer", fontSize: 11 }}
+                          >Delete</button>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
             )}
           </div>
         </div>

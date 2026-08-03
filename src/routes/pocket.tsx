@@ -38,6 +38,8 @@ import {
 import { authFetch } from "@/lib/auth-fetch";
 import { useVoiceControl } from "@/lib/voice-control";
 import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
+import { useAuth } from "@/hooks/useSubscription";
+import { useCloudProjects } from "@/hooks/useCloudProjects";
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
 import { buildArtifact } from "@/lib/publish-artifact";
@@ -172,6 +174,9 @@ function ForgePage() {
   const navigate = useNavigate();
   const { snap } = useEntitlement();
   const paid = isPaidMode(snap.mode);
+  const { userId: authUserId } = useAuth();
+  const [cloudProjectId, setCloudProjectId] = React.useState<string | undefined>(undefined);
+  const cloudProjects = useCloudProjects({ isAuthenticated: !!authUserId });
 
   const [project, setProject] = React.useState<Project>(() => projectFromHtml(EMPTY_DOC));
   const [activeFileId, setActiveFileId] = React.useState<string>(() => "");
@@ -886,13 +891,28 @@ function ForgePage() {
       setStatus("Saved to your library");
       log(`Saved build ${j.id}`);
       void loadLibrary(libraryCode);
+
+      // Cloud save — runs in background for signed-in users.
+      if (authUserId) {
+        void cloudProjects.save({
+          cloudId: cloudProjectId,
+          name: title || "Pocket build",
+          html,
+          prompt,
+          model,
+        }).then((r) => {
+          if (r.ok && !cloudProjectId) setCloudProjectId(r.cloudId);
+          if (!r.ok) log(`Cloud sync failed: ${r.error ?? "unknown"}`);
+          else log("Synced to cloud");
+        });
+      }
     } catch (err) {
       setError(sanitizeErrorMessage(err, "Save failed."));
       setStatus("Save failed");
     } finally {
       setBusy(null);
     }
-  }, [busy, html, title, prompt, model, libraryCode, loadLibrary, log, paidAccess, requireAccount]);
+  }, [busy, html, title, prompt, model, libraryCode, loadLibrary, log, paidAccess, requireAccount, authUserId, cloudProjects, cloudProjectId]);
 
   // ---- Deploy (existing outbound QA gate → save → share URL) --------------
   const deploy = React.useCallback(async () => {

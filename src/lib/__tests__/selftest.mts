@@ -224,6 +224,21 @@ ok(existsSync("/home/claude/repo/supabase/migrations/20260803_cloud_projects.sql
 const { KNOWN_OPERATIONS } = await import("../credit-gate");
 ok(KNOWN_OPERATIONS.includes("cloud_save"), "cloud_save is a metered operation");
 
+/* ---------- cloud UI wiring (5) ---------- */
+// Structural checks — confirm hook file and patches exist.
+const { existsSync: _ex2 } = await import("node:fs");
+ok(_ex2("/home/claude/repo/src/hooks/useCloudProjects.ts"), "useCloudProjects hook file exists");
+
+// index.tsx has cloudId in Session type
+const ideSource = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/routes/index.tsx", "utf-8"));
+ok(ideSource.includes("cloudId?: string"), "Session type has cloudId field");
+ok(ideSource.includes("useCloudProjects"), "index.tsx imports and calls useCloudProjects");
+ok(ideSource.includes("Cloud Projects"), "library modal has Cloud Projects section");
+
+// pocket.tsx has cloud save wired
+const pocketSource = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/routes/pocket.tsx", "utf-8"));
+ok(pocketSource.includes("cloudProjects.save"), "pocket.tsx calls cloudProjects.save");
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);
