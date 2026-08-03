@@ -440,6 +440,42 @@ function ForgePage() {
     void loadLibrary(libraryCode);
   }, [libraryCode, loadLibrary]);
 
+  // Live sync — mirrors this Pocket build across devices and owns its
+  // optional public live URL.
+  const liveSync = useLiveSync({
+    cloudId: cloudProjectId,
+    isAuthenticated: !!authUserId,
+    onRemoteRevision: (u) => {
+      if (!cloudProjectId) return;
+      void cloudProjects.load(cloudProjectId).then((full) => {
+        if (!full) return;
+        setProject(projectFromHtml(full.html));
+        if (full.projectName) setTitle(full.projectName);
+        log(`☁ Live sync: pulled r${u.revision} from ${u.device ?? "another device"}`);
+      });
+    },
+  });
+
+  // Autosave a few seconds after the last change so other devices catch up.
+  useAutosave(
+    `${cloudProjectId ?? ""}:${html.length}:${title}`,
+    () => {
+      if (!authUserId || html === EMPTY_DOC || html.length < 40) return;
+      void cloudProjects.save({
+        cloudId: cloudProjectId,
+        name: title || "Pocket build",
+        html,
+        prompt: prompt.slice(0, 2000),
+        projectJson: project,
+        model: undefined,
+      }).then((r) => {
+        if (r.ok && !cloudProjectId) setCloudProjectId(r.cloudId);
+      });
+    },
+    { enabled: !!authUserId, delayMs: 5000 },
+  );
+
+
   // On sign-in: if the canvas is blank, restore the most recent cloud project.
   React.useEffect(() => {
     if (!authUserId) return;
