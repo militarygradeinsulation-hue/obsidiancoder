@@ -1347,7 +1347,10 @@ function ForgePage() {
               aria-live="polite"
               className="hidden max-w-[220px] truncate text-xs text-[#B6BCC8] sm:inline"
             >
-              {status}
+              {cloudProjects.saveStatus === "saving" ? "☁ Saving…"
+               : cloudProjects.saveStatus === "saved" ? "☁ Saved"
+               : cloudProjects.saveStatus === "error" ? "☁ Save failed"
+               : status}
             </span>
             <button
               type="button"

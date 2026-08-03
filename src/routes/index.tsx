@@ -4738,6 +4738,24 @@ function Index() {
             ) : (
               <span className="obs-muted">No build yet</span>
             )}
+            {authUserId && cloudProjects.saveStatus !== "idle" && (
+              <span
+                style={{
+                  fontSize: 11,
+                  color: cloudProjects.saveStatus === "saved" ? "#4ade80"
+                       : cloudProjects.saveStatus === "error" ? "#ef4444"
+                       : "#F4A125",
+                  display: "inline-flex", alignItems: "center", gap: 3,
+                }}
+              >
+                {cloudProjects.saveStatus === "saving" ? "☁ Saving…"
+                 : cloudProjects.saveStatus === "saved" ? "☁ Saved"
+                 : "☁ Save failed"}
+              </span>
+            )}
+            {authUserId && current.cloudId && cloudProjects.saveStatus === "idle" && (
+              <span style={{ fontSize: 11, color: "#8a919b" }} title="Synced to cloud">☁</span>
+            )}
             <span className="obs-muted" title="Rework ratio: user turns per saved version (specification tax)">Spec-tax {specTax}%</span>
             <span className="obs-muted">{kb} KB</span>
           </div>
