@@ -49,6 +49,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiPublicTeamSlugRouteImport } from './routes/api/public/team.$slug'
 import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/share.$slug'
 import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public/saved-ideas.$code'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
@@ -264,6 +265,11 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTeamSlugRoute = ApiPublicTeamSlugRouteImport.update({
+  id: '/api/public/team/$slug',
+  path: '/api/public/team/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicShareSlugRoute = ApiPublicShareSlugRouteImport.update({
   id: '/api/public/share/$slug',
   path: '/api/public/share/$slug',
@@ -351,6 +357,7 @@ export interface FileRoutesByFullPath {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/api/public/team/$slug': typeof ApiPublicTeamSlugRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -401,6 +408,7 @@ export interface FileRoutesByTo {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/api/public/team/$slug': typeof ApiPublicTeamSlugRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -452,6 +460,7 @@ export interface FileRoutesById {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/api/public/team/$slug': typeof ApiPublicTeamSlugRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -504,6 +513,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
+    | '/api/public/team/$slug'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -554,6 +564,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
+    | '/api/public/team/$slug'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -604,6 +615,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
+    | '/api/public/team/$slug'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -653,6 +665,7 @@ export interface RootRouteChildren {
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicSavedIdeasCodeRoute: typeof ApiPublicSavedIdeasCodeRoute
   ApiPublicShareSlugRoute: typeof ApiPublicShareSlugRoute
+  ApiPublicTeamSlugRoute: typeof ApiPublicTeamSlugRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
@@ -940,6 +953,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/team/$slug': {
+      id: '/api/public/team/$slug'
+      path: '/api/public/team/$slug'
+      fullPath: '/api/public/team/$slug'
+      preLoaderRoute: typeof ApiPublicTeamSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/share/$slug': {
       id: '/api/public/share/$slug'
       path: '/api/public/share/$slug'
@@ -1077,6 +1097,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicSavedIdeasCodeRoute: ApiPublicSavedIdeasCodeRoute,
   ApiPublicShareSlugRoute: ApiPublicShareSlugRoute,
+  ApiPublicTeamSlugRoute: ApiPublicTeamSlugRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
