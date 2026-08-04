@@ -40,6 +40,9 @@ import { useVoiceControl } from "@/lib/voice-control";
 import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
 import { useAuth } from "@/hooks/useSubscription";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
+import { CloudMemoryButton } from "@/components/CloudMemoryButton";
+import { useCloudMemoryHost, ownerAdapter } from "@/hooks/useCloudMemoryHost";
+import { deviceLabel } from "@/lib/project-sync";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
 
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
@@ -456,6 +459,16 @@ function ForgePage() {
         log(`☁ Live sync: pulled r${u.revision} from ${u.device ?? "another device"}`);
       });
     },
+  });
+
+  // Cloud Memory: shared data store for the running build (owner side).
+  useCloudMemoryHost({
+    frame: null,
+    projectId: cloudProjectId ?? null,
+    enabled: Boolean(authUserId && cloudProjectId && liveSync.cloudMemory),
+    adapter: authUserId && cloudProjectId
+      ? ownerAdapter(cloudProjectId, deviceLabel())
+      : null,
   });
 
   // Autosave a few seconds after the last change so other devices catch up.
@@ -1400,6 +1413,24 @@ function ForgePage() {
               >
                 {liveSync.live ? "◉ Live" : "◌ Go live"}
               </button>
+            )}
+            {authUserId && cloudProjectId && (
+              <CloudMemoryButton
+                canUse
+                cloudMemory={liveSync.cloudMemory}
+                teamCodeSet={liveSync.teamCodeSet}
+                live={liveSync.live}
+                shareSlug={liveSync.shareSlug}
+                entries={liveSync.entries}
+                lastUpdate={liveSync.lastUpdate}
+                lastBy={liveSync.lastBy}
+                busy={liveSync.busy}
+                onToggle={(on) => liveSync.setCloudMemory(on)}
+                onSetCode={(teamCode) => liveSync.setCloudMemory(true, teamCode)}
+                onReset={() => liveSync.resetCloudMemory()}
+                onGoLive={() => { void liveSync.toggleLive(); }}
+                className={btn}
+              />
             )}
             {liveSync.liveUrl && (
               <a

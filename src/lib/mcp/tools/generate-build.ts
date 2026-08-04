@@ -29,7 +29,8 @@ export default defineTool({
       .describe("Which surface is calling this tool (for analytics)."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
-  handler: async ({ prompt, model, surface }, { authToken }) => {
+  handler: async ({ prompt, model, surface }, ctx) => {
+    const authToken = ctx.getToken();
     if (!authToken) {
       return {
         content: [{ type: "text", text: "Authentication required. Pass your Obsidian Bearer token." }],

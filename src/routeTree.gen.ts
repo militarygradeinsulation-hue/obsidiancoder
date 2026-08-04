@@ -24,12 +24,14 @@ import { Route as DemosRouteImport } from './routes/demos'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TeamSlugRouteImport } from './routes/team.$slug'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiSyncRouteImport } from './routes/api/sync'
 import { Route as ApiQaRouteImport } from './routes/api/qa'
 import { Route as ApiProjectsRouteImport } from './routes/api/projects'
 import { Route as ApiPatchRouteImport } from './routes/api/patch'
+import { Route as ApiMemoryRouteImport } from './routes/api/memory'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
 import { Route as ApiGithubRouteImport } from './routes/api/github'
 import { Route as ApiGenerateRouteImport } from './routes/api/generate'
@@ -49,6 +51,7 @@ import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
+import { Route as ApiPublicTeamSlugRouteImport } from './routes/api/public/team.$slug'
 import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/share.$slug'
 import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public/saved-ideas.$code'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
@@ -133,6 +136,11 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeamSlugRoute = TeamSlugRouteImport.update({
+  id: '/team/$slug',
+  path: '/team/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
   id: '/checkout/return',
   path: '/checkout/return',
@@ -161,6 +169,11 @@ const ApiProjectsRoute = ApiProjectsRouteImport.update({
 const ApiPatchRoute = ApiPatchRouteImport.update({
   id: '/api/patch',
   path: '/api/patch',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiMemoryRoute = ApiMemoryRouteImport.update({
+  id: '/api/memory',
+  path: '/api/memory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiHealthRoute = ApiHealthRouteImport.update({
@@ -264,6 +277,11 @@ const LovableEmailAuthPreviewRoute = LovableEmailAuthPreviewRouteImport.update({
   path: '/lovable/email/auth/preview',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicTeamSlugRoute = ApiPublicTeamSlugRouteImport.update({
+  id: '/api/public/team/$slug',
+  path: '/api/public/team/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicShareSlugRoute = ApiPublicShareSlugRouteImport.update({
   id: '/api/public/share/$slug',
   path: '/api/public/share/$slug',
@@ -328,12 +346,14 @@ export interface FileRoutesByFullPath {
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/memory': typeof ApiMemoryRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/qa': typeof ApiQaRoute
   '/api/sync': typeof ApiSyncRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/team/$slug': typeof TeamSlugRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
@@ -351,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/api/public/team/$slug': typeof ApiPublicTeamSlugRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -378,12 +399,14 @@ export interface FileRoutesByTo {
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/memory': typeof ApiMemoryRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/qa': typeof ApiQaRoute
   '/api/sync': typeof ApiSyncRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/team/$slug': typeof TeamSlugRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
@@ -401,6 +424,7 @@ export interface FileRoutesByTo {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/api/public/team/$slug': typeof ApiPublicTeamSlugRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -429,12 +453,14 @@ export interface FileRoutesById {
   '/api/generate': typeof ApiGenerateRoute
   '/api/github': typeof ApiGithubRoute
   '/api/health': typeof ApiHealthRoute
+  '/api/memory': typeof ApiMemoryRoute
   '/api/patch': typeof ApiPatchRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/qa': typeof ApiQaRoute
   '/api/sync': typeof ApiSyncRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/team/$slug': typeof TeamSlugRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
@@ -452,6 +478,7 @@ export interface FileRoutesById {
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
   '/api/public/share/$slug': typeof ApiPublicShareSlugRoute
+  '/api/public/team/$slug': typeof ApiPublicTeamSlugRoute
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
@@ -481,12 +508,14 @@ export interface FileRouteTypes {
     | '/api/generate'
     | '/api/github'
     | '/api/health'
+    | '/api/memory'
     | '/api/patch'
     | '/api/projects'
     | '/api/qa'
     | '/api/sync'
     | '/api/transcribe'
     | '/checkout/return'
+    | '/team/$slug'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
     | '/api/public/baseline'
@@ -504,6 +533,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
+    | '/api/public/team/$slug'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -531,12 +561,14 @@ export interface FileRouteTypes {
     | '/api/generate'
     | '/api/github'
     | '/api/health'
+    | '/api/memory'
     | '/api/patch'
     | '/api/projects'
     | '/api/qa'
     | '/api/sync'
     | '/api/transcribe'
     | '/checkout/return'
+    | '/team/$slug'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
     | '/api/public/baseline'
@@ -554,6 +586,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
+    | '/api/public/team/$slug'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -581,12 +614,14 @@ export interface FileRouteTypes {
     | '/api/generate'
     | '/api/github'
     | '/api/health'
+    | '/api/memory'
     | '/api/patch'
     | '/api/projects'
     | '/api/qa'
     | '/api/sync'
     | '/api/transcribe'
     | '/checkout/return'
+    | '/team/$slug'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
     | '/api/public/baseline'
@@ -604,6 +639,7 @@ export interface FileRouteTypes {
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
     | '/api/public/share/$slug'
+    | '/api/public/team/$slug'
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
@@ -632,12 +668,14 @@ export interface RootRouteChildren {
   ApiGenerateRoute: typeof ApiGenerateRoute
   ApiGithubRoute: typeof ApiGithubRoute
   ApiHealthRoute: typeof ApiHealthRoute
+  ApiMemoryRoute: typeof ApiMemoryRoute
   ApiPatchRoute: typeof ApiPatchRoute
   ApiProjectsRoute: typeof ApiProjectsRoute
   ApiQaRoute: typeof ApiQaRoute
   ApiSyncRoute: typeof ApiSyncRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
+  TeamSlugRoute: typeof TeamSlugRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiDashboardStatsRoute: typeof ApiDashboardStatsRoute
   ApiPublicBaselineRoute: typeof ApiPublicBaselineRoute
@@ -653,6 +691,7 @@ export interface RootRouteChildren {
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicSavedIdeasCodeRoute: typeof ApiPublicSavedIdeasCodeRoute
   ApiPublicShareSlugRoute: typeof ApiPublicShareSlugRoute
+  ApiPublicTeamSlugRoute: typeof ApiPublicTeamSlugRoute
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
@@ -765,6 +804,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/team/$slug': {
+      id: '/team/$slug'
+      path: '/team/$slug'
+      fullPath: '/team/$slug'
+      preLoaderRoute: typeof TeamSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/checkout/return': {
       id: '/checkout/return'
       path: '/checkout/return'
@@ -805,6 +851,13 @@ declare module '@tanstack/react-router' {
       path: '/api/patch'
       fullPath: '/api/patch'
       preLoaderRoute: typeof ApiPatchRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/memory': {
+      id: '/api/memory'
+      path: '/api/memory'
+      fullPath: '/api/memory'
+      preLoaderRoute: typeof ApiMemoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/health': {
@@ -940,6 +993,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailAuthPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/team/$slug': {
+      id: '/api/public/team/$slug'
+      path: '/api/public/team/$slug'
+      fullPath: '/api/public/team/$slug'
+      preLoaderRoute: typeof ApiPublicTeamSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/share/$slug': {
       id: '/api/public/share/$slug'
       path: '/api/public/share/$slug'
@@ -1056,12 +1116,14 @@ const rootRouteChildren: RootRouteChildren = {
   ApiGenerateRoute: ApiGenerateRoute,
   ApiGithubRoute: ApiGithubRoute,
   ApiHealthRoute: ApiHealthRoute,
+  ApiMemoryRoute: ApiMemoryRoute,
   ApiPatchRoute: ApiPatchRoute,
   ApiProjectsRoute: ApiProjectsRoute,
   ApiQaRoute: ApiQaRoute,
   ApiSyncRoute: ApiSyncRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
+  TeamSlugRoute: TeamSlugRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiDashboardStatsRoute: ApiDashboardStatsRoute,
   ApiPublicBaselineRoute: ApiPublicBaselineRoute,
@@ -1077,6 +1139,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicSavedIdeasCodeRoute: ApiPublicSavedIdeasCodeRoute,
   ApiPublicShareSlugRoute: ApiPublicShareSlugRoute,
+  ApiPublicTeamSlugRoute: ApiPublicTeamSlugRoute,
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,

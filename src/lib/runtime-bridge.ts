@@ -232,6 +232,65 @@ export function buildRuntimeBridgeScript(opts: { buildHash?: string } = {}): str
     window.addEventListener("DOMContentLoaded", function(){ contentSummary(); checkOverflow(); });
   }
 
+  // ---- ObsidianMemory (Cloud Memory bridge) ---------------------------
+  // window.ObsidianMemory.{get,set,list,delete} — shared across everyone
+  // viewing this build when Cloud Memory is on. Falls back to localStorage
+  // when the host does not answer (offline / memory off).
+  (function(){
+    var MEM_NS = "obsidian.memory";
+    var pending = {};
+    var seq = 0;
+    var LS = "obs.mem.local.";
+    function localGet(k){ try { var v = localStorage.getItem(LS + k); return v == null ? null : JSON.parse(v); } catch(_){ return null; } }
+    function localSet(k, v){ try { localStorage.setItem(LS + k, JSON.stringify(v)); } catch(_){} return true; }
+    function localDel(k){ try { localStorage.removeItem(LS + k); } catch(_){} return true; }
+    function localList(){
+      var out = [];
+      try {
+        for (var i = 0; i < localStorage.length; i++) {
+          var k = localStorage.key(i);
+          if (k && k.indexOf(LS) === 0) out.push({ key: k.slice(LS.length), value: localGet(k.slice(LS.length)) });
+        }
+      } catch(_){}
+      return out;
+    }
+    window.addEventListener("message", function(ev){
+      var d = ev && ev.data;
+      if (!d || typeof d !== "object" || d.ns !== MEM_NS || d.type !== "reply") return;
+      var p = pending[d.id];
+      if (!p) return;
+      delete pending[d.id];
+      clearTimeout(p.t);
+      p.resolve(d.ok ? d.data : p.fallback());
+    });
+    function call(op, key, value, fallback){
+      return new Promise(function(resolve){
+        var id = MEM_NS + ":" + (++seq) + ":" + Date.now();
+        var t = setTimeout(function(){ delete pending[id]; resolve(fallback()); }, 2500);
+        pending[id] = { resolve: resolve, t: t, fallback: fallback };
+        try {
+          parent.postMessage({ ns: MEM_NS, type: "req", id: id, op: op, key: key, value: value }, "*");
+        } catch(_){ clearTimeout(t); delete pending[id]; resolve(fallback()); }
+      });
+    }
+    window.ObsidianMemory = {
+      cloud: false,
+      get:    function(key){ return call("get", String(key), undefined, function(){ return localGet(String(key)); }); },
+      set:    function(key, value){ return call("set", String(key), value, function(){ return localSet(String(key), value); }); },
+      delete: function(key){ return call("delete", String(key), undefined, function(){ return localDel(String(key)); }); },
+      list:   function(){ return call("list", undefined, undefined, function(){ return localList(); }); },
+      onChange: function(fn){
+        window.addEventListener("message", function(ev){
+          var d = ev && ev.data;
+          if (d && d.ns === MEM_NS && d.type === "changed" && typeof fn === "function") fn(d.key, d.value);
+        });
+      }
+    };
+    try {
+      parent.postMessage({ ns: MEM_NS, type: "hello" }, "*");
+    } catch(_){}
+  })();
+
   send("ready", "preview ready");
 })();
 `;
@@ -249,4 +308,53 @@ export function injectRuntimeBridge(html: string, opts: { buildHash?: string } =
   if (/<\/head>/i.test(html)) return html.replace(/<\/head>/i, `${tag}</head>`);
   if (/<head\b[^>]*>/i.test(html)) return html.replace(/<head\b[^>]*>/i, (m) => `${m}${tag}`);
   return `${tag}${html}`;
+}
+
+
+/* ------------------------------------------------------------------------
+ * ObsidianMemory host protocol — the sandboxed build asks the host to read
+ * and write shared records. The host decides where those go (cloud when
+ * Cloud Memory is on, nowhere otherwise). Payloads are validated here.
+ * ---------------------------------------------------------------------- */
+
+export const MEMORY_NS = "obsidian.memory";
+
+export type MemoryOp = "get" | "set" | "delete" | "list";
+
+export interface MemoryRequest {
+  id: string;
+  op: MemoryOp;
+  key?: string;
+  value?: unknown;
+}
+
+const MEMORY_OPS: MemoryOp[] = ["get", "set", "delete", "list"];
+
+/** Host-side: validate an incoming ObsidianMemory request. Null on rejection. */
+export function parseMemoryMessage(
+  evt: MessageEvent,
+  expectedSource?: Window | null,
+): MemoryRequest | null {
+  if (expectedSource && evt.source !== expectedSource) return null;
+  const d = evt.data as Record<string, unknown> | null;
+  if (!d || typeof d !== "object") return null;
+  if (d["ns"] !== MEMORY_NS || d["type"] !== "req") return null;
+  const id = d["id"];
+  const op = d["op"];
+  if (typeof id !== "string" || id.length === 0 || id.length > 120) return null;
+  if (typeof op !== "string" || !MEMORY_OPS.includes(op as MemoryOp)) return null;
+  const rawKey = d["key"];
+  const key = typeof rawKey === "string" ? rawKey.slice(0, 200) : undefined;
+  if ((op === "get" || op === "set" || op === "delete") && !key) return null;
+  return { id, op: op as MemoryOp, key, value: d["value"] };
+}
+
+/** Host-side: the reply envelope to post back into the frame. */
+export function memoryReply(id: string, ok: boolean, data: unknown) {
+  return { ns: MEMORY_NS, type: "reply" as const, id, ok, data };
+}
+
+/** Host-side: push a remote change into the frame. */
+export function memoryChanged(key: string, value: unknown) {
+  return { ns: MEMORY_NS, type: "changed" as const, key, value };
 }

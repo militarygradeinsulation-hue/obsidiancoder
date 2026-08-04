@@ -78,6 +78,9 @@ import { validateHtml, blockingIssues } from "@/lib/validation";
 import { metricsFromClassification, formatDuration, type GenerationMetrics } from "@/lib/generation-metrics";
 import { extractOutline, outlineToPrompt } from "@/lib/document-outline";
 import { EMPTY_MEMORY, memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
+import { CloudMemoryButton } from "@/components/CloudMemoryButton";
+import { useCloudMemoryHost, ownerAdapter } from "@/hooks/useCloudMemoryHost";
+import { deviceLabel } from "@/lib/project-sync";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
 
 import { applyPatch, preflightPatch } from "@/lib/patch-engine";
@@ -1286,6 +1289,17 @@ function Index() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, current?.html, current?.themeCss, current?.themeName, current?.themeBlueprintId]);
+
+  // Cloud Memory: answer the running build's ObsidianMemory calls with the
+  // shared cloud store so the owner sees the same data as their team.
+  useCloudMemoryHost({
+    frame: null,
+    projectId: current?.cloudId ?? null,
+    enabled: Boolean(authUserId && current?.cloudId && liveSync.cloudMemory),
+    adapter: authUserId && current?.cloudId
+      ? ownerAdapter(current.cloudId, deviceLabel())
+      : null,
+  });
 
   // ── Live sync: autosave + per-build project memory ───────────────────
   // Autosave pushes the current build to the cloud a few seconds after the
@@ -3502,7 +3516,7 @@ function Index() {
               title={
                 entitlement.mode === "owner" ? "Site owner — unlimited access, all local features unlocked" :
                 entitlement.mode === "pro"   ? `Obsidian Pro · ${entitlement.remaining}/${entitlement.cap} credits left this period` :
-                entitlement.authed && (entitlement as Record<string, unknown>).freeBuildAvailable ? "Free account — 1 AI build available today. Upgrade for 1,000 credits/month." :
+                entitlement.authed && (entitlement as unknown as Record<string, unknown>).freeBuildAvailable ? "Free account — 1 AI build available today. Upgrade for 1,000 credits/month." :
                 entitlement.authed && entitlement.cap === 1 ? "Free account — daily AI build used. Resets tomorrow or upgrade to Pro." :
                                                "Local Only — manual editing, preview, and export remain free. AI features require Obsidian Pro."
               }
@@ -4830,6 +4844,23 @@ function Index() {
               >
                 {liveSync.live ? "◉ Live" : "◌ Go live"}
               </button>
+            )}
+            {authUserId && current.cloudId && (
+              <CloudMemoryButton
+                canUse
+                cloudMemory={liveSync.cloudMemory}
+                teamCodeSet={liveSync.teamCodeSet}
+                live={liveSync.live}
+                shareSlug={liveSync.shareSlug}
+                entries={liveSync.entries}
+                lastUpdate={liveSync.lastUpdate}
+                lastBy={liveSync.lastBy}
+                busy={liveSync.busy}
+                onToggle={(on) => liveSync.setCloudMemory(on)}
+                onSetCode={(teamCode) => liveSync.setCloudMemory(true, teamCode)}
+                onReset={() => liveSync.resetCloudMemory()}
+                onGoLive={() => { void liveSync.toggleLive(); }}
+              />
             )}
             {liveSync.liveUrl && (
               <a

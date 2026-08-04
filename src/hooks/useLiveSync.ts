@@ -11,6 +11,8 @@ import {
   fetchSyncState,
   saveProjectMemory,
   setLive,
+  setCloudMemory as apiSetCloudMemory,
+  resetCloudMemory as apiResetCloudMemory,
   deviceLabel,
   liveUrlFor,
   type ProjectSyncState,
@@ -125,6 +127,27 @@ export function useLiveSync({ cloudId, isAuthenticated, onRemoteRevision }: UseL
     }
   }, [isAuthenticated, cloudId, state, refresh]);
 
+  const setCloudMemory = useCallback(async (enabled: boolean, teamCode?: string) => {
+    if (!isAuthenticated || !cloudId) return null;
+    setBusy(true);
+    try {
+      const r = await apiSetCloudMemory(cloudId, enabled, teamCode);
+      if (!r.ok) return null;
+      setState((prev) => (prev ? { ...prev, ...r.data } : prev));
+      if (!state) await refresh();
+      return r.data;
+    } finally {
+      setBusy(false);
+    }
+  }, [isAuthenticated, cloudId, state, refresh]);
+
+  const resetCloudMemory = useCallback(async () => {
+    if (!isAuthenticated || !cloudId) return 0;
+    const r = await apiResetCloudMemory(cloudId);
+    if (r.ok) setState((prev) => (prev ? { ...prev, entries: 0, lastUpdate: null, lastBy: null } : prev));
+    return r.ok ? r.data : 0;
+  }, [isAuthenticated, cloudId]);
+
   const clearRemote = useCallback(() => setRemote(null), []);
 
   return {
@@ -139,6 +162,13 @@ export function useLiveSync({ cloudId, isAuthenticated, onRemoteRevision }: UseL
     refresh,
     pushMemory,
     toggleLive,
+    cloudMemory: state?.cloudMemory ?? false,
+    teamCodeSet: state?.teamCodeSet ?? false,
+    entries: state?.entries ?? 0,
+    lastUpdate: state?.lastUpdate ?? null,
+    lastBy: state?.lastBy ?? null,
+    setCloudMemory,
+    resetCloudMemory,
     clearRemote,
   };
 }

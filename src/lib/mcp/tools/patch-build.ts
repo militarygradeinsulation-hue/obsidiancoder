@@ -23,7 +23,8 @@ export default defineTool({
       .describe("Model tier for the patch (default: fast)."),
   },
   annotations: { readOnlyHint: false, idempotentHint: false, openWorldHint: false },
-  handler: async ({ html, instruction, model }, { authToken }) => {
+  handler: async ({ html, instruction, model }, ctx) => {
+    const authToken = ctx.getToken();
     if (!authToken) {
       return {
         content: [{ type: "text", text: "Authentication required. Pass your Obsidian Bearer token." }],

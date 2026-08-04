@@ -15,6 +15,13 @@ import {
   setProjectMemory,
   setProjectLive,
 } from "@/lib/project-sync.server";
+import { normalizeTeamCode, DEFAULT_TEAM_CODE } from "@/lib/build-memory";
+import {
+  setCloudMemory,
+  resetBuildMemory,
+  buildMemoryStats,
+  getCloudMemoryState,
+} from "@/lib/build-memory.server";
 
 const UUID = /^[0-9a-f-]{36}$/i;
 
@@ -34,7 +41,14 @@ export const Route = createFileRoute("/api/sync")({
         const id = new URL(request.url).searchParams.get("id") ?? "";
         if (!UUID.test(id)) return json(400, { ok: false, error: "id must be a valid UUID." });
         try {
-          return json(200, { ok: true, state: await getProjectSync(user, id) });
+          const state = await getProjectSync(user, id);
+          if (!state) return json(200, { ok: true, state: null });
+          const [cm, stats] = await Promise.all([
+            getCloudMemoryState(user, id),
+            buildMemoryStats(user, id),
+          ]);
+          return json(200, { ok: true, state: { ...state, ...cm, ...stats } });
+
         } catch (err) {
           return json(500, { ok: false, error: err instanceof Error ? err.message.slice(0, 120) : "Sync read failed." });
         }
@@ -63,9 +77,33 @@ export const Route = createFileRoute("/api/sync")({
       PUT: async ({ request }) => {
         const user = await resolveUserFromRequest(request);
         if (!user) return json(401, { ok: false, error: "Sign in to use live sync." });
-        let body: { id?: string; live?: unknown };
+        let body: { id?: string; live?: unknown; cloudMemory?: unknown; teamCode?: unknown; resetMemory?: unknown };
         try { body = await request.json(); } catch { return json(400, { ok: false, error: "Invalid JSON body." }); }
         if (!body.id || !UUID.test(body.id)) return json(400, { ok: false, error: "id must be a valid UUID." });
+
+        // Cloud Memory: enable/disable the shared team data store, rotate the code.
+        if (typeof body.cloudMemory === "boolean" || body.resetMemory === true) {
+          try {
+            if (body.resetMemory === true) {
+              const removed = await resetBuildMemory(user, body.id);
+              return json(200, { ok: true, removed });
+            }
+            const code = normalizeTeamCode(body.teamCode);
+            if (body.teamCode !== undefined && body.teamCode !== null && !code) {
+              return json(400, { ok: false, error: "Team code must be 4–64 characters." });
+            }
+            const enabled = body.cloudMemory === true;
+            const state = await getCloudMemoryState(user, body.id);
+            // Turning it on for the first time needs a code — default to 9822.
+            const nextCode = code ?? (enabled && !state.teamCodeSet ? DEFAULT_TEAM_CODE : null);
+            const result = await setCloudMemory(user, body.id, enabled, nextCode);
+            const stats = await buildMemoryStats(user, body.id);
+            return json(200, { ok: true, ...result, teamCodeSet: state.teamCodeSet || Boolean(nextCode), ...stats });
+          } catch (err) {
+            return json(500, { ok: false, error: err instanceof Error ? err.message.slice(0, 120) : "Cloud Memory update failed." });
+          }
+        }
+
         if (typeof body.live !== "boolean") return json(400, { ok: false, error: "live must be a boolean." });
         try {
           const result = await setProjectLive(user, body.id, body.live);
@@ -74,6 +112,7 @@ export const Route = createFileRoute("/api/sync")({
           return json(500, { ok: false, error: err instanceof Error ? err.message.slice(0, 120) : "Live toggle failed." });
         }
       },
+
     },
   },
 });
