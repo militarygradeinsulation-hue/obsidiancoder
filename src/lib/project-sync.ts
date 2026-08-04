@@ -13,6 +13,12 @@ export interface ProjectSyncState {
   memory: Record<string, unknown>;
   lastDevice: string | null;
   updatedAt: string;
+  /** Cloud Memory — shared team data store for this build. */
+  cloudMemory?: boolean;
+  teamCodeSet?: boolean;
+  entries?: number;
+  lastUpdate?: string | null;
+  lastBy?: string | null;
 }
 
 export type SyncResult<T> = { ok: true; data: T } | { ok: false; error: string };
@@ -83,6 +89,63 @@ export async function setLive(
     const json = (await res.json()) as { ok: boolean; live?: boolean; shareSlug?: string | null; error?: string };
     if (!json.ok) return { ok: false, error: json.error ?? "Live toggle failed." };
     return { ok: true, data: { live: json.live ?? live, shareSlug: json.shareSlug ?? null } };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Network error." };
+  }
+}
+
+export interface CloudMemoryResult {
+  cloudMemory: boolean;
+  live: boolean;
+  shareSlug: string | null;
+  teamCodeSet: boolean;
+  entries: number;
+  lastUpdate: string | null;
+  lastBy: string | null;
+}
+
+/** Owner-only: turn Cloud Memory on/off and optionally set a new team code. */
+export async function setCloudMemory(
+  id: string,
+  cloudMemory: boolean,
+  teamCode?: string,
+): Promise<SyncResult<CloudMemoryResult>> {
+  try {
+    const res = await authFetch("/api/sync", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, cloudMemory, ...(teamCode ? { teamCode } : {}) }),
+    });
+    const json = (await res.json()) as { ok: boolean; error?: string } & Partial<CloudMemoryResult>;
+    if (!json.ok) return { ok: false, error: json.error ?? "Cloud Memory update failed." };
+    return {
+      ok: true,
+      data: {
+        cloudMemory: json.cloudMemory ?? cloudMemory,
+        live: json.live ?? false,
+        shareSlug: json.shareSlug ?? null,
+        teamCodeSet: json.teamCodeSet ?? false,
+        entries: json.entries ?? 0,
+        lastUpdate: json.lastUpdate ?? null,
+        lastBy: json.lastBy ?? null,
+      },
+    };
+  } catch (err) {
+    return { ok: false, error: err instanceof Error ? err.message : "Network error." };
+  }
+}
+
+/** Owner-only: wipe every shared record without touching the build. */
+export async function resetCloudMemory(id: string): Promise<SyncResult<number>> {
+  try {
+    const res = await authFetch("/api/sync", {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id, resetMemory: true }),
+    });
+    const json = (await res.json()) as { ok: boolean; removed?: number; error?: string };
+    if (!json.ok) return { ok: false, error: json.error ?? "Reset failed." };
+    return { ok: true, data: json.removed ?? 0 };
   } catch (err) {
     return { ok: false, error: err instanceof Error ? err.message : "Network error." };
   }
