@@ -49,24 +49,24 @@ export async function touchProjectSync(
     revision: number; live: boolean; share_slug: string | null;
   }>;
   const r = rows[0];
-  // First save of a build → Cloud Memory on by default, with the default team
-  // code, so shared data works without a second manual step. Later saves never
-  // override an owner who deliberately turned it off.
-  if ((r?.revision ?? 1) <= 1) {
-    try {
-      const { hashTeamCode, DEFAULT_TEAM_CODE } = await import("@/lib/build-memory");
-      await supabaseAdmin
-        .from("project_sync" as never)
-        .update({
-          cloud_memory: true,
-          team_code_hash: await hashTeamCode(input.projectId, DEFAULT_TEAM_CODE),
-          team_code_set_at: new Date().toISOString(),
-        } as never)
-        .eq("project_id", input.projectId)
-        .eq("user_id", user.userId)
-        .is("team_code_hash", null);
-    } catch { /* best-effort default; never blocks a save */ }
-  }
+  // Saving to cloud turns Cloud Memory on by DEFAULT, with the default team
+  // code, so shared data works without a second manual step. The
+  // `team_code_hash IS NULL` guard means this only ever applies to a build
+  // that was never configured — an owner who deliberately turned it off (or
+  // set their own code) is never overridden.
+  try {
+    const { hashTeamCode, DEFAULT_TEAM_CODE } = await import("@/lib/build-memory");
+    await supabaseAdmin
+      .from("project_sync" as never)
+      .update({
+        cloud_memory: true,
+        team_code_hash: await hashTeamCode(input.projectId, DEFAULT_TEAM_CODE),
+        team_code_set_at: new Date().toISOString(),
+      } as never)
+      .eq("project_id", input.projectId)
+      .eq("user_id", user.userId)
+      .is("team_code_hash", null);
+  } catch { /* best-effort default; never blocks a save */ }
   return { revision: r?.revision ?? 1, live: r?.live ?? false, shareSlug: r?.share_slug ?? null };
 }
 
