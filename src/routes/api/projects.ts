@@ -62,8 +62,11 @@ export const Route = createFileRoute("/api/projects")({
         const env = serverStripeEnv();
 
         // Auth
+        // Signed-in identity wins. The owner (site-unlock) session only
+        // bypasses metering — it must never shadow a real user, or the
+        // project_sync row (and therefore Cloud Memory) is never created.
+        const user = await resolveUserFromRequest(request);
         const ownerSession = await isOwnerSession();
-        const user = ownerSession ? null : await resolveUserFromRequest(request);
         if (!ownerSession && !user) {
           return jsonError(401, "Sign in to save projects to the cloud.", requestId);
         }
@@ -162,8 +165,11 @@ export const Route = createFileRoute("/api/projects")({
         const url = new URL(request.url);
         const projectId = url.searchParams.get("id");
 
+        // Signed-in identity wins. The owner (site-unlock) session only
+        // bypasses metering — it must never shadow a real user, or the
+        // project_sync row (and therefore Cloud Memory) is never created.
+        const user = await resolveUserFromRequest(request);
         const ownerSession = await isOwnerSession();
-        const user = ownerSession ? null : await resolveUserFromRequest(request);
         if (!ownerSession && !user) {
           return jsonError(401, "Sign in to access cloud projects.", requestId);
         }
@@ -194,8 +200,11 @@ export const Route = createFileRoute("/api/projects")({
         const projectId = url.searchParams.get("id");
         if (!projectId) return jsonError(400, "id query param is required.", requestId);
 
+        // Signed-in identity wins. The owner (site-unlock) session only
+        // bypasses metering — it must never shadow a real user, or the
+        // project_sync row (and therefore Cloud Memory) is never created.
+        const user = await resolveUserFromRequest(request);
         const ownerSession = await isOwnerSession();
-        const user = ownerSession ? null : await resolveUserFromRequest(request);
         if (!ownerSession && !user) {
           return jsonError(401, "Sign in to delete cloud projects.", requestId);
         }

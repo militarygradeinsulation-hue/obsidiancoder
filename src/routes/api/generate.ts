@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { memoryToPrompt, isEmpty as isMemoryEmpty } from "@/lib/project-memory";
 import { memoryDirective } from "@/lib/memory-directive";
+import { memoryDirectiveFor, detectForbiddenStorage } from "@/lib/memory-director";
 import { z } from "zod";
 import { resolveModel, isFastTier, DEFAULT_MODEL, isRouteLLMModel, stripRouteLLMPrefix } from "@/lib/models";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
@@ -814,8 +815,15 @@ export const Route = createFileRoute("/api/generate")({
           ];
           // Cloud Memory directive — every HTML build (fresh or patch) must use
           // window.ObsidianMemory instead of localStorage/Firebase so data syncs.
+          // The director escalates to the full API directive when the prompt
+          // implies shared state or names an unsupported external backend.
+          const mem = memoryDirectiveFor(data.prompt ?? "");
           if (!data.advisory) {
-            messages.splice(1, 0, { role: "system", content: memoryDirective() });
+            messages.splice(1, 0, {
+              role: "system",
+              content: mem.needed ? mem.directive : memoryDirective(),
+            });
+            timing.memory_directive = mem.needed ? (mem.correcting ? "correcting" : "shared") : "base";
           }
           // Project memory — injected on every build and edit (advisory excluded).
           // Carries the user's running brief: purpose, audience, brand, constraints.
@@ -1237,12 +1245,23 @@ ${memBlock}`,
             async start(controller) {
               let buffer = sniffBuffer;
               let emittedBytes = 0;
+              // Bounded sample of the generated output, used only for Cloud
+              // Memory adoption telemetry (never sent to the client).
+              let outSample = "";
               const streamStartedAt = performance.now();
               const finalize = async (ok: boolean, err?: unknown) => {
                 const totalMs = Math.round(performance.now() - t0);
                 timing.stream_ms = Math.round(performance.now() - streamStartedAt);
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
+                if (ok && mem.needed) {
+                  const forbidden = detectForbiddenStorage(outSample);
+                  if (forbidden.length) {
+                    console.warn(
+                      `[obs:${requestId}] cloud-memory ignored — forbidden storage in output: ${forbidden.join(",")}`,
+                    );
+                  }
+                }
                 if (ok) {
                   // Await settlement before closing so a settlement failure
                   // surfaces as a stream error instead of silently succeeding.
@@ -1306,6 +1325,7 @@ ${memBlock}`,
                       const delta = j.choices?.[0]?.delta?.content;
                       if (typeof delta === "string" && delta.length) {
                         emittedBytes += delta.length;
+                        if (mem.needed && outSample.length < 400_000) outSample += delta;
                         controller.enqueue(encoder.encode(delta));
                       }
                     } catch { /* skip malformed */ }
