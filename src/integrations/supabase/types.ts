@@ -95,6 +95,36 @@ export type Database = {
         }
         Relationships: []
       }
+      build_memory: {
+        Row: {
+          created_at: string
+          key: string
+          owner_id: string
+          project_id: string
+          updated_at: string
+          updated_by: string | null
+          value: Json
+        }
+        Insert: {
+          created_at?: string
+          key: string
+          owner_id: string
+          project_id: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Update: {
+          created_at?: string
+          key?: string
+          owner_id?: string
+          project_id?: string
+          updated_at?: string
+          updated_by?: string | null
+          value?: Json
+        }
+        Relationships: []
+      }
       builds: {
         Row: {
           author_label: string | null
@@ -373,6 +403,7 @@ export type Database = {
       }
       project_sync: {
         Row: {
+          cloud_memory: boolean
           created_at: string
           environment: string
           last_device: string | null
@@ -382,11 +413,14 @@ export type Database = {
           revision: number
           share_slug: string | null
           surface: string
+          team_code_hash: string | null
+          team_code_set_at: string | null
           title: string
           updated_at: string
           user_id: string
         }
         Insert: {
+          cloud_memory?: boolean
           created_at?: string
           environment?: string
           last_device?: string | null
@@ -396,11 +430,14 @@ export type Database = {
           revision?: number
           share_slug?: string | null
           surface?: string
+          team_code_hash?: string | null
+          team_code_set_at?: string | null
           title?: string
           updated_at?: string
           user_id: string
         }
         Update: {
+          cloud_memory?: boolean
           created_at?: string
           environment?: string
           last_device?: string | null
@@ -410,6 +447,8 @@ export type Database = {
           revision?: number
           share_slug?: string | null
           surface?: string
+          team_code_hash?: string | null
+          team_code_set_at?: string | null
           title?: string
           updated_at?: string
           user_id?: string
@@ -628,6 +667,52 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      build_memory_delete: {
+        Args: { _key: string; _project_id: string }
+        Returns: boolean
+      }
+      build_memory_list: {
+        Args: { _project_id: string }
+        Returns: {
+          key: string
+          updated_at: string
+          updated_by: string
+          value: Json
+        }[]
+      }
+      build_memory_lookup: {
+        Args: { _slug: string }
+        Returns: {
+          cloud_memory: boolean
+          live: boolean
+          owner_id: string
+          project_id: string
+          team_code_hash: string
+          title: string
+        }[]
+      }
+      build_memory_reset: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: number
+      }
+      build_memory_stats: {
+        Args: { _project_id: string; _user_id: string }
+        Returns: {
+          entries: number
+          last_by: string
+          last_update: string
+        }[]
+      }
+      build_memory_upsert: {
+        Args: {
+          _key: string
+          _owner_id: string
+          _project_id: string
+          _updated_by: string
+          _value: Json
+        }
+        Returns: string
+      }
       claim_free_build: {
         Args: { _date: string; _environment: string; _user_id: string }
         Returns: boolean
@@ -725,6 +810,19 @@ export type Database = {
           surface: string
           title: string
           updated_at: string
+        }[]
+      }
+      project_sync_set_cloud_memory: {
+        Args: {
+          _code_hash: string
+          _enabled: boolean
+          _project_id: string
+          _user_id: string
+        }
+        Returns: {
+          cloud_memory: boolean
+          live: boolean
+          share_slug: string
         }[]
       }
       project_sync_set_live: {
