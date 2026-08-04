@@ -84,20 +84,16 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
         onClick={() => { setNote(""); setOpen((v) => !v); }}
         aria-expanded={open}
         aria-haspopup="dialog"
-        style={{
-          fontSize: 11,
-          cursor: "pointer",
-          color: cloudMemory ? "#F4A125" : undefined,
-          background: "transparent",
-          border: "none",
-          padding: 0,
-        }}
-        title={cloudMemory
-          ? "Cloud Memory is on — your team shares this build's data"
-          : "Turn on Cloud Memory so your team shares this build's data"}
+        style={{ cursor: "pointer", color: cloudMemory ? "#F4A125" : undefined }}
+        title={notReadyReason
+          ? notReadyReason
+          : cloudMemory
+            ? "Cloud Memory is on — your team shares this build's data"
+            : "Turn on Cloud Memory so your team shares this build's data"}
       >
-        {cloudMemory ? "☁ Cloud Memory" : "☁ Cloud Memory off"}
+        <span aria-hidden="true">☁</span> {cloudMemory ? "Cloud Memory" : "Cloud Memory"}
       </button>
+
 
       {open && (
         <div
