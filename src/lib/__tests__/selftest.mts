@@ -385,9 +385,49 @@ ok(
   "generate.ts: imports the memory directive",
 );
 ok(
-  /messages\.splice\(1, 0, \{ role: "system", content: memoryDirective\(\) \}\)/.test(generateSrc),
+  /messages\.splice\(1, 0, \{/.test(generateSrc) && /mem\.needed \? mem\.directive : memoryDirective\(\)/.test(generateSrc),
   "generate.ts: injects the memory directive into the system prompt for HTML builds",
 );
+
+/* ---------- memory director (10) ---------- */
+const { memoryDirectiveFor, detectForbiddenStorage, usesMemorySubscription } =
+  await import("../memory-director");
+
+const shared = memoryDirectiveFor("a shared task list that syncs across devices");
+ok(shared.needed, "memory director: shared task list is flagged needed");
+ok(!shared.correcting, "memory director: shared task list is not a correction");
+ok(shared.directive.includes("ObsidianMemory.onChange("), "memory director: directive documents onChange");
+ok(shared.directive.includes("ObsidianMemory.list()"), "memory director: directive documents list");
+ok(/opaque-origin/i.test(shared.directive), "memory director: directive explains the sandbox reason");
+
+const plain = memoryDirectiveFor("a personal calculator with a keypad");
+ok(!plain.needed, "memory director: plain calculator is not flagged");
+ok(plain.directive === "", "memory director: unflagged prompt yields empty directive");
+
+const fb = memoryDirectiveFor("a notes app backed by Firebase");
+ok(fb.correcting, "memory director: Firebase prompt sets correcting");
+ok(/CORRECTION/.test(fb.directive), "memory director: correcting directive contains a correction");
+
+ok(
+  detectForbiddenStorage("const x = localStorage.getItem('a')").includes("localStorage"),
+  "memory director: detectForbiddenStorage finds localStorage",
+);
+ok(
+  detectForbiddenStorage("await ObsidianMemory.set('tasks', tasks)").length === 0,
+  "memory director: detectForbiddenStorage returns empty for clean code",
+);
+ok(
+  usesMemorySubscription("ObsidianMemory.onChange((k,v) => {})"),
+  "memory director: usesMemorySubscription true when onChange is called",
+);
+ok(
+  !usesMemorySubscription("await ObsidianMemory.set('a', 1)"),
+  "memory director: usesMemorySubscription false for writes only",
+);
+
+const genSrc2 = generateSrc;
+ok(genSrc2.includes('from "@/lib/memory-director"'), "generate.ts: imports the memory director");
+ok(genSrc2.includes("detectForbiddenStorage(outSample)"), "generate.ts: logs forbidden storage after generation");
 
 /* ---------- report ---------- */
 const total = passed + failures.length;
