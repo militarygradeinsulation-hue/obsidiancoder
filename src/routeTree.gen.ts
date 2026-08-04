@@ -24,6 +24,7 @@ import { Route as DemosRouteImport } from './routes/demos'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as TeamSlugRouteImport } from './routes/team.$slug'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
 import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiSyncRouteImport } from './routes/api/sync'
@@ -133,6 +134,11 @@ const AuthRoute = AuthRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const TeamSlugRoute = TeamSlugRouteImport.update({
+  id: '/team/$slug',
+  path: '/team/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CheckoutReturnRoute = CheckoutReturnRouteImport.update({
@@ -347,6 +353,7 @@ export interface FileRoutesByFullPath {
   '/api/sync': typeof ApiSyncRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/team/$slug': typeof TeamSlugRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
@@ -399,6 +406,7 @@ export interface FileRoutesByTo {
   '/api/sync': typeof ApiSyncRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/team/$slug': typeof TeamSlugRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
@@ -452,6 +460,7 @@ export interface FileRoutesById {
   '/api/sync': typeof ApiSyncRoute
   '/api/transcribe': typeof ApiTranscribeRoute
   '/checkout/return': typeof CheckoutReturnRoute
+  '/team/$slug': typeof TeamSlugRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
@@ -506,6 +515,7 @@ export interface FileRouteTypes {
     | '/api/sync'
     | '/api/transcribe'
     | '/checkout/return'
+    | '/team/$slug'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
     | '/api/public/baseline'
@@ -558,6 +568,7 @@ export interface FileRouteTypes {
     | '/api/sync'
     | '/api/transcribe'
     | '/checkout/return'
+    | '/team/$slug'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
     | '/api/public/baseline'
@@ -610,6 +621,7 @@ export interface FileRouteTypes {
     | '/api/sync'
     | '/api/transcribe'
     | '/checkout/return'
+    | '/team/$slug'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
     | '/api/public/baseline'
@@ -663,6 +675,7 @@ export interface RootRouteChildren {
   ApiSyncRoute: typeof ApiSyncRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
   CheckoutReturnRoute: typeof CheckoutReturnRoute
+  TeamSlugRoute: typeof TeamSlugRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiDashboardStatsRoute: typeof ApiDashboardStatsRoute
   ApiPublicBaselineRoute: typeof ApiPublicBaselineRoute
@@ -789,6 +802,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/team/$slug': {
+      id: '/team/$slug'
+      path: '/team/$slug'
+      fullPath: '/team/$slug'
+      preLoaderRoute: typeof TeamSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/checkout/return': {
@@ -1103,6 +1123,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiSyncRoute: ApiSyncRoute,
   ApiTranscribeRoute: ApiTranscribeRoute,
   CheckoutReturnRoute: CheckoutReturnRoute,
+  TeamSlugRoute: TeamSlugRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiDashboardStatsRoute: ApiDashboardStatsRoute,
   ApiPublicBaselineRoute: ApiPublicBaselineRoute,
