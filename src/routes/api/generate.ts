@@ -1245,12 +1245,23 @@ ${memBlock}`,
             async start(controller) {
               let buffer = sniffBuffer;
               let emittedBytes = 0;
+              // Bounded sample of the generated output, used only for Cloud
+              // Memory adoption telemetry (never sent to the client).
+              let outSample = "";
               const streamStartedAt = performance.now();
               const finalize = async (ok: boolean, err?: unknown) => {
                 const totalMs = Math.round(performance.now() - t0);
                 timing.stream_ms = Math.round(performance.now() - streamStartedAt);
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
+                if (ok && mem.needed) {
+                  const forbidden = detectForbiddenStorage(outSample);
+                  if (forbidden.length) {
+                    console.warn(
+                      `[obs:${requestId}] cloud-memory ignored — forbidden storage in output: ${forbidden.join(",")}`,
+                    );
+                  }
+                }
                 if (ok) {
                   // Await settlement before closing so a settlement failure
                   // surfaces as a stream error instead of silently succeeding.
