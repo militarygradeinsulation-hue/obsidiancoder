@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { memoryToPrompt, isEmpty as isMemoryEmpty } from "@/lib/project-memory";
 import { memoryDirective } from "@/lib/memory-directive";
+import { memoryDirectiveFor, detectForbiddenStorage } from "@/lib/memory-director";
 import { z } from "zod";
 import { resolveModel, isFastTier, DEFAULT_MODEL, isRouteLLMModel, stripRouteLLMPrefix } from "@/lib/models";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
