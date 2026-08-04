@@ -123,6 +123,24 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
             dashboard, calendar, or log — live. Only you can change the build itself.
           </p>
 
+          {notReadyReason ? (
+            <p
+              style={{
+                margin: 0,
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(244,161,37,0.28)",
+                background: "rgba(244,161,37,0.08)",
+                color: "#F4A125",
+                fontSize: 11,
+              }}
+            >
+              {notReadyReason}
+            </p>
+          ) : (
+          <>
+
+
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, cursor: "pointer" }}>
             <input
               type="checkbox"
