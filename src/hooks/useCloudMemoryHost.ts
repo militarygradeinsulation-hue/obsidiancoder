@@ -46,10 +46,14 @@ export interface UseCloudMemoryHostOptions {
   adapter: MemoryAdapter | null;
   /** Called whenever a record changes (locally or remotely). */
   onChange?: (records: number) => void;
+  /** Owners get Realtime (they can read their own rows). Teammates poll. */
+  realtime?: boolean;
+  /** Poll interval for teammates, ms. 0 disables polling. */
+  pollMs?: number;
 }
 
 export function useCloudMemoryHost({
-  frame, projectId, enabled, adapter, onChange,
+  frame, projectId, enabled, adapter, onChange, realtime = true, pollMs = 0,
 }: UseCloudMemoryHostOptions) {
   const adapterRef = useRef(adapter);
   adapterRef.current = adapter;
@@ -94,7 +98,7 @@ export function useCloudMemoryHost({
 
   // Mirror remote record changes into the running build.
   useEffect(() => {
-    if (!enabled || !projectId) return;
+    if (!enabled || !projectId || !realtime) return;
     const channel = supabase
       .channel(`build-memory-${projectId}`)
       .on(
@@ -109,5 +113,31 @@ export function useCloudMemoryHost({
       )
       .subscribe();
     return () => { void supabase.removeChannel(channel); };
-  }, [enabled, projectId, post]);
+  }, [enabled, projectId, post, realtime]);
+
+  // Teammates cannot subscribe to Realtime (their rows are owner-scoped in the
+  // database), so they poll the team endpoint and push diffs into the frame.
+  useEffect(() => {
+    if (!enabled || !adapter || pollMs <= 0) return;
+    let stopped = false;
+    let seen = new Map<string, string>();
+    const tick = async () => {
+      const a = adapterRef.current;
+      if (!a) return;
+      const rows = await a.list();
+      if (stopped) return;
+      const next = new Map<string, string>();
+      for (const r of rows) {
+        const sig = `${r.updatedAt}|${JSON.stringify(r.value)}`;
+        next.set(r.key, sig);
+        if (seen.size > 0 && seen.get(r.key) !== sig) post(memoryChanged(r.key, r.value));
+      }
+      for (const key of seen.keys()) if (!next.has(key)) post(memoryChanged(key, null));
+      seen = next;
+      changeRef.current?.(0);
+    };
+    void tick();
+    const t = setInterval(() => { void tick(); }, pollMs);
+    return () => { stopped = true; clearInterval(t); };
+  }, [enabled, adapter, pollMs, post]);
 }
