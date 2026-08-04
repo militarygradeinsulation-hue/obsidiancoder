@@ -2,6 +2,7 @@
  * Self-test for build-guard and themes. No dependencies, no framework.
  * Run: npx tsx src/lib/__tests__/selftest.mts
  */
+import path from "node:path";
 import {
   validateManifest,
   singlePageManifest,
@@ -21,6 +22,8 @@ function ok(cond: boolean, label: string) {
   if (cond) passed++;
   else failures.push(label);
 }
+
+const REPO_ROOT = path.resolve(import.meta.dirname, "../../..");
 
 /* ---------- manifest (6) ---------- */
 const manifest: BuildManifest = {
