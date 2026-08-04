@@ -1292,7 +1292,7 @@ function Index() {
 
   // Cloud Memory: answer the running build's ObsidianMemory calls with the
   // shared cloud store so the owner sees the same data as their team.
-  useCloudMemoryHost({
+  const memoryHost = useCloudMemoryHost({
     frame: null,
     projectId: current?.cloudId ?? null,
     enabled: Boolean(authUserId && current?.cloudId && liveSync.cloudMemory),
@@ -3475,6 +3475,7 @@ function Index() {
 
             <CloudMemoryButton
                 canUse
+                buildIgnoresMemory={liveSync.cloudMemory && !memoryHost.usesMemory}
                 notReadyReason={
                   !authUserId
                     ? "Sign in with your account to use Cloud Memory for this build."

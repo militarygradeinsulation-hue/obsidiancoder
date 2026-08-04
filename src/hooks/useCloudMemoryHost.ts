@@ -5,9 +5,9 @@
 // the shared /team/<slug> page. Both are DATA-only — neither can change the
 // build itself.
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { parseMemoryMessage, memoryReply, memoryChanged } from "@/lib/runtime-bridge";
+import { parseMemoryMessage, memoryReply, memoryChanged, MEMORY_NS } from "@/lib/runtime-bridge";
 import {
   ownerListMemory, ownerSetMemory, ownerDeleteMemory,
   teamListMemory, teamSetMemory, teamDeleteMemory,
@@ -52,13 +52,23 @@ export interface UseCloudMemoryHostOptions {
   pollMs?: number;
 }
 
+export interface CloudMemoryHostStatus {
+  /** The preview announced the ObsidianMemory bridge (always true for our runtime). */
+  bridgeSeen: boolean;
+  /** The running build has actually asked for or written a memory record. */
+  usesMemory: boolean;
+}
+
 export function useCloudMemoryHost({
   frame, projectId, enabled, adapter, onChange, realtime = true, pollMs = 0,
-}: UseCloudMemoryHostOptions) {
+}: UseCloudMemoryHostOptions): CloudMemoryHostStatus {
   const adapterRef = useRef(adapter);
   adapterRef.current = adapter;
   const changeRef = useRef(onChange);
   changeRef.current = onChange;
+
+  const [bridgeSeen, setBridgeSeen] = useState(false);
+  const [usesMemory, setUsesMemory] = useState(false);
 
   // Pocket swaps between two preview buffers, so the frame element is not
   // stable. Remember whichever window last spoke to us and answer that.
@@ -68,6 +78,23 @@ export function useCloudMemoryHost({
     const target = frame?.contentWindow ?? sourceRef.current;
     try { target?.postMessage(msg, "*"); } catch { /* ignore */ }
   }, [frame]);
+
+  // Always-on observer: did the running build ever talk to the memory bridge?
+  // Every preview says "hello"; only builds that really use Cloud Memory send
+  // "req" messages, and that is what the UI warns about.
+  useEffect(() => {
+    setBridgeSeen(false);
+    setUsesMemory(false);
+    const onAny = (evt: MessageEvent) => {
+      const d = evt.data as Record<string, unknown> | null;
+      if (!d || typeof d !== "object" || d["ns"] !== MEMORY_NS) return;
+      if (d["type"] === "hello") setBridgeSeen(true);
+      if (d["type"] === "req") { setBridgeSeen(true); setUsesMemory(true); }
+    };
+    window.addEventListener("message", onAny);
+    return () => window.removeEventListener("message", onAny);
+  }, [projectId]);
+
 
   // Answer memory requests from the sandboxed build.
   useEffect(() => {
@@ -146,4 +173,6 @@ export function useCloudMemoryHost({
     const t = setInterval(() => { void tick(); }, pollMs);
     return () => { stopped = true; clearInterval(t); };
   }, [enabled, adapter, pollMs, post]);
+
+  return { bridgeSeen, usesMemory };
 }

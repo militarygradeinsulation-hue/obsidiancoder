@@ -462,7 +462,7 @@ function ForgePage() {
   });
 
   // Cloud Memory: shared data store for the running build (owner side).
-  useCloudMemoryHost({
+  const memoryHost = useCloudMemoryHost({
     frame: null,
     projectId: cloudProjectId ?? null,
     enabled: Boolean(authUserId && cloudProjectId && liveSync.cloudMemory),
@@ -1801,6 +1801,7 @@ function ForgePage() {
               )}
               <CloudMemoryButton
                   canUse
+                  buildIgnoresMemory={liveSync.cloudMemory && !memoryHost.usesMemory}
                   notReadyReason={
                     !authUserId
                       ? "Sign in with your account to use Cloud Memory for this build."

@@ -27,6 +27,8 @@ export interface CloudMemoryButtonProps {
   className?: string;
   /** When set, the button still shows but the controls are replaced by this note. */
   notReadyReason?: string;
+  /** True when the running build has never called window.ObsidianMemory. */
+  buildIgnoresMemory?: boolean;
 }
 
 function ago(iso: string | null): string {
@@ -45,7 +47,7 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
   const {
     canUse, cloudMemory, teamCodeSet, live, shareSlug, entries,
     lastUpdate, lastBy, busy, onToggle, onSetCode, onReset, onGoLive, className,
-    notReadyReason,
+    notReadyReason, buildIgnoresMemory,
   } = props;
 
   const [open, setOpen] = useState(false);
@@ -122,6 +124,23 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
             Keeps this build&rsquo;s data in the cloud so everyone with the team link sees the same
             dashboard, calendar, or log — live. Only you can change the build itself.
           </p>
+
+          {!notReadyReason && buildIgnoresMemory && (
+            <p
+              style={{
+                margin: "0 0 10px",
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(244,161,37,0.28)",
+                background: "rgba(244,161,37,0.08)",
+                color: "#F4A125",
+                fontSize: 11,
+              }}
+            >
+              This build does not use Cloud Memory. Ask Obsidian to store its data in Cloud
+              Memory and it will sync across devices.
+            </p>
+          )}
 
           {notReadyReason ? (
             <p
