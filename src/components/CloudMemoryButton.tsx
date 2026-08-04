@@ -25,6 +25,8 @@ export interface CloudMemoryButtonProps {
   onGoLive?: () => void;
   /** Compact style hook so it can sit in either top bar. */
   className?: string;
+  /** When set, the button still shows but the controls are replaced by this note. */
+  notReadyReason?: string;
 }
 
 function ago(iso: string | null): string {
