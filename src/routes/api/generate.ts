@@ -815,8 +815,15 @@ export const Route = createFileRoute("/api/generate")({
           ];
           // Cloud Memory directive — every HTML build (fresh or patch) must use
           // window.ObsidianMemory instead of localStorage/Firebase so data syncs.
+          // The director escalates to the full API directive when the prompt
+          // implies shared state or names an unsupported external backend.
+          const mem = memoryDirectiveFor(data.prompt ?? "");
           if (!data.advisory) {
-            messages.splice(1, 0, { role: "system", content: memoryDirective() });
+            messages.splice(1, 0, {
+              role: "system",
+              content: mem.needed ? mem.directive : memoryDirective(),
+            });
+            timing.memory_directive = mem.needed ? (mem.correcting ? "correcting" : "shared") : "base";
           }
           // Project memory — injected on every build and edit (advisory excluded).
           // Carries the user's running brief: purpose, audience, brand, constraints.
