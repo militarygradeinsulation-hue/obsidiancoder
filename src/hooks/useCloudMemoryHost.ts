@@ -5,9 +5,9 @@
 // the shared /team/<slug> page. Both are DATA-only — neither can change the
 // build itself.
 
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { parseMemoryMessage, memoryReply, memoryChanged } from "@/lib/runtime-bridge";
+import { parseMemoryMessage, memoryReply, memoryChanged, MEMORY_NS } from "@/lib/runtime-bridge";
 import {
   ownerListMemory, ownerSetMemory, ownerDeleteMemory,
   teamListMemory, teamSetMemory, teamDeleteMemory,
@@ -173,4 +173,6 @@ export function useCloudMemoryHost({
     const t = setInterval(() => { void tick(); }, pollMs);
     return () => { stopped = true; clearInterval(t); };
   }, [enabled, adapter, pollMs, post]);
+
+  return { bridgeSeen, usesMemory };
 }
