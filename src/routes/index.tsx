@@ -78,6 +78,7 @@ import { validateHtml, blockingIssues } from "@/lib/validation";
 import { metricsFromClassification, formatDuration, type GenerationMetrics } from "@/lib/generation-metrics";
 import { extractOutline, outlineToPrompt } from "@/lib/document-outline";
 import { EMPTY_MEMORY, memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
+import { CloudMemoryButton } from "@/components/CloudMemoryButton";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
 
 import { applyPatch, preflightPatch } from "@/lib/patch-engine";
@@ -4830,6 +4831,23 @@ function Index() {
               >
                 {liveSync.live ? "◉ Live" : "◌ Go live"}
               </button>
+            )}
+            {authUserId && current.cloudId && (
+              <CloudMemoryButton
+                canUse
+                cloudMemory={liveSync.cloudMemory}
+                teamCodeSet={liveSync.teamCodeSet}
+                live={liveSync.live}
+                shareSlug={liveSync.shareSlug}
+                entries={liveSync.entries}
+                lastUpdate={liveSync.lastUpdate}
+                lastBy={liveSync.lastBy}
+                busy={liveSync.busy}
+                onToggle={(on) => liveSync.setCloudMemory(on)}
+                onSetCode={(teamCode) => liveSync.setCloudMemory(true, teamCode)}
+                onReset={() => liveSync.resetCloudMemory()}
+                onGoLive={() => { void liveSync.toggleLive(); }}
+              />
             )}
             {liveSync.liveUrl && (
               <a

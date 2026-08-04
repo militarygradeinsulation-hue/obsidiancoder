@@ -40,6 +40,7 @@ import { useVoiceControl } from "@/lib/voice-control";
 import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
 import { useAuth } from "@/hooks/useSubscription";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
+import { CloudMemoryButton } from "@/components/CloudMemoryButton";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
 
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
@@ -1400,6 +1401,24 @@ function ForgePage() {
               >
                 {liveSync.live ? "◉ Live" : "◌ Go live"}
               </button>
+            )}
+            {authUserId && cloudProjectId && (
+              <CloudMemoryButton
+                canUse
+                cloudMemory={liveSync.cloudMemory}
+                teamCodeSet={liveSync.teamCodeSet}
+                live={liveSync.live}
+                shareSlug={liveSync.shareSlug}
+                entries={liveSync.entries}
+                lastUpdate={liveSync.lastUpdate}
+                lastBy={liveSync.lastBy}
+                busy={liveSync.busy}
+                onToggle={(on) => liveSync.setCloudMemory(on)}
+                onSetCode={(teamCode) => liveSync.setCloudMemory(true, teamCode)}
+                onReset={() => liveSync.resetCloudMemory()}
+                onGoLive={() => { void liveSync.toggleLive(); }}
+                className={btn}
+              />
             )}
             {liveSync.liveUrl && (
               <a
