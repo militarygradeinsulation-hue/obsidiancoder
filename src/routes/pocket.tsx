@@ -41,6 +41,7 @@ import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
 import { useAuth } from "@/hooks/useSubscription";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
 import { CloudMemoryButton } from "@/components/CloudMemoryButton";
+import { useCloudMemoryHost, ownerAdapter } from "@/hooks/useCloudMemoryHost";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
 
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
@@ -457,6 +458,16 @@ function ForgePage() {
         log(`☁ Live sync: pulled r${u.revision} from ${u.device ?? "another device"}`);
       });
     },
+  });
+
+  // Cloud Memory: shared data store for the running build (owner side).
+  useCloudMemoryHost({
+    frame: null,
+    projectId: cloudProjectId ?? null,
+    enabled: Boolean(authUserId && cloudProjectId && liveSync.cloudMemory),
+    adapter: authUserId && cloudProjectId
+      ? ownerAdapter(cloudProjectId, deviceLabel())
+      : null,
   });
 
   // Autosave a few seconds after the last change so other devices catch up.

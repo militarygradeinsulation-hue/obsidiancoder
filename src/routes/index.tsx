@@ -79,6 +79,7 @@ import { metricsFromClassification, formatDuration, type GenerationMetrics } fro
 import { extractOutline, outlineToPrompt } from "@/lib/document-outline";
 import { EMPTY_MEMORY, memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
 import { CloudMemoryButton } from "@/components/CloudMemoryButton";
+import { useCloudMemoryHost, ownerAdapter } from "@/hooks/useCloudMemoryHost";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
 
 import { applyPatch, preflightPatch } from "@/lib/patch-engine";
@@ -1287,6 +1288,17 @@ function Index() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?.id, current?.html, current?.themeCss, current?.themeName, current?.themeBlueprintId]);
+
+  // Cloud Memory: answer the running build's ObsidianMemory calls with the
+  // shared cloud store so the owner sees the same data as their team.
+  useCloudMemoryHost({
+    frame: iframeRef.current,
+    projectId: current?.cloudId ?? null,
+    enabled: Boolean(authUserId && current?.cloudId && liveSync.cloudMemory),
+    adapter: authUserId && current?.cloudId
+      ? ownerAdapter(current.cloudId, deviceLabel())
+      : null,
+  });
 
   // ── Live sync: autosave + per-build project memory ───────────────────
   // Autosave pushes the current build to the cloud a few seconds after the
