@@ -1414,24 +1414,6 @@ function ForgePage() {
                 {liveSync.live ? "◉ Live" : "◌ Go live"}
               </button>
             )}
-            {authUserId && cloudProjectId && (
-              <CloudMemoryButton
-                canUse
-                cloudMemory={liveSync.cloudMemory}
-                teamCodeSet={liveSync.teamCodeSet}
-                live={liveSync.live}
-                shareSlug={liveSync.shareSlug}
-                entries={liveSync.entries}
-                lastUpdate={liveSync.lastUpdate}
-                lastBy={liveSync.lastBy}
-                busy={liveSync.busy}
-                onToggle={(on) => liveSync.setCloudMemory(on)}
-                onSetCode={(teamCode) => liveSync.setCloudMemory(true, teamCode)}
-                onReset={() => liveSync.resetCloudMemory()}
-                onGoLive={() => { void liveSync.toggleLive(); }}
-                className={btn}
-              />
-            )}
             {liveSync.liveUrl && (
               <a
                 href={liveSync.liveUrl}
@@ -1816,6 +1798,24 @@ function ForgePage() {
                 >
                   <Rocket size={13} /> {demoLive ? "On Demos" : "Push to Demos"}
                 </button>
+              )}
+              {authUserId && cloudProjectId && (
+                <CloudMemoryButton
+                  canUse
+                  cloudMemory={liveSync.cloudMemory}
+                  teamCodeSet={liveSync.teamCodeSet}
+                  live={liveSync.live}
+                  shareSlug={liveSync.shareSlug}
+                  entries={liveSync.entries}
+                  lastUpdate={liveSync.lastUpdate}
+                  lastBy={liveSync.lastBy}
+                  busy={liveSync.busy}
+                  onToggle={(on) => liveSync.setCloudMemory(on)}
+                  onSetCode={(teamCode) => liveSync.setCloudMemory(true, teamCode)}
+                  onReset={() => liveSync.resetCloudMemory()}
+                  onGoLive={() => { void liveSync.toggleLive(); }}
+                  className={btn}
+                />
               )}
             </div>
           </div>
