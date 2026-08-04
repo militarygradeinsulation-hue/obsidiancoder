@@ -3473,6 +3473,25 @@ function Index() {
               );
             })()}
 
+            {authUserId && current.cloudId && (
+              <CloudMemoryButton
+                canUse
+                cloudMemory={liveSync.cloudMemory}
+                teamCodeSet={liveSync.teamCodeSet}
+                live={liveSync.live}
+                shareSlug={liveSync.shareSlug}
+                entries={liveSync.entries}
+                lastUpdate={liveSync.lastUpdate}
+                lastBy={liveSync.lastBy}
+                busy={liveSync.busy}
+                onToggle={(on) => liveSync.setCloudMemory(on)}
+                onSetCode={(teamCode) => liveSync.setCloudMemory(true, teamCode)}
+                onReset={() => liveSync.resetCloudMemory()}
+                onGoLive={() => { void liveSync.toggleLive(); }}
+                className="obs-chip"
+              />
+            )}
+
 
             <button
               type="button"
