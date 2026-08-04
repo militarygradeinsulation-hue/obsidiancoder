@@ -135,3 +135,20 @@ export async function buildMemoryStats(
   const r = rows<{ entries: number; last_update: string | null; last_by: string | null }>(data)[0];
   return { entries: r?.entries ?? 0, lastUpdate: r?.last_update ?? null, lastBy: r?.last_by ?? null };
 }
+
+/** Owner-only: current Cloud Memory switch state for one build. */
+export async function getCloudMemoryState(
+  user: AuthedUser,
+  projectId: string,
+): Promise<{ cloudMemory: boolean; teamCodeSet: boolean }> {
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data, error } = await supabaseAdmin
+    .from("project_sync" as never)
+    .select("cloud_memory, team_code_hash")
+    .eq("project_id", projectId)
+    .eq("user_id", user.userId)
+    .maybeSingle();
+  if (error) throw new Error(`cloud_memory state failed: ${error.message}`);
+  const row = (data ?? null) as { cloud_memory?: boolean; team_code_hash?: string | null } | null;
+  return { cloudMemory: Boolean(row?.cloud_memory), teamCodeSet: Boolean(row?.team_code_hash) };
+}
