@@ -1325,6 +1325,7 @@ ${memBlock}`,
                       const delta = j.choices?.[0]?.delta?.content;
                       if (typeof delta === "string" && delta.length) {
                         emittedBytes += delta.length;
+                        if (mem.needed && outSample.length < 400_000) outSample += delta;
                         controller.enqueue(encoder.encode(delta));
                       }
                     } catch { /* skip malformed */ }
