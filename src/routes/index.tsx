@@ -3473,9 +3473,15 @@ function Index() {
               );
             })()}
 
-            {authUserId && current.cloudId && (
-              <CloudMemoryButton
+            <CloudMemoryButton
                 canUse
+                notReadyReason={
+                  !authUserId
+                    ? "Sign in with your account to use Cloud Memory for this build."
+                    : !current.cloudId
+                      ? "Save this build first — Cloud Memory attaches to a saved cloud build."
+                      : undefined
+                }
                 cloudMemory={liveSync.cloudMemory}
                 teamCodeSet={liveSync.teamCodeSet}
                 live={liveSync.live}
@@ -3490,7 +3496,7 @@ function Index() {
                 onGoLive={() => { void liveSync.toggleLive(); }}
                 className="obs-chip"
               />
-            )}
+
 
 
             <button

@@ -1799,9 +1799,15 @@ function ForgePage() {
                   <Rocket size={13} /> {demoLive ? "On Demos" : "Push to Demos"}
                 </button>
               )}
-              {authUserId && cloudProjectId && (
-                <CloudMemoryButton
+              <CloudMemoryButton
                   canUse
+                  notReadyReason={
+                    !authUserId
+                      ? "Sign in with your account to use Cloud Memory for this build."
+                      : !cloudProjectId
+                        ? "Save this build first — Cloud Memory attaches to a saved cloud build."
+                        : undefined
+                  }
                   cloudMemory={liveSync.cloudMemory}
                   teamCodeSet={liveSync.teamCodeSet}
                   live={liveSync.live}
@@ -1816,7 +1822,7 @@ function ForgePage() {
                   onGoLive={() => { void liveSync.toggleLive(); }}
                   className={btn}
                 />
-              )}
+
             </div>
           </div>
 

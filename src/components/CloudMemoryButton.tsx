@@ -25,6 +25,8 @@ export interface CloudMemoryButtonProps {
   onGoLive?: () => void;
   /** Compact style hook so it can sit in either top bar. */
   className?: string;
+  /** When set, the button still shows but the controls are replaced by this note. */
+  notReadyReason?: string;
 }
 
 function ago(iso: string | null): string {
@@ -43,6 +45,7 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
   const {
     canUse, cloudMemory, teamCodeSet, live, shareSlug, entries,
     lastUpdate, lastBy, busy, onToggle, onSetCode, onReset, onGoLive, className,
+    notReadyReason,
   } = props;
 
   const [open, setOpen] = useState(false);
@@ -81,20 +84,16 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
         onClick={() => { setNote(""); setOpen((v) => !v); }}
         aria-expanded={open}
         aria-haspopup="dialog"
-        style={{
-          fontSize: 11,
-          cursor: "pointer",
-          color: cloudMemory ? "#F4A125" : undefined,
-          background: "transparent",
-          border: "none",
-          padding: 0,
-        }}
-        title={cloudMemory
-          ? "Cloud Memory is on — your team shares this build's data"
-          : "Turn on Cloud Memory so your team shares this build's data"}
+        style={{ cursor: "pointer", color: cloudMemory ? "#F4A125" : undefined }}
+        title={notReadyReason
+          ? notReadyReason
+          : cloudMemory
+            ? "Cloud Memory is on — your team shares this build's data"
+            : "Turn on Cloud Memory so your team shares this build's data"}
       >
-        {cloudMemory ? "☁ Cloud Memory" : "☁ Cloud Memory off"}
+        <span aria-hidden="true">☁</span> {cloudMemory ? "Cloud Memory" : "Cloud Memory"}
       </button>
+
 
       {open && (
         <div
@@ -123,6 +122,24 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
             Keeps this build&rsquo;s data in the cloud so everyone with the team link sees the same
             dashboard, calendar, or log — live. Only you can change the build itself.
           </p>
+
+          {notReadyReason ? (
+            <p
+              style={{
+                margin: 0,
+                padding: "8px 10px",
+                borderRadius: 8,
+                border: "1px solid rgba(244,161,37,0.28)",
+                background: "rgba(244,161,37,0.08)",
+                color: "#F4A125",
+                fontSize: 11,
+              }}
+            >
+              {notReadyReason}
+            </p>
+          ) : (
+          <>
+
 
           <label style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, cursor: "pointer" }}>
             <input
@@ -211,6 +228,9 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
               </button>
             </>
           )}
+          </>
+          )}
+
 
           {note && <div style={{ marginTop: 10, fontSize: 11, color: "#F4A125" }}>{note}</div>}
         </div>
