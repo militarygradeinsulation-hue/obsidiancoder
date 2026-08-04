@@ -3,6 +3,7 @@
  * Run: npx tsx src/lib/__tests__/selftest.mts
  */
 import path from "node:path";
+import { readFile } from "node:fs/promises";
 import {
   validateManifest,
   singlePageManifest,
@@ -366,6 +367,27 @@ ok(Array.isArray(matched), "registry: matchComponents returns array");
 
 // extractComponents on minimal HTML doesn't throw
 ok(!extractComponents("<html></html>").length || true, "registry: empty HTML is safe");
+
+/* ---------- cloud memory directive (9) ---------- */
+const { memoryDirective } = await import("../memory-directive");
+const memFrag = memoryDirective();
+ok(memFrag.trim().length > 200, "memory directive: fragment is non-empty");
+ok(memFrag.includes("ObsidianMemory.set("), "memory directive: documents ObsidianMemory.set");
+ok(memFrag.includes("ObsidianMemory.get("), "memory directive: documents ObsidianMemory.get");
+ok(memFrag.includes("ObsidianMemory.list()"), "memory directive: documents ObsidianMemory.list");
+ok(memFrag.includes("ObsidianMemory.onChange("), "memory directive: documents ObsidianMemory.onChange");
+ok(/localStorage/.test(memFrag) && /FORBIDDEN/.test(memFrag), "memory directive: forbids localStorage");
+ok(/Firebase/i.test(memFrag), "memory directive: forbids Firebase");
+
+const generateSrc = await readFile(path.join(REPO_ROOT, "src/routes/api/generate.ts"), "utf8");
+ok(
+  generateSrc.includes('from "@/lib/memory-directive"'),
+  "generate.ts: imports the memory directive",
+);
+ok(
+  /messages\.splice\(1, 0, \{ role: "system", content: memoryDirective\(\) \}\)/.test(generateSrc),
+  "generate.ts: injects the memory directive into the system prompt for HTML builds",
+);
 
 /* ---------- report ---------- */
 const total = passed + failures.length;
