@@ -215,12 +215,12 @@ ok(!badResult.ok && badResult.error === "Not found" && badResult.status === 404,
 
 // 5. API routes exist at expected paths
 import { existsSync } from "node:fs";
-ok(existsSync("/home/claude/repo/src/routes/api/projects.ts"), "projects API route exists");
-ok(existsSync("/home/claude/repo/src/lib/cloud-projects.server.ts"), "cloud-projects.server.ts exists");
-ok(existsSync("/home/claude/repo/src/lib/cloud-projects.ts"), "cloud-projects.ts client exists");
+ok(existsSync(`${REPO_ROOT}/src/routes/api/projects.ts`), "projects API route exists");
+ok(existsSync(`${REPO_ROOT}/src/lib/cloud-projects.server.ts`), "cloud-projects.server.ts exists");
+ok(existsSync(`${REPO_ROOT}/src/lib/cloud-projects.ts`), "cloud-projects.ts client exists");
 
 // 6. Migration file exists
-ok(existsSync("/home/claude/repo/supabase/migrations/20260803_cloud_projects.sql"),
+ok(existsSync(`${REPO_ROOT}/supabase/migrations/20260803_cloud_projects.sql`),
   "cloud_projects migration file exists");
 
 // 7. cloud_save is a known operation in credit-gate
@@ -230,29 +230,29 @@ ok(KNOWN_OPERATIONS.includes("cloud_save"), "cloud_save is a metered operation")
 /* ---------- cloud UI wiring (5) ---------- */
 // Structural checks — confirm hook file and patches exist.
 const { existsSync: _ex2 } = await import("node:fs");
-ok(_ex2("/home/claude/repo/src/hooks/useCloudProjects.ts"), "useCloudProjects hook file exists");
+ok(_ex2(`${REPO_ROOT}/src/hooks/useCloudProjects.ts`), "useCloudProjects hook file exists");
 
 // index.tsx has cloudId in Session type
-const ideSource = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/routes/index.tsx", "utf-8"));
+const ideSource = await import("node:fs").then(m => m.readFileSync(`${REPO_ROOT}/src/routes/index.tsx`, "utf-8"));
 ok(ideSource.includes("cloudId?: string"), "Session type has cloudId field");
 ok(ideSource.includes("useCloudProjects"), "index.tsx imports and calls useCloudProjects");
 ok(ideSource.includes("Cloud Projects"), "library modal has Cloud Projects section");
 
 // pocket.tsx has cloud save wired
-const pocketSource = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/routes/pocket.tsx", "utf-8"));
+const pocketSource = await import("node:fs").then(m => m.readFileSync(`${REPO_ROOT}/src/routes/pocket.tsx`, "utf-8"));
 ok(pocketSource.includes("cloudProjects.save"), "pocket.tsx calls cloudProjects.save");
 
 /* ---------- upgrade nudge (5) ---------- */
 const { existsSync: _ex3 } = await import("node:fs");
-ok(_ex3("/home/claude/repo/src/components/UpgradeNudge.tsx"), "UpgradeNudge component exists");
+ok(_ex3(`${REPO_ROOT}/src/components/UpgradeNudge.tsx`), "UpgradeNudge component exists");
 
-const nudgeSource = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/components/UpgradeNudge.tsx", "utf-8"));
+const nudgeSource = await import("node:fs").then(m => m.readFileSync(`${REPO_ROOT}/src/components/UpgradeNudge.tsx`, "utf-8"));
 ok(nudgeSource.includes("daily_limit") && nudgeSource.includes("demo_used") && nudgeSource.includes("not_pro"),
   "UpgradeNudge covers all three nudge reasons");
 ok(nudgeSource.includes("You built something"), "daily_limit copy is motivational");
 ok(nudgeSource.includes("Sign up free"), "demo_used shows free sign-up path");
 
-const ideNudge = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/routes/index.tsx", "utf-8"));
+const ideNudge = await import("node:fs").then(m => m.readFileSync(`${REPO_ROOT}/src/routes/index.tsx`, "utf-8"));
 ok(ideNudge.includes("setNudge") && ideNudge.includes("UpgradeNudge"), "IDE wires UpgradeNudge");
 
 /* ---------- intent patterns (10) ---------- */
@@ -286,11 +286,11 @@ ok(matchIntentPatterns("add a submit button") === null || matchIntentPatterns("a
 
 /* ---------- MCP tools (4) ---------- */
 const { existsSync: _exMcp } = await import("node:fs");
-ok(_exMcp("/home/claude/repo/src/lib/mcp/tools/generate-build.ts"), "MCP generate_build tool exists");
-ok(_exMcp("/home/claude/repo/src/lib/mcp/tools/patch-build.ts"), "MCP patch_build tool exists");
-ok(_exMcp("/home/claude/repo/src/lib/mcp/tools/classify-prompt.ts"), "MCP classify_prompt tool exists");
+ok(_exMcp(`${REPO_ROOT}/src/lib/mcp/tools/generate-build.ts`), "MCP generate_build tool exists");
+ok(_exMcp(`${REPO_ROOT}/src/lib/mcp/tools/patch-build.ts`), "MCP patch_build tool exists");
+ok(_exMcp(`${REPO_ROOT}/src/lib/mcp/tools/classify-prompt.ts`), "MCP classify_prompt tool exists");
 
-const mcpIdx = await import("node:fs").then(m => m.readFileSync("/home/claude/repo/src/lib/mcp/index.ts", "utf-8"));
+const mcpIdx = await import("node:fs").then(m => m.readFileSync(`${REPO_ROOT}/src/lib/mcp/index.ts`, "utf-8"));
 ok(mcpIdx.includes("generate-build") && mcpIdx.includes("patch-build") && mcpIdx.includes("classify-prompt"),
   "MCP index registers all three new tools");
 
