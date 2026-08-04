@@ -1293,7 +1293,7 @@ function Index() {
   // Cloud Memory: answer the running build's ObsidianMemory calls with the
   // shared cloud store so the owner sees the same data as their team.
   useCloudMemoryHost({
-    frame: iframeRef.current,
+    frame: null,
     projectId: current?.cloudId ?? null,
     enabled: Boolean(authUserId && current?.cloudId && liveSync.cloudMemory),
     adapter: authUserId && current?.cloudId
