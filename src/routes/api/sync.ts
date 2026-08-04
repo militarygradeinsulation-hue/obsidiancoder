@@ -41,7 +41,14 @@ export const Route = createFileRoute("/api/sync")({
         const id = new URL(request.url).searchParams.get("id") ?? "";
         if (!UUID.test(id)) return json(400, { ok: false, error: "id must be a valid UUID." });
         try {
-          return json(200, { ok: true, state: await getProjectSync(user, id) });
+          const state = await getProjectSync(user, id);
+          if (!state) return json(200, { ok: true, state: null });
+          const [cm, stats] = await Promise.all([
+            getCloudMemoryState(user, id),
+            buildMemoryStats(user, id),
+          ]);
+          return json(200, { ok: true, state: { ...state, ...cm, ...stats } });
+
         } catch (err) {
           return json(500, { ok: false, error: err instanceof Error ? err.message.slice(0, 120) : "Sync read failed." });
         }
