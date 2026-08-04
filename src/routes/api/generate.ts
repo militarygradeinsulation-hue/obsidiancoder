@@ -812,6 +812,11 @@ export const Route = createFileRoute("/api/generate")({
             },
             ...data.history,
           ];
+          // Cloud Memory directive — every HTML build (fresh or patch) must use
+          // window.ObsidianMemory instead of localStorage/Firebase so data syncs.
+          if (!data.advisory) {
+            messages.splice(1, 0, { role: "system", content: memoryDirective() });
+          }
           // Project memory — injected on every build and edit (advisory excluded).
           // Carries the user's running brief: purpose, audience, brand, constraints.
           if (!data.advisory && data.projectMemory && !isMemoryEmpty(data.projectMemory)) {
