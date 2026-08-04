@@ -45,6 +45,7 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
   const {
     canUse, cloudMemory, teamCodeSet, live, shareSlug, entries,
     lastUpdate, lastBy, busy, onToggle, onSetCode, onReset, onGoLive, className,
+    notReadyReason,
   } = props;
 
   const [open, setOpen] = useState(false);
