@@ -80,6 +80,7 @@ import { extractOutline, outlineToPrompt } from "@/lib/document-outline";
 import { EMPTY_MEMORY, memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
 import { CloudMemoryButton } from "@/components/CloudMemoryButton";
 import { useCloudMemoryHost, ownerAdapter } from "@/hooks/useCloudMemoryHost";
+import { deviceLabel } from "@/lib/project-sync";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
 
 import { applyPatch, preflightPatch } from "@/lib/patch-engine";

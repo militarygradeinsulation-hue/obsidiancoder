@@ -42,6 +42,7 @@ import { useAuth } from "@/hooks/useSubscription";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
 import { CloudMemoryButton } from "@/components/CloudMemoryButton";
 import { useCloudMemoryHost, ownerAdapter } from "@/hooks/useCloudMemoryHost";
+import { deviceLabel } from "@/lib/project-sync";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
 
 import { isAiErrorEnvelope } from "@/lib/ai-errors";
