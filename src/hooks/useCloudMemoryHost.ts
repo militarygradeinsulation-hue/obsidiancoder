@@ -60,16 +60,22 @@ export function useCloudMemoryHost({
   const changeRef = useRef(onChange);
   changeRef.current = onChange;
 
+  // Pocket swaps between two preview buffers, so the frame element is not
+  // stable. Remember whichever window last spoke to us and answer that.
+  const sourceRef = useRef<Window | null>(null);
+
   const post = useCallback((msg: unknown) => {
-    try { frame?.contentWindow?.postMessage(msg, "*"); } catch { /* ignore */ }
+    const target = frame?.contentWindow ?? sourceRef.current;
+    try { target?.postMessage(msg, "*"); } catch { /* ignore */ }
   }, [frame]);
 
   // Answer memory requests from the sandboxed build.
   useEffect(() => {
     if (!enabled || !adapter) return;
     const onMessage = async (evt: MessageEvent) => {
-      const req = parseMemoryMessage(evt, frame?.contentWindow ?? null);
+      const req = parseMemoryMessage(evt, frame ? frame.contentWindow : null);
       if (!req) return;
+      if (!frame && evt.source) sourceRef.current = evt.source as Window;
       const a = adapterRef.current;
       if (!a) { post(memoryReply(req.id, false, null)); return; }
       try {
