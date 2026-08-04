@@ -228,6 +228,9 @@ export function CloudMemoryButton(props: CloudMemoryButtonProps) {
               </button>
             </>
           )}
+          </>
+          )}
+
 
           {note && <div style={{ marginTop: 10, fontSize: 11, color: "#F4A125" }}>{note}</div>}
         </div>
