@@ -3502,7 +3502,7 @@ function Index() {
               title={
                 entitlement.mode === "owner" ? "Site owner — unlimited access, all local features unlocked" :
                 entitlement.mode === "pro"   ? `Obsidian Pro · ${entitlement.remaining}/${entitlement.cap} credits left this period` :
-                entitlement.authed && (entitlement as Record<string, unknown>).freeBuildAvailable ? "Free account — 1 AI build available today. Upgrade for 1,000 credits/month." :
+                entitlement.authed && (entitlement as unknown as Record<string, unknown>).freeBuildAvailable ? "Free account — 1 AI build available today. Upgrade for 1,000 credits/month." :
                 entitlement.authed && entitlement.cap === 1 ? "Free account — daily AI build used. Resets tomorrow or upgrade to Pro." :
                                                "Local Only — manual editing, preview, and export remain free. AI features require Obsidian Pro."
               }
