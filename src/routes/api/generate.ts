@@ -1118,7 +1118,19 @@ ${memBlock}`,
                   ? isGoogleKeyExhausted(err) || !(err instanceof AiError && err.code === "ai_cancelled")
                   : routeLLMDead;
                 const canFallback = i < attempts.length - 1 && exhausted;
-                if (!canFallback) throw err;
+                if (!canFallback) {
+                  // Last provider in the chain died for a billing reason —
+                  // say so plainly instead of surfacing a generic timeout.
+                  if (routeLLMDead) {
+                    throw new AiError({
+                      code: "ai_unauthorized",
+                      stage: "generate",
+                      requestId,
+                      message: "AI provider credits exhausted. Top up the ChatLLM account or use a Google/Lovable model.",
+                    });
+                  }
+                  throw err;
+                }
               }
             }
             if (!res || !usedAttempt) throw lastErr ?? new AiError({ code: "ai_internal", stage: "generate", requestId });
