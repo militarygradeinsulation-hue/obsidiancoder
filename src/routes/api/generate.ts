@@ -21,6 +21,15 @@ import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 import { routellmKey, healthyRouteLLMKeys, markRouteLLMKeyDead, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
+import {
+  isAnthropicModel,
+  anthropicApiKey,
+  anthropicWireModel,
+  toAnthropicRequest,
+  anthropicResponseToOpenAIStream,
+  ANTHROPIC_API_URL,
+  ANTHROPIC_VERSION,
+} from "@/lib/anthropic";
 import { googleAiKey, googleModelFor, isGoogleKeyExhausted, GOOGLE_OPENAI_CHAT_URL } from "@/lib/google-ai";
 import { CONCRETE_FAMILIES, POCKET_STYLE_FAMILIES } from "@/lib/pocket-creative";
 import {
@@ -1029,7 +1038,7 @@ ${memBlock}`,
             // configured ChatLLM/RouteLLM key in priority order, then the
             // Lovable gateway with the closest equivalent model — so builds
             // never hard-fail on a billing problem at one provider.
-            type Attempt = { key: string; url: string; wireModel: string; routed: boolean; label: string; google?: boolean };
+            type Attempt = { key: string; url: string; wireModel: string; routed: boolean; label: string; google?: boolean; anthropic?: boolean };
             const attempts: Attempt[] = [];
             if (googleKey) {
               const gm = googleModelFor(model);
@@ -1042,7 +1051,36 @@ ${memBlock}`,
                 google: true,
               });
             }
-            if (viaRouteLLM) {
+            const viaAnthropic = isAnthropicModel(model);
+            if (viaAnthropic) {
+              const aKey = anthropicApiKey();
+              if (aKey) {
+                attempts.push({
+                  key: aKey,
+                  url: ANTHROPIC_API_URL,
+                  wireModel: anthropicWireModel(model),
+                  routed: false,
+                  label: `anthropic/generate:${model}`,
+                  anthropic: true,
+                });
+              }
+              // No Anthropic key configured (or it fails) — fall back to the
+              // closest Lovable-gateway equivalent by quality tier, same
+              // pattern as lovableEquivalentFor() for RouteLLM above.
+              if (apiKey) {
+                const wire = anthropicWireModel(model);
+                const equiv = wire.startsWith("claude-opus") ? "openai/gpt-5.5"
+                  : wire.startsWith("claude-haiku") ? "google/gemini-3.5-flash"
+                  : "openai/gpt-5.4-mini"; // sonnet tier
+                attempts.push({
+                  key: apiKey,
+                  url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+                  wireModel: equiv,
+                  routed: false,
+                  label: `lovable/generate:${equiv}`,
+                });
+              }
+            } else if (viaRouteLLM) {
               for (const k of healthyRouteLLMKeys()) {
                 attempts.push({
                   key: k,
@@ -1079,32 +1117,68 @@ ${memBlock}`,
             for (let i = 0; i < attempts.length; i++) {
               const a = attempts[i];
               try {
-                res = await aiFetch(
-                  a.url,
-                  {
-                    method: "POST",
-                    headers: {
-                      "Content-Type": "application/json",
-                      Authorization: `Bearer ${a.key}`,
-                    },
-                    body: JSON.stringify({
-                      model: a.wireModel,
-                      messages: attemptMessages,
-                      stream: true,
-                      // Ask the gateway for a final usage frame at the end of the SSE.
-                      stream_options: { include_usage: true },
-                      ...(!a.routed && a.wireModel.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
+                res = a.anthropic
+                  ? await aiFetch(
+                      a.url,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          "x-api-key": a.key,
+                          "anthropic-version": ANTHROPIC_VERSION,
+                        },
+                        body: JSON.stringify(toAnthropicRequest(attemptMessages, a.wireModel)),
+                      },
+                      {
+                        breakerKey: a.label,
+                        stage: "generate",
+                        requestId,
+                        signal: clientAbort,
+                        stream: true,
+                        totalTimeoutMs: budgetMs,
+                      },
+                    )
+                  : await aiFetch(
+                      a.url,
+                      {
+                        method: "POST",
+                        headers: {
+                          "Content-Type": "application/json",
+                          Authorization: `Bearer ${a.key}`,
+                        },
+                        body: JSON.stringify({
+                          model: a.wireModel,
+                          messages: attemptMessages,
+                          stream: true,
+                          // Ask the gateway for a final usage frame at the end of the SSE.
+                          stream_options: { include_usage: true },
+                          ...(!a.routed && a.wireModel.startsWith("openai/gpt-5.6") ? { reasoning_effort: "none" } : {}),
+                        }),
+                      },
+                      {
+                        breakerKey: a.label,
+                        stage: "generate",
+                        requestId,
+                        signal: clientAbort,
+                        stream: true,
+                        totalTimeoutMs: budgetMs,
+                      },
+                    );
+                // Anthropic's SSE is a different wire format entirely. Wrap
+                // the raw body so every downstream consumer — the sniff
+                // buffer, the SSE line parser, streamUsage — keeps reading
+                // the same OpenAI-shaped `data:` lines it already expects.
+                // This is the ONLY place that needs to know the translation
+                // exists.
+                if (a.anthropic && res.response.body) {
+                  res = {
+                    ...res,
+                    response: new Response(anthropicResponseToOpenAIStream(res.response.body), {
+                      status: res.response.status,
+                      headers: res.response.headers,
                     }),
-                  },
-                  {
-                    breakerKey: a.label,
-                    stage: "generate",
-                    requestId,
-                    signal: clientAbort,
-                    stream: true,
-                    totalTimeoutMs: budgetMs,
-                  },
-                );
+                  };
+                }
                 usedAttempt = a;
                 break;
               } catch (err) {

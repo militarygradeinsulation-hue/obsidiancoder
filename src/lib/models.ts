@@ -31,6 +31,9 @@ export const MODEL_REGISTRY = [
   { id: "openai/gpt-5-nano",             label: "GPT-5 Nano" },
 ] as const;
 
+import { ANTHROPIC_MODELS } from "./anthropic";
+export { ANTHROPIC_MODELS };
+
 // RouteLLM (Abacus) — OpenAI-compatible gateway at https://routellm.abacus.ai/v1
 // The `routellm/` prefix is stripped before the request is sent upstream, so
 // `routellm/route-llm` posts { model: "route-llm", stream: true } exactly like
@@ -56,11 +59,16 @@ export function stripRouteLLMPrefix(id: string): string {
 }
 
 const ROUTELLM_IDS = ROUTELLM_MODELS.map((m) => m.id);
+const ANTHROPIC_IDS = ANTHROPIC_MODELS.map((m) => m.id);
 export const ALLOWED_MODEL_IDS = [
   ...MODEL_REGISTRY.map((m) => m.id),
   ...ROUTELLM_IDS,
+  ...ANTHROPIC_IDS,
 ];
-export type ModelId = (typeof MODEL_REGISTRY)[number]["id"] | (typeof ROUTELLM_MODELS)[number]["id"];
+export type ModelId =
+  | (typeof MODEL_REGISTRY)[number]["id"]
+  | (typeof ROUTELLM_MODELS)[number]["id"]
+  | (typeof ANTHROPIC_MODELS)[number]["id"];
 
 // User-facing modes: friendly names that map to a concrete supported model.
 // Kept in one place so both the picker UI and resolveModel() agree.
@@ -87,6 +95,7 @@ export const MODEL_PICKER_OPTIONS = [
   { id: "routellm", label: "RouteLLM — Auto (Abacus router)" },
   ...MODEL_REGISTRY,
   ...ROUTELLM_MODELS,
+  ...ANTHROPIC_MODELS,
 ] as const;
 
 export function isModeId(v: string | undefined): v is ModeId {
