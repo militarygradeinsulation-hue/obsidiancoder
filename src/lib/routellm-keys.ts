@@ -41,14 +41,12 @@ export function resetRouteLLMKeyHealth(): void {
 }
 
 /**
- * Configured keys minus the ones known to be out of credits. When every key is
- * dead the full list is returned, so a stale marking can never make the app
- * behave as if no key exists at all.
+ * Configured keys minus the ones known to be out of credits. Dead keys are
+ * skipped entirely so the request budget goes to a provider that can answer;
+ * they come back automatically once the TTL expires.
  */
 export function healthyRouteLLMKeys(now: number = Date.now()): string[] {
-  const all = routellmKeys();
-  const live = all.filter((k) => !isRouteLLMKeyDead(k, now));
-  return live.length > 0 ? live : all;
+  return routellmKeys().filter((k) => !isRouteLLMKeyDead(k, now));
 }
 
 /** The key to use for a single-shot request. */
