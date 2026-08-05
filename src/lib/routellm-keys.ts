@@ -14,9 +14,44 @@ export function routellmKeys(): string[] {
   return Array.from(new Set(keys.filter((k): k is string => !!k && k.trim().length > 0)));
 }
 
+/**
+ * Keys that reported "no remaining credits" / unauthorized recently. Skipped
+ * until the TTL expires so a dead account does not burn the request budget on
+ * every build. Purely in-memory: a topped-up account recovers on its own.
+ */
+const DEAD_KEYS = new Map<string, number>();
+export const DEAD_KEY_TTL_MS = 30 * 60_000;
+
+/** Remember that a key is out of credits (or rejected). */
+export function markRouteLLMKeyDead(key: string, now: number = Date.now()): void {
+  if (key) DEAD_KEYS.set(key, now + DEAD_KEY_TTL_MS);
+}
+
+/** True when the key is currently marked dead. */
+export function isRouteLLMKeyDead(key: string, now: number = Date.now()): boolean {
+  const until = DEAD_KEYS.get(key);
+  if (until === undefined) return false;
+  if (until <= now) { DEAD_KEYS.delete(key); return false; }
+  return true;
+}
+
+/** Test seam. */
+export function resetRouteLLMKeyHealth(): void {
+  DEAD_KEYS.clear();
+}
+
+/**
+ * Configured keys minus the ones known to be out of credits. Dead keys are
+ * skipped entirely so the request budget goes to a provider that can answer;
+ * they come back automatically once the TTL expires.
+ */
+export function healthyRouteLLMKeys(now: number = Date.now()): string[] {
+  return routellmKeys().filter((k) => !isRouteLLMKeyDead(k, now));
+}
+
 /** The key to use for a single-shot request. */
 export function routellmKey(): string | undefined {
-  return routellmKeys()[0];
+  return healthyRouteLLMKeys()[0];
 }
 
 /**

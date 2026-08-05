@@ -9,10 +9,11 @@
 import { aiFetch } from "./ai-fetch";
 import { readGuarded } from "./upstream-guard";
 import { isRouteLLMModel, stripRouteLLMPrefix } from "./models";
-import { routellmKeys, lovableEquivalentFor } from "./routellm-keys";
+import { healthyRouteLLMKeys, lovableEquivalentFor } from "./routellm-keys";
+import { googleAiKey, googleModelFor, GOOGLE_OPENAI_CHAT_URL } from "./google-ai";
 import { parseUsageFromChatJson } from "./usage-record";
 
-export type PocketProviderName = "routellm" | "lovable";
+export type PocketProviderName = "google" | "routellm" | "lovable";
 
 export interface PocketRoute {
   provider: PocketProviderName;
@@ -24,6 +25,7 @@ export interface PocketRoute {
 }
 
 export interface PocketRouteEnv {
+  googleKey?: string | undefined;
   routellmKey?: string | undefined;
   lovableKey?: string | undefined;
 }
@@ -38,6 +40,18 @@ export const ROUTELLM_CHAT_URL = "https://routellm.abacus.ai/v1/chat/completions
  * to RouteLLM and then dispatch again to Lovable.
  */
 export function chooseRoute(model: string, env: PocketRouteEnv, tag: string): PocketRoute | null {
+  // Google is the primary provider for builds, so Pocket's planning and
+  // critique calls use it too when a key is configured.
+  if (env.googleKey) {
+    const wireModel = googleModelFor(model);
+    return {
+      provider: "google",
+      url: GOOGLE_OPENAI_CHAT_URL,
+      key: env.googleKey,
+      wireModel,
+      breakerKey: `google/${tag}:${wireModel}`,
+    };
+  }
   if (isRouteLLMModel(model)) {
     if (env.routellmKey) {
       const wireModel = stripRouteLLMPrefix(model);
@@ -74,7 +88,8 @@ export function chooseRoute(model: string, env: PocketRouteEnv, tag: string): Po
 /** Read the configured environment. Server-only; called inside handlers. */
 export function pocketRouteEnv(): PocketRouteEnv {
   return {
-    routellmKey: routellmKeys()[0],
+    googleKey: googleAiKey(),
+    routellmKey: healthyRouteLLMKeys()[0],
     lovableKey: process.env.LOVABLE_API_KEY,
   };
 }

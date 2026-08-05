@@ -20,7 +20,7 @@ import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from
 import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
-import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
+import { routellmKey, healthyRouteLLMKeys, markRouteLLMKeyDead, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
 import { googleAiKey, googleModelFor, isGoogleKeyExhausted, GOOGLE_OPENAI_CHAT_URL } from "@/lib/google-ai";
 import { CONCRETE_FAMILIES, POCKET_STYLE_FAMILIES } from "@/lib/pocket-creative";
 import {
@@ -435,10 +435,13 @@ interface ComponentPhaseResult {
   planUsage: UsageRecord | null;
 }
 
-const FIRST_RESPONSE_BUDGET_MS = 17_000;
+// First-byte budgets. They must accommodate the whole provider chain
+// (Google → ChatLLM keys → Lovable gateway) on a large system prompt; the
+// previous 6s primary budget expired before Gemini ever produced a byte.
+const FIRST_RESPONSE_BUDGET_MS = 55_000;
 const ENRICHMENT_BUDGET_MS = 4_000;
-const PRIMARY_OPEN_BUDGET_MS = 6_000;
-const FALLBACK_OPEN_BUDGET_MS = 5_500;
+const PRIMARY_OPEN_BUDGET_MS = 32_000;
+const FALLBACK_OPEN_BUDGET_MS = 16_000;
 const MAX_COMPONENT_CONTEXT_BYTES = 32_000;
 
 async function runOptionalPhase<T>(
@@ -1040,7 +1043,7 @@ ${memBlock}`,
               });
             }
             if (viaRouteLLM) {
-              for (const k of routellmKeys()) {
+              for (const k of healthyRouteLLMKeys()) {
                 attempts.push({
                   key: k,
                   url: "https://routellm.abacus.ai/v1/chat/completions",
@@ -1109,11 +1112,25 @@ ${memBlock}`,
                 // Google is the primary provider: any failure on it (quota
                 // exhausted, rejected key, upstream error) switches straight
                 // to ChatLLM. Later attempts only chain on key exhaustion.
+                const routeLLMDead = !a.google && isRouteLLMKeyExhausted(err);
+                if (routeLLMDead) markRouteLLMKeyDead(a.key);
                 const exhausted = a.google
                   ? isGoogleKeyExhausted(err) || !(err instanceof AiError && err.code === "ai_cancelled")
-                  : isRouteLLMKeyExhausted(err);
+                  : routeLLMDead;
                 const canFallback = i < attempts.length - 1 && exhausted;
-                if (!canFallback) throw err;
+                if (!canFallback) {
+                  // Last provider in the chain died for a billing reason —
+                  // say so plainly instead of surfacing a generic timeout.
+                  if (routeLLMDead) {
+                    throw new AiError({
+                      code: "ai_unauthorized",
+                      stage: "generate",
+                      requestId,
+                      message: "AI provider credits exhausted. Top up the ChatLLM account or use a Google/Lovable model.",
+                    });
+                  }
+                  throw err;
+                }
               }
             }
             if (!res || !usedAttempt) throw lastErr ?? new AiError({ code: "ai_internal", stage: "generate", requestId });
@@ -1210,7 +1227,7 @@ ${memBlock}`,
           let fallbackReason = "";
           const remainingFirstResponseMs = () => Math.max(0, firstResponseDeadline - performance.now());
           try {
-            const primaryBudget = Math.min(PRIMARY_OPEN_BUDGET_MS, remainingFirstResponseMs() - 5_750);
+            const primaryBudget = Math.min(PRIMARY_OPEN_BUDGET_MS, remainingFirstResponseMs() - FALLBACK_OPEN_BUDGET_MS - 1_000);
             if (primaryBudget < 750) {
               throw new AiError({ code: "ai_timeout", stage: "generate", requestId });
             }
