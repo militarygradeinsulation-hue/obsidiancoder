@@ -1,36 +1,55 @@
-# Fix Cloud Memory: identity bug first, then the smarter directive
+# Fix: builds failing with "Upstream did not respond in time"
 
-## Answer to your question
+## What's actually wrong
 
-The module you pasted is a real improvement over the current `src/lib/memory-directive.ts` — it adds prompt-aware gating, a correction branch when the prompt names Firebase/Supabase, and two post-generation checks (`detectForbiddenStorage`, `usesMemorySubscription`) that the current version has no equivalent for.
+Two separate problems, both confirmed in the live server logs from your last attempts:
 
-But on its own it would not make Cloud Memory work, because the blocker is not the prompt. It's on the save path.
+1. **The ChatLLM (Abacus) account is out of credits.** Every call to it returns
+   `{"success": false, "error": "You have no remaining credits to use the LLM apis."}`.
+   All three configured keys fail the same way, and the app retries each one on every build.
+2. **The time budget is far too small.** The generator gives the whole provider chain
+   only ~6 seconds to produce a first byte, with a 17-second hard ceiling for the
+   request. Between the dead ChatLLM keys and a long build prompt, that ceiling is hit
+   before the working provider can answer — which surfaces as
+   "Upstream did not respond in time."
 
-## The actual blocker (verified)
-
-`project_sync` has **0 rows** and `build_memory` has **0 rows**, while `builds` has 881 rows. In `src/routes/api/projects.ts` the save handler resolves identity like this:
-
-```text
-ownerSession = site unlocked with 9822
-user         = resolved ONLY when NOT an owner session
-save         → runs
-touchProjectSync(user, ...) → skipped, because user is null
-```
-
-You always browse unlocked with 9822, so the server discards your signed-in identity and never writes a `project_sync` row. No sync row means no `cloud_memory = true` default, no team code, no share slug, and nothing for `build_memory` to attach to. Signing in and publishing cannot change that — which is exactly what you saw.
+The Google (Gemini) key is fine: I tested it directly and it answered in 2.4s with HTTP 200.
+So there is a working provider; the app just never gets far enough to use it.
 
 ## The fix
 
-1. **Identity ordering** in `src/routes/api/projects.ts`: resolve the signed-in user first, fall back to the unlock session only when there is no bearer token. Owner sessions keep bypassing credit metering, so billing behavior is unchanged. With a real user id present, `touchProjectSync` runs and creates the sync row with Cloud Memory on by default.
-2. **Adopt your directive module**, replacing the current `memory-directive.ts`: keep `memoryDirectiveFor(prompt)` gating, the correction branch, `detectForbiddenStorage`, and `usesMemorySubscription`.
-   - One change to the gating: apply the directive when the prompt matches OR when the build is a full app build, and keep it off only for advisory/analysis responses. Pattern matching alone would silently skip builds that are stateful but worded oddly.
-3. **Use the post-generation checks** in `src/routes/api/generate.ts`: after a build comes back, if `detectForbiddenStorage` finds anything or `usesMemorySubscription` is false for a stateful build, run one targeted repair pass instructing the model to move that state to `ObsidianMemory` and register `onChange`.
-4. **Popover honesty** in `CloudMemoryButton`: when there is no sync row yet, say "Save this build to the cloud first" rather than showing an inert switch.
-5. **Verify end to end**: save a build signed in → confirm one `project_sync` row with `cloud_memory = true` → turn on the live URL → write a record from the preview → confirm a `build_memory` row → open the team URL with code 9822 and read it back.
+**1. Stop wasting time on dead ChatLLM keys**
+Remember, per server process, any key that reported "no remaining credits" and skip it
+for the rest of that process (with a short expiry so a topped-up account recovers
+automatically). No behaviour change once credits are restored.
 
-## Technical notes
+**2. Raise the time budgets**
+First-response ceiling 17s → 55s, primary open budget 6s → 32s, fallback 16s. These are
+first-byte budgets only; once streaming starts nothing changes.
 
-- No database migration. The schema, RPCs and RLS for `project_sync` / `build_memory` were already proven working in the earlier server-side round trip; only the app never reached them.
-- `src/routes/api/projects.ts`: swap `ownerSession ? null : resolveUserFromRequest(request)` for resolve-user-first with owner fallback; the `if (user)` guard around `touchProjectSync` then passes.
-- `src/lib/memory-directive.ts`: replaced with your version plus the build-type gate; call sites in `generate.ts` updated from `memoryDirective()` to `memoryDirectiveFor(prompt)`.
-- Self-tests in `src/lib/__tests__/selftest.mts`: cover the new gating (stateful vs. static prompt), the correction branch, both detectors, and that a signed-in request carrying an unlock cookie still yields a user id on the save path.
+**3. Let Obsidian Pocket use Google too**
+Pocket's planning/critique calls currently only know about ChatLLM and the Lovable
+gateway, so they die immediately with the credit error. Add Google as the first choice
+there, matching the main build path.
+
+**4. Clearer error message**
+When every provider fails for a billing reason, say "AI provider credits exhausted"
+instead of a generic timeout, so this is obvious next time.
+
+## Technical detail
+
+- `src/lib/routellm-keys.ts` — add `markRouteLLMKeyDead(key)` / `healthyRouteLLMKeys()`
+  (in-memory, ~30 min TTL).
+- `src/routes/api/generate.ts` — build the attempt chain from `healthyRouteLLMKeys()`;
+  mark a key dead when `isRouteLLMKeyExhausted(err)`; update the four budget constants
+  and the derived `remainingFirstResponseMs()` subtractions.
+- `src/lib/pocket-studio-call.ts` — add a `google` provider route (Gemini
+  OpenAI-compatible endpoint, model via `googleModelFor`) as the first choice in
+  `chooseRoute`, keeping the one-dispatch-per-call contract.
+- Self-test suite updated and run at the end; report the pass count.
+
+## Note on credits
+
+The code fix routes around the dead ChatLLM keys, but if you want Claude/Opus models
+specifically, the Abacus account needs credits topped up. Everything will run on Gemini
+plus the Lovable gateway until then.
