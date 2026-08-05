@@ -20,7 +20,7 @@ import { combineSuccessUsage, combineFailureSettlement, modelAttemptUsage } from
 import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
-import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
+import { routellmKey, healthyRouteLLMKeys, markRouteLLMKeyDead, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
 import { googleAiKey, googleModelFor, isGoogleKeyExhausted, GOOGLE_OPENAI_CHAT_URL } from "@/lib/google-ai";
 import { CONCRETE_FAMILIES, POCKET_STYLE_FAMILIES } from "@/lib/pocket-creative";
 import {
@@ -1043,7 +1043,7 @@ ${memBlock}`,
               });
             }
             if (viaRouteLLM) {
-              for (const k of routellmKeys()) {
+              for (const k of healthyRouteLLMKeys()) {
                 attempts.push({
                   key: k,
                   url: "https://routellm.abacus.ai/v1/chat/completions",
@@ -1112,9 +1112,11 @@ ${memBlock}`,
                 // Google is the primary provider: any failure on it (quota
                 // exhausted, rejected key, upstream error) switches straight
                 // to ChatLLM. Later attempts only chain on key exhaustion.
+                const routeLLMDead = !a.google && isRouteLLMKeyExhausted(err);
+                if (routeLLMDead) markRouteLLMKeyDead(a.key);
                 const exhausted = a.google
                   ? isGoogleKeyExhausted(err) || !(err instanceof AiError && err.code === "ai_cancelled")
-                  : isRouteLLMKeyExhausted(err);
+                  : routeLLMDead;
                 const canFallback = i < attempts.length - 1 && exhausted;
                 if (!canFallback) throw err;
               }
@@ -1213,7 +1215,7 @@ ${memBlock}`,
           let fallbackReason = "";
           const remainingFirstResponseMs = () => Math.max(0, firstResponseDeadline - performance.now());
           try {
-            const primaryBudget = Math.min(PRIMARY_OPEN_BUDGET_MS, remainingFirstResponseMs() - 5_750);
+            const primaryBudget = Math.min(PRIMARY_OPEN_BUDGET_MS, remainingFirstResponseMs() - FALLBACK_OPEN_BUDGET_MS - 1_000);
             if (primaryBudget < 750) {
               throw new AiError({ code: "ai_timeout", stage: "generate", requestId });
             }
