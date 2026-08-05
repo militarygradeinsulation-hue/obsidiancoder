@@ -429,6 +429,38 @@ const genSrc2 = generateSrc;
 ok(genSrc2.includes('from "@/lib/memory-director"'), "generate.ts: imports the memory director");
 ok(genSrc2.includes("detectForbiddenStorage(outSample)"), "generate.ts: logs forbidden storage after generation");
 
+/* ---------- provider health (7) ---------- */
+{
+  const { markRouteLLMKeyDead, isRouteLLMKeyDead, healthyRouteLLMKeys, resetRouteLLMKeyHealth, DEAD_KEY_TTL_MS } =
+    await import("../routellm-keys");
+  const { chooseRoute } = await import("../pocket-studio-call");
+
+  resetRouteLLMKeyHealth();
+  const now = 1_000_000;
+  markRouteLLMKeyDead("k-dead", now);
+  ok(isRouteLLMKeyDead("k-dead", now + 1_000), "provider health: dead key is skipped inside TTL");
+  ok(!isRouteLLMKeyDead("k-dead", now + DEAD_KEY_TTL_MS + 1), "provider health: dead key recovers after TTL");
+  ok(!isRouteLLMKeyDead("k-live", now), "provider health: untouched key stays healthy");
+
+  process.env.ROUTELLM_API_KEY_2 = "k-dead";
+  process.env.ROUTELLM_API_KEY = "k-live";
+  delete process.env.ROUTELLM_API_KEY_FALLBACK;
+  resetRouteLLMKeyHealth();
+  markRouteLLMKeyDead("k-dead");
+  ok(
+    JSON.stringify(healthyRouteLLMKeys()) === JSON.stringify(["k-live"]),
+    "provider health: healthyRouteLLMKeys drops exhausted keys",
+  );
+  resetRouteLLMKeyHealth();
+
+  const googleRoute = chooseRoute("routellm/claude-opus-4-1-20250805", { googleKey: "g", routellmKey: "r", lovableKey: "l" }, "pocket_plan");
+  ok(googleRoute?.provider === "google", "pocket route: Google wins when a Google key exists");
+  const rllmRoute = chooseRoute("routellm/claude-opus-4-1-20250805", { routellmKey: "r", lovableKey: "l" }, "pocket_plan");
+  ok(rllmRoute?.provider === "routellm", "pocket route: falls back to ChatLLM without Google");
+  const lovableRoute = chooseRoute("routellm/claude-opus-4-1-20250805", { lovableKey: "l" }, "pocket_plan");
+  ok(lovableRoute?.provider === "lovable", "pocket route: degrades to the Lovable gateway last");
+}
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);
