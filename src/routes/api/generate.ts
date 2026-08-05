@@ -435,10 +435,13 @@ interface ComponentPhaseResult {
   planUsage: UsageRecord | null;
 }
 
-const FIRST_RESPONSE_BUDGET_MS = 17_000;
+// First-byte budgets. They must accommodate the whole provider chain
+// (Google → ChatLLM keys → Lovable gateway) on a large system prompt; the
+// previous 6s primary budget expired before Gemini ever produced a byte.
+const FIRST_RESPONSE_BUDGET_MS = 55_000;
 const ENRICHMENT_BUDGET_MS = 4_000;
-const PRIMARY_OPEN_BUDGET_MS = 6_000;
-const FALLBACK_OPEN_BUDGET_MS = 5_500;
+const PRIMARY_OPEN_BUDGET_MS = 32_000;
+const FALLBACK_OPEN_BUDGET_MS = 16_000;
 const MAX_COMPONENT_CONTEXT_BYTES = 32_000;
 
 async function runOptionalPhase<T>(
