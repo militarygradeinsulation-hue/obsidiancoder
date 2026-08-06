@@ -108,6 +108,8 @@ import {
 } from "@/lib/pocket-concept";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
+import { finalizeCandidate } from "@/lib/finalize-candidate";
+import { productionQaCall } from "@/lib/qa-client";
 import {
   compactRecentSignatures,
   conceptPlanKey,
@@ -772,18 +774,43 @@ function ForgePage() {
       let finalHtml = clean(acc).trim();
       if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
 
-      // ---- 3. Deterministic safety/parity gate (non-waivable) -------------
+      // ---- 3. Deterministic safety/parity gate, with a Claude repair pass
+      //         for paid accounts when the deterministic gate alone can't
+      //         resolve it (e.g. unbalanced JS brackets that repairHtml()
+      //         deliberately refuses to auto-patch). This is the same
+      //         finalizeCandidate() pipeline the Coder already uses for
+      //         full-generation — Pocket was calling the bare deterministic
+      //         assessment only and dead-ending on failure with no repair
+      //         attempt at all.
+      //
+      //         Free/demo accounts are UNCHANGED by this: finalizeCandidate
+      //         skips the Claude QA call entirely when demoMode is true, so
+      //         a free build that hits the gate reverts exactly as it did
+      //         before this pass was added. Only paid Pocket builds gain
+      //         the repair attempt.
       setStatus("Running safety checks…");
-      const firstAssessment = assessCandidateForCommit({ html: finalHtml });
-      if (!firstAssessment.ok) {
+      const finP = await finalizeCandidate({
+        candidateHtml: finalHtml,
+        stableHtml: previous,
+        themeCss: null,
+        themeName: null,
+        demoMode: !paidAccess,
+        userRequest: p,
+        strategy: "full-generation",
+      }, productionQaCall);
+      if (finP.claudeInvoked) {
+        setStatus("Repairing…");
+        log(`Claude QA repair attempted via ${finP.claudeModel ?? "?"} — ${finP.claudeVerdict ?? "unknown"}`);
+      }
+      if (!finP.ok) {
         setProject((prev) => setEntryHtml(prev, previous));
-        const blockers = firstAssessment.blockers.slice(0, 3).join(" · ");
+        const blockers = finP.blockers.slice(0, 3).join(" · ");
         setError(`Build blocked by the safety gate: ${blockers}`);
         setStatus("Blocked by safety gate");
-        log(`Safety gate blocked this build — ${firstAssessment.blockers.join(" | ")}`);
+        log(`Safety gate blocked this build — ${finP.blockers.join(" | ")}`);
         return;
       }
-      finalHtml = firstAssessment.repairedHtml;
+      finalHtml = finP.finalHtml;
       const safeFirstVersion = finalHtml;
 
       // ---- 4. Originality + polish (Cinematic only) -----------------------
