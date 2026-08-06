@@ -45,6 +45,13 @@ import {
 } from "@/lib/qa-contract";
 import type { z } from "zod";
 import { routellmKeys, healthyRouteLLMKeys, markRouteLLMKeyDead, isRouteLLMKeyExhausted } from "@/lib/routellm-keys";
+import {
+  buildProviderChain,
+  runProviderChain,
+  chainFailureMessage,
+  type ChainAttempt,
+  type ChainAttemptResult,
+} from "@/lib/provider-chain";
 
 export { qaInputSchema, type QaRequestBody, type QaRouteSuccess, type QaRouteError };
 
@@ -261,103 +268,142 @@ export const Route = createFileRoute("/api/qa")({
             failure_hints: data.failureHints ?? "",
             excerpt: data.excerpt.slice(0, 6000),
           };
-
-          const wireModel = stripRouteLLMPrefix(model);
-          const body: Record<string, unknown> = {
-            model: wireModel,
-            stream: false,
-            // RouteLLM is OpenAI-compatible; request strict JSON so the
-            // model won't wrap in prose. Our parser is strict regardless.
-            response_format: { type: "json_object" },
-            messages: [
-              { role: "system", content: SYSTEM_PROMPT },
-              { role: "user", content: JSON.stringify(userPayload) },
-            ],
-          };
+          const qaMessages = [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: JSON.stringify(userPayload) },
+          ];
 
           let providerText = "";
           let actualModel: string = model;
-          try {
-            const { response } = await aiFetch(
-              "https://routellm.abacus.ai/v1/chat/completions",
-              {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${routellmApiKey}`,
+
+          // One physical attempt against one provider (attempt), building
+          // the request, calling it, and parsing the response. Shared by
+          // both paths below so the request/response handling is identical
+          // regardless of how many attempts the caller is allowed to make.
+          const callQaOnce = async (
+            attempt: ChainAttempt,
+          ): Promise<ChainAttemptResult<{ text: string; model: string }>> => {
+            try {
+              const body: Record<string, unknown> = {
+                model: attempt.wireModel,
+                stream: false,
+                // OpenAI-compatible; request strict JSON so the model won't
+                // wrap in prose. Our parser is strict regardless.
+                response_format: { type: "json_object" },
+                messages: qaMessages,
+              };
+              const { response } = await aiFetch(
+                attempt.url,
+                {
+                  method: "POST",
+                  headers: {
+                    "Content-Type": "application/json",
+                    Authorization: `Bearer ${attempt.key}`,
+                  },
+                  body: JSON.stringify(body),
                 },
-                body: JSON.stringify(body),
-              },
-              {
-                breakerKey: `routellm/qa:${wireModel}`,
-                stage: "patch",
-                requestId,
-                signal: request.signal,
-                // Cost invariant: at most ONE physical provider attempt per QA
-                // request. No auto-retry, no auto-escalation.
-                maxAttempts: 1,
-              },
-            );
-            const guarded = await readGuarded(response, { expected: "application/json" });
-            if (!guarded.ok) {
-              throw new AiError({
-                code: guarded.reason === "empty" ? "ai_upstream_empty" : "ai_upstream_malformed",
-                stage: "patch", requestId,
-                message: sanitizeUpstreamMessage(guarded.sample, "QA upstream rejected."),
-              });
-            }
-            let j: unknown;
-            try { j = JSON.parse(guarded.text); }
-            catch {
-              throw new AiError({
-                code: "ai_upstream_malformed", stage: "patch", requestId,
-                message: "Malformed QA gateway response.",
-              });
-            }
-            const parsedUsage = parseUsageFromChatJson(j);
-            const modelFromProvider = parsedUsage?.model;
-            if (typeof modelFromProvider === "string" && modelFromProvider.length > 0) {
-              actualModel = modelFromProvider.slice(0, 120);
-            }
-            const est = estimateUsdForCall({
-              model: parsedUsage?.model ?? wireModel,
-              inputTokens: parsedUsage?.inputTokens ?? 0,
-              outputTokens: parsedUsage?.outputTokens ?? 0,
-              providerUsed: true,
-            });
-            collected.push(makeUsage({
-              provider: "routellm",
-              model: parsedUsage?.model ?? wireModel,
-              operation: "generate_html_patch",
-              inputTokens: parsedUsage?.inputTokens ?? 0,
-              outputTokens: parsedUsage?.outputTokens ?? 0,
-              totalTokens: parsedUsage?.totalTokens ?? 0,
-              estimatedCostUsd: est.usd,
-              costBasis: est.basis,
-              providerUsed: true,
-              status: "committed",
-              meta: { qa: true },
-            }));
-            const content = (j as { choices?: Array<{ message?: { content?: string } }> })
-              .choices?.[0]?.message?.content ?? "";
-            providerText = String(content);
-          } catch (err) {
-            // Same rule as everywhere else in the chain: only mark a key
-            // dead for genuine billing exhaustion. QA never did this at
-            // all before — a key that ran out of credits stayed in the
-            // healthy pool for other QA/generate/patch calls until its
-            // 30-minute window happened to expire on its own.
-            if (isRouteLLMKeyExhausted(err)) markRouteLLMKeyDead(routellmApiKey);
-            const aiErr = err instanceof AiError
-              ? err
-              : new AiError({
-                  code: "ai_internal", stage: "patch", requestId,
-                  message: (err as Error)?.message,
+                {
+                  breakerKey: attempt.label,
+                  stage: "patch",
+                  requestId,
+                  signal: request.signal,
+                  maxAttempts: 1,
+                },
+              );
+              const guarded = await readGuarded(response, { expected: "application/json" });
+              if (!guarded.ok) {
+                throw new AiError({
+                  code: guarded.reason === "empty" ? "ai_upstream_empty" : "ai_upstream_malformed",
+                  stage: "patch", requestId,
+                  message: sanitizeUpstreamMessage(guarded.sample, "QA upstream rejected."),
                 });
+              }
+              let j: unknown;
+              try { j = JSON.parse(guarded.text); }
+              catch {
+                throw new AiError({
+                  code: "ai_upstream_malformed", stage: "patch", requestId,
+                  message: "Malformed QA gateway response.",
+                });
+              }
+              const parsedUsage = parseUsageFromChatJson(j);
+              const modelFromProvider = parsedUsage?.model;
+              const resolvedModel = typeof modelFromProvider === "string" && modelFromProvider.length > 0
+                ? modelFromProvider.slice(0, 120)
+                : attempt.wireModel;
+              const est = estimateUsdForCall({
+                model: parsedUsage?.model ?? attempt.wireModel,
+                inputTokens: parsedUsage?.inputTokens ?? 0,
+                outputTokens: parsedUsage?.outputTokens ?? 0,
+                providerUsed: true,
+              });
+              collected.push(makeUsage({
+                provider: attempt.google ? "google" : attempt.routed ? "routellm" : "lovable",
+                model: parsedUsage?.model ?? attempt.wireModel,
+                operation: "generate_html_patch",
+                inputTokens: parsedUsage?.inputTokens ?? 0,
+                outputTokens: parsedUsage?.outputTokens ?? 0,
+                totalTokens: parsedUsage?.totalTokens ?? 0,
+                estimatedCostUsd: est.usd,
+                costBasis: est.basis,
+                providerUsed: true,
+                status: "committed",
+                meta: { qa: true },
+              }));
+              const content = (j as { choices?: Array<{ message?: { content?: string } }> })
+                .choices?.[0]?.message?.content ?? "";
+              return { ok: true, value: { text: String(content), model: resolvedModel } };
+            } catch (err) {
+              // Same rule as everywhere else in the chain: only mark a key
+              // dead for genuine billing exhaustion.
+              if (attempt.routed && isRouteLLMKeyExhausted(err)) markRouteLLMKeyDead(attempt.key);
+              const isClientCancel = err instanceof AiError && err.code === "ai_cancelled";
+              return { ok: false, error: err, isClientCancel };
+            }
+          };
+
+          const wireModel = stripRouteLLMPrefix(model);
+          const primaryAttempt: ChainAttempt = {
+            key: routellmApiKey, url: "https://routellm.abacus.ai/v1/chat/completions",
+            wireModel, label: `routellm/qa:${wireModel}`, routed: true,
+          };
+
+          // Regular Pro accounts: exactly the same one-physical-attempt,
+          // Claude-only behavior as before this change — unmodified cost
+          // profile, unmodified model guarantee.
+          //
+          // The owner/admin session specifically: it already bypasses every
+          // internal credit cap (isOwnerSession() short-circuits
+          // requirePaidOperation to kind:"owner" with no reservation at
+          // all), so the one wall actually left standing between it and
+          // truly unrestricted builds is QA hard-failing when the real
+          // Abacus account itself is out of credits. Give the owner path
+          // the same Google -> healthy RouteLLM -> Lovable-equivalent chain
+          // Patch and generate.ts already use, so a QA repair on an owner
+          // build survives RouteLLM being empty instead of hard-blocking
+          // with "no remaining credits". Paying customers are unaffected —
+          // this branch never runs for them.
+          const isOwner = entitlement.kind === "owner";
+          const lovableKey = process.env.LOVABLE_API_KEY;
+          const chain = isOwner ? buildProviderChain(model, lovableKey) : [primaryAttempt];
+
+          const outcome = await runProviderChain(chain, callQaOnce);
+          if (outcome.ok && outcome.value) {
+            providerText = outcome.value.text;
+            actualModel = outcome.value.model;
+          } else {
+            const detail = sanitizeUpstreamMessage(
+              outcome.lastError instanceof Error ? outcome.lastError.message : undefined,
+              "QA upstream rejected.",
+            );
+            const { message } = chainFailureMessage(outcome, chain, detail);
+            const aiErr = outcome.lastError instanceof AiError
+              ? outcome.lastError
+              : new AiError({ code: "ai_internal", stage: "patch", requestId, message });
             await settleFailure(aiErr.code);
             const body = errBody(
               "qa_provider_error",
-              aiErr.message,
+              isOwner ? message : aiErr.message,
               model, true, requestId,
             );
             return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
