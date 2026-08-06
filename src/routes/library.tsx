@@ -73,6 +73,9 @@ function LibraryPage() {
   const [codeBusy, setCodeBusy] = React.useState(false);
   const [manageOpen, setManageOpen] = React.useState(false);
   const [allBuilds, setAllBuilds] = React.useState<AdminBuildRow[]>([]);
+  const [buildsTotal, setBuildsTotal] = React.useState(0);
+  const [buildsCursor, setBuildsCursor] = React.useState<string | null>(null);
+  const [loadingMore, setLoadingMore] = React.useState(false);
   const [adminBusy, setAdminBusy] = React.useState<string | null>(null);
   const [selected, setSelected] = React.useState<string[]>([]);
   const [bulkBusy, setBulkBusy] = React.useState(false);
@@ -125,9 +128,33 @@ function LibraryPage() {
 
   const refreshAll = React.useCallback(async (code: string) => {
     const r = await listLibraryBuilds({ data: { adminCode: code } });
-    if (r.ok) setAllBuilds(r.builds);
-    else setNotice(r.error);
+    if (r.ok) {
+      setAllBuilds(r.builds);
+      setBuildsTotal(r.total);
+      setBuildsCursor(r.nextCursor);
+    } else {
+      setNotice(r.error);
+    }
   }, []);
+
+  // Fetches the next page of older builds and appends — this is what makes
+  // everything past the first 200 reachable instead of silently cut off.
+  const loadMoreBuilds = React.useCallback(async () => {
+    if (!adminCode || !buildsCursor || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const r = await listLibraryBuilds({ data: { adminCode, before: buildsCursor } });
+      if (r.ok) {
+        setAllBuilds((prev) => [...prev, ...r.builds]);
+        setBuildsTotal(r.total);
+        setBuildsCursor(r.nextCursor);
+      } else {
+        setNotice(r.error);
+      }
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [adminCode, buildsCursor, loadingMore]);
 
   const submitCode = React.useCallback(async () => {
     const code = codeInput.trim();
@@ -415,6 +442,10 @@ function LibraryPage() {
             </button>
           </div>
           <p className="mt-1 text-[11px] text-[#6b7180]">Toggle any build in or out of the public library.</p>
+          <p className="mt-0.5 text-[11px] text-[#6b7180]">
+            Showing {allBuilds.length} of {buildsTotal} total build{buildsTotal === 1 ? "" : "s"}
+            {buildsCursor ? " — more below" : ""}
+          </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="text-[11px] text-[#B6BCC8]">{selected.length} selected</span>
             <button type="button" className={btn} onClick={() => setSelected(allBuilds.map((b) => b.id))}>
@@ -482,6 +513,20 @@ function LibraryPage() {
               </li>
             ))}
           </ul>
+          {buildsCursor && (
+            <button
+              type="button"
+              className={`${btn} mt-3 w-full justify-center`}
+              disabled={loadingMore}
+              onClick={() => void loadMoreBuilds()}
+            >
+              {loadingMore ? (
+                <Loader2 size={13} className="animate-spin" />
+              ) : (
+                `Load ${Math.min(200, buildsTotal - allBuilds.length)} more (${buildsTotal - allBuilds.length} remaining)`
+              )}
+            </button>
+          )}
         </aside>
       )}
     </main>
