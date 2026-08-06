@@ -21,6 +21,7 @@ import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 import { routellmKey, healthyRouteLLMKeys, markRouteLLMKeyDead, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
+import { computeAttemptBudgetMs, ATTEMPT_BUDGET_FLOOR_MS } from "@/lib/provider-chain";
 import {
   isAnthropicModel,
   anthropicApiKey,
@@ -30,7 +31,7 @@ import {
   ANTHROPIC_API_URL,
   ANTHROPIC_VERSION,
 } from "@/lib/anthropic";
-import { googleAiKey, googleModelFor, isGoogleKeyExhausted, GOOGLE_OPENAI_CHAT_URL } from "@/lib/google-ai";
+import { googleAiKey, googleModelFor, GOOGLE_OPENAI_CHAT_URL } from "@/lib/google-ai";
 import { CONCRETE_FAMILIES, POCKET_STYLE_FAMILIES } from "@/lib/pocket-creative";
 import {
   RECENT_SIGNATURE_INPUT_MAX,
@@ -1116,6 +1117,19 @@ ${memBlock}`,
             let usedAttempt: Attempt | null = null;
             for (let i = 0; i < attempts.length; i++) {
               const a = attempts[i];
+              // Slice whatever's left of the overall first-response deadline
+              // across the attempts still remaining, not the full budgetMs
+              // per attempt — otherwise two slow failures alone can consume
+              // the entire deadline before the (working) last provider is
+              // ever dialed. Recomputed every iteration: an attempt that
+              // fails fast leaves more, not less, for the next one.
+              const attemptsLeftForBudget = attempts.length - i;
+              const attemptBudgetMs = computeAttemptBudgetMs(
+                remainingFirstResponseMs(),
+                attemptsLeftForBudget,
+                ATTEMPT_BUDGET_FLOOR_MS,
+                budgetMs,
+              );
               try {
                 res = a.anthropic
                   ? await aiFetch(
@@ -1135,7 +1149,7 @@ ${memBlock}`,
                         requestId,
                         signal: clientAbort,
                         stream: true,
-                        totalTimeoutMs: budgetMs,
+                        totalTimeoutMs: attemptBudgetMs,
                       },
                     )
                   : await aiFetch(
@@ -1161,7 +1175,7 @@ ${memBlock}`,
                         requestId,
                         signal: clientAbort,
                         stream: true,
-                        totalTimeoutMs: budgetMs,
+                        totalTimeoutMs: attemptBudgetMs,
                       },
                     );
                 // Anthropic's SSE is a different wire format entirely. Wrap
@@ -1183,27 +1197,48 @@ ${memBlock}`,
                 break;
               } catch (err) {
                 lastErr = err;
-                // Google is the primary provider: any failure on it (quota
-                // exhausted, rejected key, upstream error) switches straight
-                // to ChatLLM. Later attempts only chain on key exhaustion.
+                // A key is only ever marked dead for genuine billing
+                // exhaustion — that is what the 30-minute dead-key skip is
+                // keyed on, and it must stay accurate no matter how liberally
+                // we advance the chain below.
                 const routeLLMDead = !a.google && isRouteLLMKeyExhausted(err);
                 if (routeLLMDead) markRouteLLMKeyDead(a.key);
-                const exhausted = a.google
-                  ? isGoogleKeyExhausted(err) || !(err instanceof AiError && err.code === "ai_cancelled")
-                  : routeLLMDead;
-                const canFallback = i < attempts.length - 1 && exhausted;
+
+                // Advance to the next attempt on ANY failure — timeout, 5xx,
+                // circuit breaker, malformed body, billing exhaustion —
+                // except a genuine client cancel, which should stop the
+                // whole request immediately rather than burn through the
+                // rest of the chain on a request nobody's waiting on
+                // anymore. This applies uniformly to every attempt, not
+                // just Google: a ChatLLM timeout or 500 used to end the
+                // request instead of trying the Lovable gateway.
+                const isClientCancel = err instanceof AiError && err.code === "ai_cancelled";
+                const canFallback = i < attempts.length - 1 && !isClientCancel;
                 if (!canFallback) {
-                  // Last provider in the chain died for a billing reason —
-                  // say so plainly instead of surfacing a generic timeout.
+                  if (isClientCancel) throw err;
+                  // Distinguish "every configured provider failed" from
+                  // "credits ran out at one provider," and name the provider
+                  // that failed last — a generic timeout message here hides
+                  // which of two very different problems actually happened.
                   if (routeLLMDead) {
                     throw new AiError({
                       code: "ai_unauthorized",
                       stage: "generate",
                       requestId,
-                      message: "AI provider credits exhausted. Top up the ChatLLM account or use a Google/Lovable model.",
+                      message: `AI provider credits exhausted at ${a.label}. Top up the ChatLLM account or use a Google/Lovable model.`,
                     });
                   }
-                  throw err;
+                  const detail = sanitizeUpstreamMessage(
+                    err instanceof Error ? err.message : undefined,
+                    "unknown error",
+                  );
+                  const prefix = attempts.length > 1 ? "Every configured AI provider failed" : "AI provider failed";
+                  throw new AiError({
+                    code: err instanceof AiError ? err.code : "ai_internal",
+                    stage: "generate",
+                    requestId,
+                    message: `${prefix} — last error at ${a.label}: ${detail}`,
+                  });
                 }
               }
             }

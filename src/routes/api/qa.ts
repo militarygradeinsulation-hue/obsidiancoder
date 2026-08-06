@@ -44,7 +44,7 @@ import {
   type QaRouteError,
 } from "@/lib/qa-contract";
 import type { z } from "zod";
-import { routellmKey } from "@/lib/routellm-keys";
+import { routellmKeys, healthyRouteLLMKeys, markRouteLLMKeyDead, isRouteLLMKeyExhausted } from "@/lib/routellm-keys";
 
 export { qaInputSchema, type QaRequestBody, type QaRouteSuccess, type QaRouteError };
 
@@ -221,12 +221,28 @@ export const Route = createFileRoute("/api/qa")({
             return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
           }
 
-          const routellmApiKey = routellmKey();
+          // QA is metered at exactly one physical provider attempt per
+          // request (see the maxAttempts: 1 note below) and is scoped to
+          // Claude-family models by design — this is not the same
+          // Google/RouteLLM/Lovable chain generate.ts and Patch use, and it
+          // should not become one: substituting a different model family
+          // for "Claude reviews this output" would be a real behavior
+          // change, not a resilience fix, and tripling the physical calls
+          // per QA request would break the explicit cost invariant below.
+          // What WAS a real bug: routellmKey() returns one cached key that
+          // may itself be currently dead while other configured keys are
+          // still healthy, failing QA outright even though working access
+          // exists. Picking from the healthy pool instead fixes exactly
+          // that case without touching either invariant.
+          const routellmApiKey = healthyRouteLLMKeys()[0];
           if (!routellmApiKey || !isRouteLLMModel(model)) {
             await settleFailure("qa_model_unavailable");
+            const allDead = routellmKeys().length > 0 && !routellmApiKey;
             const body = errBody(
               "qa_model_unavailable",
-              "QA provider is not configured.",
+              allDead
+                ? "QA provider credits exhausted on every configured ChatLLM key."
+                : "QA provider is not configured.",
               model, false, requestId,
             );
             return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
@@ -326,6 +342,12 @@ export const Route = createFileRoute("/api/qa")({
               .choices?.[0]?.message?.content ?? "";
             providerText = String(content);
           } catch (err) {
+            // Same rule as everywhere else in the chain: only mark a key
+            // dead for genuine billing exhaustion. QA never did this at
+            // all before — a key that ran out of credits stayed in the
+            // healthy pool for other QA/generate/patch calls until its
+            // 30-minute window happened to expire on its own.
+            if (isRouteLLMKeyExhausted(err)) markRouteLLMKeyDead(routellmApiKey);
             const aiErr = err instanceof AiError
               ? err
               : new AiError({

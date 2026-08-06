@@ -5,7 +5,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { resolveModel, isRouteLLMModel, stripRouteLLMPrefix } from "@/lib/models";
+import { resolveModel, isRouteLLMModel } from "@/lib/models";
 import { parsePatchResponse, MAX_OPS } from "@/lib/patch-protocol";
 import { buildContext, nextTier, type ContextTier } from "@/lib/staged-context";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
@@ -18,7 +18,8 @@ import {
   type EntitlementResult,
 } from "@/lib/credit-gate.server";
 import { makeUsage, mergeUsage, estimateUsdForCall, parseUsageFromChatJson, type UsageRecord } from "@/lib/usage-record";
-import { routellmKey, routellmKeys, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
+import { routellmKey } from "@/lib/routellm-keys";
+import { buildProviderChain, runProviderChain, chainFailureMessage, type ChainAttempt } from "@/lib/provider-chain";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
@@ -68,8 +69,7 @@ Hard rules:
 - Preserve every feature that already worked.`;
 
 async function callOnce(
-  apiKey: string,
-  model: string,
+  attempt: ChainAttempt,
   messages: Array<{ role: string; content: string }>,
   requestId: string,
   signal: AbortSignal,
@@ -77,28 +77,24 @@ async function callOnce(
   | { ok: true; text: string; usage: UsageRecord }
   | { ok: false; error: AiError; usage: UsageRecord | null }
 > {
-  const routellm = isRouteLLMModel(model);
-  const endpoint = routellm
-    ? "https://routellm.abacus.ai/v1/chat/completions"
-    : "https://ai.gateway.lovable.dev/v1/chat/completions";
-  const wireModel = routellm ? stripRouteLLMPrefix(model) : model;
-  const providerName = routellm ? "routellm" : "lovable";
+  const wireModel = attempt.wireModel;
+  const providerName = attempt.google ? "google" : attempt.routed ? "routellm" : "lovable";
   try {
     const body: Record<string, unknown> = {
       model: wireModel, messages, stream: false,
     };
-    if (!routellm) {
+    if (!attempt.routed) {
       body.response_format = { type: "json_object" };
-      if (model.startsWith("openai/gpt-5.6")) body.reasoning_effort = "none";
+      if (wireModel.startsWith("openai/gpt-5.6")) body.reasoning_effort = "none";
     }
     const { response } = await aiFetch(
-      endpoint,
+      attempt.url,
       {
         method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${attempt.key}` },
         body: JSON.stringify(body),
       },
-      { breakerKey: `${providerName}/patch:${wireModel}`, stage: "patch", requestId, signal },
+      { breakerKey: attempt.label, stage: "patch", requestId, signal },
     );
     const guarded = await readGuarded(response, { expected: "application/json" });
     if (!guarded.ok) {
@@ -157,22 +153,44 @@ async function callGateway(
   | { ok: true; text: string; usage: UsageRecord }
   | { ok: false; error: AiError; usage: UsageRecord | null }
 > {
-  const attempts: Array<{ key: string; model: string }> = [];
-  if (isRouteLLMModel(model)) {
-    for (const k of routellmKeys()) attempts.push({ key: k, model });
-    if (attempts.length === 0) attempts.push({ key: apiKey, model });
-    const lovableKey = process.env.LOVABLE_API_KEY;
-    if (lovableKey) attempts.push({ key: lovableKey, model: lovableEquivalentFor(model) });
-  } else {
-    attempts.push({ key: apiKey, model });
+  // Google first (if configured), then every healthy RouteLLM key, then
+  // the Lovable gateway with the closest equivalent model — the same
+  // chain and the same advance-on-any-failure semantics generate.ts uses,
+  // shared via src/lib/provider-chain.ts rather than reimplemented here.
+  const attempts = buildProviderChain(model, apiKey);
+  if (attempts.length === 0) {
+    return {
+      ok: false,
+      usage: null,
+      error: new AiError({ code: "ai_unauthorized", stage: "patch", requestId, message: "No AI provider is configured." }),
+    };
   }
 
-  let last = await callOnce(attempts[0].key, attempts[0].model, messages, requestId, signal);
-  for (let i = 1; i < attempts.length; i++) {
-    if (last.ok || !isRouteLLMKeyExhausted(last.error.message)) return last;
-    last = await callOnce(attempts[i].key, attempts[i].model, messages, requestId, signal);
-  }
-  return last;
+  const outcome = await runProviderChain(attempts, async (attempt) => {
+    const r = await callOnce(attempt, messages, requestId, signal);
+    if (r.ok) return { ok: true, value: r };
+    const isClientCancel = r.error instanceof AiError && r.error.code === "ai_cancelled";
+    return { ok: false, error: r.error, isClientCancel };
+  });
+
+  if (outcome.ok && outcome.value) return outcome.value;
+
+  const lastAiErr = outcome.lastError instanceof AiError ? outcome.lastError : null;
+  const detail = sanitizeUpstreamMessage(
+    outcome.lastError instanceof Error ? outcome.lastError.message : undefined,
+    "unknown error",
+  );
+  const { billing, message } = chainFailureMessage(outcome, attempts, detail);
+  return {
+    ok: false,
+    usage: null,
+    error: new AiError({
+      code: billing ? "ai_unauthorized" : (lastAiErr?.code ?? "ai_internal"),
+      stage: "patch",
+      requestId,
+      message,
+    }),
+  };
 }
 
 
