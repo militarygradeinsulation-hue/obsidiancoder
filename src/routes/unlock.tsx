@@ -648,7 +648,7 @@ function Unlock() {
                           )}
                           <div className="tier-headline">{t.headline}</div>
                           <ul className="tier-outcomes">
-                            {t.outcomes.map((o) => <li key={o}>• {o}</li>)}
+                            {t.outcomes.map((o) => <li key={o}>{o}</li>)}
                           </ul>
                           {t.cta === "checkout" && t.priceId ? (
                             <button

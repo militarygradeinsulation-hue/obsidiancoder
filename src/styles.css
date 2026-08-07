@@ -2509,6 +2509,178 @@ body.is-resizing-composer * { user-select: none !important; }
   mix-blend-mode: overlay;
 }
 
+/* ============================================================
+   PRICING CARDS — layout & typography
+   The block above only ever styled the glass/shimmer treatment;
+   .tier-grid/.tier-row/.tier-head/etc had no padding, sizing, or
+   spacing rules anywhere, which is what made the cards feel
+   cramped. Sizing modeled on a p-8 / text-5xl / space-y-4 reference
+   card, translated into this page's existing dark-glass-gold system
+   rather than replacing it.
+   ============================================================ */
+
+.tier-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 28px;
+  align-items: stretch;
+  margin-top: 24px;
+}
+
+.tier-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 40px 32px 32px;
+  border-radius: 20px;
+  min-width: 0;
+}
+
+.tier-badge {
+  position: absolute;
+  top: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 16px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #F6B24A 0%, #F4A125 55%, #DD9324 100%);
+  color: #14100a;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+  box-shadow: 0 6px 16px -4px rgba(244,161,37,0.6);
+}
+
+.tier-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 10px;
+}
+
+.tier-name {
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: #f2eee7;
+}
+
+.tier-price {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  gap: 6px;
+  font-size: 46px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1;
+}
+
+.tier-price-strike {
+  font-size: 18px;
+  font-weight: 500;
+  opacity: 0.45;
+  text-decoration: line-through;
+  margin-left: 2px;
+}
+
+.tier-cadence {
+  font-size: 15px;
+  font-weight: 500;
+  opacity: 0.65;
+}
+
+.tier-founding {
+  margin-top: 14px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(244,161,37,0.12);
+  border: 1px solid rgba(244,161,37,0.3);
+  color: #F4A125;
+  font-size: 12px;
+  font-weight: 600;
+  text-align: center;
+}
+
+.tier-headline {
+  margin: 20px 0 4px;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.55;
+  opacity: 0.75;
+}
+
+.tier-outcomes {
+  list-style: none;
+  margin: 28px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+  flex: 1;
+}
+
+.tier-outcomes li {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  font-size: 14.5px;
+  line-height: 1.5;
+}
+
+.tier-outcomes li::before {
+  content: "";
+  flex-shrink: 0;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background-color: rgba(244,161,37,0.14);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='%23F4A125'%3E%3Cpath fill-rule='evenodd' d='M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z' clip-rule='evenodd'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 13px 13px;
+}
+
+.tier-cta {
+  display: block;
+  width: 100%;
+  margin-top: 32px;
+  padding: 15px 24px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  cursor: pointer;
+  border: none;
+}
+
+.tier-cta-primary {
+  color: #14100a;
+}
+
+.tier-cta-locked {
+  background: transparent;
+  color: #f2eee7;
+  border: 1px solid rgba(255,255,255,0.18);
+  transition: border-color .2s ease, background-color .2s ease;
+}
+
+.tier-cta-locked:hover {
+  background: rgba(255,255,255,0.05);
+  border-color: rgba(255,255,255,0.32);
+}
+
+@media (max-width: 640px) {
+  .tier-grid { grid-template-columns: 1fr; gap: 20px; }
+  .tier-row { padding: 36px 24px 28px; }
+  .tier-price { font-size: 40px; }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .tier-row, .demo-card, .architect-card,
   .unlock-card::after, .tier-row::after, .demo-card::after, .architect-card::after,
