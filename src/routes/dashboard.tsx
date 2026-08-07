@@ -132,10 +132,10 @@ function DashboardPage() {
   }
 
   const activeTier: PlanTierId | null = useMemo(() => {
-    if (snap.mode === "owner") return "elite";
+    if (snap.mode === "owner") return "custom";
     const t = tierForPriceId(subscription?.price_id);
     if (t) return t.id;
-    return isPro ? "creator" : null;
+    return isPro ? "vibe" : null;
   }, [snap.mode, subscription, isPro]);
 
   const tier = activeTier ? PLAN_TIERS.find((p) => p.id === activeTier) : null;
@@ -286,9 +286,9 @@ function DashboardPage() {
             icon={DollarSign}
             label="Revenue"
             value="—"
-            hint="Business plan"
-            locked={!tierAtLeast(activeTier, "business")}
-            lockedHint="Business plan"
+            hint="Custom plan"
+            locked={!tierAtLeast(activeTier, "custom")}
+            lockedHint="Custom plan"
           />
         </section>
 

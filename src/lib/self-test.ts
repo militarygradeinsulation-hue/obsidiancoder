@@ -1007,40 +1007,30 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
 
     // ─── plan catalog: tier ↔ price mapping + legacy compat ───────────────
     const plans = await import("./plans");
-    results.push(assert(plans.tierForPriceId("obsidian_creator_monthly")?.id === "creator",
-      "plans: creator lookup key resolves to Creator tier"));
-    results.push(assert(plans.tierForPriceId("obsidian_starter_monthly")?.id === "starter",
-      "plans: starter lookup key resolves to Starter tier"));
-    results.push(assert(plans.tierForPriceId("obsidian_professional_monthly")?.id === "professional",
-      "plans: professional lookup key resolves to Professional tier"));
-    results.push(assert(plans.tierForPriceId("obsidian_business_monthly")?.id === "business",
-      "plans: business lookup key resolves to Business tier"));
-    results.push(assert(plans.tierForPriceId("obsidian_elite_monthly")?.id === "elite",
-      "plans: elite lookup key resolves to Elite tier"));
-    results.push(assert(plans.tierForPriceId("obsidian_pro_monthly")?.id === "creator",
-      "plans: legacy obsidian_pro_monthly resolves to Creator tier (backward compat)"));
-    results.push(assert(plans.LEGACY_PRICE_TIER_MAP["obsidian_pro_monthly"] === "creator",
-      "plans: LEGACY_PRICE_TIER_MAP exposes pro→creator mapping"));
+    results.push(assert(plans.tierForPriceId("obsidian_creator_monthly")?.id === "vibe",
+      "plans: obsidian_creator_monthly resolves to the Vibe tier"));
+    results.push(assert(plans.tierForPriceId("obsidian_pocket_monthly")?.id === "pocket",
+      "plans: pocket lookup key resolves to Pocket tier"));
+    results.push(assert(plans.tierForPriceId("obsidian_pro_monthly")?.id === "vibe",
+      "plans: legacy obsidian_pro_monthly resolves to Vibe tier (backward compat)"));
+    results.push(assert(plans.LEGACY_PRICE_TIER_MAP["obsidian_pro_monthly"] === "vibe",
+      "plans: LEGACY_PRICE_TIER_MAP exposes pro→vibe mapping"));
     results.push(assert(plans.tierForPriceId("unknown_key") === undefined,
       "plans: unknown lookup key returns undefined (no silent fallback)"));
     results.push(assert(plans.tierForPriceId(null) === undefined && plans.tierForPriceId("") === undefined,
       "plans: null/empty priceId returns undefined"));
-    const enterprise = plans.getTierById("enterprise");
-    results.push(assert(enterprise?.cta === "contact" && !enterprise?.priceId,
-      "plans: enterprise remains contact-only with no price"));
+    const custom = plans.getTierById("custom");
+    results.push(assert(custom?.cta === "contact" && !custom?.priceId,
+      "plans: custom remains contact-only with no price"));
+    results.push(assert(plans.PLAN_TIERS.length === 3,
+      "plans: exactly 3 tiers exist (Pocket, Vibe, Custom) — no waitlist tiers"));
     const paidTiers = plans.PLAN_TIERS.filter((t) => t.cta === "checkout");
-    // Pocket predates this assertion — it has real backend entitlement
-    // logic (pocketBuildUsage / POCKET_MONTHLY_BUILDS in
-    // credit-gate.server.ts), unlike starter/professional/business/elite,
-    // which have no differentiated features behind them yet. Both Pocket
-    // and Creator are legitimately checkout-enabled at launch; the other
-    // four are placeholders until real Stripe prices and features exist.
     results.push(assert(
-      paidTiers.length === 2 && paidTiers.map((t) => t.id).sort().join(",") === "creator,pocket",
-      "plans: Pocket and Creator are checkout-enabled at launch (others on waitlist)"));
+      paidTiers.length === 2 && paidTiers.map((t) => t.id).sort().join(",") === "pocket,vibe",
+      "plans: Pocket and Vibe are the only checkout-enabled tiers"));
     const waitlistTiers = plans.PLAN_TIERS.filter((t) => t.cta === "waitlist");
-    results.push(assert(waitlistTiers.length === 4 && waitlistTiers.every((t) => ["starter","professional","business","elite"].includes(t.id)),
-      "plans: starter/professional/business/elite are waitlist-only"));
+    results.push(assert(waitlistTiers.length === 0,
+      "plans: no tier uses the waitlist cta — the simplified 3-tier catalog has none"));
     results.push(assert(!paidTiers.some((t) => t.priceId === "obsidian_pro_monthly"),
       "plans: no checkout tier uses the legacy pro_monthly price for new sales"));
 

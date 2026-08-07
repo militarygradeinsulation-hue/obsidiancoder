@@ -17,11 +17,6 @@ import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
 import aetherisEmblem from "@/assets/aetheris-emblem.jpg.asset.json";
-import exampleVideo1 from "@/assets/example-1.mp4.asset.json";
-import exampleVideo2 from "@/assets/example-2.mp4.asset.json";
-import exampleVideo3 from "@/assets/example-3.mp4.asset.json";
-import exampleVideo4 from "@/assets/example-4.mp4.asset.json";
-import exampleVideo5 from "@/assets/example-5.mp4.asset.json";
 import vibeShot from "@/assets/workspace-vibe.png.asset.json";
 import pocketShot from "@/assets/workspace-pocket.png.asset.json";
 import PocketPromoModal from "@/components/PocketPromoModal";
@@ -87,7 +82,7 @@ export const Route = createFileRoute("/unlock")({
       { title: "Build the software your business needs — Obsidian" },
       { name: "description", content: "Describe the tool your business needs and watch it get built. Work orders, quotes, intake forms, dashboards. Free daily builds, no card required." },
       { property: "og:title", content: "Build the software your business needs — Obsidian" },
-      { property: "og:description", content: "Describe the tool your business needs and watch it get built. Free daily builds, no card. Creator from $49/month." },
+      { property: "og:description", content: "Describe the tool your business needs and watch it get built. Free daily builds, no card. Vibe from $39/month." },
       { property: "og:url", content: "https://obsidianvibe.live/" },
       { property: "og:type", content: "website" },
       { name: "twitter:title", content: "Build the software your business needs — Obsidian" },
@@ -100,12 +95,12 @@ export const Route = createFileRoute("/unlock")({
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "Product",
-          name: "Obsidian Creator",
+          name: "Obsidian Vibe",
           brand: { "@type": "Brand", name: "Obsidian" },
-          description: "Obsidian Creator plan — build production-ready software with an AI engineering team. Includes 1,000 AI credits per billing period.",
+          description: "Obsidian Vibe plan — build production-ready software with an AI engineering team. Includes 1,000 AI credits per billing period.",
           offers: {
             "@type": "Offer",
-            price: "49",
+            price: "39",
             priceCurrency: "USD",
             availability: "https://schema.org/InStock",
             url: "https://obsidianvibe.live/",
@@ -143,8 +138,6 @@ function Unlock() {
   const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
   const [featuredDemos, setFeaturedDemos] = useState<{ slug: string; title: string; url?: string; category: DemoCategory }[]>([]);
-  const [activeVideo, setActiveVideo] = useState<{ url: string; label: string } | null>(null);
-  const activeVideoRef = useRef<HTMLVideoElement | null>(null);
   const [pocketExpanded, setPocketExpanded] = useState(false);
 
   // Community builds shared from Obsidian Pocket — shown right on the home
@@ -203,28 +196,6 @@ function Unlock() {
       });
     return () => { alive = false; };
   }, []);
-
-  // Lightbox: close on Escape, focus video when opened, restore focus on close.
-  useEffect(() => {
-    if (!activeVideo) return;
-    const previouslyFocused = document.activeElement as HTMLElement | null;
-    requestAnimationFrame(() => {
-      activeVideoRef.current?.focus();
-      activeVideoRef.current?.play().catch(() => {});
-    });
-    function onKeyDown(e: globalThis.KeyboardEvent) {
-      if (e.key === "Escape") {
-        e.stopPropagation();
-        setActiveVideo(null);
-      }
-    }
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("keydown", onKeyDown);
-      previouslyFocused?.focus?.();
-    };
-  }, [activeVideo]);
-
 
   // Track auth session
   useEffect(() => {
@@ -598,7 +569,7 @@ function Unlock() {
             onKeyDown={onTabKeyDown}
             type="button"
           >
-            Get Obsidian Creator
+            Get Obsidian Vibe
           </button>
           <button
             role="tab"
@@ -625,12 +596,10 @@ function Unlock() {
                 <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
 
                 <div className="unlock-price">
-                  <span className="price-amount">$49</span>
+                  <span className="price-amount">$39</span>
                   <span className="price-cadence">/month</span>
-                  <span className="price-strike">$79</span>
                 </div>
                 <p className="unlock-allowance">
-                  <strong style={{ color: "#F4A125" }}>Founding Member Pricing</strong> — first 100 Creator members lock in $49/month for life.
                   Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period.
                 </p>
 
@@ -643,7 +612,7 @@ function Unlock() {
                   onClick={() => startPurchase(CREATOR_PRICE_ID)}
                   disabled={sessionLoading}
                 >
-                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Creator — $49/month"}
+                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Vibe — $39/month"}
                 </button>
 
                 {plansOpen && (
@@ -657,7 +626,7 @@ function Unlock() {
                   >
                     <span className="plans-toggle-label">
                       <span id="plans-heading" className="plans-title">Compare all plans</span>
-                      <span className="plans-toggle-sub">Starter · Creator · Professional · Business · Elite</span>
+                      <span className="plans-toggle-sub">Pocket · Vibe · Custom</span>
                     </span>
                     <span className="plans-toggle-caret" aria-hidden>▲</span>
                   </button>
@@ -693,7 +662,7 @@ function Unlock() {
                           ) : (
                             <a
                               className="tier-cta tier-cta-locked"
-                              href="mailto:hello@aetheris.technology?subject=Obsidian%20Enterprise%20inquiry"
+                              href="mailto:hello@aetheris.technology?subject=Obsidian%20Custom%20inquiry"
                             >
                               Contact sales
                             </a>
@@ -828,7 +797,7 @@ function Unlock() {
             </form>
 
             <button type="button" className="unlock-btn-secondary" onClick={() => setTab("buy")}>
-              Don&apos;t have a code? Get Obsidian Creator
+              Don&apos;t have a code? Get Obsidian Vibe
             </button>
           </section>
         )}
@@ -952,146 +921,6 @@ function Unlock() {
 
 
 
-      {/* EXAMPLE BUILDS — below the hero wordmark */}
-      <section className="unlock-examples" aria-labelledby="examples-heading">
-        <div className="unlock-examples-header">
-          <h2 id="examples-heading" className="unlock-examples-title">See it in action</h2>
-          <p className="unlock-examples-sub">Real builds for real work.</p>
-        </div>
-        <div className="slogan-examples" aria-label="Example builds">
-          <button
-            type="button"
-            className="slogan-example"
-            onClick={() => setActiveVideo({ url: exampleVideo1.url, label: "Live build · example 01" })}
-            aria-label="Expand Obsidian build example one"
-          >
-            <video
-              src={exampleVideo1.url}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              aria-hidden
-              tabIndex={-1}
-            />
-            <span className="slogan-example-caption">Live build · example 01</span>
-            <span className="slogan-example-play" aria-hidden>▶</span>
-          </button>
-          <button
-            type="button"
-            className="slogan-example"
-            onClick={() => setActiveVideo({ url: exampleVideo2.url, label: "Live build · example 02" })}
-            aria-label="Expand Obsidian build example two"
-          >
-            <video
-              src={exampleVideo2.url}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              aria-hidden
-              tabIndex={-1}
-            />
-            <span className="slogan-example-caption">Live build · example 02</span>
-            <span className="slogan-example-play" aria-hidden>▶</span>
-          </button>
-          <button
-            type="button"
-            className="slogan-example"
-            onClick={() => setActiveVideo({ url: exampleVideo3.url, label: "Live build · electrician" })}
-            aria-label="Expand Obsidian electrician build example"
-          >
-            <video
-              src={exampleVideo3.url}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              aria-hidden
-              tabIndex={-1}
-            />
-            <span className="slogan-example-caption">Live build · electrician</span>
-            <span className="slogan-example-play" aria-hidden>▶</span>
-          </button>
-          <button
-            type="button"
-            className="slogan-example"
-            onClick={() => setActiveVideo({ url: exampleVideo4.url, label: "Live build · HVAC" })}
-            aria-label="Expand Obsidian HVAC build example"
-          >
-            <video
-              src={exampleVideo4.url}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              aria-hidden
-              tabIndex={-1}
-            />
-            <span className="slogan-example-caption">Live build · HVAC</span>
-            <span className="slogan-example-play" aria-hidden>▶</span>
-          </button>
-          <button
-            type="button"
-            className="slogan-example"
-            onClick={() => setActiveVideo({ url: exampleVideo5.url, label: "Live build · example 05" })}
-            aria-label="Expand Obsidian build example five"
-          >
-            <video
-              src={exampleVideo5.url}
-              autoPlay
-              loop
-              muted
-              playsInline
-              preload="metadata"
-              aria-hidden
-              tabIndex={-1}
-            />
-            <span className="slogan-example-caption">Live build · example 05</span>
-            <span className="slogan-example-play" aria-hidden>▶</span>
-          </button>
-        </div>
-      </section>
-
-      {/* VIDEO LIGHTBOX */}
-      {activeVideo && (
-        <div
-          className="video-lightbox"
-          role="dialog"
-          aria-modal="true"
-          aria-label={activeVideo.label}
-          onClick={() => setActiveVideo(null)}
-        >
-          <button
-            type="button"
-            className="video-lightbox-close"
-            onClick={() => setActiveVideo(null)}
-            aria-label="Close video"
-          >
-            ×
-          </button>
-          <div className="video-lightbox-stage" onClick={(e) => e.stopPropagation()}>
-            <video
-              ref={activeVideoRef}
-              src={activeVideo.url}
-              autoPlay
-              loop
-              playsInline
-              controls
-              preload="auto"
-              tabIndex={0}
-              aria-label={activeVideo.label}
-            />
-            <p className="video-lightbox-caption">{activeVideo.label}</p>
-          </div>
-        </div>
-      )}
-
-
       {waitlistTier && (
 
         <WaitlistModal
@@ -1104,7 +933,6 @@ function Unlock() {
         blocked={
           panelOpen ||
           showCheckout ||
-          !!activeVideo ||
           !!waitlistTier ||
           pocketExpanded ||
           demosOpen
