@@ -70,7 +70,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Community support",
     ],
     priceId: "obsidian_starter_monthly",
-    cta: "checkout",
+    cta: "waitlist",
     icon: Rocket,
   },
   {
@@ -110,7 +110,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Priority support",
     ],
     priceId: "obsidian_professional_monthly",
-    cta: "checkout",
+    cta: "waitlist",
     icon: Briefcase,
   },
   {
@@ -129,7 +129,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Dedicated onboarding",
     ],
     priceId: "obsidian_business_monthly",
-    cta: "checkout",
+    cta: "waitlist",
     icon: Building2,
   },
   {
@@ -148,7 +148,7 @@ export const PLAN_TIERS: PlanTier[] = [
       "Direct founder feedback channel",
     ],
     priceId: "obsidian_elite_monthly",
-    cta: "checkout",
+    cta: "waitlist",
     icon: Crown,
   },
   {

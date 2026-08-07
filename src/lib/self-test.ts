@@ -1029,8 +1029,15 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(enterprise?.cta === "contact" && !enterprise?.priceId,
       "plans: enterprise remains contact-only with no price"));
     const paidTiers = plans.PLAN_TIERS.filter((t) => t.cta === "checkout");
-    results.push(assert(paidTiers.length === 1 && paidTiers[0]?.id === "creator" && !!paidTiers[0]?.priceId,
-      "plans: only Creator is checkout-enabled during launch (others on waitlist)"));
+    // Pocket predates this assertion — it has real backend entitlement
+    // logic (pocketBuildUsage / POCKET_MONTHLY_BUILDS in
+    // credit-gate.server.ts), unlike starter/professional/business/elite,
+    // which have no differentiated features behind them yet. Both Pocket
+    // and Creator are legitimately checkout-enabled at launch; the other
+    // four are placeholders until real Stripe prices and features exist.
+    results.push(assert(
+      paidTiers.length === 2 && paidTiers.map((t) => t.id).sort().join(",") === "creator,pocket",
+      "plans: Pocket and Creator are checkout-enabled at launch (others on waitlist)"));
     const waitlistTiers = plans.PLAN_TIERS.filter((t) => t.cta === "waitlist");
     results.push(assert(waitlistTiers.length === 4 && waitlistTiers.every((t) => ["starter","professional","business","elite"].includes(t.id)),
       "plans: starter/professional/business/elite are waitlist-only"));
