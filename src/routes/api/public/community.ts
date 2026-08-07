@@ -26,8 +26,16 @@ export const Route = createFileRoute("/api/public/community")({
         const q = (url.searchParams.get("q") || "").trim().slice(0, 80);
         const limit = Math.min(Math.max(Number(url.searchParams.get("limit") || 60), 1), 120);
 
-        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        let query = supabaseAdmin
+        // Public read-only listing: use the publishable key + the anon
+        // "public builds are viewable" policy. The admin client 500s wherever
+        // SUPABASE_SERVICE_ROLE_KEY isn't injected (e.g. the sandbox preview).
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabasePublic = createClient(
+          process.env['SUPABASE_URL']!,
+          process.env['SUPABASE_PUBLISHABLE_KEY']!,
+          { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
+        );
+        let query = supabasePublic
           .from("builds" as never)
           .select(
             "id, title, prompt, model, created_at, published_at, share_slug, author_label, remix_count, byte_size",
