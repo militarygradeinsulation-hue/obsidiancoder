@@ -4,10 +4,19 @@ import { resolveIntroVideo } from "@/lib/intro-asset";
 const RESOLVED = resolveIntroVideo();
 const VIDEO_URL = RESOLVED.url;
 
-const FADE_LEAD_MS = 900;
-const FALLBACK_DURATION_MS = 9500;
-const HARD_MAX_MS = 12000;
-const SEEN_KEY = "obs_intro_seen_v1";
+const FADE_LEAD_MS = 600;
+// Hard ceiling on how long the intro can hold the page. Was 9.5s fallback /
+// 12s absolute — that is an enormous amount of time to sit between a cold
+// visitor and any actual content, on a site whose entire problem is that
+// nobody converts. Capped at 3.5s: long enough to read as an intentional
+// brand moment, short enough that nobody bounces waiting for it.
+const MAX_DURATION_MS = 3500;
+const HARD_MAX_MS = 4500;
+// localStorage, not sessionStorage: sessionStorage resets every time the
+// browser drops the tab, which on mobile is constantly. That meant a
+// returning visitor sat through the full intro over and over. Once per
+// person, not once per session.
+const SEEN_KEY = "obs_intro_seen_v2";
 
 export default function IntroSplash() {
   // Client-only: avoid SSR Suspense/hydration issues that could leave a
@@ -21,13 +30,20 @@ export default function IntroSplash() {
 
   useEffect(() => {
     setMounted(true);
-    // Only show intro once per session so it never freezes navigation on repeat visits.
+    // Never hold the page for someone who has asked the OS for reduced motion.
     try {
-      if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(SEEN_KEY)) {
+      if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+    } catch {}
+    // Once per person (localStorage), not once per tab session.
+    try {
+      if (typeof localStorage !== "undefined" && localStorage.getItem(SEEN_KEY)) {
         return;
       }
-      sessionStorage.setItem(SEEN_KEY, "1");
-    } catch {}
+      localStorage.setItem(SEEN_KEY, "1");
+    } catch {
+      // Storage blocked (private mode, etc.) — fall through and show it
+      // rather than erroring, but it will still be capped at MAX_DURATION_MS.
+    }
     setShow(true);
   }, []);
 
@@ -57,7 +73,7 @@ export default function IntroSplash() {
       doneTimer = window.setTimeout(() => setShow(false), durationMs);
     };
 
-    scheduleFromDuration(FALLBACK_DURATION_MS);
+    scheduleFromDuration(MAX_DURATION_MS);
 
     const video = videoRef.current;
     if (!video) {
@@ -70,7 +86,9 @@ export default function IntroSplash() {
 
     const onMeta = () => {
       if (isFinite(video.duration) && video.duration > 0) {
-        scheduleFromDuration(Math.round(video.duration * 1000));
+        // Clamp: if the asset is longer than the cap, cut it short rather
+        // than letting the file's length dictate how long the page is held.
+        scheduleFromDuration(Math.min(Math.round(video.duration * 1000), MAX_DURATION_MS));
       }
     };
     const onEnded = () => {
@@ -81,24 +99,17 @@ export default function IntroSplash() {
     video.addEventListener("loadedmetadata", onMeta);
     video.addEventListener("ended", onEnded);
 
+    // Stays muted. Unmuted autoplay is blocked by browser policy on a fresh
+    // visit, so the previous attempt to unmute was guaranteed to fail and
+    // then bound global pointerdown/keydown listeners to retry on the
+    // visitor's first interaction — consuming their first tap to start
+    // audio they never asked for. Removed entirely.
     video.muted = true;
-    video.volume = 1.0;
     video.playsInline = true;
-    const tryUnmute = () => {
-      try { video.muted = false; video.volume = 1.0; } catch {}
-    };
     const p = video.play();
-    if (p && typeof p.then === "function") {
-      p.then(tryUnmute).catch(() => {
-        const onGesture = () => {
-          tryUnmute();
-          video.play().catch(() => {});
-        };
-        window.addEventListener("pointerdown", onGesture, { once: true });
-        window.addEventListener("keydown", onGesture, { once: true });
-      });
-    } else {
-      tryUnmute();
+    if (p && typeof p.catch === "function") {
+      // If autoplay is refused outright, don't sit on a frozen frame.
+      p.catch(() => dismiss());
     }
 
     return () => {
@@ -130,7 +141,7 @@ export default function IntroSplash() {
           autoPlay
           muted
           playsInline
-          preload="auto"
+          preload="metadata"
           onError={() => { setVideoError("video failed to load"); dismiss(); }}
         />
       )}
