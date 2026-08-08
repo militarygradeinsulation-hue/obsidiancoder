@@ -1,20 +1,29 @@
 // Metered Obsidian QA route.
 //
 // One request = at most ONE provider call on the cheapest available
-// Claude-family model. Rejects free/unresolved callers through the
+// Claude-family model (or, for the owner session only, a fallback chain —
+// see buildProviderChain). Rejects free/unresolved callers through the
 // standard paid-operation gate (auth + Pro + credit reservation).
 //
 // Design invariants:
 //   - POST only; strict JSON in/out (contract lives in qa-contract.ts).
 //   - Bounded payload (see qaInputSchema); rejects oversized inputs.
 //   - No provider call, no charge when no Claude model is available.
-//   - Exactly one provider attempt per request. No auto-escalation.
-//   - Malformed provider response ⇒ structured envelope, still charges
-//     the attempt so the caller can't spin the router.
+//   - At most one PROVIDER in the chain per request (no auto-escalation
+//     across providers) — EXCEPT: if the chosen provider's response fails
+//     to parse as the required JSON schema, exactly one corrective re-ask
+//     is made to that SAME provider before giving up. This is a same-
+//     provider retry to recover from a formatting slip, not escalation —
+//     it never tries a second provider, and it happens once, server-side,
+//     inside this one request. The caller cannot trigger it repeatedly;
+//     it still charges honestly for whatever calls actually ran.
+//   - Malformed provider response, even after the corrective re-ask,
+//     ⇒ structured envelope, still charges the attempt(s) so the caller
+//     can't spin the router.
 //   - Every response carries providerInvoked honestly.
 
 import { createFileRoute } from "@tanstack/react-router";
-import { patchSchema, MAX_OPS } from "@/lib/patch-protocol";
+import { parseQaJson, type ParsedQa } from "@/lib/qa-json-parser";
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded } from "@/lib/upstream-guard";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
@@ -43,7 +52,6 @@ import {
   type QaRouteSuccess,
   type QaRouteError,
 } from "@/lib/qa-contract";
-import type { z } from "zod";
 import { routellmKeys, healthyRouteLLMKeys, markRouteLLMKeyDead, isRouteLLMKeyExhausted } from "@/lib/routellm-keys";
 import {
   buildProviderChain,
@@ -71,71 +79,10 @@ Rules:
 - verdict "pass" or "block" ⇒ patch MUST be null.
 - verdict "repair" ⇒ patch MUST be a valid Obsidian patch with 1..${QA_MAX_PATCH_OPS} operations.
 
-Patch ops (subset): replace_text, delete_text, insert_before, insert_after, replace_element_by_id, set_attribute, append_css_rule, append_script, remove_element_by_id, remove_attribute, add_class, remove_class, insert_child, update_inline_style, replace_css_rule, replace_script_block, rename_id, update_json_block. Prefer replace_text/set_attribute/append_css_rule for minimal repairs. At most ${QA_MAX_PATCH_OPS} operations.`;
+Patch ops (subset): replace_text, delete_text, insert_before, insert_after, replace_element_by_id, set_attribute, append_css_rule, append_script, remove_element_by_id, remove_attribute, add_class, remove_class, insert_child, update_inline_style, replace_css_rule, replace_script_block, rename_id, update_json_block. Prefer replace_text/set_attribute/append_css_rule for minimal repairs. At most ${QA_MAX_PATCH_OPS} operations.
 
-type ParsedQa = {
-  verdict: "pass" | "repair" | "block";
-  confidence: number;
-  defectCategories: string[];
-  explanation: string;
-  expectedImprovement: string;
-  patch: z.infer<typeof patchSchema> | null;
-};
+Your entire response must be exactly one JSON object and nothing else. Do not wrap it in a code fence. Do not add commentary before or after it. Do not explain your reasoning outside the "explanation" field. The first character of your response must be { and the last character must be }.`;
 
-/** Strict parser: returns null on ANY nonconformance. Callers must treat
- *  null as qa_bad_response and never coerce. */
-function parseQaJson(text: string): ParsedQa | null {
-  let block: string;
-  try {
-    const t = text.trim();
-    const fence = t.match(/```(?:json)?\s*([\s\S]*?)\s*```/i);
-    block = fence ? fence[1] : t.slice(t.indexOf("{"), t.lastIndexOf("}") + 1);
-    if (!block) return null;
-  } catch { return null; }
-
-  let j: {
-    verdict?: unknown; confidence?: unknown; defect_categories?: unknown;
-    explanation?: unknown; expected_improvement?: unknown; patch?: unknown;
-  };
-  try { j = JSON.parse(block); } catch { return null; }
-
-  // Strict verdict — reject unknown, do not coerce.
-  if (j.verdict !== "pass" && j.verdict !== "repair" && j.verdict !== "block") return null;
-  const verdict = j.verdict;
-
-  const confidence =
-    typeof j.confidence === "number" && Number.isFinite(j.confidence)
-      ? Math.max(0, Math.min(1, j.confidence))
-      : 0.4;
-
-  const defectCategories = Array.isArray(j.defect_categories)
-    ? j.defect_categories.slice(0, 10).map((x) => String(x).slice(0, 80))
-    : [];
-  const explanation =
-    typeof j.explanation === "string" ? j.explanation.slice(0, 400) : "";
-  const expectedImprovement =
-    typeof j.expected_improvement === "string" ? j.expected_improvement.slice(0, 400) : "";
-
-  let patch: z.infer<typeof patchSchema> | null = null;
-  if (j.patch !== null && j.patch !== undefined) {
-    if (typeof j.patch !== "object") return null;
-    const parsed = patchSchema.safeParse(j.patch);
-    if (!parsed.success) return null;
-    if (parsed.data.operations.length > QA_MAX_PATCH_OPS) return null;
-    if (parsed.data.operations.length > MAX_OPS) return null;
-    patch = parsed.data;
-  }
-
-  // Enforce verdict / patch consistency here so downstream code
-  // does not need to double-check.
-  if ((verdict === "pass" || verdict === "block") && patch !== null) {
-    // Ignore any patch on pass/block per contract.
-    patch = null;
-  }
-  if (verdict === "repair" && patch === null) return null;
-
-  return { verdict, confidence, defectCategories, explanation, expectedImprovement, patch };
-}
 
 function errBody(
   code: QaRouteError["code"],
@@ -282,6 +229,7 @@ export const Route = createFileRoute("/api/qa")({
           // regardless of how many attempts the caller is allowed to make.
           const callQaOnce = async (
             attempt: ChainAttempt,
+            overrideMessages?: typeof qaMessages,
           ): Promise<ChainAttemptResult<{ text: string; model: string }>> => {
             try {
               const body: Record<string, unknown> = {
@@ -290,7 +238,7 @@ export const Route = createFileRoute("/api/qa")({
                 // OpenAI-compatible; request strict JSON so the model won't
                 // wrap in prose. Our parser is strict regardless.
                 response_format: { type: "json_object" },
-                messages: qaMessages,
+                messages: overrideMessages ?? qaMessages,
               };
               const { response } = await aiFetch(
                 attempt.url,
@@ -409,12 +357,51 @@ export const Route = createFileRoute("/api/qa")({
             return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
           }
 
-          const parsed = parseQaJson(providerText);
+          let parsed = parseQaJson(providerText);
+          let usedCorrectiveRetry = false;
+
+          // The provider call itself succeeded (outcome.ok is true here),
+          // but the model's TEXT didn't parse as the required JSON schema.
+          // This is a formatting slip, not a provider failure, so it gets
+          // a different remedy than the chain above: one corrective re-ask
+          // to the SAME provider that just responded, showing it exactly
+          // what it sent and asking for strict JSON only. Bounded to
+          // exactly one attempt — if that also fails to parse, give up
+          // honestly rather than looping.
+          if (!parsed) {
+            const correctiveMessages: typeof qaMessages = [
+              ...qaMessages,
+              { role: "assistant", content: providerText.slice(0, 4000) },
+              {
+                role: "user",
+                content:
+                  "That response could not be parsed as valid JSON matching the required schema. " +
+                  "Return ONLY the corrected JSON object — no markdown code fence, no prose, " +
+                  "nothing before the opening { or after the closing }.",
+              },
+            ];
+            const retryResult = await callQaOnce(outcome.usedAttempt!, correctiveMessages);
+            if (retryResult.ok) {
+              const retryParsed = parseQaJson(retryResult.value.text);
+              if (retryParsed) {
+                parsed = retryParsed;
+                providerText = retryResult.value.text;
+                actualModel = retryResult.value.model;
+                usedCorrectiveRetry = true;
+                console.warn(`[qa] corrective retry recovered a malformed response (requestId=${requestId}, model=${actualModel})`);
+              }
+            } else if (outcome.usedAttempt?.routed && isRouteLLMKeyExhausted(retryResult.error)) {
+              // Same billing-exhaustion rule as everywhere else — the retry
+              // is still a real provider call and can still hit this.
+              markRouteLLMKeyDead(outcome.usedAttempt.key);
+            }
+          }
+
           if (!parsed) {
             await settleFailure("qa_bad_response");
             const body = errBody(
               "qa_bad_response",
-              "QA model returned a malformed response.",
+              "QA model returned a malformed response, and the corrective retry also failed to parse.",
               actualModel, true, requestId,
             );
             return Response.json(body, { status: 200, headers: { "X-Request-Id": requestId } });
