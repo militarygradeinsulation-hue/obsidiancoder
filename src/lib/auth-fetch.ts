@@ -9,6 +9,15 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { isCreditsRequiredEnvelope, type CreditsRequiredEnvelope } from "./credit-gate";
+import { getAccountCode, isFullAccessCode } from "./account-code";
+
+/**
+ * Must stay in sync with OWNER_CODE_HEADER in credit-gate.server.ts.
+ * Declared locally rather than imported: that module is server-only and
+ * pulls in the Supabase service-role client, which must never reach the
+ * browser bundle.
+ */
+const OWNER_CODE_HEADER = "x-obsidian-owner-code";
 
 export async function currentAccessToken(): Promise<string | null> {
   try {
@@ -43,7 +52,27 @@ export async function authFetch(
   if (token && !headers.has("Authorization")) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  const response = await fetch(input, { ...init, headers });
+  // Owner/admin fallback: the server recognizes owner status from an
+  // httpOnly session cookie, but that cookie can lapse (eviction, cleared
+  // site data, in-app webviews) while the app's own UI still shows admin
+  // — it reads a separate localStorage code. When they disagree, the
+  // owner gets HTTP 402 on routes they should never be charged for.
+  // Sending the same full-access code the cookie was set from, verified
+  // server-side the same way, closes that gap. Same-origin only — this
+  // never leaves our own domain.
+  if (isSameOrigin(input) && !headers.has(OWNER_CODE_HEADER)) {
+    try {
+      const code = getAccountCode();
+      if (isFullAccessCode(code)) headers.set(OWNER_CODE_HEADER, code);
+    } catch { /* storage unavailable — fall back to the cookie alone */ }
+  }
+  const response = await fetch(input, {
+    ...init,
+    headers,
+    // Explicit rather than relying on the default, so the gate cookie is
+    // always sent on these calls.
+    credentials: init.credentials ?? "same-origin",
+  });
 
   if ((response.status === 401 || response.status === 402) && isSameOrigin(input) && typeof window !== "undefined") {
     // Best-effort read of the envelope. We clone so the caller can still

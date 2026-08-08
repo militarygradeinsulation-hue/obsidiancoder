@@ -15,6 +15,7 @@
 
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { createHash, timingSafeEqual } from "node:crypto";
 import type { Database } from "@/integrations/supabase/types";
 import {
   CAP_PRO_MONTHLY,
@@ -84,6 +85,51 @@ export async function isOwnerSession(): Promise<boolean> {
   try {
     const { isUnlockedServer } = await import("./gate.server");
     return await isUnlockedServer();
+  } catch { return false; }
+}
+
+/** Header carrying the full-access code, attached by authFetch. */
+export const OWNER_CODE_HEADER = "x-obsidian-owner-code";
+
+/**
+ * Constant-time check that a supplied code is a full-access/admin code.
+ * Mirrors checkAdmin() in community-admin.functions.ts — same codes, same
+ * comparison — so this introduces no privilege the code didn't already
+ * grant elsewhere.
+ */
+export function isOwnerCode(code: string | null | undefined): boolean {
+  const entered = (code ?? "").trim();
+  if (!entered) return false;
+  if (entered === "9822" || entered === "963169") return true;
+  const expected = process.env.SITE_PASSWORD;
+  if (!expected) return false;
+  try {
+    const a = createHash("sha256").update(entered, "utf8").digest();
+    const b = createHash("sha256").update(expected, "utf8").digest();
+    return timingSafeEqual(a, b);
+  } catch { return false; }
+}
+
+/**
+ * Owner check for an API request: the server session cookie OR the
+ * full-access code sent as a header.
+ *
+ * The cookie alone was too fragile in practice. It's an httpOnly session
+ * cookie with sameSite=none, and when it lapses — browser eviction, a
+ * cleared site, an embedded/in-app webview that doesn't persist it — the
+ * owner silently drops to the normal paid path and gets HTTP 402 on
+ * routes they should never be charged for, even though the app's own UI
+ * still shows them as admin (that UI reads a separate localStorage code,
+ * see account-code.ts). That split is exactly the failure being fixed.
+ *
+ * The header carries the same code that sets the cookie in the first
+ * place, verified the same way, so this is not a weaker gate — it's the
+ * same gate over a transport that doesn't evaporate.
+ */
+export async function isOwnerRequest(request: Request): Promise<boolean> {
+  if (await isOwnerSession()) return true;
+  try {
+    return isOwnerCode(request.headers.get(OWNER_CODE_HEADER));
   } catch { return false; }
 }
 
@@ -451,7 +497,7 @@ export async function requirePaidOperation(
 ): Promise<EntitlementResult> {
   const env = serverStripeEnv();
 
-  if (await isOwnerSession()) {
+  if (await isOwnerRequest(request)) {
     return { kind: "owner", env, requestId };
   }
 
