@@ -33,9 +33,21 @@ export function sessionConfig() {
   return {
     password,
     name: "obsidian-gate",
-    // Session cookie — expires when the browser closes so users must
-    // re-authenticate every visit. No `maxAge` set intentionally.
-    cookie: { httpOnly: true, secure: true, sameSite: "none" as const, path: "/" },
+    // 60-day cookie. Previously had no maxAge at all ("expires when the
+    // browser closes"), which on mobile — where the browser process gets
+    // killed on backgrounding far more readily than it does on desktop —
+    // meant the owner/admin session was silently dropping far more often
+    // than the person unlocking it would expect, even though the separate
+    // client-side library code (account-code.ts, localStorage-backed) kept
+    // showing admin UI the whole time. That mismatch — UI says unlocked,
+    // server says not — is what "forgetting admin status" actually was.
+    cookie: {
+      httpOnly: true,
+      secure: true,
+      sameSite: "none" as const,
+      path: "/",
+      maxAge: 60 * 24 * 60 * 60, // 60 days, in seconds
+    },
   };
 }
 

@@ -14,6 +14,7 @@ import { AetherisInstructor } from "@/components/AetherisInstructor";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ChevronLeft,
+  Check,
   Code2,
   Copy,
   Download,
@@ -59,7 +60,8 @@ import { suggestionAllowed } from "@/lib/suggestion-safety";
 
 
 import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
-import { getAccountCode, setAccountCode, isFullAccessCode } from "@/lib/account-code";
+import { getAccountCode, setAccountCode, isFullAccessCode, isValidAccountCode } from "@/lib/account-code";
+import { unlockSite } from "@/lib/gate.functions";
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
 import { GithubModal } from "@/components/GithubModal";
 import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
@@ -282,6 +284,51 @@ function ForgePage() {
   React.useEffect(() => {
     writeCreativePrefs({ profile, family: styleFamily });
   }, [profile, styleFamily]);
+
+  const unlockWithCode = useServerFn(unlockSite);
+  const [submittingCode, setSubmittingCode] = React.useState(false);
+  const [codeError, setCodeError] = React.useState<string | null>(null);
+
+  /**
+   * The "Code" inputs in the top bar and sidebar previously only called
+   * setLibraryCode(...) on every keystroke — that updates the in-memory
+   * React state Pocket uses for its OWN UI gating (isAdminCode below), but
+   * it never persisted anywhere and never told the server anything. Two
+   * real consequences: (1) a page reload silently lost whatever was typed,
+   * and (2) far more importantly, every server-side entitlement check
+   * (credits, the QA owner fallback chain, etc.) never actually recognized
+   * the person as owner, because those checks read the server session
+   * cookie set by unlockSite() — which this flow never called. Pocket's UI
+   * could show "admin" while the server, correctly, did not agree.
+   *
+   * This is the actual login: it authenticates with the server (setting
+   * the same session cookie /unlock uses) AND persists the code locally
+   * (setAccountCode — sessionStorage + localStorage), then reloads so
+   * every piece of server-derived state in the app picks it up at once
+   * rather than trying to patch each one individually.
+   */
+  const submitLibraryCode = React.useCallback(async () => {
+    const code = libraryCode.trim();
+    if (!isValidAccountCode(code)) {
+      setCodeError("Enter a valid code.");
+      return;
+    }
+    setSubmittingCode(true);
+    setCodeError(null);
+    try {
+      const { ok } = await unlockWithCode({ data: { password: code } });
+      if (!ok) {
+        setCodeError("Code not recognized.");
+        setSubmittingCode(false);
+        return;
+      }
+      setAccountCode(code);
+      window.location.reload();
+    } catch {
+      setCodeError("Something went wrong. Try again.");
+      setSubmittingCode(false);
+    }
+  }, [libraryCode, unlockWithCode]);
 
 
   const [library, setLibrary] = React.useState<LibraryBuild[]>([]);
@@ -1367,21 +1414,36 @@ function ForgePage() {
               Coder
             </Link>
 
-            <label className="hidden items-center gap-1.5 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
+            <label className="hidden items-center gap-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
               <span className="text-[10px] uppercase tracking-widest text-[#6b7180]">Code</span>
               <input
                 value={libraryCode}
-                onChange={(e) => setLibraryCode(e.target.value)}
+                onChange={(e) => { setLibraryCode(e.target.value); setCodeError(null); }}
+                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submitLibraryCode(); } }}
                 placeholder="e.g. 9822"
                 aria-label="Account / library code"
-                title="Enter your code to auto-save and load your projects"
-                className="w-[86px] bg-transparent text-xs text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none"
+                title={codeError ?? "Enter your code and press Enter, or the button, to sign in"}
+                disabled={submittingCode}
+                className="w-[70px] bg-transparent text-xs text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none"
               />
+              <button
+                type="button"
+                onClick={() => void submitLibraryCode()}
+                disabled={submittingCode || !libraryCode.trim()}
+                aria-label="Sign in with this code"
+                title="Sign in with this code"
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[#6b7180] hover:text-[#F4A125] disabled:opacity-40"
+              >
+                {submittingCode ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              </button>
               <span
                 className={`h-1.5 w-1.5 rounded-full ${libraryCode.trim() ? "bg-emerald-400" : "bg-[#4b5060]"}`}
                 title={libraryCode.trim() ? "Signed in — projects auto-save" : "No code — projects are not saved"}
               />
             </label>
+            {codeError && (
+              <span className="hidden text-[10px] text-rose-300 sm:inline">{codeError}</span>
+            )}
 
             {buildsLeft ? (
               <span
@@ -1496,10 +1558,22 @@ function ForgePage() {
             <input
               id="forge-lib"
               value={libraryCode}
-              onChange={(e) => setLibraryCode(e.target.value)}
+              onChange={(e) => { setLibraryCode(e.target.value); setCodeError(null); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submitLibraryCode(); } }}
               placeholder="e.g. 9822"
+              disabled={submittingCode}
               className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
             />
+            <button
+              type="button"
+              onClick={() => void submitLibraryCode()}
+              disabled={submittingCode || !libraryCode.trim()}
+              className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#F4A125]/30 bg-[#F4A125]/10 px-2 py-1.5 text-[11px] font-medium text-[#F4A125] disabled:opacity-40"
+            >
+              {submittingCode ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              Sign in
+            </button>
+            {codeError && <p className="mt-1 text-[10px] text-rose-300">{codeError}</p>}
             <h2 className="mt-4 text-[10px] uppercase tracking-widest text-[#6b7180]">Projects</h2>
             <ul className="mt-2 space-y-1">
               {library.length === 0 && (
