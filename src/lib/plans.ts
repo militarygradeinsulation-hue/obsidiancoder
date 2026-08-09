@@ -57,14 +57,11 @@ export const PLAN_TIERS: PlanTier[] = [
   {
     id: "vibe",
     name: "Vibe",
-    // NOTE: this is a DISPLAY price only. The underlying Stripe Price
-    // object at priceId "obsidian_creator_monthly" was configured at $79
-    // and has not been verified or changed here — Stripe API access did
-    // not approve in this environment. Whoever owns Stripe access MUST
-    // confirm/update the actual Price amount before this is live, or a
-    // customer completing checkout will be charged $79 while the page
-    // told them $39.
+    // Verified 2026-08-09: the Stripe price at lookup key
+    // "obsidian_creator_monthly" is $39.00/month USD, matching this
+    // display price. (It was previously $79 and has been corrected.)
     price: "$39",
+
     cadence: "/month",
     headline: "The full studio. Build it, deploy it, ship it to a real domain.",
     bestFor: "Builders who need what they make to actually go live.",
