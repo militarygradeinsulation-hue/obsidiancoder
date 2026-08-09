@@ -1,8 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useRef, useState, useEffect } from "react";
-import { Send, Loader2, Home, FileText, Grid3x3, CheckSquare, Calendar, Layout, Settings, HelpCircle, Search, Plus, MoreHorizontal, Bookmark } from "lucide-react";
+import { Send, Loader2, Home, FileText, Grid3x3, CheckSquare, Calendar, Layout, Settings, HelpCircle, Search, Plus, MoreHorizontal, Bookmark, Rocket, ExternalLink } from "lucide-react";
 import { generateHtml } from "@/lib/aetheris.functions";
+import { pushToLovable, getLovablePushStatus } from "@/lib/lovable-push.functions";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -46,8 +47,12 @@ const NAV_ITEMS = [
   { icon: Layout, label: "Templates", id: "templates" },
 ];
 
+type PushState = "idle" | "queued" | "processing" | "done" | "error";
+
 function Index() {
   const callGenerate = useServerFn(generateHtml);
+  const callPushToLovable = useServerFn(pushToLovable);
+  const callGetLovablePushStatus = useServerFn(getLovablePushStatus);
   const [messages, setMessages] = useState<ChatMsg[]>([
     {
       role: "assistant",
@@ -61,11 +66,64 @@ function Index() {
   const [error, setError] = useState<string | null>(null);
   const [model, setModel] = useState<ModelId>("google/gemini-3.5-flash");
   const [activeNav, setActiveNav] = useState("home");
+  const [pushState, setPushState] = useState<PushState>("idle");
+  const [pushId, setPushId] = useState<string | null>(null);
+  const [pushUrl, setPushUrl] = useState<string | null>(null);
+  const [pushError, setPushError] = useState<string | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, loading]);
+
+  useEffect(() => {
+    if (!pushId || (pushState !== "queued" && pushState !== "processing")) return;
+    let cancelled = false;
+    const poll = async () => {
+      try {
+        const row = await callGetLovablePushStatus({ data: { id: pushId } });
+        if (cancelled) return;
+        if (row.status === "done") {
+          setPushState("done");
+          setPushUrl(row.project_url ?? row.editor_url ?? null);
+        } else if (row.status === "error") {
+          setPushState("error");
+          setPushError(row.error ?? "Push failed.");
+        } else {
+          setPushState(row.status as PushState);
+        }
+      } catch {
+        // transient poll failure — try again on the next tick
+      }
+    };
+    const interval = setInterval(poll, 5000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
+  }, [pushId, pushState]);
+
+  async function handlePushToLovable() {
+    if (!html || pushState === "queued" || pushState === "processing") return;
+    setPushError(null);
+    setPushUrl(null);
+    setPushId(null);
+    setPushState("queued");
+    try {
+      const firstUserPrompt = messages.find((m) => m.role === "user")?.content;
+      const { id } = await callPushToLovable({
+        data: {
+          title: firstUserPrompt?.slice(0, 80) || "Obsidian build",
+          html,
+          history: messages.slice(-10),
+        },
+      });
+      setPushId(id);
+    } catch (err) {
+      setPushState("error");
+      setPushError(err instanceof Error ? err.message : "Could not queue push.");
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -293,9 +351,49 @@ function Index() {
 
           {/* Right Preview Panel */}
           <div className="w-96 border-l border-border/30 flex flex-col overflow-hidden bg-gradient-to-br from-background via-background to-amber/5">
-            <div className="px-4 py-3 border-b border-border/30 text-xs uppercase tracking-widest text-amber/60 font-medium">
-              Preview
+            <div className="px-4 py-3 border-b border-border/30 flex items-center justify-between gap-2">
+              <span className="text-xs uppercase tracking-widest text-amber/60 font-medium">
+                Preview
+              </span>
+              {html && (
+                <button
+                  type="button"
+                  onClick={handlePushToLovable}
+                  disabled={pushState === "queued" || pushState === "processing"}
+                  className="flex items-center gap-1.5 rounded border border-amber/30 bg-amber/10 px-2 py-1 text-xs text-amber transition hover:bg-amber/20 disabled:opacity-50"
+                >
+                  {pushState === "queued" || pushState === "processing" ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Rocket className="w-3 h-3" />
+                  )}
+                  Push to Lovable
+                </button>
+              )}
             </div>
+            {pushState !== "idle" && (
+              <div className="px-4 py-2 border-b border-border/30 text-xs">
+                {(pushState === "queued" || pushState === "processing") && (
+                  <span className="text-muted-foreground">
+                    Queued — a worker will create this as a live Lovable project shortly.
+                  </span>
+                )}
+                {pushState === "done" && pushUrl && (
+                  <a
+                    href={pushUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1.5 text-amber hover:underline"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Live on Lovable — open project
+                  </a>
+                )}
+                {pushState === "error" && (
+                  <span className="text-red-400/80">{pushError ?? "Push failed."}</span>
+                )}
+              </div>
+            )}
             <div className="flex-1 overflow-auto p-4">
               {html ? (
                 <div className="text-[11px] font-mono leading-relaxed text-muted-foreground/80">
