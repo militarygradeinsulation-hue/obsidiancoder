@@ -1,3 +1,7 @@
+// NOTE: `lovable_pushes` below was added by hand to match
+// supabase/migrations/20260809230721_create_lovable_pushes.sql, which hasn't
+// been applied to the live project yet. Once Supabase regenerates this file
+// for real, its shape should match and this note can go.
 export type Json =
   | string
   | number
@@ -14,7 +18,45 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      lovable_pushes: {
+        Row: {
+          id: string
+          created_at: string
+          updated_at: string
+          title: string
+          prompt_history: Json
+          html: string
+          status: string
+          project_url: string | null
+          editor_url: string | null
+          error: string | null
+        }
+        Insert: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          title?: string
+          prompt_history?: Json
+          html: string
+          status?: string
+          project_url?: string | null
+          editor_url?: string | null
+          error?: string | null
+        }
+        Update: {
+          id?: string
+          created_at?: string
+          updated_at?: string
+          title?: string
+          prompt_history?: Json
+          html?: string
+          status?: string
+          project_url?: string | null
+          editor_url?: string | null
+          error?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
