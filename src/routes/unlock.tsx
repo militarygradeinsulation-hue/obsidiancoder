@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useRouter, Link, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type FormEvent } from "react";
-import { ArrowRight, Sparkles } from "lucide-react";
+import { ArrowRight, Sparkles, CheckCircle2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
@@ -440,6 +440,98 @@ function Unlock() {
                 Try Pocket
               </a>
             </div>
+
+            {/* PRICING — in the main page flow, not hidden behind a panel.
+                Previously the only pricing lived inside the click-to-open
+                panel, so a visitor could scroll the entire page and never
+                see a price. Styled per the supplied reference component:
+                large padded cards, oversized price, check-icon feature
+                list, full-width CTA, ring highlight on the featured tier. */}
+            <section
+              id="pricing"
+              aria-labelledby="pricing-heading"
+              className={cn(
+                "mx-auto mt-16 w-full max-w-6xl px-4",
+                "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-400 duration-500 ease-out",
+              )}
+            >
+              <div className="mb-3 text-center">
+                <h2 id="pricing-heading" className="text-balance text-3xl font-semibold tracking-tight text-[#f2eee7] md:text-4xl">
+                  Start building in the next five minutes
+                </h2>
+                <p className="mx-auto mt-3 max-w-xl text-sm text-[#a5a29c] md:text-base">
+                  Free to try, no card. Pick a plan when you're ready for more.
+                </p>
+              </div>
+
+              <div className="mt-10 grid items-stretch gap-7 sm:grid-cols-2 lg:grid-cols-3">
+                {PLAN_TIERS.map((t) => {
+                  const featured = !!t.featured;
+                  return (
+                    <div
+                      key={t.id}
+                      className={cn(
+                        "relative flex w-full flex-col rounded-2xl p-8 text-left",
+                        featured
+                          ? "bg-[#100d08] text-[#f2eee7] shadow-2xl ring-2 ring-[#F4A125]/60"
+                          : "border border-white/10 bg-white/[0.03] text-[#e8e6e1] shadow-lg",
+                      )}
+                    >
+                      {featured && (
+                        <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-b from-[#F6B24A] to-[#DD9324] px-4 py-1 text-[11px] font-bold uppercase tracking-widest text-[#14100a] shadow-lg shadow-[#F4A125]/40">
+                          Most popular
+                        </div>
+                      )}
+
+                      <h3 className="text-center text-2xl font-bold">{t.name}</h3>
+
+                      <div className="mt-4 flex items-baseline justify-center">
+                        <span className="text-5xl font-extrabold tracking-tight">{t.price}</span>
+                        {t.cadence && <span className="ml-1 text-lg font-medium opacity-70">{t.cadence}</span>}
+                      </div>
+
+                      <p className="mt-4 text-center text-sm leading-relaxed opacity-80">{t.headline}</p>
+
+                      <ul className="mt-8 space-y-4">
+                        {t.outcomes.map((o) => (
+                          <li key={o} className="flex items-start gap-3 text-sm leading-snug">
+                            <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[#F4A125]" aria-hidden />
+                            <span>{o}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      <div className="mt-auto pt-8">
+                        {t.cta === "checkout" && t.priceId ? (
+                          <button
+                            type="button"
+                            onClick={() => { setSelectedPriceId(t.priceId!); setPanelOpen(true); setTab("buy"); }}
+                            className={cn(
+                              "w-full rounded-xl px-6 py-3.5 text-[15px] font-semibold shadow-lg transition-transform hover:scale-[1.03]",
+                              featured
+                                ? "bg-gradient-to-b from-[#F6B24A] to-[#DD9324] text-[#14100a] shadow-[#F4A125]/25"
+                                : "bg-[#f2eee7] text-[#14100a]",
+                            )}
+                          >
+                            {t.id === "pocket" ? "Start with Pocket — $10" : "Get Vibe — $39/mo"}
+                          </button>
+                        ) : (
+                          <a
+                            href="mailto:hello@aetheris.technology?subject=Obsidian%20Custom%20inquiry"
+                            className="block w-full rounded-xl border border-white/20 px-6 py-3.5 text-center text-[15px] font-semibold text-[#f2eee7] transition-colors hover:border-white/40 hover:bg-white/5"
+                          >
+                            Talk to us
+                          </a>
+                        )}
+                        <p className="mt-3 text-center text-[11px] opacity-55">
+                          {t.cta === "checkout" ? "Cancel anytime. No contract." : "Custom terms, SLAs, and support."}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
 
             <section className={`pocket-spotlight ${pocketExpanded ? "is-expanded" : "is-collapsed"}`} aria-labelledby="pocket-spotlight-heading">
               <div className="pocket-spotlight-glow" aria-hidden />

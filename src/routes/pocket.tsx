@@ -70,7 +70,7 @@ import { PocketBuildOrb } from "@/components/PocketBuildOrb";
 import { PricingModal } from "@/components/PricingModal";
 import { UpgradeNudge, type NudgeReason } from "@/components/UpgradeNudge";
 import type { CreditsRequiredEnvelope } from "@/lib/credit-gate";
-import { POCKET_MONTHLY_BUILDS } from "@/lib/plans";
+import { POCKET_MONTHLY_CREDITS } from "@/lib/plans";
 import {
   FORGE_DEVICES,
   deviceWidth,
@@ -1457,7 +1457,7 @@ function ForgePage() {
                 type="button"
                 className={btn}
                 onClick={() => setPricingOpen(true)}
-                title={`Obsidian Pocket — $10/month for ${POCKET_MONTHLY_BUILDS} builds, saving and export`}
+                title={`Obsidian Pocket — $10/month for ${POCKET_MONTHLY_CREDITS} AI credits, saving and export`}
               >
                 Upgrade
               </button>
@@ -1599,7 +1599,7 @@ function ForgePage() {
           {!paid && (
             <div className="mb-3 rounded-lg border border-[#F4A125]/30 bg-[#F4A125]/10 px-3 py-2 text-xs text-[#E8E6E1] backdrop-blur-sm">
               Fast builds are free to try. Saving, export, publishing and the Studio/Cinematic
-              profiles need an Obsidian Pocket account — $10/month for {POCKET_MONTHLY_BUILDS} builds.
+              profiles need an Obsidian Pocket account — $10/month for {POCKET_MONTHLY_CREDITS} AI credits.
             </div>
           )}
 

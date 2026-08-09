@@ -14,8 +14,8 @@ export type PlanTierId =
   | "vibe"
   | "custom";
 
-/** Hard monthly build allowance for the Obsidian Pocket plan. */
-export const POCKET_MONTHLY_BUILDS = 10;
+/** Monthly AI credit allowance for the Obsidian Pocket plan. */
+export const POCKET_MONTHLY_CREDITS = 300;
 
 export interface PlanTier {
   id: PlanTierId;
@@ -41,14 +41,14 @@ export const PLAN_TIERS: PlanTier[] = [
     name: "Pocket",
     price: "$10",
     cadence: "/month",
-    headline: "Obsidian Pocket — quick prompt-to-app builds.",
-    bestFor: "Anyone who wants fast one-box builds without the full studio.",
+    headline: "Describe it, get a working app. No setup, no learning curve.",
+    bestFor: "Anyone who wants to ship something real this week.",
     outcomes: [
-      "Access to Obsidian Pocket",
-      `${POCKET_MONTHLY_BUILDS} AI builds every month`,
-      "Save projects to your account",
-      "Copy and export your code",
-      "Publish + share to the community library",
+      `${POCKET_MONTHLY_CREDITS} AI credits every month`,
+      "Full access to Obsidian Pocket",
+      "Save every project to your account",
+      "Copy and export your code, anytime",
+      "Publish and share to the community library",
     ],
     priceId: "obsidian_pocket_monthly",
     cta: "checkout",
@@ -66,15 +66,15 @@ export const PLAN_TIERS: PlanTier[] = [
     // told them $39.
     price: "$39",
     cadence: "/month",
-    headline: "The main Obsidian builder — for solo builders shipping regularly.",
-    bestFor: "Independent builders and side-project founders.",
+    headline: "The full studio. Build it, deploy it, ship it to a real domain.",
+    bestFor: "Builders who need what they make to actually go live.",
     outcomes: [
-      "Unlimited workspaces",
-      "Full-stack app generation",
-      "Deploy to the web",
-      "GitHub integration",
-      "Priority AI",
-      "Faster generations",
+      "1,000 AI credits every month",
+      "Everything in Pocket, plus:",
+      "Deploy to the live web in one click",
+      "Full-stack generation — database, auth, the works",
+      "GitHub sync",
+      "Priority AI and faster generations",
     ],
     priceId: "obsidian_creator_monthly",
     cta: "checkout",
@@ -131,9 +131,9 @@ export function tierForPriceId(priceId: string | null | undefined): PlanTier | u
  * `capForTier(null)` returns 0 (free plan — no paid AI operations).
  */
 export const TIER_CREDIT_CAP: Record<PlanTierId, number> = {
-  // Pocket is metered by builds (POCKET_MONTHLY_BUILDS), the credit cap is a
-  // conservative envelope that comfortably covers 10 builds + prompt enhance.
-  pocket: 700,
+  // Pocket is metered by CREDITS, same as every other tier — no separate
+  // build-counting path.
+  pocket: POCKET_MONTHLY_CREDITS,
   vibe: 1000,
   custom: 1000,
 };

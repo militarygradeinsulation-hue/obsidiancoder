@@ -24,7 +24,7 @@ import {
   type CreditsRequiredEnvelope,
   type Operation,
 } from "./credit-gate";
-import { capForTier, tierForPriceId, POCKET_MONTHLY_BUILDS, type PlanTierId } from "./plans";
+import { capForTier, tierForPriceId, POCKET_MONTHLY_CREDITS, type PlanTierId } from "./plans";
 import { makeUsage, type UsageRecord } from "./usage-record";
 
 export type Environment = "sandbox" | "live";
@@ -264,7 +264,8 @@ export async function activePlanForUser(
 
 /**
  * Builds consumed in the current billing window. Pocket is metered by BUILDS
- * (POCKET_MONTHLY_BUILDS), not credits, so this counts `generate_html` usage
+ * Legacy helper retained for the entitlement snapshot only — Pocket is now
+ * metered on credits like every other tier. Counts `generate_html` usage
  * rows that were not refunded.
  */
 export async function buildsUsedThisPeriod(
@@ -299,7 +300,7 @@ export async function pocketBuildUsage(
     return { tier: plan.tier, used: 0, cap: 0, remaining: 0 };
   }
   const used = await buildsUsedThisPeriod(userId, env, plan.periodStart);
-  const cap = POCKET_MONTHLY_BUILDS;
+  const cap = POCKET_MONTHLY_CREDITS;
   return { tier: "pocket", used, cap, remaining: Math.max(0, cap - used) };
 }
 
@@ -544,19 +545,9 @@ export async function requirePaidOperation(
     };
   }
 
-  // Pocket is metered by BUILDS, not credits: 10 generations per billing month.
-  if (operation === "generate_html") {
-    const pocket = await pocketBuildUsage(user.userId, env);
-    if (pocket.tier === "pocket" && pocket.remaining <= 0) {
-      return {
-        kind: "denied", env, requestId, user,
-        denial: creditsRequiredEnvelope({
-          code: "credits_required", operation,
-          message: `You've used all ${pocket.cap} Pocket builds for this month. Upgrade to keep building.`,
-        }),
-      };
-    }
-  }
+  // Pocket is metered by CREDITS, same as every other tier — it flows
+  // through capForUser/usageReserve below with its own TIER_CREDIT_CAP.
+  // There is deliberately no separate build-counting gate here anymore.
 
   const cap = await capForUser(user.userId, env);
   const reservation = await usageReserve(user, operation, env, requestId, cap);
