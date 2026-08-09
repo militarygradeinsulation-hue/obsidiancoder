@@ -1,6 +1,8 @@
 import { createFileRoute, redirect, useRouter, Link, ClientOnly } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { lazy, Suspense, useEffect, useRef, useState, type KeyboardEvent, type FormEvent } from "react";
+import { ArrowRight, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 const GLSLHills = lazy(() => import("@/components/ui/glsl-hills"));
@@ -371,12 +373,72 @@ function Unlock() {
       {!panelOpen && (
         <div className="unlock-wordmark" id="top">
           <div className="unlock-hero-stack">
-            <h1 className="unlock-title unlock-title-hero" data-text="OBSIDIAN VIBE">OBSIDIAN VIBE</h1>
-            <div className="unlock-hero-slogan" aria-labelledby="hero-slogan-heading">
+            {/* Status pill — structure from the reference hero (mono eyebrow
+                chip + label + divider + nudging arrow), rendered in the
+                site's existing gold-on-black identity rather than the
+                reference's light theme. */}
+            <a
+              href="#plans"
+              onClick={(e) => { e.preventDefault(); setPanelOpen(true); setTab("buy"); }}
+              className={cn(
+                "group mx-auto flex w-fit items-center gap-3 rounded-md border border-[#F4A125]/25 bg-black/40 p-1 shadow-sm backdrop-blur-sm",
+                "transition-colors hover:border-[#F4A125]/50",
+                "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-500 duration-500 ease-out",
+              )}
+            >
+              <span className="rounded-sm border border-[#F4A125]/30 bg-[#F4A125]/10 px-1.5 py-0.5 font-mono text-[10px] tracking-widest text-[#F4A125] shadow-sm">
+                NOW
+              </span>
+              <span className="text-xs text-[#c9c6c0]">3 free AI builds every day</span>
+              <span className="block h-5 border-l border-white/10" />
+              <span className="pr-1">
+                <ArrowRight className="size-3 -translate-x-0.5 text-[#F4A125] duration-150 ease-out group-hover:translate-x-0.5" />
+              </span>
+            </a>
+
+            <h1
+              className={cn(
+                "unlock-title unlock-title-hero",
+                "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-100 duration-500 ease-out",
+              )}
+              data-text="OBSIDIAN VIBE"
+            >
+              OBSIDIAN VIBE
+            </h1>
+            <div
+              className={cn(
+                "unlock-hero-slogan",
+                "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-200 duration-500 ease-out",
+              )}
+              aria-labelledby="hero-slogan-heading"
+            >
               <h2 id="hero-slogan-heading" className="hero-slogan-headline">AI built for the professionals big tech forgot</h2>
               <p className="hero-slogan-body">
                 People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
               </p>
+            </div>
+
+            {/* Paired primary/secondary CTA, per the reference. */}
+            <div
+              className={cn(
+                "mx-auto flex w-fit items-center justify-center gap-3 pt-1",
+                "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-300 duration-500 ease-out",
+              )}
+            >
+              <a
+                href="/?demo=1"
+                className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-b from-[#F6B24A] to-[#DD9324] px-5 py-2.5 text-sm font-semibold text-[#14100a] shadow-lg shadow-[#F4A125]/20 transition-transform hover:scale-[1.03]"
+              >
+                Start building free
+                <ArrowRight className="size-4" />
+              </a>
+              <a
+                href="/pocket"
+                className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-2.5 text-sm font-medium text-[#E8E6E1] transition-colors hover:border-white/30 hover:bg-white/5"
+              >
+                <Sparkles className="size-4" />
+                Try Pocket
+              </a>
             </div>
 
             <section className={`pocket-spotlight ${pocketExpanded ? "is-expanded" : "is-collapsed"}`} aria-labelledby="pocket-spotlight-heading">
