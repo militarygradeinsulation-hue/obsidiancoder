@@ -1,38 +1,23 @@
-# Make the provider fallback actually hold up
+# Align Stripe pricing with the site ($10 Pocket / $39 Vibe)
 
-## What's there today (verified in the code)
+## Current state (verified)
 
-The main build route does have a fallback chain. For each build it queues:
+- Stripe go-live is fully complete: sandbox and live accounts are connected, the Lovable app is installed on the live account, live keys are provisioned, and the readiness check passed. Live checkout is ready.
+- Checkout, billing portal, cancel, and the webhook handler are all wired and resolve prices by lookup key (`obsidian_pocket_monthly`, `obsidian_creator_monthly`), so no plumbing work is needed.
+- The only gap is the amount: the Vibe plan is displayed at $39/month on the site, while a code comment records the Stripe price for `obsidian_creator_monthly` as $79 — never verified or corrected.
 
-1. Google (Gemini) with your Google key
-2. Every healthy ChatLLM/Abacus key, in priority order
-3. The Lovable gateway (this is where OpenAI/GPT models come from — there is no separate OpenAI key in the project; OpenAI is reachable only through the Lovable gateway)
+## What will be done
 
-So the design you remember is real. Three things stop it from working the way you expect.
+1. Set the recurring monthly amounts on the existing price IDs so Stripe matches the site:
+   - `obsidian_pocket_monthly` — $10.00/month USD, single quantity
+   - `obsidian_creator_monthly` — $39.00/month USD, single quantity
+   Both reuse their existing IDs so lookup keys transfer and checkout code stays unchanged.
+2. Verify each price after the change by reading it back through Stripe and confirming the amount, interval, and lookup key.
+3. Move existing subscribers to the new amounts: update each live subscription's item to the new price at the next renewal (no immediate proration charge), so nobody is billed a mid-cycle difference.
+4. Remove the stale "$79" warning comment in the plan catalog and replace it with the confirmed amount.
+5. Run a sandbox checkout smoke test for both plans to confirm the amount shown at checkout is $10 and $39.
 
-## Why it still fails
+## Notes
 
-**1. Only a billing error moves to the next provider.** After the Google attempt, the chain advances only when the error text looks like "no credits / unauthorized / quota". A ChatLLM key that times out, returns a 500, or is blocked by the circuit breaker ends the whole request instead of trying the Lovable gateway. That surfaces as "Upstream did not respond in time."
-
-**2. The time budget is shared but handed out whole.** Each attempt is given the full 32s open budget, while the request as a whole must produce a first byte within 55s. Two slow attempts eat the deadline before the third provider is ever dialed, so the last (working) provider never runs.
-
-**3. The other AI surfaces don't have the chain.** Patch (`/api/patch`), QA (`/api/qa`), and build chat still resolve a single ChatLLM key with no Google step, so those features die when Abacus is out of credits even though builds now survive.
-
-## The fix
-
-1. **Chain on any failure, not just billing.** In the build route, advance to the next attempt for any error except a client cancel. Keep marking a key dead only when the error really is credit exhaustion, so the 30-minute dead-key skip stays accurate.
-2. **Slice the budget across attempts.** Compute each attempt's timeout from the remaining first-response deadline divided by the attempts left (with a sane floor), so the chain always reaches the last provider before the deadline.
-3. **Give Patch, QA, and build chat the same chain** — Google first, then healthy ChatLLM keys, then the Lovable equivalent model — reusing the existing helpers rather than new per-route logic.
-4. **Honest error text.** Distinguish "every provider failed" from "credits exhausted at one provider," and name the provider that failed last.
-5. Run the self-test suite and report the pass count.
-
-## Technical detail
-
-- `src/routes/api/generate.ts`: rework the `openStream` attempt loop (~line 1079) — replace the `exhausted` gate with cancel-only bail, derive per-attempt `totalTimeoutMs` from `remainingFirstResponseMs()` and `attempts.length - i`.
-- `src/routes/api/patch.ts`: prepend a Google attempt to the chain built at ~line 160, switch `routellmKeys()` to `healthyRouteLLMKeys()`, mark dead keys.
-- `src/routes/api/qa.ts` and `src/lib/build-chat.functions.ts`: same chain via a small shared helper instead of `routellmKey()` alone.
-- New assertions in `src/lib/__tests__/selftest.mts` covering: non-billing error still advances the chain, budget slicing reaches the final attempt, and Patch/QA prefer Google when a Google key is set.
-
-## Note
-
-None of this restores Claude/Opus — those only exist on the Abacus account, which needs credits. Everything else runs on Gemini plus the Lovable gateway (GPT-5.x, Gemini). If you'd rather add a direct OpenAI key as a fourth provider, say so and I'll add that step.
+- Prices created in the test environment sync to live on the next publish, so the site must be published after this change for live checkout to charge the new amounts.
+- Existing subscribers keep their current rate until their next renewal date, then move to the new price automatically.
