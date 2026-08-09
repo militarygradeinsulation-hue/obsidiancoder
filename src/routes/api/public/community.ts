@@ -44,7 +44,7 @@ export const Route = createFileRoute("/api/public/community")({
           .order("created_at", { ascending: false })
           // Over-fetch: iterative saves of the same build share a title/prompt,
           // so we collapse them below and still want a full page of results.
-          .limit(Math.min(limit * 6, 600));
+          .limit(Math.min(limit * 8, 1000));
         if (q) query = query.or(`title.ilike.%${q}%,prompt.ilike.%${q}%`);
 
         const { data, error } = await query;
