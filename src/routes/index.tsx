@@ -143,6 +143,32 @@ import { reviewBuild, summarizeReport, type AgentReview } from "@/lib/chief-engi
 import { EngineeringConsolePanel } from "@/components/panels/EngineeringConsolePanel";
 import { restoreAndVerify } from "@/lib/context-compactor";
 import { isFullAccessCode } from "@/lib/account-code";
+// Shared creative engine (same one Obsidian Pocket uses).
+import {
+  POCKET_PROFILES,
+  getProfile,
+  getFamily,
+  isProfileAllowed,
+  providerCallEstimate,
+  readCreativeMemory,
+  rememberSignature,
+  dnaSignature,
+  type PocketDesignDNA,
+  type PocketProfile,
+  type PocketStyleFamily,
+} from "@/lib/pocket-creative";
+import {
+  conceptPlannerPrompt,
+  deterministicConceptPlan,
+  parseConceptPlan,
+  selectedConcept,
+  type PocketConceptPlan,
+} from "@/lib/pocket-concept";
+import { compactRecentSignatures, conceptPlanKey } from "@/lib/pocket-hardening";
+import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
+import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
+import { dnaPromptBlock, parseCritique } from "@/lib/pocket-prompt";
+import { ArtDirectionControl } from "@/components/ArtDirectionControl";
 
 
 
