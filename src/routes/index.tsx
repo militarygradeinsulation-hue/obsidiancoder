@@ -159,14 +159,14 @@ export const Route = createFileRoute("/")({
 
   head: () => ({
     meta: [
-      { title: "Aetheris Obsidian — Tell it what to build" },
-      { name: "description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
-      { property: "og:title", content: "Aetheris Obsidian — Tell it what to build" },
-      { property: "og:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
+      { title: "AI built for the professionals big tech forgot" },
+      { name: "description", content: "People working in construction, real-estate, & normal jobs deserve tools as sophisticated as their work.  Automate work orders, quotes, sales,  in minutes." },
+      { property: "og:title", content: "AI built for the professionals big tech forgot" },
+      { property: "og:description", content: "People working in construction, real-estate, & normal jobs deserve tools as sophisticated as their work.  Automate work orders, quotes, sales,  in minutes." },
       { property: "og:url", content: "https://obsidianvibe.live/" },
       { property: "og:type", content: "website" },
-      { name: "twitter:title", content: "Aetheris Obsidian — Tell it what to build" },
-      { name: "twitter:description", content: "A free, no-login prompt-to-page builder. Tell it what to build, one thing at a time — it remembers what already works and shows the result live." },
+      { name: "twitter:title", content: "AI built for the professionals big tech forgot" },
+      { name: "twitter:description", content: "People working in construction, real-estate, & normal jobs deserve tools as sophisticated as their work.  Automate work orders, quotes, sales,  in minutes." },
     ],
     links: [{ rel: "canonical", href: "https://obsidianvibe.live/" }],
   }),
