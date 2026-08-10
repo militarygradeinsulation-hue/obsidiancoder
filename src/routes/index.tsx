@@ -1314,6 +1314,29 @@ function Index() {
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
+  // ---- Art direction (shared with Obsidian Pocket) -----------------------
+  const artProfile: PocketProfile = current?.artProfile ?? "fast";
+  const artFamily: PocketStyleFamily = current?.artFamily ?? "auto";
+  const artDna: PocketDesignDNA | null = current?.artDna ?? null;
+  const paidAccess =
+    entitlement.mode === "owner" || entitlement.mode === "pro" || isFullAccessCode(libraryCode);
+  const artModelChoice = useMemo(
+    () =>
+      resolvePocketModel({
+        profile: artProfile,
+        pinnedModel: current?.model && current.model !== "auto" ? resolveModel(current.model) : undefined,
+      }),
+    [artProfile, current?.model],
+  );
+  const artCallEstimate = providerCallEstimate(artProfile, Boolean(current?.html));
+  const planConceptsFn = useServerFn(planPocketConcepts);
+  const runCritiqueFn = useServerFn(critiquePocketBuild);
+  const requireUpgrade = useCallback((what: string) => {
+    setNudge({ reason: "not_pro" });
+    setPricingOpen(true);
+    setTerminal((t) => [...t, `⚠ ${what} requires an upgraded plan.`]);
+  }, []);
+
   // Mark QA status stale when raw html or theme drift from the last assessment.
   useEffect(() => {
     if (!current) return;
