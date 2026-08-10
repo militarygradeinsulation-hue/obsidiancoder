@@ -2372,11 +2372,22 @@ function Index() {
       const paintPreview = (force = false) => {
         if (!previewMode) return;
         const now = performance.now();
-        if (!force && now - lastPaint < 120) return;
-        lastPaint = now;
+        // Repaint on a slow cadence and only at a safe tag boundary, so the
+        // preview grows in cleanly instead of showing half-parsed markup
+        // (an unclosed <style> renders its CSS as visible page text).
+        if (!force && now - lastPaint < 650) return;
         const cleaned = stripTrailer(acc).replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "");
-        setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: cleaned } : s));
+        const cut = cleaned.lastIndexOf(">");
+        if (cut <= 200) return;
+        const safe = cleaned.slice(0, cut + 1);
+        // Never paint a document whose <style> block is still open.
+        const opens = (safe.match(/<style\b/gi) ?? []).length;
+        const closes = (safe.match(/<\/style\s*>/gi) ?? []).length;
+        if (!force && opens > closes) return;
+        lastPaint = now;
+        setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: safe } : s));
       };
+
       if (previewMode) setTab("preview");
       while (true) {
         const { done, value } = await reader.read();
