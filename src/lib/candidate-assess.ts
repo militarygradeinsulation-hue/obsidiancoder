@@ -138,6 +138,7 @@ export function assessCandidateForCommit(input: AssessInput): AssessResult {
     renderHtml: renderArt.html,
     publishArtifact: publishArt,
     validation,
+    design,
     parity,
   };
 
