@@ -461,6 +461,21 @@ ok(genSrc2.includes("detectForbiddenStorage(outSample)"), "generate.ts: logs for
   ok(lovableRoute?.provider === "lovable", "pocket route: degrades to the Lovable gateway last");
 }
 
+/* ---------- design floor ---------- */
+{
+  const { checkDesignFloor } = await import("../design-floor.ts");
+  const bare = `<!doctype html><html><head><title>t</title></head><body><h1>Hello</h1><p>Some text here for length.</p><a href="#">link</a></body></html>`;
+  const bareReport = checkDesignFloor(bare);
+  ok(!bareReport.ok, "design floor: rejects an unstyled document");
+  ok(bareReport.repairInstruction.length > 20, "design floor: emits a repair instruction");
+
+  const truncated = `<!doctype html><html><head><style>${"body{background:#0b0b0b;color:#eee;font-family:system-ui}".repeat(40)}</style></head><body><div style="display:grid"><h1>Hi</h1><section`;
+  ok(checkDesignFloor(truncated).incomplete, "design floor: flags a truncated document");
+
+  const good = `<!doctype html><html><head><style>${":root{--a:#f4a125}body{margin:0;background:#0b0b0b;color:#f6e6c8;font-family:system-ui,-apple-system,sans-serif;line-height:1.5}.wrap{max-width:1100px;margin:0 auto;padding:64px 24px;display:grid;gap:32px}.btn{display:inline-flex;align-items:center;border-radius:14px;padding:12px 20px;background:var(--a);color:#111;text-decoration:none}a{color:var(--a);text-decoration:none}.card{display:flex;flex-direction:column;gap:12px;border:1px solid rgba(244,161,37,.2);border-radius:18px;padding:24px}".repeat(6)}</style></head><body><div class="wrap"><h1>Real page</h1><p>Body copy that is long enough to count as content for the floor check.</p><a class="btn" href="#more">Get started</a><div class="card" id="more">Card content</div></div></body></html>`;
+  ok(checkDesignFloor(good).ok, "design floor: accepts a properly designed document");
+}
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);
