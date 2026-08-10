@@ -2494,6 +2494,38 @@ function Index() {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
       }
 
+      // Design floor: reject unstyled or truncated documents and regenerate
+      // ONCE on an escalated model. Skipped for image-placeholder runs, where
+      // a second response would not carry the original placeholder map.
+      if (previewMode && !(placeholderMap && Object.keys(placeholderMap).length > 0)) {
+        const floor = checkDesignFloor(finalHtml);
+        if (!floor.ok) {
+          setStage("generate"); setStageDetail("Rebuilding to design standard");
+          setTerminal((tt) => [...tt, `↺ Design floor rejected first pass (${floor.blockers.join(", ")}) — regenerating.`]);
+          const retry = await regenerateForQuality({
+            fetcher: authFetch,
+            body: genBody,
+            headers: genHeaders,
+            report: floor,
+            signal: controller.signal,
+            onChunk: (partial: string) => {
+              const cut = partial.lastIndexOf(">");
+              if (cut > 200) setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: partial.slice(0, cut + 1) } : s));
+            },
+          });
+          if (retry && (retry.improved || retry.report.blockers.length < floor.blockers.length)) {
+            finalHtml = retry.html;
+            setTerminal((tt) => [...tt, `✓ Rebuild passed the design floor on ${retry.model}.`]);
+          } else if (retry) {
+            finalHtml = retry.html.length > finalHtml.length ? retry.html : finalHtml;
+            setTerminal((tt) => [...tt, `⚠ Rebuild still below standard — kept the stronger version.`]);
+          } else {
+            setTerminal((tt) => [...tt, `⚠ Rebuild unavailable — committing original for review.`]);
+          }
+        }
+      }
+
+
       // 4. Validate AI output. Failed => try bounded deterministic repair; else revert.
       let validation = validateHtml(finalHtml);
       const fullRepairAttempts: RepairAttempt[] = [];
