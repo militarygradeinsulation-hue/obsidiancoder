@@ -2272,36 +2272,38 @@ function Index() {
     let providerStarted = false;
     try {
 
+      const genHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(demoMode ? { "x-obs-demo": "1" } : {}),
+      };
+      const genBody: Record<string, unknown> = {
+        prompt,
+        currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
+        history: current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
+        model: modelForServer,
+        pickerModel: current.model,
+        advisory: !previewMode,
+        designContract: loadDesignContract(current.id),
+        themeBlueprintId: current.themeBlueprintId,
+        projectMemory: current.memory,
+        // Inject reusable components for fresh builds only.
+        ...(!stableHtml && !previewMode
+          ? (() => {
+              try {
+                const { matchComponents } = require("@/lib/component-registry") as typeof import("@/lib/component-registry");
+                const comps = matchComponents(prompt, 3);
+                return comps.length ? { reusableComponents: comps.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) } : {};
+              } catch { return {}; }
+            })()
+          : {}),
+      };
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(demoMode ? { "x-obs-demo": "1" } : {}),
-        },
-        body: JSON.stringify({
-          prompt,
-          currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
-          history: current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
-          model: modelForServer,
-          pickerModel: current.model,
-          advisory: !previewMode,
-          designContract: loadDesignContract(current.id),
-          themeBlueprintId: current.themeBlueprintId,
-          projectMemory: current.memory,
-          // Inject reusable components for fresh builds only.
-          ...(!stableHtml && !previewMode
-            ? (() => {
-                try {
-                  const { matchComponents } = require("@/lib/component-registry") as typeof import("@/lib/component-registry");
-                  const comps = matchComponents(prompt, 3);
-                  return comps.length ? { reusableComponents: comps.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) } : {};
-                } catch { return {}; }
-              })()
-            : {}),
-        }),
-
+        headers: genHeaders,
+        body: JSON.stringify(genBody),
         signal: controller.signal,
       });
+
 
       // Free-demo mode: the server confirms the claim via X-Obs-Demo header.
       // The server has already committed the ledger row at this point, so
