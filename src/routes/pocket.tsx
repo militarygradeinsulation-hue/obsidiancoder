@@ -111,6 +111,8 @@ import {
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
+import { checkDesignFloor } from "@/lib/design-floor";
+import { regenerateForQuality } from "@/lib/quality-retry";
 import { productionQaCall } from "@/lib/qa-client";
 import {
   compactRecentSignatures,
