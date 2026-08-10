@@ -13,6 +13,7 @@
 import { buildArtifact, type Artifact } from "./publish-artifact";
 import { checkParity, type ParityReport } from "./parity-check";
 import { validateHtml, type ValidationReport } from "./validation";
+import { checkDesignFloor, type DesignReport } from "./design-floor";
 import type { NavRepair } from "./navigation-repair";
 import type { PreviewViolation } from "./preview-policy";
 
