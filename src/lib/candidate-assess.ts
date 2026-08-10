@@ -41,6 +41,8 @@ export interface AssessResult {
   publishArtifact: Artifact;
   /** Validation report over the *repaired* HTML. Authoritative. */
   validation: ValidationReport;
+  /** Design-floor report over the *repaired* HTML. */
+  design: DesignReport;
   /** Parity report (render surface vs. publish surface). */
   parity: ParityReport;
 }
