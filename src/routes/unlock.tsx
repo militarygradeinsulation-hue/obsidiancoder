@@ -412,9 +412,9 @@ function Unlock() {
               )}
               aria-labelledby="hero-slogan-heading"
             >
-              <h2 id="hero-slogan-heading" className="hero-slogan-headline">AI built for the professionals big tech forgot</h2>
+              <h2 id="hero-slogan-heading" className="hero-slogan-headline">Build without the meter running.</h2>
               <p className="hero-slogan-body">
-                People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
+                Build in Obsidian, Finish in Lovable.&nbsp; Build where experimentation is cheap. Finish where production is powerful. Obsidian becomes the daily-driver development environment for builders who don't want every idea, mistake, experiment, or revision consuming expensive credits.
               </p>
             </div>
 
@@ -538,7 +538,7 @@ function Unlock() {
               <span className="pocket-spotlight-badge">New · Minimal mode</span>
               <h2 id="pocket-spotlight-heading" className="pocket-spotlight-title">Obsidian Pocket</h2>
               <p className="pocket-spotlight-body">
-                One box. One prompt. A real, working page in seconds — no panels, no setup, nothing to learn.
+                Prototype here. Ship anywhere.{"\n\n"}Build cheap. Graduate when ready.
               </p>
               <a
                 href="https://promptopto.com"
