@@ -3997,6 +3997,20 @@ function Index() {
               </div>
             </div>
 
+            <ArtDirectionControl
+              profile={artProfile}
+              family={artFamily}
+              dna={artDna}
+              modelLabel={artModelChoice.entryLabel}
+              callEstimate={artCallEstimate}
+              paidAccess={paidAccess}
+              disabled={loading}
+              onProfileChange={(p) => updateCurrent({ artProfile: p })}
+              onFamilyChange={(f) => updateCurrent({ artFamily: f, artDna: null, artPlan: null, artPlanKey: "" })}
+              onLocked={(what) => requireUpgrade(what)}
+            />
+
+
             <div className={"obs-preview-wrap " + (device === "mobile" ? "is-mobile" : "")}>
               {/* Amber constellation backdrop (behind preview) */}
               <Background />
