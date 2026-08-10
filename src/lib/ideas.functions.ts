@@ -53,11 +53,17 @@ const CATEGORY_GUIDANCE: Record<(typeof CATEGORIES)[number], string> = {
 };
 
 const anticipateInput = z.object({
-  draft: z.string().min(1).max(2000),
+  // Long drafts are truncated (keep the most recent 2000 chars) instead of
+  // rejected — the co-designer only needs recent context.
+  draft: z
+    .string()
+    .min(1)
+    .transform((s) => (s.length > 2000 ? s.slice(-2000) : s)),
   hasHtml: z.boolean().optional().default(false),
   count: z.number().int().min(2).max(5).optional().default(3),
   tradesSelected: z.boolean().optional().default(false),
 });
+
 
 function slug(s: string, i: number): string {
   return (
