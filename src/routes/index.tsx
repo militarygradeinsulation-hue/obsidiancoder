@@ -275,6 +275,12 @@ type Session = {
   discussion?: BuildDiscussionState;
   /** Stable cloud project id — set on first cloud save, reused on all subsequent saves. */
   cloudId?: string;
+  // ---- Art direction (shared creative engine, per tab) ----
+  artProfile?: PocketProfile;
+  artFamily?: PocketStyleFamily;
+  artDna?: PocketDesignDNA | null;
+  artPlan?: PocketConceptPlan | null;
+  artPlanKey?: string;
 };
 
 const WORKSPACE_NAV = [
