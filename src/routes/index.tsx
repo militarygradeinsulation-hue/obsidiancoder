@@ -145,7 +145,7 @@ import { restoreAndVerify } from "@/lib/context-compactor";
 import { isFullAccessCode } from "@/lib/account-code";
 // Shared creative engine (same one Obsidian Pocket uses).
 import {
-  POCKET_PROFILES,
+  
   getProfile,
   getFamily,
   isProfileAllowed,
