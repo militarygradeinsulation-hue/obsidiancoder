@@ -832,7 +832,12 @@ function ForgePage() {
       // committing browser-default markup to the preview.
       {
         const floor = checkDesignFloor(finalHtml);
-        if (!floor.ok) {
+        // Same rule as the Coder: a second full generation is for truncated
+        // output or an unstyled FRESH build, never for a focused refinement.
+        const worthRetry =
+          floor.incomplete ||
+          (!isRefine && (floor.blockers.includes("no-css") || floor.blockers.includes("thin-css")));
+        if (!floor.ok && worthRetry) {
           log(`Design floor rejected the first pass (${floor.blockers.join(", ")}) — regenerating.`);
           setStatus("Rebuilding to design standard…");
           const retry = await regenerateForQuality({

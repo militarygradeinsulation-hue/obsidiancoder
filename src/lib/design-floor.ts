@@ -33,7 +33,27 @@ export interface DesignReport {
 /** Documents smaller than this are treated as fragments, not full builds. */
 const MIN_DOCUMENT_BYTES = 500;
 /** Below this much CSS a full page cannot be meaningfully designed. */
-const MIN_CSS_BYTES = 320;
+const MIN_CSS_BYTES = 160;
+
+/**
+ * True when the document is styled by something other than a <style> block:
+ * an external stylesheet, a utility-CSS CDN (Tailwind and friends), or a
+ * meaningful number of inline style="" attributes. Byte-counting <style>
+ * alone marks these documents as "undesigned" when they are not.
+ */
+function hasExternalStyling(html: string): boolean {
+  if (/<link\b[^>]*rel\s*=\s*["']?stylesheet/i.test(html)) return true;
+  if (/<script\b[^>]*src\s*=\s*["'][^"']*(tailwind|bulma|bootstrap|water\.css|pico)/i.test(html)) return true;
+  return inlineStyleBytes(html) >= 200;
+}
+
+/** Total bytes of style="" attribute values. */
+function inlineStyleBytes(html: string): number {
+  let n = 0;
+  for (const m of html.matchAll(/\bstyle\s*=\s*"([^"]*)"/gi)) n += (m[1] ?? "").length;
+  for (const m of html.matchAll(/\bstyle\s*=\s*'([^']*)'/gi)) n += (m[1] ?? "").length;
+  return n;
+}
 
 function styleBlocks(html: string): string[] {
   return Array.from(html.matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi)).map((m) => m[1] ?? "");
@@ -76,7 +96,11 @@ export function checkDesignFloor(html: string): DesignReport {
   }
 
   const css = styleBlocks(src).join("\n");
-  const cssBytes = css.replace(/\s+/g, " ").trim().length;
+  const cssBytes = css.replace(/\s+/g, " ").trim().length + inlineStyleBytes(src);
+  const externallyStyled = hasExternalStyling(src);
+  // A document styled by a linked sheet or a utility CDN is not "undesigned";
+  // the styling simply is not inline. Note it, never block on it.
+  const styleSeverity: DesignSeverity = externallyStyled ? "warning" : "blocking";
   const isFullPage = /<!doctype/i.test(src) || /<html[\s>]/i.test(src) || /<body[\s>]/i.test(src);
   const text = visibleText(src);
   // A full page counts as a real build once it carries meaningful content —
@@ -85,17 +109,17 @@ export function checkDesignFloor(html: string): DesignReport {
 
   if (substantial) {
     if (cssBytes === 0) {
-      add("blocking", "no-css", "No <style> block at all — the page renders with browser default styling.");
+      add(styleSeverity, "no-css", "No <style> block at all — the page renders with browser default styling.");
     } else if (cssBytes < MIN_CSS_BYTES) {
-      add("blocking", "thin-css", `Only ${cssBytes} bytes of CSS — far below a designed page.`);
+      add(styleSeverity, "thin-css", `Only ${cssBytes} bytes of CSS — far below a designed page.`);
     }
 
     if (cssBytes > 0) {
       if (!/(background|background-color|\bcolor\s*:|--[a-z0-9-]+\s*:)/i.test(css)) {
-        add("blocking", "no-color", "The stylesheet sets no colors or design tokens.");
+        add(styleSeverity, "no-color", "The stylesheet sets no colors or design tokens.");
       }
       if (!/(display\s*:\s*(flex|grid)|grid-template|max-width\s*:|margin\s*:\s*0\s+auto)/i.test(css)) {
-        add("blocking", "no-layout", "The stylesheet defines no layout system (flex, grid, or a centered container).");
+        add(styleSeverity, "no-layout", "The stylesheet defines no layout system (flex, grid, or a centered container).");
       }
       if (!/font-family\s*:/i.test(css)) {
         add("warning", "no-typography", "No font-family is set — headings fall back to the browser serif.");
@@ -114,7 +138,7 @@ export function checkDesignFloor(html: string): DesignReport {
       const anyStyledAttr = anchors.some((m) => /\b(class|style)\s*=/i.test(m[0]));
       const anySelector = /(^|[^\w-])a\s*(\{|,|:|\.|\[)/im.test(css) || /text-decoration/i.test(css);
       if (!anyStyledAttr && !anySelector) {
-        add("blocking", "default-anchors", `${anchors.length} links render as default blue underlined text.`);
+        add(styleSeverity, "default-anchors", `${anchors.length} links render as default blue underlined text.`);
       }
     }
 
