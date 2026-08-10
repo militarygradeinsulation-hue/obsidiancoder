@@ -2805,7 +2805,49 @@ function Index() {
         setIntelligenceTick((n) => n + 1);
         return;
       }
-      const committedFinalHtml = finG.finalHtml;
+      let committedFinalHtml = finG.finalHtml;
+
+      // ---- Cinematic polish pass (same design review Pocket runs) --------
+      if (previewMode && buildDna && artProfile === "cinematic" && paidAccess) {
+        const safeFirstVersion = committedFinalHtml;
+        setStage("validate"); setStageDetail("Design review");
+        try {
+          const cres = await runCritiqueFn({
+            data: {
+              model: artModelChoice.model,
+              html: committedFinalHtml,
+              dnaSummary: dnaPromptBlock(buildDna).slice(0, 3000),
+            },
+          });
+          if (!("paywall" in cres) && cres.ok) {
+            const critique = parseCritique(JSON.parse(cres.critiqueJson) as unknown);
+            if (critique.verdict === "repair" && critique.operations.length) {
+              const parsedPolish = patchSchema.safeParse({
+                summary: critique.issues[0]?.slice(0, 200) || "Design review repair",
+                operations: critique.operations,
+              });
+              if (parsedPolish.success) {
+                const appliedPolish = applyPatch(committedFinalHtml, parsedPolish.data);
+                const post = appliedPolish.ok && appliedPolish.html.length > 200
+                  ? assessCandidateForCommit({ html: appliedPolish.html })
+                  : null;
+                committedFinalHtml = post?.ok ? post.repairedHtml : safeFirstVersion;
+                setTerminal((t) => [...t, post?.ok
+                  ? `✓ Polish applied (${appliedPolish.ok ? appliedPolish.applied.length : 0} ops)`
+                  : "⚠ Polish skipped — kept the safe version."]);
+              }
+            } else {
+              setTerminal((t) => [...t, `✓ Design review verdict: ${critique.verdict}`]);
+            }
+          }
+        } catch {
+          setTerminal((t) => [...t, "⚠ Design review unavailable — kept the first version."]);
+        }
+      }
+      // Anti-repetition memory: remember this build's structure.
+      if (previewMode && buildDna) {
+        try { rememberSignature(dnaSignature(buildDna), libraryCode); } catch { /* non-fatal */ }
+      }
       if (finG.deterministicRepairs.length) setTerminal((t) => [...t, `✓ QA: ${finG.deterministicRepairs.length} deterministic navigation repair(s) applied`]);
       if (finG.claudeInvoked) setTerminal((t) => [...t, `↺ Claude QA: 1 call via ${finG.claudeModel ?? "?"} — ${finG.claudeVerdict}`]);
       // Recompute diff/validation from the FINAL committed HTML — authoritative
