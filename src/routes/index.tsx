@@ -2427,7 +2427,28 @@ function Index() {
         return;
       }
 
-      let finalHtml = acc.replace(/^```(?:html)?\s*/i, "").replace(/```\s*$/i, "").trim();
+      // Robustly extract the HTML document from whatever the model returned.
+      // The model is instructed to output only raw HTML, but it sometimes
+      // prepends prose or explanation text, wraps in a code fence, or appends
+      // text after the closing tag — all of which render as visible garbage.
+
+      // 1. If the response contains a fenced code block, prefer its contents.
+      let raw = acc;
+      const fenceMatch = raw.match(/```(?:html)?\s*([\s\S]*?)```/i);
+      if (fenceMatch) raw = fenceMatch[1].trim();
+
+      // 2. Walk forward to the first real HTML signature, discarding any prose
+      //    preamble the model prepended.
+      const doctypeIdx = raw.search(/<!doctype\s+html|<html[\s>]/i);
+      if (doctypeIdx > 0) raw = raw.slice(doctypeIdx);
+
+      // 3. Discard trailing prose after the closing </html> tag.
+      const closingMatch = raw.match(/<\/html\s*>/i);
+      if (closingMatch && closingMatch.index !== undefined) {
+        raw = raw.slice(0, closingMatch.index + closingMatch[0].length);
+      }
+
+      let finalHtml = raw.trim();
 
       // Restore originals for any placeholders the model kept. If a placeholder
       // was mutated or a partial marker leaked through, REJECT the new version
