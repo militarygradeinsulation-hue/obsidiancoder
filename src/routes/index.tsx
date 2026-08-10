@@ -337,6 +337,11 @@ function newSession(): Session {
     runtimeEvents: [],
     cost: { ...EMPTY_COST },
     discussion: createEmptyBuildDiscussion(),
+    artProfile: "fast",
+    artFamily: "auto",
+    artDna: null,
+    artPlan: null,
+    artPlanKey: "",
   };
 }
 
