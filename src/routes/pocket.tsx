@@ -111,6 +111,8 @@ import {
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
+import { checkDesignFloor } from "@/lib/design-floor";
+import { regenerateForQuality } from "@/lib/quality-retry";
 import { productionQaCall } from "@/lib/qa-client";
 import {
   compactRecentSignatures,
@@ -740,36 +742,39 @@ function ForgePage() {
 
       // ---- 2. Build --------------------------------------------------------
       setStatus(`Building with ${modelChoice.entryLabel}…`);
+      const genHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        // Paid accounts go through the metered path (Pocket = 10 builds/mo).
+        ...(paidAccess ? {} : { "x-obs-free": "1" }),
+      };
+      const genBody: Record<string, unknown> = {
+        prompt: isRefine ? `[FOCUSED CHANGE] ${p}` : p,
+        currentHtml: isRefine ? previous : previous.slice(0, 8000),
+        history: [],
+        model: modelChoice.model,
+        pickerModel: hasRawPinnedModel ? model : pickerModel,
+        advisory: false,
+        surface: "pocket",
+        projectMemory: pocketMemory,
+        pocketProfile: profile,
+        pocketStyleFamily: styleFamily,
+        pocketDesignDNA: buildDna,
+        pocketConcept: chosen
+          ? {
+              name: chosen.name,
+              concept: chosen.concept,
+              selectionReason: plan?.selectionReason,
+            }
+          : undefined,
+        pocketRecentSignatures: recentDigest.slice(0, 12),
+      };
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Paid accounts go through the metered path (Pocket = 10 builds/mo).
-          ...(paidAccess ? {} : { "x-obs-free": "1" }),
-        },
-        body: JSON.stringify({
-          prompt: isRefine ? `[FOCUSED CHANGE] ${p}` : p,
-          currentHtml: isRefine ? previous : previous.slice(0, 8000),
-          history: [],
-          model: modelChoice.model,
-          pickerModel: hasRawPinnedModel ? model : pickerModel,
-          advisory: false,
-          surface: "pocket",
-          projectMemory: pocketMemory,
-          pocketProfile: profile,
-          pocketStyleFamily: styleFamily,
-          pocketDesignDNA: buildDna,
-          pocketConcept: chosen
-            ? {
-                name: chosen.name,
-                concept: chosen.concept,
-                selectionReason: plan?.selectionReason,
-              }
-            : undefined,
-          pocketRecentSignatures: recentDigest.slice(0, 12),
-        }),
+        headers: genHeaders,
+        body: JSON.stringify(genBody),
         signal: controller.signal,
       });
+
 
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       if (ctype.includes("application/json")) {
@@ -820,6 +825,42 @@ function ForgePage() {
       }
       let finalHtml = clean(acc).trim();
       if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
+
+      // ---- 2b. Design floor -------------------------------------------------
+      // An unstyled or truncated page is a failed build even when it is valid
+      // HTML. Reject it and regenerate ONCE on an escalated model instead of
+      // committing browser-default markup to the preview.
+      {
+        const floor = checkDesignFloor(finalHtml);
+        if (!floor.ok) {
+          log(`Design floor rejected the first pass (${floor.blockers.join(", ")}) — regenerating.`);
+          setStatus("Rebuilding to design standard…");
+          const retry = await regenerateForQuality({
+            fetcher: authFetch,
+            body: genBody,
+            report: floor,
+            headers: genHeaders,
+            signal: controller.signal,
+            onChunk: (partial) => {
+              const cut = partial.lastIndexOf(">");
+              if (cut > 200) setProject((prev) => setEntryHtml(prev, partial.slice(0, cut + 1)));
+            },
+          });
+          if (retry) {
+            providerCalls += 1;
+            if (retry.improved || retry.report.blockers.length < floor.blockers.length) {
+              finalHtml = retry.html;
+              log(`Rebuild passed the design floor on ${retry.model}.`);
+            } else {
+              log("Rebuild still below standard — keeping the stronger of the two.");
+              finalHtml = retry.html.length > finalHtml.length ? retry.html : finalHtml;
+            }
+          } else {
+            log("Rebuild unavailable — committing the original for review.");
+          }
+        }
+      }
+
 
       // ---- 3. Deterministic safety/parity gate, with a Claude repair pass
       //         for paid accounts when the deterministic gate alone can't

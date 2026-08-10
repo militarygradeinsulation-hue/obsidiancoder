@@ -13,6 +13,7 @@
 import { buildArtifact, type Artifact } from "./publish-artifact";
 import { checkParity, type ParityReport } from "./parity-check";
 import { validateHtml, type ValidationReport } from "./validation";
+import { checkDesignFloor, type DesignReport } from "./design-floor";
 import type { NavRepair } from "./navigation-repair";
 import type { PreviewViolation } from "./preview-policy";
 
@@ -40,6 +41,8 @@ export interface AssessResult {
   publishArtifact: Artifact;
   /** Validation report over the *repaired* HTML. Authoritative. */
   validation: ValidationReport;
+  /** Design-floor report over the *repaired* HTML. */
+  design: DesignReport;
   /** Parity report (render surface vs. publish surface). */
   parity: ParityReport;
 }
@@ -99,6 +102,15 @@ export function assessCandidateForCommit(input: AssessInput): AssessResult {
     if (blockers.length === 0) blockers.push("validation:failed");
   }
 
+  // Design floor: an undesigned or truncated page is a failed build even
+  // when it is structurally valid HTML.
+  const design = checkDesignFloor(publishArt.repairedSourceHtml);
+  if (!design.ok) {
+    for (const code of design.blockers.slice(0, 3)) blockers.push(`design:${code}`);
+  }
+
+
+
   if (!publishArt.safeToPublish) {
     for (const v of publishArt.violations.slice(0, 3)) {
       blockers.push(`${v.code}${v.target ? `: ${v.target}` : ""}`);
@@ -126,6 +138,7 @@ export function assessCandidateForCommit(input: AssessInput): AssessResult {
     renderHtml: renderArt.html,
     publishArtifact: publishArt,
     validation,
+    design,
     parity,
   };
 

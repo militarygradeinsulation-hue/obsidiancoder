@@ -252,7 +252,18 @@ export async function finalizeCandidate(
     );
   }
 
+  // 2b. Design-floor failure (unstyled / truncated page). A patch cannot
+  //     rescue a page that was never designed — block immediately and let
+  //     the caller regenerate. No QA call, no cache.
+  if (!assessment.design.ok) {
+    return blockedResult(
+      input, assessment, contentHash,
+      assessment.design.blockers.map((c) => `design:${c}`), noClaude,
+    );
+  }
+
   // 3. Free demo — never invoke Claude, never touch decision cache.
+
   if (input.demoMode) {
     return {
       ...blockedResult(

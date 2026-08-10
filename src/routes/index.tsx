@@ -119,6 +119,8 @@ import { buildArtifact } from "@/lib/publish-artifact";
 import { checkParity } from "@/lib/parity-check";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
+import { checkDesignFloor } from "@/lib/design-floor";
+import { regenerateForQuality } from "@/lib/quality-retry";
 import { productionQaCall } from "@/lib/qa-client";
 import { statusFromFinalize, statusFromPublish, markStaleIfChanged, type QaSessionStatus } from "@/lib/qa-status";
 import { assessOutbound } from "@/lib/outbound-assess";
@@ -2272,36 +2274,38 @@ function Index() {
     let providerStarted = false;
     try {
 
+      const genHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        ...(demoMode ? { "x-obs-demo": "1" } : {}),
+      };
+      const genBody: Record<string, unknown> = {
+        prompt,
+        currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
+        history: current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
+        model: modelForServer,
+        pickerModel: current.model,
+        advisory: !previewMode,
+        designContract: loadDesignContract(current.id),
+        themeBlueprintId: current.themeBlueprintId,
+        projectMemory: current.memory,
+        // Inject reusable components for fresh builds only.
+        ...(!stableHtml && !previewMode
+          ? (() => {
+              try {
+                const { matchComponents } = require("@/lib/component-registry") as typeof import("@/lib/component-registry");
+                const comps = matchComponents(prompt, 3);
+                return comps.length ? { reusableComponents: comps.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) } : {};
+              } catch { return {}; }
+            })()
+          : {}),
+      };
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(demoMode ? { "x-obs-demo": "1" } : {}),
-        },
-        body: JSON.stringify({
-          prompt,
-          currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
-          history: current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
-          model: modelForServer,
-          pickerModel: current.model,
-          advisory: !previewMode,
-          designContract: loadDesignContract(current.id),
-          themeBlueprintId: current.themeBlueprintId,
-          projectMemory: current.memory,
-          // Inject reusable components for fresh builds only.
-          ...(!stableHtml && !previewMode
-            ? (() => {
-                try {
-                  const { matchComponents } = require("@/lib/component-registry") as typeof import("@/lib/component-registry");
-                  const comps = matchComponents(prompt, 3);
-                  return comps.length ? { reusableComponents: comps.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) } : {};
-                } catch { return {}; }
-              })()
-            : {}),
-        }),
-
+        headers: genHeaders,
+        body: JSON.stringify(genBody),
         signal: controller.signal,
       });
+
 
       // Free-demo mode: the server confirms the claim via X-Obs-Demo header.
       // The server has already committed the ledger row at this point, so
@@ -2491,6 +2495,38 @@ function Index() {
       if (!/<!doctype|<html/i.test(finalHtml)) {
         finalHtml = `<!doctype html><html><head><meta charset="utf-8"><style>body{background:#0f0d0a;color:#f6e6c8;font-family:system-ui;padding:24px}</style></head><body>${finalHtml}</body></html>`;
       }
+
+      // Design floor: reject unstyled or truncated documents and regenerate
+      // ONCE on an escalated model. Skipped for image-placeholder runs, where
+      // a second response would not carry the original placeholder map.
+      if (previewMode && !(placeholderMap && Object.keys(placeholderMap).length > 0)) {
+        const floor = checkDesignFloor(finalHtml);
+        if (!floor.ok) {
+          setStage("repair"); setStageDetail("Rebuilding to design standard");
+          setTerminal((tt) => [...tt, `↺ Design floor rejected first pass (${floor.blockers.join(", ")}) — regenerating.`]);
+          const retry = await regenerateForQuality({
+            fetcher: authFetch,
+            body: genBody,
+            headers: genHeaders,
+            report: floor,
+            signal: controller.signal,
+            onChunk: (partial: string) => {
+              const cut = partial.lastIndexOf(">");
+              if (cut > 200) setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: partial.slice(0, cut + 1) } : s));
+            },
+          });
+          if (retry && (retry.improved || retry.report.blockers.length < floor.blockers.length)) {
+            finalHtml = retry.html;
+            setTerminal((tt) => [...tt, `✓ Rebuild passed the design floor on ${retry.model}.`]);
+          } else if (retry) {
+            finalHtml = retry.html.length > finalHtml.length ? retry.html : finalHtml;
+            setTerminal((tt) => [...tt, `⚠ Rebuild still below standard — kept the stronger version.`]);
+          } else {
+            setTerminal((tt) => [...tt, `⚠ Rebuild unavailable — committing original for review.`]);
+          }
+        }
+      }
+
 
       // 4. Validate AI output. Failed => try bounded deterministic repair; else revert.
       let validation = validateHtml(finalHtml);
