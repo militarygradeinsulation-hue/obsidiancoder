@@ -119,6 +119,8 @@ import { buildArtifact } from "@/lib/publish-artifact";
 import { checkParity } from "@/lib/parity-check";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
+import { checkDesignFloor } from "@/lib/design-floor";
+import { regenerateForQuality } from "@/lib/quality-retry";
 import { productionQaCall } from "@/lib/qa-client";
 import { statusFromFinalize, statusFromPublish, markStaleIfChanged, type QaSessionStatus } from "@/lib/qa-status";
 import { assessOutbound } from "@/lib/outbound-assess";
