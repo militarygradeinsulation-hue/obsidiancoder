@@ -1324,7 +1324,9 @@ function Index() {
     () =>
       resolvePocketModel({
         profile: artProfile,
-        pinnedModel: current?.model && current.model !== "auto" ? resolveModel(current.model) : undefined,
+        // Only a raw registry id counts as user-pinned; the tier chips
+        // (auto/fast/balanced/deep) leave model choice to the profile.
+        pinnedModel: current?.model?.includes("/") ? current.model : undefined,
       }),
     [artProfile, current?.model],
   );
