@@ -102,6 +102,15 @@ export function assessCandidateForCommit(input: AssessInput): AssessResult {
     if (blockers.length === 0) blockers.push("validation:failed");
   }
 
+  // Design floor: an undesigned or truncated page is a failed build even
+  // when it is structurally valid HTML.
+  const design = checkDesignFloor(publishArt.repairedSourceHtml);
+  if (!design.ok) {
+    for (const code of design.blockers.slice(0, 3)) blockers.push(`design:${code}`);
+  }
+
+
+
   if (!publishArt.safeToPublish) {
     for (const v of publishArt.violations.slice(0, 3)) {
       blockers.push(`${v.code}${v.target ? `: ${v.target}` : ""}`);
