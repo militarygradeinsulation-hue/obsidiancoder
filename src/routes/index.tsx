@@ -143,6 +143,32 @@ import { reviewBuild, summarizeReport, type AgentReview } from "@/lib/chief-engi
 import { EngineeringConsolePanel } from "@/components/panels/EngineeringConsolePanel";
 import { restoreAndVerify } from "@/lib/context-compactor";
 import { isFullAccessCode } from "@/lib/account-code";
+// Shared creative engine (same one Obsidian Pocket uses).
+import {
+  
+  getProfile,
+  getFamily,
+  isProfileAllowed,
+  providerCallEstimate,
+  readCreativeMemory,
+  rememberSignature,
+  dnaSignature,
+  type PocketDesignDNA,
+  type PocketProfile,
+  type PocketStyleFamily,
+} from "@/lib/pocket-creative";
+import {
+  conceptPlannerPrompt,
+  deterministicConceptPlan,
+  parseConceptPlan,
+  selectedConcept,
+  type PocketConceptPlan,
+} from "@/lib/pocket-concept";
+import { compactRecentSignatures, conceptPlanKey } from "@/lib/pocket-hardening";
+import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
+import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
+import { dnaPromptBlock, parseCritique } from "@/lib/pocket-prompt";
+import { ArtDirectionControl } from "@/components/ArtDirectionControl";
 
 
 
@@ -249,6 +275,12 @@ type Session = {
   discussion?: BuildDiscussionState;
   /** Stable cloud project id — set on first cloud save, reused on all subsequent saves. */
   cloudId?: string;
+  // ---- Art direction (shared creative engine, per tab) ----
+  artProfile?: PocketProfile;
+  artFamily?: PocketStyleFamily;
+  artDna?: PocketDesignDNA | null;
+  artPlan?: PocketConceptPlan | null;
+  artPlanKey?: string;
 };
 
 const WORKSPACE_NAV = [
@@ -305,6 +337,11 @@ function newSession(): Session {
     runtimeEvents: [],
     cost: { ...EMPTY_COST },
     discussion: createEmptyBuildDiscussion(),
+    artProfile: "fast",
+    artFamily: "auto",
+    artDna: null,
+    artPlan: null,
+    artPlanKey: "",
   };
 }
 
@@ -1276,6 +1313,31 @@ function Index() {
   }
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
+
+  // ---- Art direction (shared with Obsidian Pocket) -----------------------
+  const artProfile: PocketProfile = current?.artProfile ?? "fast";
+  const artFamily: PocketStyleFamily = current?.artFamily ?? "auto";
+  const artDna: PocketDesignDNA | null = current?.artDna ?? null;
+  const paidAccess =
+    entitlement.mode === "owner" || entitlement.mode === "pro" || isFullAccessCode(libraryCode);
+  const artModelChoice = useMemo(
+    () =>
+      resolvePocketModel({
+        profile: artProfile,
+        // Only a raw registry id counts as user-pinned; the tier chips
+        // (auto/fast/balanced/deep) leave model choice to the profile.
+        pinnedModel: current?.model?.includes("/") ? current.model : undefined,
+      }),
+    [artProfile, current?.model],
+  );
+  const artCallEstimate = providerCallEstimate(artProfile, Boolean(current?.html));
+  const planConceptsFn = useServerFn(planPocketConcepts);
+  const runCritiqueFn = useServerFn(critiquePocketBuild);
+  const requireUpgrade = useCallback((what: string) => {
+    setNudge({ reason: "not_pro" });
+    setPricingOpen(true);
+    setTerminal((t) => [...t, `⚠ ${what} requires an upgraded plan.`]);
+  }, []);
 
   // Mark QA status stale when raw html or theme drift from the last assessment.
   useEffect(() => {
@@ -2267,7 +2329,67 @@ function Index() {
         prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
       }
     }
-    const modelForServer = adaptiveModel;
+    // ---- Art direction: choose (or reuse) a Design DNA, exactly like Pocket.
+    const isRefineBuild = Boolean(stableHtml);
+    let buildDna: PocketDesignDNA | null = null;
+    let buildPlan: PocketConceptPlan | null = current.artPlan ?? null;
+    let buildPlanKey = current.artPlanKey ?? "";
+    if (previewMode) {
+      if (!isProfileAllowed(artProfile, paidAccess)) {
+        requireUpgrade(`${getProfile(artProfile).label} builds`);
+        setLoading(false); setStage(null); markBuildEnd(sessionId);
+        return;
+      }
+      const recentDigest = compactRecentSignatures(readCreativeMemory(libraryCode).entries);
+      const nextPlanKey = conceptPlanKey({
+        prompt: basePrompt,
+        family: artFamily,
+        profile: artProfile,
+        recentDigest,
+      });
+      if (isRefineBuild && artDna) {
+        // A refinement keeps this build's art direction — no planner call.
+        buildDna = artDna;
+      } else if (buildPlan && buildPlanKey === nextPlanKey) {
+        buildDna = selectedConcept(buildPlan).dna;
+      } else {
+        const base = deterministicConceptPlan({ prompt: basePrompt, family: artFamily, recent: readCreativeMemory(libraryCode).entries });
+        buildPlan = base;
+        buildPlanKey = nextPlanKey;
+        if (artProfile !== "fast" && paidAccess) {
+          const planner = resolvePocketPlannerModel();
+          try {
+            const pres = await planConceptsFn({
+              data: {
+                model: planner.model,
+                plannerPrompt: conceptPlannerPrompt({
+                  prompt: basePrompt,
+                  family: artFamily,
+                  recentSummaries: recentDigest,
+                }),
+              },
+            });
+            if (!("paywall" in pres) && pres.ok) {
+              buildPlan = parseConceptPlan(JSON.parse(pres.rawJson) as unknown, base);
+              setTerminal((t) => [...t, `✓ Direction planned with ${planner.entryLabel}${pres.cached ? " (cached)" : ""}`]);
+            }
+          } catch {
+            setTerminal((t) => [...t, "⚠ Planner unavailable — using deterministic directions."]);
+          }
+        }
+        buildDna = selectedConcept(buildPlan).dna;
+      }
+      const committedDna = buildDna;
+      const committedPlan = buildPlan;
+      const committedKey = buildPlanKey;
+      setSessions((all) => all.map((s) => s.id === sessionId
+        ? { ...s, artDna: committedDna, artPlan: committedPlan, artPlanKey: committedKey }
+        : s));
+      setTerminal((t) => [...t, `🎨 Art direction · ${getProfile(artProfile).label} · ${getFamily(committedDna.family).label} · ${committedDna.id}`]);
+    }
+    const modelForServer = previewMode && !current.model?.includes("/")
+      ? artModelChoice.model
+      : adaptiveModel;
     const controller = new AbortController();
     abortRef.current = controller;
     abortMapRef.current.set(sessionId, controller);
@@ -2288,6 +2410,23 @@ function Index() {
         designContract: loadDesignContract(current.id),
         themeBlueprintId: current.themeBlueprintId,
         projectMemory: current.memory,
+        // Shared creative engine — same payload Pocket sends.
+        ...(previewMode && buildDna
+          ? {
+              surface: "vibe" as const,
+              pocketProfile: artProfile,
+              pocketStyleFamily: artFamily,
+              pocketDesignDNA: buildDna,
+              pocketConcept: buildPlan
+                ? {
+                    name: selectedConcept(buildPlan).name,
+                    concept: selectedConcept(buildPlan).concept,
+                    selectionReason: buildPlan.selectionReason,
+                  }
+                : undefined,
+              pocketRecentSignatures: compactRecentSignatures(readCreativeMemory(libraryCode).entries).slice(0, 12),
+            }
+          : {}),
         // Inject reusable components for fresh builds only.
         ...(!stableHtml && !previewMode
           ? (() => {
@@ -2666,7 +2805,49 @@ function Index() {
         setIntelligenceTick((n) => n + 1);
         return;
       }
-      const committedFinalHtml = finG.finalHtml;
+      let committedFinalHtml = finG.finalHtml;
+
+      // ---- Cinematic polish pass (same design review Pocket runs) --------
+      if (previewMode && buildDna && artProfile === "cinematic" && paidAccess) {
+        const safeFirstVersion = committedFinalHtml;
+        setStage("validate"); setStageDetail("Design review");
+        try {
+          const cres = await runCritiqueFn({
+            data: {
+              model: artModelChoice.model,
+              html: committedFinalHtml,
+              dnaSummary: dnaPromptBlock(buildDna).slice(0, 3000),
+            },
+          });
+          if (!("paywall" in cres) && cres.ok) {
+            const critique = parseCritique(JSON.parse(cres.critiqueJson) as unknown);
+            if (critique.verdict === "repair" && critique.operations.length) {
+              const parsedPolish = patchSchema.safeParse({
+                summary: critique.issues[0]?.slice(0, 200) || "Design review repair",
+                operations: critique.operations,
+              });
+              if (parsedPolish.success) {
+                const appliedPolish = applyPatch(committedFinalHtml, parsedPolish.data);
+                const post = appliedPolish.ok && appliedPolish.html.length > 200
+                  ? assessCandidateForCommit({ html: appliedPolish.html })
+                  : null;
+                committedFinalHtml = post?.ok ? post.repairedHtml : safeFirstVersion;
+                setTerminal((t) => [...t, post?.ok
+                  ? `✓ Polish applied (${appliedPolish.ok ? appliedPolish.applied.length : 0} ops)`
+                  : "⚠ Polish skipped — kept the safe version."]);
+              }
+            } else {
+              setTerminal((t) => [...t, `✓ Design review verdict: ${critique.verdict}`]);
+            }
+          }
+        } catch {
+          setTerminal((t) => [...t, "⚠ Design review unavailable — kept the first version."]);
+        }
+      }
+      // Anti-repetition memory: remember this build's structure.
+      if (previewMode && buildDna) {
+        try { rememberSignature(dnaSignature(buildDna), libraryCode); } catch { /* non-fatal */ }
+      }
       if (finG.deterministicRepairs.length) setTerminal((t) => [...t, `✓ QA: ${finG.deterministicRepairs.length} deterministic navigation repair(s) applied`]);
       if (finG.claudeInvoked) setTerminal((t) => [...t, `↺ Claude QA: 1 call via ${finG.claudeModel ?? "?"} — ${finG.claudeVerdict}`]);
       // Recompute diff/validation from the FINAL committed HTML — authoritative
@@ -3815,6 +3996,20 @@ function Index() {
                 <div className="obs-avatar obs-avatar-sm">JT</div>
               </div>
             </div>
+
+            <ArtDirectionControl
+              profile={artProfile}
+              family={artFamily}
+              dna={artDna}
+              modelLabel={artModelChoice.entryLabel}
+              callEstimate={artCallEstimate}
+              paidAccess={paidAccess}
+              disabled={loading}
+              onProfileChange={(p) => updateCurrent({ artProfile: p })}
+              onFamilyChange={(f) => updateCurrent({ artFamily: f, artDna: null, artPlan: null, artPlanKey: "" })}
+              onLocked={(what) => requireUpgrade(what)}
+            />
+
 
             <div className={"obs-preview-wrap " + (device === "mobile" ? "is-mobile" : "")}>
               {/* Amber constellation backdrop (behind preview) */}

@@ -98,7 +98,7 @@ const inputSchema = z.object({
 
   // ---- Obsidian Pocket premium creative fields (bounded, Pocket-only) ----
   // Every field is optional; non-Pocket callers are completely unaffected.
-  surface: z.enum(["default", "pocket"]).optional().default("default"),
+  surface: z.enum(["default", "pocket", "vibe"]).optional().default("default"),
   pocketProfile: z.enum(["fast", "studio", "cinematic"]).optional(),
   pocketStyleFamily: z.enum(POCKET_STYLE_FAMILIES as unknown as [string, ...string[]]).optional(),
   pocketDesignDNA: pocketDnaSchema.optional(),
@@ -927,9 +927,13 @@ ${memBlock}`,
               if (bp) messages.push({ role: "system", content: blueprintToSystemPrompt(bp) });
             } catch { /* blueprint injection is non-fatal */ }
           }
-          // Obsidian Pocket premium creative direction. Injected ONLY for the
-          // Pocket surface, and only when the client supplied a concrete DNA.
-          if (!data.advisory && data.surface === "pocket" && data.pocketDesignDNA) {
+          // Premium creative direction. Injected for the Pocket and Vibe
+          // surfaces, and only when the client supplied a concrete DNA.
+          if (
+            !data.advisory &&
+            (data.surface === "pocket" || data.surface === "vibe") &&
+            data.pocketDesignDNA
+          ) {
             try {
               const { pocketPremiumBlock } = await import("@/lib/pocket-prompt");
               messages.push({

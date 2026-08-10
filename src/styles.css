@@ -3697,3 +3697,30 @@ body.is-resizing-composer * { user-select: none !important; }
     animation: none;
   }
 }
+
+/* ---- Art direction bar (shared creative engine, Vibe Coder) ---- */
+.obs-art-direction {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 12px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in oklab, var(--card) 70%, transparent);
+}
+.obs-art-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.obs-art-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted-foreground);
+}
+.obs-art-meta { font-size: 11px; color: var(--muted-foreground); }
+.obs-art-dna {
+  margin: 0;
+  font-size: 11px;
+  color: var(--muted-foreground);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.obs-mode.is-locked { opacity: 0.65; }
