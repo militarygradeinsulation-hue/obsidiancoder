@@ -252,13 +252,14 @@ export async function finalizeCandidate(
     );
   }
 
-  // 2b. Design-floor failure (unstyled / truncated page). A patch cannot
-  //     rescue a page that was never designed — block immediately and let
-  //     the caller regenerate. No QA call, no cache.
-  if (!assessment.design.ok) {
+  // 2b. Truncated document — the stream stopped mid-tag. No patch can
+  //     rescue half a document, so block immediately and let the caller
+  //     regenerate. No QA call, no cache. Style-quality findings do NOT
+  //     land here; they are advisory (see candidate-assess).
+  if (assessment.design.incomplete) {
     return blockedResult(
       input, assessment, contentHash,
-      assessment.design.blockers.map((c) => `design:${c}`), noClaude,
+      ["design:incomplete"], noClaude,
     );
   }
 

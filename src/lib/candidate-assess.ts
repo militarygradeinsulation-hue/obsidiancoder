@@ -102,12 +102,14 @@ export function assessCandidateForCommit(input: AssessInput): AssessResult {
     if (blockers.length === 0) blockers.push("validation:failed");
   }
 
-  // Design floor: an undesigned or truncated page is a failed build even
-  // when it is structurally valid HTML.
+  // Design floor. ONLY truncation blocks a commit: a document that stopped
+  // mid-stream is objectively broken. Taste-level findings (thin CSS, no
+  // layout system, default anchors) are reported for the UI and the
+  // regeneration decision, but they must never revert a user's build —
+  // blocking on them made every lightly-styled page and every patch to one
+  // permanently uncommittable.
   const design = checkDesignFloor(publishArt.repairedSourceHtml);
-  if (!design.ok) {
-    for (const code of design.blockers.slice(0, 3)) blockers.push(`design:${code}`);
-  }
+  if (design.incomplete) blockers.push("design:incomplete");
 
 
 

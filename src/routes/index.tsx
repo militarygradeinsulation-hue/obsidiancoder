@@ -2383,7 +2383,10 @@ function Index() {
         // Never paint a document whose <style> block is still open.
         const opens = (safe.match(/<style\b/gi) ?? []).length;
         const closes = (safe.match(/<\/style\s*>/gi) ?? []).length;
-        if (!force && opens > closes) return;
+        // ...unless we have been dark for a while. A large <style> block can
+        // run for most of the stream; freezing the preview until it closes is
+        // what made the Coder feel like it had stalled.
+        if (!force && opens > closes && now - lastPaint < 2500) return;
         lastPaint = now;
         setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: safe } : s));
       };
@@ -2512,7 +2515,15 @@ function Index() {
       // a second response would not carry the original placeholder map.
       if (previewMode && !(placeholderMap && Object.keys(placeholderMap).length > 0)) {
         const floor = checkDesignFloor(finalHtml);
-        if (!floor.ok) {
+        // Regenerate only when it is worth a second full model call: the
+        // document was truncated, or this is a FRESH build that came back
+        // essentially unstyled. Never burn a second generation (on a slower,
+        // pricier model) to re-do an edit to an existing page — that is what
+        // turned every refinement into a multi-minute round trip.
+        const worthRetry =
+          floor.incomplete ||
+          (!stableHtml && (floor.blockers.includes("no-css") || floor.blockers.includes("thin-css")));
+        if (!floor.ok && worthRetry) {
           setStage("repair"); setStageDetail("Rebuilding to design standard");
           setTerminal((tt) => [...tt, `↺ Design floor rejected first pass (${floor.blockers.join(", ")}) — regenerating.`]);
           const retry = await regenerateForQuality({
