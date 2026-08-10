@@ -187,7 +187,10 @@ Hard rules:
 - Never remove previously-built features unless asked.
 - No third-party scripts, no tracking, no external network calls beyond image URLs.
 - When REFERENCE COMPONENTS are provided in system context, they define the QUALITY FLOOR — match or exceed their layout density, spacing rhythm, and interaction polish. Adapt their structure into a cohesive design; do not paste verbatim, do not import external libraries, and inline any needed Tailwind or CSS.
-- Speed matters: begin streaming the <!doctype html> immediately. No preamble.`;
+- Speed matters: begin streaming the <!doctype html> immediately. No preamble.
+
+CRITICAL OUTPUT FORMAT — NON-NEGOTIABLE:
+Your entire response must be a single HTML document. The VERY FIRST character you output must be '<' (the start of <!doctype html>). The VERY LAST character must be '>'. Nothing before the doctype. Nothing after </html>. No explanation. No summary. No "Here is your..." preamble. No markdown. No code fences. If you explain anything, the output is broken. Start with '<!doctype html>' and end with '</html>'. That is the complete response.`;
 
 
 const ADVISORY_PROMPT = `You are Aetheris Obsidian, a senior product engineer acting as a strategic advisor.
