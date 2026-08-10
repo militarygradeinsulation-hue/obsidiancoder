@@ -927,9 +927,13 @@ ${memBlock}`,
               if (bp) messages.push({ role: "system", content: blueprintToSystemPrompt(bp) });
             } catch { /* blueprint injection is non-fatal */ }
           }
-          // Obsidian Pocket premium creative direction. Injected ONLY for the
-          // Pocket surface, and only when the client supplied a concrete DNA.
-          if (!data.advisory && data.surface === "pocket" && data.pocketDesignDNA) {
+          // Premium creative direction. Injected for the Pocket and Vibe
+          // surfaces, and only when the client supplied a concrete DNA.
+          if (
+            !data.advisory &&
+            (data.surface === "pocket" || data.surface === "vibe") &&
+            data.pocketDesignDNA
+          ) {
             try {
               const { pocketPremiumBlock } = await import("@/lib/pocket-prompt");
               messages.push({
