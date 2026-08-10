@@ -79,7 +79,9 @@ export function checkDesignFloor(html: string): DesignReport {
   const cssBytes = css.replace(/\s+/g, " ").trim().length;
   const isFullPage = /<!doctype/i.test(src) || /<html[\s>]/i.test(src) || /<body[\s>]/i.test(src);
   const text = visibleText(src);
-  const substantial = src.length >= MIN_DOCUMENT_BYTES && isFullPage;
+  // A full page counts as a real build once it carries meaningful content —
+  // a short but complete unstyled page is exactly the failure mode we catch.
+  const substantial = isFullPage && (src.length >= MIN_DOCUMENT_BYTES || text.length >= 24);
 
   if (substantial) {
     if (cssBytes === 0) {
