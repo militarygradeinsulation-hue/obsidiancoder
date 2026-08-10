@@ -189,6 +189,12 @@ Hard rules:
 - When REFERENCE COMPONENTS are provided in system context, they define the QUALITY FLOOR — match or exceed their layout density, spacing rhythm, and interaction polish. Adapt their structure into a cohesive design; do not paste verbatim, do not import external libraries, and inline any needed Tailwind or CSS.
 - Speed matters: begin streaming the <!doctype html> immediately. No preamble.
 
+DESIGN FLOOR — a build that fails ANY of these is a failed build:
+- A substantial inline <style> block (hundreds of lines, not a handful). Never rely on browser defaults.
+- Explicit background and text colors on <body>, and a styled font stack. No white page with blue underlined links.
+- Real layout primitives (flex/grid), spacing scale, max-width container, and styled buttons/links (no default anchor styling).
+- A complete document: the final characters must be </body></html>. Never stop mid-tag, mid-rule, or mid-section. If you are running long, tighten later sections rather than truncating.
+
 CRITICAL OUTPUT FORMAT — NON-NEGOTIABLE:
 Your entire response must be a single HTML document. The VERY FIRST character you output must be '<' (the start of <!doctype html>). The VERY LAST character must be '>'. Nothing before the doctype. Nothing after </html>. No explanation. No summary. No "Here is your..." preamble. No markdown. No code fences. If you explain anything, the output is broken. Start with '<!doctype html>' and end with '</html>'. That is the complete response.`;
 
