@@ -2329,7 +2329,67 @@ function Index() {
         prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
       }
     }
-    const modelForServer = adaptiveModel;
+    // ---- Art direction: choose (or reuse) a Design DNA, exactly like Pocket.
+    const isRefineBuild = Boolean(stableHtml);
+    let buildDna: PocketDesignDNA | null = null;
+    let buildPlan: PocketConceptPlan | null = current.artPlan ?? null;
+    let buildPlanKey = current.artPlanKey ?? "";
+    if (previewMode) {
+      if (!isProfileAllowed(artProfile, paidAccess)) {
+        requireUpgrade(`${getProfile(artProfile).label} builds`);
+        setLoading(false); setStage(null); markBuildEnd(sessionId);
+        return;
+      }
+      const recentDigest = compactRecentSignatures(readCreativeMemory(libraryCode).entries);
+      const nextPlanKey = conceptPlanKey({
+        prompt: basePrompt,
+        family: artFamily,
+        profile: artProfile,
+        recentDigest,
+      });
+      if (isRefineBuild && artDna) {
+        // A refinement keeps this build's art direction — no planner call.
+        buildDna = artDna;
+      } else if (buildPlan && buildPlanKey === nextPlanKey) {
+        buildDna = selectedConcept(buildPlan).dna;
+      } else {
+        const base = deterministicConceptPlan({ prompt: basePrompt, family: artFamily, recent: readCreativeMemory(libraryCode).entries });
+        buildPlan = base;
+        buildPlanKey = nextPlanKey;
+        if (artProfile !== "fast" && paidAccess) {
+          const planner = resolvePocketPlannerModel();
+          try {
+            const pres = await planConceptsFn({
+              data: {
+                model: planner.model,
+                plannerPrompt: conceptPlannerPrompt({
+                  prompt: basePrompt,
+                  family: artFamily,
+                  recentSummaries: recentDigest,
+                }),
+              },
+            });
+            if (!("paywall" in pres) && pres.ok) {
+              buildPlan = parseConceptPlan(JSON.parse(pres.rawJson) as unknown, base);
+              setTerminal((t) => [...t, `✓ Direction planned with ${planner.entryLabel}${pres.cached ? " (cached)" : ""}`]);
+            }
+          } catch {
+            setTerminal((t) => [...t, "⚠ Planner unavailable — using deterministic directions."]);
+          }
+        }
+        buildDna = selectedConcept(buildPlan).dna;
+      }
+      const committedDna = buildDna;
+      const committedPlan = buildPlan;
+      const committedKey = buildPlanKey;
+      setSessions((all) => all.map((s) => s.id === sessionId
+        ? { ...s, artDna: committedDna, artPlan: committedPlan, artPlanKey: committedKey }
+        : s));
+      setTerminal((t) => [...t, `🎨 Art direction · ${getProfile(artProfile).label} · ${getFamily(committedDna.family).label} · ${committedDna.id}`]);
+    }
+    const modelForServer = previewMode && !current.model?.includes("/")
+      ? artModelChoice.model
+      : adaptiveModel;
     const controller = new AbortController();
     abortRef.current = controller;
     abortMapRef.current.set(sessionId, controller);
@@ -2350,6 +2410,23 @@ function Index() {
         designContract: loadDesignContract(current.id),
         themeBlueprintId: current.themeBlueprintId,
         projectMemory: current.memory,
+        // Shared creative engine — same payload Pocket sends.
+        ...(previewMode && buildDna
+          ? {
+              surface: "vibe" as const,
+              pocketProfile: artProfile,
+              pocketStyleFamily: artFamily,
+              pocketDesignDNA: buildDna,
+              pocketConcept: buildPlan
+                ? {
+                    name: selectedConcept(buildPlan).name,
+                    concept: selectedConcept(buildPlan).concept,
+                    selectionReason: buildPlan.selectionReason,
+                  }
+                : undefined,
+              pocketRecentSignatures: compactRecentSignatures(readCreativeMemory(libraryCode).entries).slice(0, 12),
+            }
+          : {}),
         // Inject reusable components for fresh builds only.
         ...(!stableHtml && !previewMode
           ? (() => {
