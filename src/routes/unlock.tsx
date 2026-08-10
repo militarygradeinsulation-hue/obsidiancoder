@@ -412,9 +412,9 @@ function Unlock() {
               )}
               aria-labelledby="hero-slogan-heading"
             >
-              <h2 id="hero-slogan-heading" className="hero-slogan-headline">AI built for the professionals big tech forgot</h2>
+              <h2 id="hero-slogan-heading" className="hero-slogan-headline">Build without the meter running.</h2>
               <p className="hero-slogan-body">
-                People working in construction, real-estate, and normal jobs deserve tools as sophisticated as their work. Automate transcription, work orders, quotes, categorization, and research in minutes—not days.
+                Build in Obsidian, Finish in Lovable.&nbsp; Build where experimentation is cheap. Finish where production is powerful. Obsidian becomes the daily-driver development environment for builders who don't want every idea, mistake, experiment, or revision consuming expensive credits.
               </p>
             </div>
 
