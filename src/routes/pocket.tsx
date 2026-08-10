@@ -740,36 +740,39 @@ function ForgePage() {
 
       // ---- 2. Build --------------------------------------------------------
       setStatus(`Building with ${modelChoice.entryLabel}…`);
+      const genHeaders: Record<string, string> = {
+        "Content-Type": "application/json",
+        // Paid accounts go through the metered path (Pocket = 10 builds/mo).
+        ...(paidAccess ? {} : { "x-obs-free": "1" }),
+      };
+      const genBody: Record<string, unknown> = {
+        prompt: isRefine ? `[FOCUSED CHANGE] ${p}` : p,
+        currentHtml: isRefine ? previous : previous.slice(0, 8000),
+        history: [],
+        model: modelChoice.model,
+        pickerModel: hasRawPinnedModel ? model : pickerModel,
+        advisory: false,
+        surface: "pocket",
+        projectMemory: pocketMemory,
+        pocketProfile: profile,
+        pocketStyleFamily: styleFamily,
+        pocketDesignDNA: buildDna,
+        pocketConcept: chosen
+          ? {
+              name: chosen.name,
+              concept: chosen.concept,
+              selectionReason: plan?.selectionReason,
+            }
+          : undefined,
+        pocketRecentSignatures: recentDigest.slice(0, 12),
+      };
       const res = await authFetch("/api/generate", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          // Paid accounts go through the metered path (Pocket = 10 builds/mo).
-          ...(paidAccess ? {} : { "x-obs-free": "1" }),
-        },
-        body: JSON.stringify({
-          prompt: isRefine ? `[FOCUSED CHANGE] ${p}` : p,
-          currentHtml: isRefine ? previous : previous.slice(0, 8000),
-          history: [],
-          model: modelChoice.model,
-          pickerModel: hasRawPinnedModel ? model : pickerModel,
-          advisory: false,
-          surface: "pocket",
-          projectMemory: pocketMemory,
-          pocketProfile: profile,
-          pocketStyleFamily: styleFamily,
-          pocketDesignDNA: buildDna,
-          pocketConcept: chosen
-            ? {
-                name: chosen.name,
-                concept: chosen.concept,
-                selectionReason: plan?.selectionReason,
-              }
-            : undefined,
-          pocketRecentSignatures: recentDigest.slice(0, 12),
-        }),
+        headers: genHeaders,
+        body: JSON.stringify(genBody),
         signal: controller.signal,
       });
+
 
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       if (ctype.includes("application/json")) {
