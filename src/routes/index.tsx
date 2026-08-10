@@ -2502,7 +2502,7 @@ function Index() {
       if (previewMode && !(placeholderMap && Object.keys(placeholderMap).length > 0)) {
         const floor = checkDesignFloor(finalHtml);
         if (!floor.ok) {
-          setStage("generate"); setStageDetail("Rebuilding to design standard");
+          setStage("repair"); setStageDetail("Rebuilding to design standard");
           setTerminal((tt) => [...tt, `↺ Design floor rejected first pass (${floor.blockers.join(", ")}) — regenerating.`]);
           const retry = await regenerateForQuality({
             fetcher: authFetch,
