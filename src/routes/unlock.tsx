@@ -538,7 +538,7 @@ function Unlock() {
               <span className="pocket-spotlight-badge">New · Minimal mode</span>
               <h2 id="pocket-spotlight-heading" className="pocket-spotlight-title">Obsidian Pocket</h2>
               <p className="pocket-spotlight-body">
-                Prototype here. Ship anywhere.{"\n\n"}Build cheap. Graduate when ready.
+                Prototype here. Ship anywhere.<br /><br />Build cheap. Graduate when ready.
               </p>
               <a
                 href="https://promptopto.com"
