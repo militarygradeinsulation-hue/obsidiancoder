@@ -180,6 +180,7 @@ import {
 } from "@/lib/build-learning";
 import { buildLearningBrief } from "@/lib/build-learning-prompt";
 import { provenTemplateBrief } from "@/lib/proven-templates";
+import { qualityContractFragment } from "@/lib/quality-contract";
 import { escalateModel } from "@/lib/quality-retry";
 import { Archive as ArchiveIcon } from "lucide-react";
 import { archiveBuild, takeArchiveHandoff } from "@/lib/build-archive";

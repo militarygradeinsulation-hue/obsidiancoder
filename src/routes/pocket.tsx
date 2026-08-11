@@ -131,6 +131,7 @@ import { parseCritique, dnaPromptBlock } from "@/lib/pocket-prompt";
 import { readBuildLearning, recordBuildOutcome } from "@/lib/build-learning";
 import { buildLearningBrief } from "@/lib/build-learning-prompt";
 import { provenTemplateBrief } from "@/lib/proven-templates";
+import { qualityContractFragment } from "@/lib/quality-contract";
 import { newPocketMemory, updateMemoryFromPrompt, hasMemory, memorySummary } from "@/lib/pocket-memory";
 import type { ProjectMemory } from "@/lib/project-memory";
 import { patchSchema } from "@/lib/patch-protocol";
