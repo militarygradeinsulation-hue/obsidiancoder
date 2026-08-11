@@ -138,13 +138,13 @@ console.log('\nbudget slicing reaches the final attempt');
   check('never exceeds the caller-supplied budget cap', b === 16_000);
 }
 
-// ---------- Patch/QA prefer Google when a Google key is configured ----------
-console.log('\nchain construction prefers Google first when configured');
+// ---------- Chain order: ChatLLM -> OpenAI -> Gemini ----------
+console.log('\nchain construction follows ChatLLM -> OpenAI -> Gemini');
 
 withEnv({ GOOGLE_AI_API_KEY: 'test-google-key' }, () => {
   const attempts = buildProviderChain('routellm/claude-sonnet-5', 'lovable-key');
-  check('Google is the first attempt when a Google key is set', attempts[0]?.google === true);
-  check('Google attempt carries the google key', attempts[0]?.key === 'test-google-key');
+  check('Google is the LAST attempt', attempts[attempts.length - 1]?.google === true);
+  check('an OpenAI gateway attempt comes before Google', attempts.some((a) => a.wireModel.startsWith('openai/')));
 });
 
 withEnv({ GOOGLE_AI_API_KEY: undefined }, () => {
@@ -154,8 +154,8 @@ withEnv({ GOOGLE_AI_API_KEY: undefined }, () => {
 
 withEnv({ GOOGLE_AI_API_KEY: 'test-google-key' }, () => {
   const attempts = buildProviderChain('openai/gpt-5.4-mini', 'lovable-key');
-  check('Google still goes first even for a non-RouteLLM requested model', attempts[0]?.google === true);
-  check('the non-RouteLLM model itself is still reachable as a later attempt', attempts.some((a) => a.wireModel === 'openai/gpt-5.4-mini'));
+  check('a non-RouteLLM model still reaches the Google fallback last', attempts[attempts.length - 1]?.google === true);
+  check('the requested model itself is still reachable', attempts.some((a) => a.wireModel === 'openai/gpt-5.4-mini'));
 });
 
 {

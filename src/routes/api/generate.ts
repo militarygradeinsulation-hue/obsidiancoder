@@ -21,7 +21,7 @@ import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 import { routellmKey, healthyRouteLLMKeys, markRouteLLMKeyDead, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
-import { computeAttemptBudgetMs, ATTEMPT_BUDGET_FLOOR_MS } from "@/lib/provider-chain";
+import { computeAttemptBudgetMs, ATTEMPT_BUDGET_FLOOR_MS, routellmEquivalentFor, openaiEquivalentFor } from "@/lib/provider-chain";
 import {
   isAnthropicModel,
   anthropicApiKey,
@@ -1048,23 +1048,12 @@ ${memBlock}`,
               throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." });
             }
 
-            // Attempt chain: Google first (while its quota lasts), then every
-            // configured ChatLLM/RouteLLM key in priority order, then the
-            // Lovable gateway with the closest equivalent model — so builds
-            // never hard-fail on a billing problem at one provider.
+            // Attempt chain: ChatLLM (Abacus RouteLLM) first, then OpenAI via
+            // the Lovable gateway, then Gemini (direct Google key) as the
+            // final safety net — so builds never hard-fail on a billing
+            // problem at one provider.
             type Attempt = { key: string; url: string; wireModel: string; routed: boolean; label: string; google?: boolean; anthropic?: boolean };
             const attempts: Attempt[] = [];
-            if (googleKey) {
-              const gm = googleModelFor(model);
-              attempts.push({
-                key: googleKey,
-                url: GOOGLE_OPENAI_CHAT_URL,
-                wireModel: gm,
-                routed: false,
-                label: `google/generate:${gm}`,
-                google: true,
-              });
-            }
             const viaAnthropic = isAnthropicModel(model);
             if (viaAnthropic) {
               const aKey = anthropicApiKey();
@@ -1078,51 +1067,55 @@ ${memBlock}`,
                   anthropic: true,
                 });
               }
-              // No Anthropic key configured (or it fails) — fall back to the
-              // closest Lovable-gateway equivalent by quality tier, same
-              // pattern as lovableEquivalentFor() for RouteLLM above.
-              if (apiKey) {
-                const wire = anthropicWireModel(model);
-                const equiv = wire.startsWith("claude-opus") ? "openai/gpt-5.5"
-                  : wire.startsWith("claude-haiku") ? "google/gemini-3.5-flash"
-                  : "openai/gpt-5.4-mini"; // sonnet tier
-                attempts.push({
-                  key: apiKey,
-                  url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-                  wireModel: equiv,
-                  routed: false,
-                  label: `lovable/generate:${equiv}`,
-                });
-              }
-            } else if (viaRouteLLM) {
-              for (const k of healthyRouteLLMKeys()) {
-                attempts.push({
-                  key: k,
-                  url: "https://routellm.abacus.ai/v1/chat/completions",
-                  wireModel: stripRouteLLMPrefix(model),
-                  routed: true,
-                  label: `routellm/generate:${model}`,
-                });
-              }
-              if (apiKey) {
-                const equiv = lovableEquivalentFor(model);
-                attempts.push({
-                  key: apiKey,
-                  url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-                  wireModel: equiv,
-                  routed: false,
-                  label: `lovable/generate:${equiv}`,
-                });
-              }
-            } else if (apiKey) {
+            }
+
+            // 1. ChatLLM / RouteLLM — every healthy key, strongest sensible model.
+            const rlWire = routellmEquivalentFor(model);
+            for (const k of healthyRouteLLMKeys()) {
+              attempts.push({
+                key: k,
+                url: "https://routellm.abacus.ai/v1/chat/completions",
+                wireModel: rlWire,
+                routed: true,
+                label: `routellm/generate:${rlWire}`,
+              });
+            }
+
+            // 2. OpenAI via the Lovable gateway (plus the requested gateway model).
+            if (apiKey) {
+              const oa = openaiEquivalentFor(model);
               attempts.push({
                 key: apiKey,
                 url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-                wireModel: model,
+                wireModel: oa,
                 routed: false,
-                label: `lovable/generate:${model}`,
+                label: `lovable/generate:${oa}`,
+              });
+              const requested = viaRouteLLM ? lovableEquivalentFor(model) : model;
+              if (requested !== oa && !requested.startsWith("claude-")) {
+                attempts.push({
+                  key: apiKey,
+                  url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+                  wireModel: requested,
+                  routed: false,
+                  label: `lovable/generate:${requested}`,
+                });
+              }
+            }
+
+            // 3. Gemini (direct Google key).
+            if (googleKey) {
+              const gm = googleModelFor(model);
+              attempts.push({
+                key: googleKey,
+                url: GOOGLE_OPENAI_CHAT_URL,
+                wireModel: gm,
+                routed: false,
+                label: `google/generate:${gm}`,
+                google: true,
               });
             }
+
 
 
             let res: Awaited<ReturnType<typeof aiFetch>> | null = null;

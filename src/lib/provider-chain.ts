@@ -81,30 +81,60 @@ export interface ChainAttempt {
  * `lovableApiKey` is passed in rather than read from the environment here
  * so callers that already resolved it once don't do it twice.
  */
+/**
+ * Map any requested model to the strongest sensible ChatLLM/RouteLLM wire
+ * model, so a non-RouteLLM pick can still be served ChatLLM-first without
+ * dropping quality tier.
+ */
+export function routellmEquivalentFor(model: string): string {
+  if (isRouteLLMModel(model)) return stripRouteLLMPrefix(model);
+  const m = model.toLowerCase();
+  if (m.includes("nano") || m.includes("lite") || m.includes("haiku")) return "claude-haiku-4-5-20251001";
+  if (m.includes("pro") || m.includes("gpt-5.5") || m.includes("sol") || m.includes("opus")) {
+    return "claude-opus-4-1-20250805";
+  }
+  return "claude-sonnet-4-5-20250929";
+}
+
+/** The OpenAI-family model used for the second (OpenAI) link in the chain. */
+export function openaiEquivalentFor(model: string): string {
+  if (model.startsWith("openai/")) return model;
+  const m = model.toLowerCase();
+  if (m.includes("nano") || m.includes("lite") || m.includes("haiku")) return "openai/gpt-5.4-mini";
+  if (m.includes("pro") || m.includes("gpt-5.5") || m.includes("sol") || m.includes("opus")) return "openai/gpt-5.5";
+  return "openai/gpt-5.4";
+}
+
 export function buildProviderChain(model: string, lovableApiKey: string | undefined): ChainAttempt[] {
   const attempts: ChainAttempt[] = [];
 
+  // 1. ChatLLM (Abacus RouteLLM) — every healthy key, in priority order.
+  const rlWire = routellmEquivalentFor(model);
+  for (const k of healthyRouteLLMKeys()) {
+    attempts.push({ key: k, url: ROUTELLM_CHAT_URL, wireModel: rlWire, label: `routellm:${rlWire}`, routed: true });
+  }
+
+  // 2. OpenAI (via the Lovable gateway).
+  if (lovableApiKey) {
+    const oa = openaiEquivalentFor(model);
+    attempts.push({ key: lovableApiKey, url: LOVABLE_CHAT_URL, wireModel: oa, label: `lovable:${oa}` });
+    // Keep the originally requested gateway model reachable when it differs.
+    const requested = isRouteLLMModel(model) ? lovableEquivalentFor(model) : model;
+    if (requested !== oa && !requested.startsWith("google/")) {
+      attempts.push({ key: lovableApiKey, url: LOVABLE_CHAT_URL, wireModel: requested, label: `lovable:${requested}` });
+    }
+  }
+
+  // 3. Gemini (direct Google key) as the final safety net.
   const gKey = googleAiKey();
   if (gKey) {
     const gm = googleModelFor(model);
     attempts.push({ key: gKey, url: GOOGLE_OPENAI_CHAT_URL, wireModel: gm, label: `google:${gm}`, google: true });
   }
 
-  if (isRouteLLMModel(model)) {
-    const wireModel = stripRouteLLMPrefix(model);
-    for (const k of healthyRouteLLMKeys()) {
-      attempts.push({ key: k, url: ROUTELLM_CHAT_URL, wireModel, label: `routellm:${model}`, routed: true });
-    }
-    if (lovableApiKey) {
-      const equiv = lovableEquivalentFor(model);
-      attempts.push({ key: lovableApiKey, url: LOVABLE_CHAT_URL, wireModel: equiv, label: `lovable:${equiv}` });
-    }
-  } else if (lovableApiKey) {
-    attempts.push({ key: lovableApiKey, url: LOVABLE_CHAT_URL, wireModel: model, label: `lovable:${model}` });
-  }
-
   return attempts;
 }
+
 
 /** A per-attempt outcome the caller reports back to the chain runner. */
 export type ChainAttemptResult<T> =
