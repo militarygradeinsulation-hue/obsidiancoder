@@ -170,6 +170,9 @@ export function peekFinalizeCache(key: string): boolean { return CACHE.has(key);
 
 // -- Helpers -----------------------------------------------------------------
 
+/** Everything a commit path needs except the contract stamp added by the wrapper. */
+type CoreResult = Omit<FinalizeResult, "contractFixes" | "unloadableFonts">;
+
 function blockedResult(
   input: FinalizeInput,
   assessment: AssessResult,
@@ -180,7 +183,7 @@ function blockedResult(
     model: string | null; verdict: "pass" | "repair" | "block" | null; explanation: string;
   },
   source: FinalizeSource = "blocked",
-): FinalizeResult {
+): CoreResult {
   return {
     ok: false,
     finalHtml: input.stableHtml,
