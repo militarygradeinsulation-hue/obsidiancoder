@@ -118,7 +118,7 @@ const inputSchema = z.object({
    * (design decisions only — never markup). Injected just BEFORE the premium
    * art-direction block so the current direction still has the last word.
    */
-  learningBrief: z.string().max(4000).optional(),
+  learningBrief: z.string().max(6000).optional(),
   /** Matched reusable components from the client-side registry — injected as system context. */
   reusableComponents: z.array(z.object({
     label: z.string(),

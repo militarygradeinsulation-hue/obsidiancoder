@@ -180,6 +180,7 @@ import {
 } from "@/lib/build-learning";
 import { buildLearningBrief } from "@/lib/build-learning-prompt";
 import { provenTemplateBrief } from "@/lib/proven-templates";
+import { qualityContractFragment } from "@/lib/quality-contract";
 import { escalateModel } from "@/lib/quality-retry";
 import { Archive as ArchiveIcon } from "lucide-react";
 import { archiveBuild, takeArchiveHandoff } from "@/lib/build-archive";
@@ -2508,6 +2509,7 @@ function Index() {
               learningBrief: [
                 buildLearningBrief(learningEntries, buildDna.family),
                 provenTemplateBrief(learningEntries, buildDna.family, libraryCode, "vibe"),
+                qualityContractFragment(),
               ].filter(Boolean).join("\n\n"),
             }
           : {}),
@@ -2591,6 +2593,9 @@ function Index() {
       let acc = "";
       let firstChunkAt = 0;
       let lastPaint = 0;
+      // Per-stage server timings from the OBS_TIMING trailer. Persisted into
+      // version metadata so a build can still be timed after the fact.
+      let serverTiming: Record<string, number | string | boolean> | null = null;
       const stripTrailer = (s: string) => s.replace(/\s*<!--OBS_TIMING:[\s\S]*?-->\s*$/, "");
       const paintPreview = (force = false) => {
         if (!previewMode) return;
@@ -2635,6 +2640,7 @@ function Index() {
       if (timingMatch) {
         try {
           const t = JSON.parse(timingMatch[1]) as Record<string, number | string | boolean>;
+          serverTiming = t;
           setTerminal((tt) => [...tt, `→ Timing: compact ${t.compact_ms}ms · plan/img ${t.image_ms}ms · first ${t.first_byte_ms}ms · stream ${t.stream_ms}ms · total ${t.total_ms}ms`]);
         } catch { /* trailer malformed; ignore */ }
         acc = acc.slice(0, timingMatch.index).trimEnd();
@@ -2831,6 +2837,17 @@ function Index() {
         imageCount: imgCount || undefined,
         rollbackId,
         learningSignals: routing.signalsUsed.slice(),
+        // Retrospective timing: server stages from the trailer plus the client
+        // stage marks that only ever lived in the terminal buffer.
+        stageTimings: {
+          ...(serverTiming ?? {}),
+          client_plan_ms: Math.round(stageMarks.planMs),
+          client_build_ms: Math.round(durationMsGen - stageMarks.planMs),
+          client_total_ms: Math.round(durationMsGen),
+          client_first_token_ms: firstChunkAt ? Math.round(firstChunkAt - t0) : 0,
+          planner_called: Boolean(stageMarks.plannerCalled),
+          speed_path: Boolean(stageMarks.speedPath),
+        },
       };
       const gateBlockersG = checkCommitGate(stableHtml, finalHtml, "full-generation");
       if (gateBlockersG) {
@@ -2907,6 +2924,18 @@ function Index() {
         return;
       }
       let committedFinalHtml = finG.finalHtml;
+
+      // Deterministic quality contract (web fonts actually linked, visible
+      // focus rings). Surfaced so a silently-unloadable typeface is visible
+      // instead of quietly rendering as the system default.
+      if (finG.contractFixes.length) {
+        genMeta.contractFixes = finG.contractFixes.slice();
+        setTerminal((t) => [...t, `→ Contract: ${finG.contractFixes.join(" · ")}`]);
+      }
+      if (finG.unloadableFonts.length) {
+        genMeta.unloadableFonts = finG.unloadableFonts.slice();
+        setTerminal((t) => [...t, `⚠ Fonts not loadable (rendering as system default): ${finG.unloadableFonts.join(", ")}`]);
+      }
 
       // ---- Cinematic polish pass -----------------------------------------
       // The design review used to block the commit for a whole extra provider

@@ -16,6 +16,7 @@
 // This module is client-safe: it does not import server-only helpers.
 
 import { assessCandidateForCommit, type AssessResult } from "./candidate-assess";
+import { enforceQualityContract } from "./quality-contract";
 import { patchSchema } from "./patch-protocol";
 import { applyPatch } from "./patch-engine";
 import { validateHtml, type ValidationReport } from "./validation";
@@ -84,6 +85,10 @@ export interface FinalizeResult {
   blockers: string[];
   /** Hash we computed for the ORIGINAL candidate (pre-patch). */
   candidateHash: string;
+  /** Deterministic quality-contract repairs applied before assessment. */
+  contractFixes: string[];
+  /** Families the document names that could not be loaded (not on Google Fonts). */
+  unloadableFonts: string[];
   source: FinalizeSource;
 }
 
@@ -165,6 +170,9 @@ export function peekFinalizeCache(key: string): boolean { return CACHE.has(key);
 
 // -- Helpers -----------------------------------------------------------------
 
+/** Everything a commit path needs except the contract stamp added by the wrapper. */
+type CoreResult = Omit<FinalizeResult, "contractFixes" | "unloadableFonts">;
+
 function blockedResult(
   input: FinalizeInput,
   assessment: AssessResult,
@@ -175,7 +183,7 @@ function blockedResult(
     model: string | null; verdict: "pass" | "repair" | "block" | null; explanation: string;
   },
   source: FinalizeSource = "blocked",
-): FinalizeResult {
+): CoreResult {
   return {
     ok: false,
     finalHtml: input.stableHtml,
@@ -198,15 +206,29 @@ function blockedResult(
 // -- Public API --------------------------------------------------------------
 
 /**
- * Run fresh deterministic assessment; if unresolved and paid, invoke
- * /api/qa at most once for this build hash and apply a valid patch if
- * provided. Returns the authoritative FINAL html + validation for the
- * commit path to use in metadata, diffs, and downstream gates.
+ * Run the deterministic quality contract, then fresh assessment; if
+ * unresolved and paid, invoke /api/qa at most once for this build hash and
+ * apply a valid patch if provided. Returns the authoritative FINAL html +
+ * validation for the commit path to use in metadata, diffs, and gates.
  */
 export async function finalizeCandidate(
   input: FinalizeInput,
   call: QaProductionCall,
 ): Promise<FinalizeResult> {
+  // Deterministic, local, idempotent: link declared web fonts and guarantee
+  // visible focus states BEFORE anything assesses or hashes the candidate.
+  const contract = enforceQualityContract(input.candidateHtml);
+  const core = await finalizeCore(
+    contract.html === input.candidateHtml ? input : { ...input, candidateHtml: contract.html },
+    call,
+  );
+  return { ...core, contractFixes: contract.fixes, unloadableFonts: contract.unloadableFonts };
+}
+
+async function finalizeCore(
+  input: FinalizeInput,
+  call: QaProductionCall,
+): Promise<CoreResult> {
   // 0. ALWAYS run deterministic assessment fresh. Never cached.
   const assessment = assessCandidateForCommit({
     html: input.candidateHtml,
