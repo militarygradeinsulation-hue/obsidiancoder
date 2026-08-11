@@ -24,14 +24,35 @@ function issue(severity: Severity, code: string, message: string): ValidationIss
 }
 
 function balanced(source: string): boolean {
-  const stripped = source
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/\/\/[^\n]*/g, "")
-    .replace(/(["'`])(?:\\.|(?!\1).)*\1/g, "");
-  const open = (stripped.match(/[{(\[]/g) ?? []).length;
-  const close = (stripped.match(/[})\]]/g) ?? []).length;
-  return open === close;
+  // Mask out strings, template text, comments, and regex literals so braces
+  // inside them never count. Then match brackets with a real stack — a plain
+  // count treats "}{" as balanced and mismatches as fine.
+  let stripped: string;
+  try {
+    stripped = jsLexicalMask(source);
+  } catch {
+    return true; // never block on a masker failure
+  }
+  const pairs: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
+  const stack: string[] = [];
+  for (const ch of stripped) {
+    if (ch === "(" || ch === "[" || ch === "{") stack.push(ch);
+    else if (ch === ")" || ch === "]" || ch === "}") {
+      if (stack.pop() !== pairs[ch]) return false;
+    }
+  }
+  return stack.length === 0;
 }
+
+/** Script blocks that hold executable JavaScript (inline, non-external). */
+function isExecutableScript(tag: string): boolean {
+  if (/\bsrc\s*=/i.test(tag)) return false;
+  const type = tag.match(/\btype\s*=\s*("([^"]*)"|'([^']*)')/i);
+  const t = (type?.[2] ?? type?.[3] ?? "").trim().toLowerCase();
+  if (!t) return true;
+  return /^(text\/javascript|application\/javascript|module|text\/babel)$/.test(t);
+}
+
 
 export function validateHtml(html: string): ValidationReport {
   const issues: ValidationIssue[] = [];
