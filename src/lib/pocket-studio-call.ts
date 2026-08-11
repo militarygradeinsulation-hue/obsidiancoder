@@ -34,14 +34,31 @@ export const LOVABLE_CHAT_URL = "https://ai.gateway.lovable.dev/v1/chat/completi
 export const ROUTELLM_CHAT_URL = "https://routellm.abacus.ai/v1/chat/completions";
 
 /**
- * Pick exactly one route. A RouteLLM model uses the highest-priority
- * configured RouteLLM key; if no RouteLLM key exists at all we degrade —
- * before any dispatch — to the Lovable-equivalent model. We never dispatch
- * to RouteLLM and then dispatch again to Lovable.
+ * Pick exactly one route, in the configured provider order:
+ * ChatLLM (Abacus RouteLLM) → OpenAI (Lovable gateway) → Gemini (Google key).
+ * Selection happens before any dispatch; we never call two providers.
  */
 export function chooseRoute(model: string, env: PocketRouteEnv, tag: string): PocketRoute | null {
-  // Google is the primary provider for builds, so Pocket's planning and
-  // critique calls use it too when a key is configured.
+  if (env.routellmKey) {
+    const wireModel = routellmEquivalentFor(model);
+    return {
+      provider: "routellm",
+      url: ROUTELLM_CHAT_URL,
+      key: env.routellmKey,
+      wireModel,
+      breakerKey: `routellm/${tag}:${wireModel}`,
+    };
+  }
+  if (env.lovableKey) {
+    const wireModel = isRouteLLMModel(model) ? lovableEquivalentFor(model) : openaiEquivalentFor(model);
+    return {
+      provider: "lovable",
+      url: LOVABLE_CHAT_URL,
+      key: env.lovableKey,
+      wireModel,
+      breakerKey: `lovable/${tag}:${wireModel}`,
+    };
+  }
   if (env.googleKey) {
     const wireModel = googleModelFor(model);
     return {
@@ -52,38 +69,9 @@ export function chooseRoute(model: string, env: PocketRouteEnv, tag: string): Po
       breakerKey: `google/${tag}:${wireModel}`,
     };
   }
-  if (isRouteLLMModel(model)) {
-    if (env.routellmKey) {
-      const wireModel = stripRouteLLMPrefix(model);
-      return {
-        provider: "routellm",
-        url: ROUTELLM_CHAT_URL,
-        key: env.routellmKey,
-        wireModel,
-        breakerKey: `routellm/${tag}:${wireModel}`,
-      };
-    }
-    if (env.lovableKey) {
-      const wireModel = lovableEquivalentFor(model);
-      return {
-        provider: "lovable",
-        url: LOVABLE_CHAT_URL,
-        key: env.lovableKey,
-        wireModel,
-        breakerKey: `lovable/${tag}:${wireModel}`,
-      };
-    }
-    return null;
-  }
-  if (!env.lovableKey) return null;
-  return {
-    provider: "lovable",
-    url: LOVABLE_CHAT_URL,
-    key: env.lovableKey,
-    wireModel: model,
-    breakerKey: `lovable/${tag}:${model}`,
-  };
+  return null;
 }
+
 
 /** Read the configured environment. Server-only; called inside handlers. */
 export function pocketRouteEnv(): PocketRouteEnv {
