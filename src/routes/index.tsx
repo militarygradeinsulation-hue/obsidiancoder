@@ -2591,6 +2591,9 @@ function Index() {
       let acc = "";
       let firstChunkAt = 0;
       let lastPaint = 0;
+      // Per-stage server timings from the OBS_TIMING trailer. Persisted into
+      // version metadata so a build can still be timed after the fact.
+      let serverTiming: Record<string, number | string | boolean> | null = null;
       const stripTrailer = (s: string) => s.replace(/\s*<!--OBS_TIMING:[\s\S]*?-->\s*$/, "");
       const paintPreview = (force = false) => {
         if (!previewMode) return;
