@@ -2804,6 +2804,9 @@ function Index() {
 
       const versionLabel = (basePrompt || pendingAttachments[0]?.name || "Update").slice(0, 48);
       const durationMsGen = performance.now() - t0;
+      setTerminal((t) => [...t,
+        `→ Stages: plan ${stageMarks.planMs}ms${stageMarks.plannerCalled ? " (planner call)" : stageMarks.speedPath ? " (speed path — proven direction reused)" : " (deterministic)"} · build ${Math.round(durationMsGen - stageMarks.planMs)}ms · total ${Math.round(durationMsGen)}ms`,
+      ]);
       const fullDiff = diffSummary(stableHtml, finalHtml);
       const providerChain = parseProviderHeader(imgProviders);
       const rollbackId = current.versions?.[0]?.id;
