@@ -2914,6 +2914,23 @@ function Index() {
           setTerminal((t) => [...t, "⚠ Design review unavailable — kept the first version."]);
         }
       }
+      // Permanent archive: shelve every build the Vibe Coder commits.
+      try {
+        const sessionTitle =
+          sessions.find((s) => s.id === sessionId)?.title || basePrompt.slice(0, 60) || "Untitled build";
+        archiveBuild(
+          {
+            surface: "vibe",
+            title: sessionTitle,
+            prompt: basePrompt,
+            model: modelForServer,
+            html: committedFinalHtml,
+            ...(buildDna ? { family: buildDna.family } : {}),
+            profile: artProfile,
+          },
+          libraryCode,
+        );
+      } catch { /* archiving is best-effort */ }
       // Anti-repetition memory: remember this build's structure.
       if (previewMode && buildDna) {
         try { rememberSignature(dnaSignature(buildDna), libraryCode); } catch { /* non-fatal */ }
