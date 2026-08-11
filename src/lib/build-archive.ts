@@ -46,6 +46,11 @@ export interface BuildArchive {
 
 const EMPTY: BuildArchive = { v: ARCHIVE_VERSION, entries: [] };
 
+// Fallback store for environments without localStorage (SSR, private mode,
+// quota-exceeded browsers). Keeps the archive coherent inside one runtime
+// instead of silently reading back nothing.
+const memStore = new Map<string, BuildArchive>();
+
 export function archiveKey(libraryCode?: string): string {
   const code = (libraryCode ?? "").trim();
   return `obsidian.archive.v1.${code.length >= 4 ? code : "anon"}`;
@@ -80,7 +85,8 @@ function normalizeEntry(raw: unknown): ArchiveEntry | null {
 }
 
 export function readArchive(libraryCode?: string): BuildArchive {
-  const raw = safeGet<BuildArchive>(archiveKey(libraryCode));
+  const key = archiveKey(libraryCode);
+  const raw = safeGet<BuildArchive>(key) ?? memStore.get(key);
   if (!raw || !Array.isArray(raw.entries)) return { ...EMPTY, entries: [] };
   const entries = raw.entries
     .map(normalizeEntry)
@@ -106,7 +112,9 @@ export function trimArchive(entries: readonly ArchiveEntry[]): ArchiveEntry[] {
 export function writeArchive(next: BuildArchive, libraryCode?: string): BuildArchive {
   const entries = trimArchive(next.entries);
   const value: BuildArchive = { v: ARCHIVE_VERSION, entries };
-  safeSet(archiveKey(libraryCode), value);
+  const key = archiveKey(libraryCode);
+  safeSet(key, value);
+  memStore.set(key, value);
   return value;
 }
 
@@ -206,7 +214,9 @@ export function deleteArchiveEntry(id: string, libraryCode?: string): BuildArchi
 }
 
 export function clearArchive(libraryCode?: string): BuildArchive {
-  safeRemove(archiveKey(libraryCode));
+  const key = archiveKey(libraryCode);
+  safeRemove(key);
+  memStore.delete(key);
   return { v: ARCHIVE_VERSION, entries: [] };
 }
 
@@ -234,19 +244,24 @@ export interface ArchiveHandoff {
   at: number;
 }
 
+let memHandoff: ArchiveHandoff | null = null;
+
 export function stageArchiveHandoff(entry: ArchiveEntry): boolean {
-  return safeSet(ARCHIVE_HANDOFF_KEY, {
+  const payload: ArchiveHandoff = {
     title: entry.title,
     prompt: entry.prompt,
     html: entry.html,
     at: Date.now(),
-  } satisfies ArchiveHandoff);
+  };
+  memHandoff = payload;
+  return safeSet(ARCHIVE_HANDOFF_KEY, payload);
 }
 
 /** Read and consume the handoff. Stale slots (over 5 minutes) are ignored. */
 export function takeArchiveHandoff(maxAgeMs = 5 * 60_000, now = Date.now()): ArchiveHandoff | null {
-  const raw = safeGet<ArchiveHandoff>(ARCHIVE_HANDOFF_KEY);
+  const raw = safeGet<ArchiveHandoff>(ARCHIVE_HANDOFF_KEY) ?? memHandoff;
   safeRemove(ARCHIVE_HANDOFF_KEY);
+  memHandoff = null;
   if (!raw || typeof raw.html !== "string" || raw.html.length < 40) return null;
   if (typeof raw.at !== "number" || now - raw.at > maxAgeMs) return null;
   return { title: String(raw.title || "Untitled build"), prompt: String(raw.prompt || ""), html: raw.html, at: raw.at };
