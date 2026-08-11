@@ -2891,45 +2891,20 @@ function Index() {
       }
       let committedFinalHtml = finG.finalHtml;
 
-      // ---- Cinematic polish pass (same design review Pocket runs) --------
-      let critiqueScores: Record<string, number> | null = null;
-      if (previewMode && buildDna && artProfile === "cinematic" && paidAccess) {
-        const safeFirstVersion = committedFinalHtml;
-        setStage("validate"); setStageDetail("Design review");
-        try {
-          const cres = await runCritiqueFn({
-            data: {
-              model: artModelChoice.model,
-              html: committedFinalHtml,
-              dnaSummary: dnaPromptBlock(buildDna).slice(0, 3000),
-            },
-          });
-          if (!("paywall" in cres) && cres.ok) {
-            const critique = parseCritique(JSON.parse(cres.critiqueJson) as unknown);
-            if (critique.verdict === "repair" && critique.operations.length) {
-              const parsedPolish = patchSchema.safeParse({
-                summary: critique.issues[0]?.slice(0, 200) || "Design review repair",
-                operations: critique.operations,
-              });
-              if (parsedPolish.success) {
-                const appliedPolish = applyPatch(committedFinalHtml, parsedPolish.data);
-                const post = appliedPolish.ok && appliedPolish.html.length > 200
-                  ? assessCandidateForCommit({ html: appliedPolish.html })
-                  : null;
-                committedFinalHtml = post?.ok ? post.repairedHtml : safeFirstVersion;
-                setTerminal((t) => [...t, post?.ok
-                  ? `✓ Polish applied (${appliedPolish.ok ? appliedPolish.applied.length : 0} ops)`
-                  : "⚠ Polish skipped — kept the safe version."]);
-              }
-            } else {
-              setTerminal((t) => [...t, `✓ Design review verdict: ${critique.verdict}`]);
-            }
-            critiqueScores = critique.scores;
-          }
-        } catch {
-          setTerminal((t) => [...t, "⚠ Design review unavailable — kept the first version."]);
-        }
-      }
+      // ---- Cinematic polish pass -----------------------------------------
+      // The design review used to block the commit for a whole extra provider
+      // round-trip. It now runs AFTER the build is committed and applies its
+      // polish as a follow-up revision, so first preview is never gated on it.
+      const willCritique = Boolean(previewMode && buildDna && artProfile === "cinematic" && paidAccess);
+
+      const designIssuesForLearning = finG.finalValidation.issues
+        .filter((i) => i.severity === "warning" || i.severity === "blocking")
+        .slice(0, 4)
+        .map((i) => i.message);
+      const validationForLearning: "passed" | "failed" | "warnings" =
+        finG.finalValidation.status === "passed" ? "passed"
+          : finG.finalValidation.status === "failed" ? "failed" : "warnings";
+
       // Permanent archive: shelve every build the Vibe Coder commits.
       try {
         const sessionTitle =
@@ -2951,25 +2926,91 @@ function Index() {
       if (previewMode && buildDna) {
         try { rememberSignature(dnaSignature(buildDna), libraryCode); } catch { /* non-fatal */ }
         // Quality memory: grade this build so the next one starts smarter.
-        try {
-          recordBuildOutcome({
-            surface: "vibe",
-            profile: artProfile,
-            dna: buildDna,
-            model: modelForServer,
-            critique: critiqueScores,
-            designIssues: finG.finalValidation.issues
-              .filter((i) => i.severity === "warning" || i.severity === "blocking")
-              .slice(0, 4)
-              .map((i) => i.message),
-            validationStatus: finG.finalValidation.status === "passed" ? "passed"
-              : finG.finalValidation.status === "failed" ? "failed" : "warnings",
-            latencyMs: durationMsGen,
-            outcome: "kept",
-          }, libraryCode);
-          setIntelligenceTick((n) => n + 1);
-        } catch { /* learning is best-effort */ }
+        // When a review is queued, the background pass records the graded
+        // entry instead, so a build is never counted twice.
+        if (!willCritique) {
+          try {
+            recordBuildOutcome({
+              surface: "vibe",
+              profile: artProfile,
+              dna: buildDna,
+              model: modelForServer,
+              critique: null,
+              designIssues: designIssuesForLearning,
+              validationStatus: validationForLearning,
+              latencyMs: durationMsGen,
+              outcome: "kept",
+            }, libraryCode);
+            setIntelligenceTick((n) => n + 1);
+          } catch { /* learning is best-effort */ }
+        }
       }
+
+      if (willCritique && buildDna) {
+        const reviewedHtml = committedFinalHtml;
+        const reviewDna = buildDna;
+        void (async () => {
+          let polished = reviewedHtml;
+          let critiqueScores: Record<string, number> | null = null;
+          try {
+            const cres = await runCritiqueFn({
+              data: {
+                model: artModelChoice.model,
+                html: reviewedHtml,
+                dnaSummary: dnaPromptBlock(reviewDna).slice(0, 3000),
+              },
+            });
+            if (!("paywall" in cres) && cres.ok) {
+              const critique = parseCritique(JSON.parse(cres.critiqueJson) as unknown);
+              critiqueScores = critique.scores;
+              if (critique.verdict === "repair" && critique.operations.length) {
+                const parsedPolish = patchSchema.safeParse({
+                  summary: critique.issues[0]?.slice(0, 200) || "Design review repair",
+                  operations: critique.operations,
+                });
+                if (parsedPolish.success) {
+                  const appliedPolish = applyPatch(reviewedHtml, parsedPolish.data);
+                  const post = appliedPolish.ok && appliedPolish.html.length > 200
+                    ? assessCandidateForCommit({ html: appliedPolish.html })
+                    : null;
+                  if (post?.ok) {
+                    polished = post.repairedHtml;
+                    setTerminal((t) => [...t, `✓ Polish applied (${appliedPolish.ok ? appliedPolish.applied.length : 0} ops)`]);
+                  } else {
+                    setTerminal((t) => [...t, "⚠ Polish skipped — kept the committed version."]);
+                  }
+                }
+              } else {
+                setTerminal((t) => [...t, `✓ Design review verdict: ${critique.verdict}`]);
+              }
+            }
+          } catch {
+            setTerminal((t) => [...t, "⚠ Design review unavailable — kept the committed version."]);
+          }
+          // Only apply polish when the user has not moved on: the session must
+          // still be showing exactly the document that was reviewed.
+          if (polished !== reviewedHtml) {
+            setSessions((all) => all.map((s) => (s.id === sessionId && s.html === reviewedHtml
+              ? { ...s, html: polished }
+              : s)));
+          }
+          try {
+            recordBuildOutcome({
+              surface: "vibe",
+              profile: artProfile,
+              dna: reviewDna,
+              model: modelForServer,
+              critique: critiqueScores,
+              designIssues: designIssuesForLearning,
+              validationStatus: validationForLearning,
+              latencyMs: durationMsGen,
+              outcome: "kept",
+            }, libraryCode);
+            setIntelligenceTick((n) => n + 1);
+          } catch { /* learning is best-effort */ }
+        })();
+      }
+
       if (finG.deterministicRepairs.length) setTerminal((t) => [...t, `✓ QA: ${finG.deterministicRepairs.length} deterministic navigation repair(s) applied`]);
       if (finG.claudeInvoked) setTerminal((t) => [...t, `↺ Claude QA: 1 call via ${finG.claudeModel ?? "?"} — ${finG.claudeVerdict}`]);
       // Recompute diff/validation from the FINAL committed HTML — authoritative
