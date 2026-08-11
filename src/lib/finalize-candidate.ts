@@ -85,6 +85,10 @@ export interface FinalizeResult {
   blockers: string[];
   /** Hash we computed for the ORIGINAL candidate (pre-patch). */
   candidateHash: string;
+  /** Deterministic quality-contract repairs applied before assessment. */
+  contractFixes: string[];
+  /** Families the document names that could not be loaded (not on Google Fonts). */
+  unloadableFonts: string[];
   source: FinalizeSource;
 }
 
