@@ -24,6 +24,8 @@
 import {
   healthyRouteLLMKeys,
   markRouteLLMKeyDead,
+  markRouteLLMKeySlow,
+  markRouteLLMKeyHealthy,
   isRouteLLMKeyExhausted,
   lovableEquivalentFor,
 } from "./routellm-keys";
