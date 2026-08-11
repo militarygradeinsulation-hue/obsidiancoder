@@ -2923,6 +2923,18 @@ function Index() {
       }
       let committedFinalHtml = finG.finalHtml;
 
+      // Deterministic quality contract (web fonts actually linked, visible
+      // focus rings). Surfaced so a silently-unloadable typeface is visible
+      // instead of quietly rendering as the system default.
+      if (finG.contractFixes.length) {
+        genMeta.contractFixes = finG.contractFixes.slice();
+        setTerminal((t) => [...t, `→ Contract: ${finG.contractFixes.join(" · ")}`]);
+      }
+      if (finG.unloadableFonts.length) {
+        genMeta.unloadableFonts = finG.unloadableFonts.slice();
+        setTerminal((t) => [...t, `⚠ Fonts not loadable (rendering as system default): ${finG.unloadableFonts.join(", ")}`]);
+      }
+
       // ---- Cinematic polish pass -----------------------------------------
       // The design review used to block the commit for a whole extra provider
       // round-trip. It now runs AFTER the build is committed and applies its
