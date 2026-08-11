@@ -798,8 +798,12 @@ export const Route = createFileRoute("/api/generate")({
           // 2) Image planning — skipped entirely unless the user explicitly
           //    asked for imagery or opted in via wantImages. This is what was
           //    silently adding 12-17s to every non-visual build.
-          const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
-          const wantComponents = !data.advisory && !!apiKey && !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
+          // The `fast` profile trades enrichment for latency: it never pays
+          // the pre-stream image/component round-trips unless the user asked
+          // for imagery outright.
+          const fastProfile = (data.pocketProfile ?? "fast") === "fast";
+          const wantImages = !data.advisory && (data.wantImages || (!fastProfile && VISUAL_KEYWORDS.test(data.prompt)));
+          const wantComponents = !data.advisory && !fastProfile && !!apiKey && !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
           const emptyImagePhase: ImagePhaseResult = { images: [], usages: [], planUsage: null };
           const emptyComponentPhase: ComponentPhaseResult = { components: [], planUsage: null };
           const enrichmentBudget = Math.max(
