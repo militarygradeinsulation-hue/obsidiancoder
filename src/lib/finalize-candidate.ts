@@ -17,6 +17,7 @@
 
 import { assessCandidateForCommit, type AssessResult } from "./candidate-assess";
 import { enforceQualityContract } from "./quality-contract";
+import { ensureBuildSignature } from "./build-signature";
 import { patchSchema } from "./patch-protocol";
 import { applyPatch } from "./patch-engine";
 import { validateHtml, type ValidationReport } from "./validation";
