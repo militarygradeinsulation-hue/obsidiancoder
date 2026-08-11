@@ -2387,9 +2387,11 @@ function Index() {
         profile: artProfile,
         recentDigest,
       });
-      if (isRefineBuild && artDna) {
-        // A refinement keeps this build's art direction — no planner call.
-        buildDna = artDna;
+      if (isRefineBuild) {
+        // A refinement NEVER pays for a planner call: it keeps this build's
+        // art direction, or derives one deterministically when none was set.
+        buildDna = artDna
+          ?? selectedConcept(deterministicConceptPlan({ prompt: basePrompt, family: artFamily, recent: readCreativeMemory(libraryCode).entries })).dna;
       } else if (buildPlan && buildPlanKey === nextPlanKey) {
         buildDna = selectedConcept(buildPlan).dna;
       } else {
