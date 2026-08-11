@@ -46,6 +46,17 @@ export type VersionMetadata = {
     info: number;
   };
   repairAttempts: RepairAttempt[];
+  /**
+   * Per-stage server timings from the OBS_TIMING stream trailer, preserved so
+   * a build can be timed retrospectively after the terminal buffer is gone.
+   * Keys: compact_ms, image_ms, first_byte_ms, stream_ms, total_ms, plus any
+   * additional markers the route emits.
+   */
+  stageTimings?: Record<string, number | string | boolean>;
+  /** Deterministic quality-contract repairs applied at commit time. */
+  contractFixes?: string[];
+  /** Font families the document names that could not be loaded. */
+  unloadableFonts?: string[];
   // ---- Core 4.2: operation provenance (all optional; older versions omit) ----
   operationId?: string;
   requestedModel?: string;      // what the picker/router asked for
