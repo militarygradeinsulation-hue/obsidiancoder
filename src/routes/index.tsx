@@ -180,6 +180,7 @@ import {
 } from "@/lib/build-learning";
 import { buildLearningBrief } from "@/lib/build-learning-prompt";
 import { escalateModel } from "@/lib/quality-retry";
+import { Archive as ArchiveIcon } from "lucide-react";
 import { archiveBuild, takeArchiveHandoff } from "@/lib/build-archive";
 
 
@@ -3471,6 +3472,10 @@ function Index() {
             <span>Obsidian Pocket</span>
             <span className="obs-kbd obs-kbd-nav">new</span>
           </Link>
+          <Link to="/archive" className="obs-nav-item" data-testid="nav-archive" title="Every build you have ever made">
+            <ArchiveIcon className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            <span>Build archive</span>
+          </Link>
         </nav>
 
 
@@ -3608,6 +3613,14 @@ function Index() {
               style={{ borderColor: "rgba(244,161,37,0.45)", color: "#f4a125" }}
             >
               <Rocket className="h-3.5 w-3.5" /> Pocket
+            </Link>
+            <Link
+              to="/archive"
+              className="obs-chip"
+              data-testid="topbar-archive"
+              title="Every build you have ever made"
+            >
+              <ArchiveIcon className="h-3.5 w-3.5" /> Archive
             </Link>
             <button
               type="button"
