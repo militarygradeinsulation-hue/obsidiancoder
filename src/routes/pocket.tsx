@@ -45,7 +45,6 @@ import { CloudMemoryButton } from "@/components/CloudMemoryButton";
 import {
   archiveBuild,
   markLatestArchiveSaved,
-  readArchive,
   takeArchiveHandoff,
 } from "@/lib/build-archive";
 import { useCloudMemoryHost, ownerAdapter } from "@/hooks/useCloudMemoryHost";
@@ -606,6 +605,31 @@ function ForgePage() {
       } catch (err) {
         setError(sanitizeErrorMessage(err, "Could not open that project."));
         setStatus("Ready");
+      }
+    },
+    [libraryCode, log],
+  );
+
+  /** Rename a saved project in place (cloud library row + sidebar list). */
+  const renameLibraryBuild = React.useCallback(
+    async (id: string, current: string) => {
+      const c = libraryCode.trim();
+      if (c.length < 4) return;
+      const next = window.prompt("Rename this project", current || "Untitled");
+      if (next === null) return;
+      const nextTitle = next.trim();
+      if (!nextTitle || nextTitle === current) return;
+      try {
+        const res = await authFetch(`/api/public/library/${encodeURIComponent(c)}/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: nextTitle }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        setLibrary((rows) => rows.map((b) => (b.id === id ? { ...b, title: nextTitle } : b)));
+        log(`Renamed project ${id} → ${nextTitle}`);
+      } catch (err) {
+        setError(sanitizeErrorMessage(err, "Rename failed."));
       }
     },
     [libraryCode, log],
@@ -1691,17 +1715,32 @@ function ForgePage() {
                 <li className="text-xs text-[#5d626e]">No saved projects yet.</li>
               )}
               {library.map((b) => (
-                <li key={b.id}>
+                <li key={b.id} className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => void openLibraryBuild(b.id)}
-                    className="w-full truncate rounded-md px-2 py-1.5 text-left text-xs text-[#B6BCC8] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                    className="min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-xs text-[#B6BCC8] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
                   >
                     {b.title || "Untitled"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void renameLibraryBuild(b.id, b.title || "Untitled")}
+                    aria-label={`Rename ${b.title || "Untitled"}`}
+                    title="Rename project"
+                    className="shrink-0 rounded-md p-1 text-[#5d626e] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                  >
+                    <Pencil size={11} />
                   </button>
                 </li>
               ))}
             </ul>
+            <Link
+              to="/archive"
+              className="mt-2 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-[#6b7180] transition hover:text-[#F4A125]"
+            >
+              <Archive size={12} /> Full build archive
+            </Link>
           </aside>
         )}
 
