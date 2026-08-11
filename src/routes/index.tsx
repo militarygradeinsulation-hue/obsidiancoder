@@ -2375,6 +2375,11 @@ function Index() {
     let buildDna: PocketDesignDNA | null = null;
     let buildPlan: PocketConceptPlan | null = current.artPlan ?? null;
     let buildPlanKey = current.artPlanKey ?? "";
+    // Per-stage instrumentation for the pipeline the client owns. The server
+    // reports its own stages through the OBS_TIMING trailer.
+    const stageMarks: { planMs: number; plannerCalled: boolean; speedPath: boolean } =
+      { planMs: 0, plannerCalled: false, speedPath: false };
+    const planStartedAt = performance.now();
     if (previewMode) {
       if (!isProfileAllowed(artProfile, paidAccess)) {
         requireUpgrade(`${getProfile(artProfile).label} builds`);
