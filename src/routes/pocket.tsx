@@ -13,8 +13,10 @@ import { AetherisInstructor } from "@/components/AetherisInstructor";
 
 import { useServerFn } from "@tanstack/react-start";
 import {
+  Archive,
   ChevronLeft,
   Check,
+  Pencil,
   Code2,
   Copy,
   Download,
