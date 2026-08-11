@@ -2835,6 +2835,17 @@ function Index() {
         imageCount: imgCount || undefined,
         rollbackId,
         learningSignals: routing.signalsUsed.slice(),
+        // Retrospective timing: server stages from the trailer plus the client
+        // stage marks that only ever lived in the terminal buffer.
+        stageTimings: {
+          ...(serverTiming ?? {}),
+          client_plan_ms: Math.round(stageMarks.planMs),
+          client_build_ms: Math.round(durationMsGen - stageMarks.planMs),
+          client_total_ms: Math.round(durationMsGen),
+          client_first_token_ms: firstChunkAt ? Math.round(firstChunkAt - t0) : 0,
+          planner_called: Boolean(stageMarks.plannerCalled),
+          speed_path: Boolean(stageMarks.speedPath),
+        },
       };
       const gateBlockersG = checkCommitGate(stableHtml, finalHtml, "full-generation");
       if (gateBlockersG) {
