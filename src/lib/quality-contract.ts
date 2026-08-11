@@ -56,8 +56,8 @@ type FoundFont = { name: string; lower: string };
 /** Collect font family names declared anywhere in the document's CSS. */
 export function declaredFontFamilies(html: string): FoundFont[] {
   const out = new Map<string, FoundFont>();
-  const decl = /font-family\s*:\s*([^;}"']+)/gi;
-  const varDecl = /--[\w-]*font[\w-]*\s*:\s*([^;}]+)/gi;
+  const decl = /font-family\s*:\s*([^;}<]+)/gi;
+  const varDecl = /--[\w-]*font[\w-]*\s*:\s*([^;}<]+)/gi;
   const collect = (list: string) => {
     for (const partRaw of list.split(",")) {
       const part = partRaw.trim().replace(/^["']|["']$/g, "").trim();
