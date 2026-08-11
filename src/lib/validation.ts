@@ -1,6 +1,7 @@
 // Validation v2 — regex-based, deterministic, fast. Structured issues with
 // severity (blocking | warning | info). Keeps the legacy `status` field
 // (passed | warnings | failed) so existing callers continue to work.
+import { jsLexicalMask } from "./js-lexical-mask";
 
 export type Severity = "blocking" | "warning" | "info";
 export type ValidationLevel = "passed" | "warnings" | "failed";
