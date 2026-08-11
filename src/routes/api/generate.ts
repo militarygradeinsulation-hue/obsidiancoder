@@ -465,7 +465,10 @@ interface ComponentPhaseResult {
 // previous 6s primary budget expired before Gemini ever produced a byte.
 const FIRST_RESPONSE_BUDGET_MS = 55_000;
 const ENRICHMENT_BUDGET_MS = 4_000;
-const PRIMARY_OPEN_BUDGET_MS = 32_000;
+// First-byte budget only — it never caps how long a generation may run once
+// the stream is open. Kept tight so a degraded provider costs seconds, not
+// half a minute, before the fallback is tried.
+const PRIMARY_OPEN_BUDGET_MS = 20_000;
 const FALLBACK_OPEN_BUDGET_MS = 16_000;
 const MAX_COMPONENT_CONTEXT_BYTES = 32_000;
 
