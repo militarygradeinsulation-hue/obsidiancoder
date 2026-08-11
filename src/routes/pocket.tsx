@@ -42,6 +42,12 @@ import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
 import { useAuth } from "@/hooks/useSubscription";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
 import { CloudMemoryButton } from "@/components/CloudMemoryButton";
+import {
+  archiveBuild,
+  markLatestArchiveSaved,
+  readArchive,
+  takeArchiveHandoff,
+} from "@/lib/build-archive";
 import { useCloudMemoryHost, ownerAdapter } from "@/hooks/useCloudMemoryHost";
 import { deviceLabel } from "@/lib/project-sync";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
@@ -990,6 +996,21 @@ function ForgePage() {
       } catch { /* learning is best-effort */ }
       const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
       if (title === "Untitled build") setTitle(buildTitle);
+      // Shelve every build in the permanent archive, saved or not.
+      try {
+        archiveBuild(
+          {
+            surface: "pocket",
+            title: buildTitle,
+            prompt: p,
+            model: servedModel,
+            html: finalHtml,
+            family: buildDna.family,
+            profile,
+          },
+          libraryCode,
+        );
+      } catch { /* archiving is best-effort */ }
       setStatus("Ready");
       log(
         `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"}`,
@@ -1119,6 +1140,9 @@ function ForgePage() {
       if (!res.ok) throw new Error(await res.text());
       const j = (await res.json()) as { id: string; share_slug: string };
       setShareUrl(`/api/public/share/${j.share_slug}`);
+      try {
+        markLatestArchiveSaved({ cloudId: j.id, shareSlug: j.share_slug }, libraryCode);
+      } catch { /* best-effort */ }
       setStatus("Saved to your library");
       log(`Saved build ${j.id}`);
       void loadLibrary(libraryCode);
@@ -1477,6 +1501,15 @@ function ForgePage() {
               title="Switch to the full Obsidian Coder workspace"
             >
               Coder
+            </Link>
+
+            <Link
+              to="/archive"
+              className={btn}
+              data-testid="pocket-topbar-archive"
+              title="Every build you have ever made"
+            >
+              Archive
             </Link>
 
             <label className="hidden items-center gap-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
@@ -2070,7 +2103,18 @@ function ForgePage() {
                 className={`${pane === "preview" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-black/30 backdrop-blur-md`}
               >
                 <div className="flex items-center gap-1 border-b border-white/10 px-3 py-2">
-                  <span className="mr-auto truncate text-xs text-[#B6BCC8]">{title}</span>
+                  <label className="sr-only" htmlFor="forge-title-inline">
+                    Build title
+                  </label>
+                  <input
+                    id="forge-title-inline"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    placeholder="Untitled build"
+                    title="Rename this build — used when you save or publish it"
+                    className="mr-auto min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-[#B6BCC8] transition hover:border-white/10 focus:border-[#F4A125]/40 focus:text-[#E8E6E1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                  />
                   {FORGE_DEVICES.map((d) => (
                     <button
                       key={d.id}
