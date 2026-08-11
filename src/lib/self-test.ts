@@ -3582,3 +3582,128 @@ type PocketDesignDNAForTest = Parameters<typeof import("./pocket-prompt")["pocke
 function parseJsonLooseNull(call: typeof import("./pocket-studio-call"), text: string): boolean {
   return call.parseJsonLoose(text) === null;
 }
+
+/* ==================================================================== *
+ * Build learning — the graded quality memory that makes each build
+ * better and faster than the last.
+ * ==================================================================== */
+export async function runBuildLearningTests(): Promise<{ results: TestResult[]; passed: number; failed: number }> {
+  const results: TestResult[] = [];
+  const bl = await import("./build-learning");
+  const bp = await import("./build-learning-prompt");
+  const cre = await import("./pocket-creative");
+
+  const dna = cre.generateDNA({ family: "editorial", seed: 4242 });
+
+  const mk = (
+    over: Partial<Parameters<typeof bl.recordBuildOutcome>[0]> = {},
+    critique?: Record<string, number> | null,
+  ) => {
+    const input = {
+      surface: "vibe" as const,
+      profile: "cinematic" as const,
+      dna,
+      model: "anthropic/claude-sonnet-4.5",
+      critique: critique ?? null,
+      validationStatus: "passed" as const,
+      outcome: "kept" as const,
+      ...over,
+    };
+    // Build an entry without touching storage by recording into a throwaway
+    // memory and reading the head back.
+    return bl.recordBuildOutcome(input, "__selftest__").entries[0]!;
+  };
+
+  /* ---------------- scoring ---------------- */
+  const highEntry = mk({}, { craft: 9, originality: 9, hierarchy: 9 });
+  const lowEntry = mk({}, { craft: 3, originality: 3, hierarchy: 3 });
+  results.push(assert(bl.scoreOf(highEntry) >= 85, "learning: strong critique axes score high"));
+  results.push(assert(bl.scoreOf(lowEntry) <= 40, "learning: weak critique axes score low"));
+  results.push(assert(
+    bl.scoreOf(mk({ validationStatus: "failed", critique: null })) < bl.scoreOf(mk({ validationStatus: "passed", critique: null })),
+    "learning: failed validation scores below passing validation",
+  ));
+  results.push(assert(
+    bl.scoreOf(mk({ outcome: "discarded" }, { craft: 8, originality: 8, hierarchy: 8 })) <
+      bl.scoreOf(mk({ outcome: "kept" }, { craft: 8, originality: 8, hierarchy: 8 })),
+    "learning: a discarded build is penalised against an identical kept one",
+  ));
+  results.push(assert(
+    bl.scoreOf(mk({ designIssues: ["a", "b", "c"] }, { craft: 9, originality: 9, hierarchy: 9 })) <
+      bl.scoreOf(highEntry),
+    "learning: design-floor findings reduce the score",
+  ));
+  const clamped = mk({}, { craft: 99, originality: -5 });
+  results.push(assert(
+    Object.values(clamped.critique ?? {}).every((v) => v >= 0 && v <= 10),
+    "learning: out-of-range critique axes are clamped to 0-10",
+  ));
+
+  /* ---------------- exemplars + bias ---------------- */
+  const entries = [
+    mk({}, { craft: 9, originality: 9, hierarchy: 9 }),
+    mk({ model: "weak/model", outcome: "discarded" }, { craft: 2, originality: 2, hierarchy: 2 }),
+    mk({ model: "weak/model", outcome: "discarded" }, { craft: 3, originality: 2, hierarchy: 2 }),
+    mk({ model: "weak/model", outcome: "discarded" }, { craft: 2, originality: 3, hierarchy: 2 }),
+  ];
+  const top = bl.topExemplars(entries, "editorial", 2);
+  results.push(assert(top.length > 0 && bl.scoreOf(top[0]!) >= bl.scoreOf(top[top.length - 1]!), "learning: exemplars come back best-first"));
+  results.push(assert(bl.topExemplars(entries, "brutalist", 2).length === 0, "learning: exemplars are scoped to their own family"));
+
+  const bias = bl.learnedBias(entries);
+  results.push(assert(bl.modelUnderperforms(bias, "weak/model"), "learning: a repeatedly bad model is flagged as underperforming"));
+  results.push(assert(!bl.modelUnderperforms(bias, "anthropic/claude-sonnet-4.5"), "learning: one observation is never enough to flag a model"));
+  results.push(assert(!bl.modelUnderperforms(bias, "never/seen"), "learning: an unseen model is never flagged"));
+
+  /* ---------------- proven direction (the speed path) ---------------- */
+  const proven = bl.provenDirection(entries, "editorial");
+  results.push(assert(proven !== null && proven.score >= bl.PROVEN_SCORE, "learning: a high-scoring kept build becomes a proven direction"));
+  results.push(assert(bl.provenDirection(entries, "auto") === null, "learning: 'auto' never yields a proven direction"));
+  results.push(assert(bl.provenDirection([lowEntry], "editorial") === null, "learning: a low-scoring build is not proven"));
+  results.push(assert(
+    bl.provenDirection([mk({ outcome: "discarded" }, { craft: 10, originality: 10, hierarchy: 10 })], "editorial") === null,
+    "learning: a discarded build never becomes proven",
+  ));
+
+  if (proven) {
+    const mutated = bl.mutateProvenDna(proven, 999);
+    const original = cre.generateDNA({ family: "editorial", seed: proven.seed });
+    results.push(assert(mutated !== null, "learning: a proven direction rebuilds into usable DNA"));
+    if (mutated) {
+      results.push(assert(mutated.layout === original.layout && mutated.palette === original.palette, "learning: mutation keeps the axes that worked"));
+      results.push(assert(mutated.id !== original.id, "learning: mutation re-rolls identity so pages do not repeat"));
+      results.push(assert(mutated.family === original.family, "learning: mutation stays inside the proven family"));
+    }
+  }
+
+  /* ---------------- brief ---------------- */
+  const brief = bp.buildLearningBrief(entries, "editorial");
+  results.push(assert(brief.length > 0, "brief: proven exemplars produce a brief"));
+  results.push(assert(brief.length <= bp.LEARNING_BRIEF_MAX_BYTES, "brief: the brief stays within its byte budget"));
+  results.push(assert(!/<[a-z]/i.test(brief), "brief: the brief carries decisions, never markup"));
+  results.push(assert(bp.buildLearningBrief([], "editorial") === "", "brief: no history means no brief"));
+  results.push(assert(bp.buildLearningBrief([lowEntry], "editorial") === "", "brief: weak builds are not held up as exemplars"));
+  const issueBrief = bp.buildLearningBrief(
+    [mk({ designIssues: ["flat hero with no depth"] }, { craft: 9, originality: 9, hierarchy: 9 })],
+    "editorial",
+  );
+  results.push(assert(issueBrief.includes("AVOID"), "brief: recent design complaints are surfaced as things to avoid"));
+
+  const hugeBrief = bp.buildLearningBrief(
+    Array.from({ length: 12 }, () => mk({ designIssues: ["x".repeat(400)] }, { craft: 9, originality: 9, hierarchy: 9 })),
+    "editorial",
+  );
+  results.push(assert(hugeBrief.length <= bp.LEARNING_BRIEF_MAX_BYTES, "brief: pathological history still fits the budget"));
+  results.push(assert(hugeBrief.length <= 2000, "brief: the brief always satisfies the generate schema cap"));
+
+  /* ---------------- storage hygiene ---------------- */
+  const many = { v: bl.BUILD_LEARNING_VERSION, entries: Array.from({ length: 200 }, () => highEntry) };
+  const written = bl.writeBuildLearning(many, "__selftest__");
+  results.push(assert(written.entries.length <= bl.LEARNING_LIMIT, "learning: stored history is capped"));
+  results.push(assert(JSON.stringify(written).length <= bl.LEARNING_MAX_BYTES + 2000, "learning: stored history stays bounded in size"));
+  results.push(assert(bl.forgetBuildLearning("__selftest__").entries.length === 0, "learning: history can be forgotten"));
+  results.push(assert(bl.learningKey("9822") !== bl.learningKey("1234"), "learning: history is scoped per library code"));
+
+  const passed = results.filter((r) => r.ok).length;
+  return { results, passed, failed: results.length - passed };
+}

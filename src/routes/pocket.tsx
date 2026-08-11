@@ -121,6 +121,8 @@ import {
   readServedModel,
 } from "@/lib/pocket-hardening";
 import { parseCritique, dnaPromptBlock } from "@/lib/pocket-prompt";
+import { readBuildLearning, recordBuildOutcome } from "@/lib/build-learning";
+import { buildLearningBrief } from "@/lib/build-learning-prompt";
 import { newPocketMemory, updateMemoryFromPrompt, hasMemory, memorySummary } from "@/lib/pocket-memory";
 import type { ProjectMemory } from "@/lib/project-memory";
 import { patchSchema } from "@/lib/patch-protocol";
@@ -767,6 +769,8 @@ function ForgePage() {
             }
           : undefined,
         pocketRecentSignatures: recentDigest.slice(0, 12),
+        // Proven decisions from this user's best past builds.
+        learningBrief: buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
       };
       const res = await authFetch("/api/generate", {
         method: "POST",
@@ -907,6 +911,7 @@ function ForgePage() {
       const safeFirstVersion = finalHtml;
 
       // ---- 4. Originality + polish (Cinematic only) -----------------------
+      let critiqueScores: Record<string, number> | null = null;
       setStatus("Checking originality…");
       if (profile === "cinematic" && paidAccess) {
         setStatus("Polishing…");
@@ -922,6 +927,7 @@ function ForgePage() {
             if (!cres.cached) providerCalls += 1;
             critiqueRan = true;
             const critique = parseCritique(JSON.parse(cres.critiqueJson) as unknown);
+            critiqueScores = critique.scores;
             if (critique.verdict === "repair" && critique.operations.length) {
               const parsed = patchSchema.safeParse({
                 summary: critique.issues[0]?.slice(0, 200) || "Design review repair",
@@ -969,6 +975,19 @@ function ForgePage() {
       setVersions((v) => pushVersion(v, makeForgeVersion(finalHtml, label)));
       setLastCritiqueRan(critiqueRan);
       rememberSignature(dnaSignature(buildDna), libraryCode);
+      // Quality memory: grade this build so the next one starts smarter.
+      try {
+        recordBuildOutcome({
+          surface: "pocket",
+          profile,
+          dna: buildDna,
+          model: servedModel,
+          critique: critiqueScores,
+          validationStatus: "passed",
+          latencyMs: 0,
+          outcome: "kept",
+        }, libraryCode);
+      } catch { /* learning is best-effort */ }
       const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
       if (title === "Untitled build") setTitle(buildTitle);
       setStatus("Ready");

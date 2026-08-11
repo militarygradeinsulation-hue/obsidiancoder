@@ -153,6 +153,7 @@ import {
   readCreativeMemory,
   rememberSignature,
   dnaSignature,
+  hashString,
   type PocketDesignDNA,
   type PocketProfile,
   type PocketStyleFamily,
@@ -169,6 +170,16 @@ import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-mode
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { dnaPromptBlock, parseCritique } from "@/lib/pocket-prompt";
 import { ArtDirectionControl } from "@/components/ArtDirectionControl";
+import {
+  learnedBias,
+  modelUnderperforms,
+  mutateProvenDna,
+  provenDirection,
+  readBuildLearning,
+  recordBuildOutcome,
+} from "@/lib/build-learning";
+import { buildLearningBrief } from "@/lib/build-learning-prompt";
+import { escalateModel } from "@/lib/quality-retry";
 
 
 
@@ -1712,6 +1723,15 @@ function Index() {
     });
     try {
       appendLedgerEvent({ kind: "version-restored", outcome: "restored", note: version.label });
+      // A revert means the most recent direction did not land — grade it down.
+      recordBuildOutcome({
+        surface: "vibe",
+        profile: artProfile,
+        dna: artDna,
+        model: version.metadata?.actualModel ?? version.metadata?.model ?? "unknown",
+        validationStatus: "unknown",
+        outcome: "restored",
+      }, libraryCode);
       setIntelligenceTick((n) => n + 1);
     } catch { /* best-effort */ }
   }
@@ -2331,6 +2351,10 @@ function Index() {
     }
     // ---- Art direction: choose (or reuse) a Design DNA, exactly like Pocket.
     const isRefineBuild = Boolean(stableHtml);
+    // Graded memory of past builds — drives the exemplar brief, the proven
+    // direction reuse, and the model bias below.
+    const learningEntries = readBuildLearning(libraryCode).entries;
+    const learningBias = learnedBias(learningEntries);
     let buildDna: PocketDesignDNA | null = null;
     let buildPlan: PocketConceptPlan | null = current.artPlan ?? null;
     let buildPlanKey = current.artPlanKey ?? "";
@@ -2356,7 +2380,15 @@ function Index() {
         const base = deterministicConceptPlan({ prompt: basePrompt, family: artFamily, recent: readCreativeMemory(libraryCode).entries });
         buildPlan = base;
         buildPlanKey = nextPlanKey;
-        if (artProfile !== "fast" && paidAccess) {
+        // Speed path: a direction that already scored 80+ for this family is
+        // reused (mutated, never copied) instead of paying for another
+        // concept-planning provider call.
+        const proven = provenDirection(learningEntries, artFamily);
+        const provenDna = proven ? mutateProvenDna(proven, hashString(`${basePrompt}|${Date.now()}`)) : null;
+        if (provenDna) {
+          buildDna = provenDna;
+          setTerminal((t) => [...t, `⚡ Reused a proven ${getFamily(provenDna.family).label} direction (scored ${proven!.score}/100) — planner call skipped`]);
+        } else if (artProfile !== "fast" && paidAccess) {
           const planner = resolvePocketPlannerModel();
           try {
             const pres = await planConceptsFn({
@@ -2377,7 +2409,7 @@ function Index() {
             setTerminal((t) => [...t, "⚠ Planner unavailable — using deterministic directions."]);
           }
         }
-        buildDna = selectedConcept(buildPlan).dna;
+        buildDna = buildDna ?? selectedConcept(buildPlan).dna;
       }
       const committedDna = buildDna;
       const committedPlan = buildPlan;
@@ -2393,9 +2425,19 @@ function Index() {
     // generate route reads any non-"auto" pickerModel as an explicit pin and
     // disables its safe first-byte fallback.
     const hasRawPinnedModel = Boolean(current.model?.includes("/"));
-    const modelForServer = previewMode && !hasRawPinnedModel
+    let modelForServer = previewMode && !hasRawPinnedModel
       ? artModelChoice.model
       : adaptiveModel;
+    // Learned bias: a model that has repeatedly scored low (3+ observations)
+    // for this user gets replaced by the next-best sibling. Never a hard ban,
+    // and never applied to an explicitly pinned model.
+    if (previewMode && !hasRawPinnedModel && modelUnderperforms(learningBias, modelForServer)) {
+      const alt = escalateModel(modelForServer);
+      if (alt && alt !== modelForServer && !modelUnderperforms(learningBias, alt)) {
+        setTerminal((t) => [...t, `↑ ${modelForServer} has been underperforming here — using ${alt} instead.`]);
+        modelForServer = alt;
+      }
+    }
     const pickerModelForServer = hasRawPinnedModel ? current.model : "auto";
     const controller = new AbortController();
     abortRef.current = controller;
@@ -2436,6 +2478,7 @@ function Index() {
                   }
                 : undefined,
               pocketRecentSignatures: compactRecentSignatures(readCreativeMemory(libraryCode).entries).slice(0, 12),
+              learningBrief: buildLearningBrief(learningEntries, buildDna.family),
             }
           : {}),
         // Inject reusable components for fresh builds only.
@@ -2797,6 +2840,20 @@ function Index() {
           ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ QA blocked commit — ${finG.blockers.slice(0, 2).join("; ").slice(0, 200)} — reverted to last stable version.` }] }
           : s));
         setTerminal((t) => [...t, `✗ QA blocked generation: ${(finG.blockers[0] ?? "unresolved").slice(0, 120)}`]);
+        if (previewMode && buildDna) {
+          try {
+            recordBuildOutcome({
+              surface: "vibe",
+              profile: artProfile,
+              dna: buildDna,
+              model: modelForServer,
+              designIssues: finG.blockers.slice(0, 4),
+              validationStatus: "failed",
+              latencyMs: durationMsGen,
+              outcome: "discarded",
+            }, libraryCode);
+          } catch { /* learning is best-effort */ }
+        }
         pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: finG.finalValidation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${finG.blockers[0] ?? "unresolved"}` });
         setLastOperation((prev) => prev && prev.operationId === operationId ? {
           ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
@@ -2819,6 +2876,7 @@ function Index() {
       let committedFinalHtml = finG.finalHtml;
 
       // ---- Cinematic polish pass (same design review Pocket runs) --------
+      let critiqueScores: Record<string, number> | null = null;
       if (previewMode && buildDna && artProfile === "cinematic" && paidAccess) {
         const safeFirstVersion = committedFinalHtml;
         setStage("validate"); setStageDetail("Design review");
@@ -2850,6 +2908,7 @@ function Index() {
             } else {
               setTerminal((t) => [...t, `✓ Design review verdict: ${critique.verdict}`]);
             }
+            critiqueScores = critique.scores;
           }
         } catch {
           setTerminal((t) => [...t, "⚠ Design review unavailable — kept the first version."]);
@@ -2858,6 +2917,25 @@ function Index() {
       // Anti-repetition memory: remember this build's structure.
       if (previewMode && buildDna) {
         try { rememberSignature(dnaSignature(buildDna), libraryCode); } catch { /* non-fatal */ }
+        // Quality memory: grade this build so the next one starts smarter.
+        try {
+          recordBuildOutcome({
+            surface: "vibe",
+            profile: artProfile,
+            dna: buildDna,
+            model: modelForServer,
+            critique: critiqueScores,
+            designIssues: finG.finalValidation.issues
+              .filter((i) => i.severity === "warning" || i.severity === "blocking")
+              .slice(0, 4)
+              .map((i) => i.message),
+            validationStatus: finG.finalValidation.status === "passed" ? "passed"
+              : finG.finalValidation.status === "failed" ? "failed" : "warnings",
+            latencyMs: durationMsGen,
+            outcome: "kept",
+          }, libraryCode);
+          setIntelligenceTick((n) => n + 1);
+        } catch { /* learning is best-effort */ }
       }
       if (finG.deterministicRepairs.length) setTerminal((t) => [...t, `✓ QA: ${finG.deterministicRepairs.length} deterministic navigation repair(s) applied`]);
       if (finG.claudeInvoked) setTerminal((t) => [...t, `↺ Claude QA: 1 call via ${finG.claudeModel ?? "?"} — ${finG.claudeVerdict}`]);
@@ -4808,7 +4886,7 @@ function Index() {
             </div>
 
             {/* Core 4.0 — Adaptive Intelligence */}
-            <IntelligencePanel refreshKey={intelligenceTick} intent={lastIntent} decision={lastDecision} lastOperation={lastOperation} />
+            <IntelligencePanel refreshKey={intelligenceTick} libraryCode={libraryCode} intent={lastIntent} decision={lastDecision} lastOperation={lastOperation} />
             <EngineeringConsolePanel
               live={engineeringLive}
               report={engineeringReport}
