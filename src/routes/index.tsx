@@ -179,6 +179,7 @@ import {
   recordBuildOutcome,
 } from "@/lib/build-learning";
 import { buildLearningBrief } from "@/lib/build-learning-prompt";
+import { escalateModel } from "@/lib/quality-retry";
 
 
 
@@ -2830,6 +2831,20 @@ function Index() {
           ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ QA blocked commit — ${finG.blockers.slice(0, 2).join("; ").slice(0, 200)} — reverted to last stable version.` }] }
           : s));
         setTerminal((t) => [...t, `✗ QA blocked generation: ${(finG.blockers[0] ?? "unresolved").slice(0, 120)}`]);
+        if (previewMode && buildDna) {
+          try {
+            recordBuildOutcome({
+              surface: "vibe",
+              profile: artProfile,
+              dna: buildDna,
+              model: modelForServer,
+              designIssues: finG.blockers.slice(0, 4),
+              validationStatus: "failed",
+              latencyMs: durationMsGen,
+              outcome: "discarded",
+            }, libraryCode);
+          } catch { /* learning is best-effort */ }
+        }
         pushFeedback(sessionId, { taskType: classification.taskType, strategy: "full-generation", model: modelForServer, validationStatus: finG.finalValidation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${finG.blockers[0] ?? "unresolved"}` });
         setLastOperation((prev) => prev && prev.operationId === operationId ? {
           ...prev, finishedAt: Date.now(), durationMs: durationMsGen,
@@ -2852,6 +2867,7 @@ function Index() {
       let committedFinalHtml = finG.finalHtml;
 
       // ---- Cinematic polish pass (same design review Pocket runs) --------
+      let critiqueScores: Record<string, number> | null = null;
       if (previewMode && buildDna && artProfile === "cinematic" && paidAccess) {
         const safeFirstVersion = committedFinalHtml;
         setStage("validate"); setStageDetail("Design review");
@@ -2883,6 +2899,7 @@ function Index() {
             } else {
               setTerminal((t) => [...t, `✓ Design review verdict: ${critique.verdict}`]);
             }
+            critiqueScores = critique.scores;
           }
         } catch {
           setTerminal((t) => [...t, "⚠ Design review unavailable — kept the first version."]);
@@ -2891,6 +2908,25 @@ function Index() {
       // Anti-repetition memory: remember this build's structure.
       if (previewMode && buildDna) {
         try { rememberSignature(dnaSignature(buildDna), libraryCode); } catch { /* non-fatal */ }
+        // Quality memory: grade this build so the next one starts smarter.
+        try {
+          recordBuildOutcome({
+            surface: "vibe",
+            profile: artProfile,
+            dna: buildDna,
+            model: modelForServer,
+            critique: critiqueScores,
+            designIssues: finG.finalValidation.issues
+              .filter((i) => i.severity === "warning" || i.severity === "error")
+              .slice(0, 4)
+              .map((i) => i.message),
+            validationStatus: finG.finalValidation.status === "passed" ? "passed"
+              : finG.finalValidation.status === "failed" ? "failed" : "warnings",
+            latencyMs: durationMsGen,
+            outcome: "kept",
+          }, libraryCode);
+          setIntelligenceTick((n) => n + 1);
+        } catch { /* learning is best-effort */ }
       }
       if (finG.deterministicRepairs.length) setTerminal((t) => [...t, `✓ QA: ${finG.deterministicRepairs.length} deterministic navigation repair(s) applied`]);
       if (finG.claudeInvoked) setTerminal((t) => [...t, `↺ Claude QA: 1 call via ${finG.claudeModel ?? "?"} — ${finG.claudeVerdict}`]);
