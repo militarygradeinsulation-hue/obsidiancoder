@@ -13,8 +13,10 @@ import { AetherisInstructor } from "@/components/AetherisInstructor";
 
 import { useServerFn } from "@tanstack/react-start";
 import {
+  Archive,
   ChevronLeft,
   Check,
+  Pencil,
   Code2,
   Copy,
   Download,
@@ -42,6 +44,11 @@ import { useEntitlement, isPaidMode } from "@/hooks/useEntitlement";
 import { useAuth } from "@/hooks/useSubscription";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
 import { CloudMemoryButton } from "@/components/CloudMemoryButton";
+import {
+  archiveBuild,
+  markLatestArchiveSaved,
+  takeArchiveHandoff,
+} from "@/lib/build-archive";
 import { useCloudMemoryHost, ownerAdapter } from "@/hooks/useCloudMemoryHost";
 import { deviceLabel } from "@/lib/project-sync";
 import { useLiveSync, useAutosave } from "@/hooks/useLiveSync";
@@ -453,6 +460,19 @@ function ForgePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryCode, restoreSession]);
 
+  // A build handed over from /archive wins over the restored session.
+  React.useEffect(() => {
+    const handoff = takeArchiveHandoff();
+    if (!handoff) return;
+    const next = projectFromHtml(handoff.html);
+    setProject(next);
+    setActiveFileId(next.entryFileId);
+    setTitle(handoff.title);
+    setPrompt(handoff.prompt);
+    setPane("preview");
+    setStatus(`Opened from archive · ${handoff.title}`);
+  }, []);
+
   // Autosave whatever is on the canvas.
   React.useEffect(() => {
     if (!html || html === EMPTY_DOC || html.length < 40) return;
@@ -587,6 +607,31 @@ function ForgePage() {
       } catch (err) {
         setError(sanitizeErrorMessage(err, "Could not open that project."));
         setStatus("Ready");
+      }
+    },
+    [libraryCode, log],
+  );
+
+  /** Rename a saved project in place (cloud library row + sidebar list). */
+  const renameLibraryBuild = React.useCallback(
+    async (id: string, current: string) => {
+      const c = libraryCode.trim();
+      if (c.length < 4) return;
+      const next = window.prompt("Rename this project", current || "Untitled");
+      if (next === null) return;
+      const nextTitle = next.trim();
+      if (!nextTitle || nextTitle === current) return;
+      try {
+        const res = await authFetch(`/api/public/library/${encodeURIComponent(c)}/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ title: nextTitle }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        setLibrary((rows) => rows.map((b) => (b.id === id ? { ...b, title: nextTitle } : b)));
+        log(`Renamed project ${id} → ${nextTitle}`);
+      } catch (err) {
+        setError(sanitizeErrorMessage(err, "Rename failed."));
       }
     },
     [libraryCode, log],
@@ -990,6 +1035,21 @@ function ForgePage() {
       } catch { /* learning is best-effort */ }
       const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
       if (title === "Untitled build") setTitle(buildTitle);
+      // Shelve every build in the permanent archive, saved or not.
+      try {
+        archiveBuild(
+          {
+            surface: "pocket",
+            title: buildTitle,
+            prompt: p,
+            model: servedModel,
+            html: finalHtml,
+            family: buildDna.family,
+            profile,
+          },
+          libraryCode,
+        );
+      } catch { /* archiving is best-effort */ }
       setStatus("Ready");
       log(
         `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"}`,
@@ -1119,6 +1179,9 @@ function ForgePage() {
       if (!res.ok) throw new Error(await res.text());
       const j = (await res.json()) as { id: string; share_slug: string };
       setShareUrl(`/api/public/share/${j.share_slug}`);
+      try {
+        markLatestArchiveSaved({ cloudId: j.id, shareSlug: j.share_slug }, libraryCode);
+      } catch { /* best-effort */ }
       setStatus("Saved to your library");
       log(`Saved build ${j.id}`);
       void loadLibrary(libraryCode);
@@ -1479,6 +1542,15 @@ function ForgePage() {
               Coder
             </Link>
 
+            <Link
+              to="/archive"
+              className={btn}
+              data-testid="pocket-topbar-archive"
+              title="Every build you have ever made"
+            >
+              Archive
+            </Link>
+
             <label className="hidden items-center gap-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
               <span className="text-[10px] uppercase tracking-widest text-[#6b7180]">Code</span>
               <input
@@ -1645,17 +1717,32 @@ function ForgePage() {
                 <li className="text-xs text-[#5d626e]">No saved projects yet.</li>
               )}
               {library.map((b) => (
-                <li key={b.id}>
+                <li key={b.id} className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => void openLibraryBuild(b.id)}
-                    className="w-full truncate rounded-md px-2 py-1.5 text-left text-xs text-[#B6BCC8] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                    className="min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-xs text-[#B6BCC8] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
                   >
                     {b.title || "Untitled"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => void renameLibraryBuild(b.id, b.title || "Untitled")}
+                    aria-label={`Rename ${b.title || "Untitled"}`}
+                    title="Rename project"
+                    className="shrink-0 rounded-md p-1 text-[#5d626e] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                  >
+                    <Pencil size={11} />
                   </button>
                 </li>
               ))}
             </ul>
+            <Link
+              to="/archive"
+              className="mt-2 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-[#6b7180] transition hover:text-[#F4A125]"
+            >
+              <Archive size={12} /> Full build archive
+            </Link>
           </aside>
         )}
 
@@ -2070,7 +2157,18 @@ function ForgePage() {
                 className={`${pane === "preview" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-black/30 backdrop-blur-md`}
               >
                 <div className="flex items-center gap-1 border-b border-white/10 px-3 py-2">
-                  <span className="mr-auto truncate text-xs text-[#B6BCC8]">{title}</span>
+                  <label className="sr-only" htmlFor="forge-title-inline">
+                    Build title
+                  </label>
+                  <input
+                    id="forge-title-inline"
+                    value={title}
+                    onChange={(e) => setTitle(e.target.value)}
+                    onFocus={(e) => e.currentTarget.select()}
+                    placeholder="Untitled build"
+                    title="Rename this build — used when you save or publish it"
+                    className="mr-auto min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-[#B6BCC8] transition hover:border-white/10 focus:border-[#F4A125]/40 focus:text-[#E8E6E1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                  />
                   {FORGE_DEVICES.map((d) => (
                     <button
                       key={d.id}

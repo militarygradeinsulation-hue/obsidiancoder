@@ -3707,3 +3707,81 @@ export async function runBuildLearningTests(): Promise<{ results: TestResult[]; 
   const passed = results.filter((r) => r.ok).length;
   return { results, passed, failed: results.length - passed };
 }
+
+/* ==================================================================== *
+ * Build archive — the permanent shelf that keeps every build ever made.
+ * ==================================================================== */
+export async function runBuildArchiveTests(): Promise<{ results: TestResult[]; passed: number; failed: number }> {
+  const results: TestResult[] = [];
+  const ba = await import("./build-archive");
+  const CODE = "__selftest_archive__";
+  ba.clearArchive(CODE);
+
+  const html = `<!doctype html><html><body>${"x".repeat(200)}</body></html>`;
+
+  /* ---------------- shelving ---------------- */
+  ba.clearArchive(CODE);
+  const first = ba.archiveBuild({ surface: "pocket", title: "Alpha", prompt: "make alpha", model: "m1", html }, CODE, 1000);
+  results.push(assert(first.entries.length === 1, "archive: a finished build is shelved automatically"));
+  results.push(assert(first.entries[0]!.bytes === html.length, "archive: byte size is recorded"));
+  results.push(assert(ba.archiveBuild({ surface: "pocket", title: "Tiny", html: "<p>x</p>" }, CODE).entries.length === 1, "archive: fragments below the floor are not shelved"));
+
+  const dupe = ba.archiveBuild({ surface: "pocket", title: "Alpha", prompt: "make alpha", model: "m1", html }, CODE, 2000);
+  results.push(assert(dupe.entries.length === 1, "archive: an identical rebuild refreshes instead of duplicating"));
+  results.push(assert(dupe.entries[0]!.at === 2000, "archive: the refreshed entry carries the newer timestamp"));
+
+  const second = ba.archiveBuild({ surface: "vibe", title: "Beta", prompt: "make beta", model: "m2", html: html + "<!--b-->" }, CODE, 3000);
+  results.push(assert(second.entries.length === 2, "archive: a different build gets its own entry"));
+  results.push(assert(second.entries[0]!.title === "Beta", "archive: newest build sits at the top"));
+
+  /* ---------------- rename, stamp, delete ---------------- */
+  const betaId = second.entries[0]!.id;
+  const renamed = ba.renameArchiveEntry(betaId, "  Beta renamed  ", CODE);
+  results.push(assert(renamed.entries[0]!.title === "Beta renamed", "archive: builds can be renamed"));
+  results.push(assert(ba.renameArchiveEntry(betaId, "   ", CODE).entries[0]!.title === "Untitled build", "archive: a blank rename falls back to a safe title"));
+
+  const stamped = ba.markLatestArchiveSaved({ cloudId: "cloud-1", shareSlug: "slug-1" }, CODE);
+  results.push(assert(stamped.entries[0]!.cloudId === "cloud-1", "archive: publishing stamps the cloud id on the entry"));
+  results.push(assert(stamped.entries[0]!.shareSlug === "slug-1", "archive: the live URL slug is remembered"));
+
+  results.push(assert(ba.deleteArchiveEntry(betaId, CODE).entries.length === 1, "archive: an entry can be removed"));
+
+  /* ---------------- search ---------------- */
+  const entries = ba.readArchive(CODE).entries;
+  results.push(assert(ba.searchArchive(entries, "alpha").length === 1, "archive: search matches titles and prompts"));
+  results.push(assert(ba.searchArchive(entries, "zzz").length === 0, "archive: search excludes non-matches"));
+  results.push(assert(ba.searchArchive(entries, "  ").length === entries.length, "archive: an empty query lists everything"));
+
+  /* ---------------- bounds and scoping ---------------- */
+  const bulk = Array.from({ length: ba.ARCHIVE_LIMIT + 40 }, (_, i) => ({
+    id: `e${i}`, at: i, surface: "pocket" as const, title: `t${i}`, prompt: "", model: "m",
+    html, bytes: html.length,
+  }));
+  const trimmed = ba.trimArchive(bulk);
+  results.push(assert(trimmed.length <= ba.ARCHIVE_LIMIT, "archive: the shelf is capped by entry count"));
+  results.push(assert(JSON.stringify({ v: 1, entries: trimmed }).length <= ba.ARCHIVE_MAX_BYTES, "archive: the shelf stays inside its byte budget"));
+  const fat = Array.from({ length: 40 }, (_, i) => ({
+    id: `f${i}`, at: i, surface: "pocket" as const, title: `t${i}`, prompt: "", model: "m",
+    html: "y".repeat(ba.ARCHIVE_HTML_MAX), bytes: ba.ARCHIVE_HTML_MAX,
+  }));
+  const fatTrim = ba.trimArchive(fat);
+  results.push(assert(fatTrim.length >= 1 && JSON.stringify({ v: 1, entries: fatTrim }).length <= ba.ARCHIVE_MAX_BYTES, "archive: oversized histories drop oldest builds, never everything"));
+  results.push(assert(fatTrim[0]!.at === 39, "archive: the newest build always survives trimming"));
+  results.push(assert(ba.archiveKey("9822") !== ba.archiveKey("1234"), "archive: shelves are scoped per library code"));
+  results.push(assert(ba.archiveKey("") === ba.archiveKey("  "), "archive: signed-out builds share one anonymous shelf"));
+
+  /* ---------------- handoff ---------------- */
+  const entry = ba.readArchive(CODE).entries[0]!;
+  ba.stageArchiveHandoff(entry);
+  const taken = ba.takeArchiveHandoff();
+  results.push(assert(taken?.html === entry.html, "archive: opening a build hands its code to the workspace"));
+  results.push(assert(ba.takeArchiveHandoff() === null, "archive: the handoff is one-shot"));
+  ba.stageArchiveHandoff(entry);
+  results.push(assert(ba.takeArchiveHandoff(1000, Date.now() + 60_000) === null, "archive: a stale handoff is ignored"));
+
+  ba.clearArchive(CODE);
+  results.push(assert(ba.readArchive(CODE).entries.length === 0, "archive: the shelf can be cleared"));
+
+  const passed = results.filter((r) => r.ok).length;
+  return { results, passed, failed: results.length - passed };
+}

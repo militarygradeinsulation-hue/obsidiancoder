@@ -180,6 +180,8 @@ import {
 } from "@/lib/build-learning";
 import { buildLearningBrief } from "@/lib/build-learning-prompt";
 import { escalateModel } from "@/lib/quality-retry";
+import { Archive as ArchiveIcon } from "lucide-react";
+import { archiveBuild, takeArchiveHandoff } from "@/lib/build-archive";
 
 
 
@@ -1324,6 +1326,20 @@ function Index() {
   }
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
+
+  // A build handed over from /archive opens straight into the active session.
+  useEffect(() => {
+    const handoff = takeArchiveHandoff();
+    if (!handoff) return;
+    setSessions((all) =>
+      all.map((s) =>
+        s.id === activeId ? { ...s, html: handoff.html, title: handoff.title.slice(0, 40) } : s,
+      ),
+    );
+    setTab("preview");
+    setTerminal((t) => [...t, `→ Opened from archive: ${handoff.title}`]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---- Art direction (shared with Obsidian Pocket) -----------------------
   const artProfile: PocketProfile = current?.artProfile ?? "fast";
@@ -2914,6 +2930,23 @@ function Index() {
           setTerminal((t) => [...t, "⚠ Design review unavailable — kept the first version."]);
         }
       }
+      // Permanent archive: shelve every build the Vibe Coder commits.
+      try {
+        const sessionTitle =
+          sessions.find((s) => s.id === sessionId)?.title || basePrompt.slice(0, 60) || "Untitled build";
+        archiveBuild(
+          {
+            surface: "vibe",
+            title: sessionTitle,
+            prompt: basePrompt,
+            model: modelForServer,
+            html: committedFinalHtml,
+            ...(buildDna ? { family: buildDna.family } : {}),
+            profile: artProfile,
+          },
+          libraryCode,
+        );
+      } catch { /* archiving is best-effort */ }
       // Anti-repetition memory: remember this build's structure.
       if (previewMode && buildDna) {
         try { rememberSignature(dnaSignature(buildDna), libraryCode); } catch { /* non-fatal */ }
@@ -3439,6 +3472,10 @@ function Index() {
             <span>Obsidian Pocket</span>
             <span className="obs-kbd obs-kbd-nav">new</span>
           </Link>
+          <Link to="/archive" className="obs-nav-item" data-testid="nav-archive" title="Every build you have ever made">
+            <ArchiveIcon className="h-[18px] w-[18px]" strokeWidth={1.5} />
+            <span>Build archive</span>
+          </Link>
         </nav>
 
 
@@ -3576,6 +3613,14 @@ function Index() {
               style={{ borderColor: "rgba(244,161,37,0.45)", color: "#f4a125" }}
             >
               <Rocket className="h-3.5 w-3.5" /> Pocket
+            </Link>
+            <Link
+              to="/archive"
+              className="obs-chip"
+              data-testid="topbar-archive"
+              title="Every build you have ever made"
+            >
+              <ArchiveIcon className="h-3.5 w-3.5" /> Archive
             </Link>
             <button
               type="button"
