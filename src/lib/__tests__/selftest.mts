@@ -453,12 +453,13 @@ ok(genSrc2.includes("detectForbiddenStorage(outSample)"), "generate.ts: logs for
   );
   resetRouteLLMKeyHealth();
 
-  const googleRoute = chooseRoute("routellm/claude-opus-4-1-20250805", { googleKey: "g", routellmKey: "r", lovableKey: "l" }, "pocket_plan");
-  ok(googleRoute?.provider === "google", "pocket route: Google wins when a Google key exists");
-  const rllmRoute = chooseRoute("routellm/claude-opus-4-1-20250805", { routellmKey: "r", lovableKey: "l" }, "pocket_plan");
-  ok(rllmRoute?.provider === "routellm", "pocket route: falls back to ChatLLM without Google");
-  const lovableRoute = chooseRoute("routellm/claude-opus-4-1-20250805", { lovableKey: "l" }, "pocket_plan");
-  ok(lovableRoute?.provider === "lovable", "pocket route: degrades to the Lovable gateway last");
+  const chatllmRoute = chooseRoute("routellm/claude-opus-4-1-20250805", { googleKey: "g", routellmKey: "r", lovableKey: "l" }, "pocket_plan");
+  ok(chatllmRoute?.provider === "routellm", "pocket route: ChatLLM wins when a ChatLLM key exists");
+  const openaiRoute = chooseRoute("routellm/claude-opus-4-1-20250805", { googleKey: "g", lovableKey: "l" }, "pocket_plan");
+  ok(openaiRoute?.provider === "lovable", "pocket route: falls back to OpenAI gateway without ChatLLM");
+  const googleRoute = chooseRoute("routellm/claude-opus-4-1-20250805", { googleKey: "g" }, "pocket_plan");
+  ok(googleRoute?.provider === "google", "pocket route: degrades to Gemini last");
+
 }
 
 /* ---------- design floor ---------- */
