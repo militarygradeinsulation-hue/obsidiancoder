@@ -169,6 +169,15 @@ import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-mode
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { dnaPromptBlock, parseCritique } from "@/lib/pocket-prompt";
 import { ArtDirectionControl } from "@/components/ArtDirectionControl";
+import {
+  learnedBias,
+  modelUnderperforms,
+  mutateProvenDna,
+  provenDirection,
+  readBuildLearning,
+  recordBuildOutcome,
+} from "@/lib/build-learning";
+import { buildLearningBrief } from "@/lib/build-learning-prompt";
 
 
 
@@ -2356,7 +2365,15 @@ function Index() {
         const base = deterministicConceptPlan({ prompt: basePrompt, family: artFamily, recent: readCreativeMemory(libraryCode).entries });
         buildPlan = base;
         buildPlanKey = nextPlanKey;
-        if (artProfile !== "fast" && paidAccess) {
+        // Speed path: a direction that already scored 80+ for this family is
+        // reused (mutated, never copied) instead of paying for another
+        // concept-planning provider call.
+        const proven = provenDirection(learningEntries, artFamily);
+        const provenDna = proven ? mutateProvenDna(proven, hashString(`${basePrompt}|${Date.now()}`)) : null;
+        if (provenDna) {
+          buildDna = provenDna;
+          setTerminal((t) => [...t, `⚡ Reused a proven ${getFamily(provenDna.family).label} direction (scored ${proven!.score}/100) — planner call skipped`]);
+        } else if (artProfile !== "fast" && paidAccess) {
           const planner = resolvePocketPlannerModel();
           try {
             const pres = await planConceptsFn({
@@ -2377,7 +2394,7 @@ function Index() {
             setTerminal((t) => [...t, "⚠ Planner unavailable — using deterministic directions."]);
           }
         }
-        buildDna = selectedConcept(buildPlan).dna;
+        buildDna = buildDna ?? selectedConcept(buildPlan).dna;
       }
       const committedDna = buildDna;
       const committedPlan = buildPlan;
