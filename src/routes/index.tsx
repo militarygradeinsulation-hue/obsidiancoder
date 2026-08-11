@@ -1723,6 +1723,15 @@ function Index() {
     });
     try {
       appendLedgerEvent({ kind: "version-restored", outcome: "restored", note: version.label });
+      // A revert means the most recent direction did not land — grade it down.
+      recordBuildOutcome({
+        surface: "vibe",
+        profile: artProfile,
+        dna: artDna,
+        model: version.metadata?.actualModel ?? version.metadata?.model ?? "unknown",
+        validationStatus: "unknown",
+        outcome: "restored",
+      }, libraryCode);
       setIntelligenceTick((n) => n + 1);
     } catch { /* best-effort */ }
   }
