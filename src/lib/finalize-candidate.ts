@@ -206,15 +206,29 @@ function blockedResult(
 // -- Public API --------------------------------------------------------------
 
 /**
- * Run fresh deterministic assessment; if unresolved and paid, invoke
- * /api/qa at most once for this build hash and apply a valid patch if
- * provided. Returns the authoritative FINAL html + validation for the
- * commit path to use in metadata, diffs, and downstream gates.
+ * Run the deterministic quality contract, then fresh assessment; if
+ * unresolved and paid, invoke /api/qa at most once for this build hash and
+ * apply a valid patch if provided. Returns the authoritative FINAL html +
+ * validation for the commit path to use in metadata, diffs, and gates.
  */
 export async function finalizeCandidate(
   input: FinalizeInput,
   call: QaProductionCall,
 ): Promise<FinalizeResult> {
+  // Deterministic, local, idempotent: link declared web fonts and guarantee
+  // visible focus states BEFORE anything assesses or hashes the candidate.
+  const contract = enforceQualityContract(input.candidateHtml);
+  const core = await finalizeCore(
+    contract.html === input.candidateHtml ? input : { ...input, candidateHtml: contract.html },
+    call,
+  );
+  return { ...core, contractFixes: contract.fixes, unloadableFonts: contract.unloadableFonts };
+}
+
+async function finalizeCore(
+  input: FinalizeInput,
+  call: QaProductionCall,
+): Promise<CoreResult> {
   // 0. ALWAYS run deterministic assessment fresh. Never cached.
   const assessment = assessCandidateForCommit({
     html: input.candidateHtml,
