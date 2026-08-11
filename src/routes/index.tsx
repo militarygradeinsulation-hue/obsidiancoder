@@ -2444,6 +2444,7 @@ function Index() {
         ? { ...s, artDna: committedDna, artPlan: committedPlan, artPlanKey: committedKey }
         : s));
       setTerminal((t) => [...t, `🎨 Art direction · ${getProfile(artProfile).label} · ${getFamily(committedDna.family).label} · ${committedDna.id}`]);
+      stageMarks.planMs = Math.round(performance.now() - planStartedAt);
     }
     // Only a raw registry id counts as a genuine user pin. Tier chips
     // (auto/fast/balanced/deep) leave the model to the art profile, exactly
