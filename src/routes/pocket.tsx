@@ -815,8 +815,11 @@ function ForgePage() {
             }
           : undefined,
         pocketRecentSignatures: recentDigest.slice(0, 12),
-        // Proven decisions from this user's best past builds.
-        learningBrief: buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
+        // Proven decisions + proven structure from this user's best past builds.
+        learningBrief: [
+          buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
+          provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
+        ].filter(Boolean).join("\n\n"),
       };
       const res = await authFetch("/api/generate", {
         method: "POST",
