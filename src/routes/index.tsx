@@ -179,6 +179,7 @@ import {
   recordBuildOutcome,
 } from "@/lib/build-learning";
 import { buildLearningBrief } from "@/lib/build-learning-prompt";
+import { provenTemplateBrief } from "@/lib/proven-templates";
 import { escalateModel } from "@/lib/quality-retry";
 import { Archive as ArchiveIcon } from "lucide-react";
 import { archiveBuild, takeArchiveHandoff } from "@/lib/build-archive";
@@ -2496,7 +2497,10 @@ function Index() {
                   }
                 : undefined,
               pocketRecentSignatures: compactRecentSignatures(readCreativeMemory(libraryCode).entries).slice(0, 12),
-              learningBrief: buildLearningBrief(learningEntries, buildDna.family),
+              learningBrief: [
+                buildLearningBrief(learningEntries, buildDna.family),
+                provenTemplateBrief(learningEntries, buildDna.family, libraryCode, "vibe"),
+              ].filter(Boolean).join("\n\n"),
             }
           : {}),
         // Inject reusable components for fresh builds only.

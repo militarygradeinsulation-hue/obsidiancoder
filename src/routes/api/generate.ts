@@ -118,7 +118,7 @@ const inputSchema = z.object({
    * (design decisions only — never markup). Injected just BEFORE the premium
    * art-direction block so the current direction still has the last word.
    */
-  learningBrief: z.string().max(2000).optional(),
+  learningBrief: z.string().max(4000).optional(),
   /** Matched reusable components from the client-side registry — injected as system context. */
   reusableComponents: z.array(z.object({
     label: z.string(),
@@ -1044,7 +1044,7 @@ ${memBlock}`,
           // past builds. Sits directly before the art direction so the
           // current brief can still override anything here.
           if (!data.advisory && data.learningBrief && data.learningBrief.trim().length > 40) {
-            messages.push({ role: "system", content: data.learningBrief.slice(0, 2000) });
+            messages.push({ role: "system", content: data.learningBrief.slice(0, 4000) });
           }
           // Art direction goes in LAST so nothing above can override it.
           for (const m of premiumMessages) messages.push(m);
