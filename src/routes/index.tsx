@@ -2387,9 +2387,16 @@ function Index() {
         : s));
       setTerminal((t) => [...t, `🎨 Art direction · ${getProfile(artProfile).label} · ${getFamily(committedDna.family).label} · ${committedDna.id}`]);
     }
-    const modelForServer = previewMode && !current.model?.includes("/")
+    // Only a raw registry id counts as a genuine user pin. Tier chips
+    // (auto/fast/balanced/deep) leave the model to the art profile, exactly
+    // like Pocket — and must NOT be sent as `pickerModel`, because the
+    // generate route reads any non-"auto" pickerModel as an explicit pin and
+    // disables its safe first-byte fallback.
+    const hasRawPinnedModel = Boolean(current.model?.includes("/"));
+    const modelForServer = previewMode && !hasRawPinnedModel
       ? artModelChoice.model
       : adaptiveModel;
+    const pickerModelForServer = hasRawPinnedModel ? current.model : "auto";
     const controller = new AbortController();
     abortRef.current = controller;
     abortMapRef.current.set(sessionId, controller);
