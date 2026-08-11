@@ -8,7 +8,8 @@
 
 import { aiFetch } from "./ai-fetch";
 import { readGuarded } from "./upstream-guard";
-import { isRouteLLMModel, stripRouteLLMPrefix } from "./models";
+import { isRouteLLMModel } from "./models";
+import { routellmEquivalentFor, openaiEquivalentFor } from "./provider-chain";
 import { healthyRouteLLMKeys, lovableEquivalentFor } from "./routellm-keys";
 import { googleAiKey, googleModelFor, GOOGLE_OPENAI_CHAT_URL } from "./google-ai";
 import { parseUsageFromChatJson } from "./usage-record";
