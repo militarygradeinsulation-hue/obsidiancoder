@@ -174,6 +174,7 @@ export async function runProviderChain<T>(
     const attempt = attempts[i];
     const result = await callOnce(attempt);
     if (result.ok) {
+      if (attempt.routed) markRouteLLMKeyHealthy(attempt.key);
       return { ok: true, value: result.value, usedAttempt: attempt, lastError: null, noAttempts: false };
     }
 
@@ -185,6 +186,10 @@ export async function runProviderChain<T>(
     // advances below.
     const routeLLMDead = !!attempt.routed && isRouteLLMKeyExhausted(result.error);
     if (routeLLMDead) markRouteLLMKeyDead(attempt.key);
+    // A slow-but-alive key is demoted, not banned: after two recent timeouts
+    // it sorts behind the healthy keys so the next build doesn't spend its
+    // whole first-byte budget waiting on it again.
+    else if (attempt.routed && !result.isClientCancel) markRouteLLMKeySlow(attempt.key);
 
     const isLast = i === attempts.length - 1;
     if (result.isClientCancel) {
