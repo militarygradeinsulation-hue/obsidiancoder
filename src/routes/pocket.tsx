@@ -819,6 +819,7 @@ function ForgePage() {
         learningBrief: [
           buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
           provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
+          qualityContractFragment(),
         ].filter(Boolean).join("\n\n"),
       };
       const res = await authFetch("/api/generate", {

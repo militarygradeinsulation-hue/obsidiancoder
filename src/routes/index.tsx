@@ -2508,6 +2508,7 @@ function Index() {
               learningBrief: [
                 buildLearningBrief(learningEntries, buildDna.family),
                 provenTemplateBrief(learningEntries, buildDna.family, libraryCode, "vibe"),
+                qualityContractFragment(),
               ].filter(Boolean).join("\n\n"),
             }
           : {}),
