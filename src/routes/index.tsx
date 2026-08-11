@@ -2635,6 +2635,7 @@ function Index() {
       if (timingMatch) {
         try {
           const t = JSON.parse(timingMatch[1]) as Record<string, number | string | boolean>;
+          serverTiming = t;
           setTerminal((tt) => [...tt, `→ Timing: compact ${t.compact_ms}ms · plan/img ${t.image_ms}ms · first ${t.first_byte_ms}ms · stream ${t.stream_ms}ms · total ${t.total_ms}ms`]);
         } catch { /* trailer malformed; ignore */ }
         acc = acc.slice(0, timingMatch.index).trimEnd();
