@@ -190,9 +190,12 @@ export function scoreOf(entry: BuildLearningEntry): number {
   if (axes.length) {
     base = (axes.reduce((a, b) => a + b, 0) / axes.length) * 10;
   } else {
+    // A critique-free build must still be able to earn a reusable score —
+    // otherwise the whole speed path below is unreachable on the `fast`
+    // profile, which never runs a review.
     base =
-      entry.validationStatus === "passed" ? 72 :
-      entry.validationStatus === "warnings" ? 62 :
+      entry.validationStatus === "passed" ? 78 :
+      entry.validationStatus === "warnings" ? 64 :
       entry.validationStatus === "failed" ? 30 : 55;
   }
   base -= Math.min(15, (entry.designIssues?.length ?? 0) * 5);
@@ -307,8 +310,18 @@ export function provenDirection(
   entries: readonly BuildLearningEntry[],
   family: string,
 ): ProvenDirection | null {
-  if (!family || family === "auto") return null;
-  const best = topExemplars(entries, family, 1)[0];
+  // "auto" is the default in both surfaces, so it must resolve to whichever
+  // concrete family has actually been winning rather than disqualifying the
+  // lookup outright.
+  const resolved =
+    !family || family === "auto"
+      ? preferredFamily(learnedBias(entries))
+      : family;
+  if (!resolved || resolved === "auto") return null;
+  // One good build never becomes a rule.
+  const observed = entries.filter((e) => e.family === resolved).length;
+  if (observed < MIN_OBSERVATIONS) return null;
+  const best = topExemplars(entries, resolved, 1)[0];
   if (!best || best.outcome !== "kept" || !best.dnaSeed) return null;
   const score = scoreOf(best);
   if (score < PROVEN_SCORE) return null;
