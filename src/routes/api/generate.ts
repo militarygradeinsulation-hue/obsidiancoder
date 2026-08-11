@@ -979,7 +979,7 @@ ${memBlock}`,
           // Keep a compact retry prompt ready before adding optional generated
           // images and component source. If the rich attempt cannot produce a
           // first token quickly, Auto mode retries with this lightweight form.
-          const lightweightMessages = [...messages, { role: "user", content: data.prompt }];
+          const lightweightMessages = [...messages, ...premiumMessages, { role: "user", content: data.prompt }];
           if (!data.advisory && images.length) {
             messages.push({
               role: "system",
@@ -1027,6 +1027,8 @@ ${memBlock}`,
               });
             }
           }
+          // Art direction goes in LAST so nothing above can override it.
+          for (const m of premiumMessages) messages.push(m);
           messages.push({ role: "user", content: data.prompt });
 
 
