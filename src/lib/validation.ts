@@ -145,8 +145,9 @@ export function validateHtml(html: string): ValidationReport {
   if (/\bdocument\.write\s*\(/.test(html)) issues.push(issue("info", "document-write", "document.write() is discouraged."));
 
   // Script syntax -----------------------------------------------------------
-  const scripts = Array.from(html.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gi));
-  for (const [, code] of scripts) {
+  const scripts = Array.from(html.matchAll(/(<script\b[^>]*>)([\s\S]*?)<\/script>/gi));
+  for (const [, tag, code] of scripts) {
+    if (!isExecutableScript(tag)) continue;
     if (!balanced(code)) {
       issues.push(issue("blocking", "js-syntax", "Script block has unbalanced brackets."));
       break;
