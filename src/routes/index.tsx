@@ -2411,8 +2411,10 @@ function Index() {
         const provenDna = proven ? mutateProvenDna(proven, hashString(`${basePrompt}|${Date.now()}`)) : null;
         if (provenDna) {
           buildDna = provenDna;
+          stageMarks.speedPath = true;
           setTerminal((t) => [...t, `⚡ Reused a proven ${getFamily(provenDna.family).label} direction (scored ${proven!.score}/100) — planner call skipped`]);
         } else if (artProfile !== "fast" && paidAccess) {
+          stageMarks.plannerCalled = true;
           const planner = resolvePocketPlannerModel();
           try {
             const pres = await planConceptsFn({
