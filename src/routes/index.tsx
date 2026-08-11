@@ -2917,7 +2917,7 @@ function Index() {
             model: modelForServer,
             critique: critiqueScores,
             designIssues: finG.finalValidation.issues
-              .filter((i) => i.severity === "warning" || i.severity === "error")
+              .filter((i) => i.severity === "warning" || i.severity === "blocking")
               .slice(0, 4)
               .map((i) => i.message),
             validationStatus: finG.finalValidation.status === "passed" ? "passed"
