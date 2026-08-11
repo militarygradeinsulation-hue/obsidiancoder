@@ -153,6 +153,7 @@ import {
   readCreativeMemory,
   rememberSignature,
   dnaSignature,
+  hashString,
   type PocketDesignDNA,
   type PocketProfile,
   type PocketStyleFamily,
@@ -2340,6 +2341,10 @@ function Index() {
     }
     // ---- Art direction: choose (or reuse) a Design DNA, exactly like Pocket.
     const isRefineBuild = Boolean(stableHtml);
+    // Graded memory of past builds — drives the exemplar brief, the proven
+    // direction reuse, and the model bias below.
+    const learningEntries = readBuildLearning(libraryCode).entries;
+    const learningBias = learnedBias(learningEntries);
     let buildDna: PocketDesignDNA | null = null;
     let buildPlan: PocketConceptPlan | null = current.artPlan ?? null;
     let buildPlanKey = current.artPlanKey ?? "";
@@ -2410,9 +2415,19 @@ function Index() {
     // generate route reads any non-"auto" pickerModel as an explicit pin and
     // disables its safe first-byte fallback.
     const hasRawPinnedModel = Boolean(current.model?.includes("/"));
-    const modelForServer = previewMode && !hasRawPinnedModel
+    let modelForServer = previewMode && !hasRawPinnedModel
       ? artModelChoice.model
       : adaptiveModel;
+    // Learned bias: a model that has repeatedly scored low (3+ observations)
+    // for this user gets replaced by the next-best sibling. Never a hard ban,
+    // and never applied to an explicitly pinned model.
+    if (previewMode && !hasRawPinnedModel && modelUnderperforms(learningBias, modelForServer)) {
+      const alt = escalateModel(modelForServer);
+      if (alt && alt !== modelForServer && !modelUnderperforms(learningBias, alt)) {
+        setTerminal((t) => [...t, `↑ ${modelForServer} has been underperforming here — using ${alt} instead.`]);
+        modelForServer = alt;
+      }
+    }
     const pickerModelForServer = hasRawPinnedModel ? current.model : "auto";
     const controller = new AbortController();
     abortRef.current = controller;
@@ -2453,6 +2468,7 @@ function Index() {
                   }
                 : undefined,
               pocketRecentSignatures: compactRecentSignatures(readCreativeMemory(libraryCode).entries).slice(0, 12),
+              learningBrief: buildLearningBrief(learningEntries, buildDna.family),
             }
           : {}),
         // Inject reusable components for fresh builds only.
