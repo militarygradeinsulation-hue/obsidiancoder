@@ -7,12 +7,14 @@ import { loadProfile, type AdaptiveProfile } from "@/lib/adaptive-profile";
 import type { ResolvedIntent } from "@/lib/intent-resolver";
 import type { RoutingDecision } from "@/lib/adaptive-router";
 import type { OperationSummary } from "@/lib/operation-tracker";
+import { learnedBias, readBuildLearning, scoreOf, topExemplars, type BuildLearningEntry } from "@/lib/build-learning";
 
 interface Props {
   intent?: ResolvedIntent;
   decision?: RoutingDecision;
   lastOperation?: OperationSummary;
   refreshKey?: number;
+  libraryCode?: string;
 }
 
 const outcomeColor: Record<OperationSummary["outcome"], string> = {
@@ -23,12 +25,20 @@ const outcomeColor: Record<OperationSummary["outcome"], string> = {
   rejected: "#ff6b6b",
 };
 
-export function IntelligencePanel({ intent, decision, lastOperation, refreshKey = 0 }: Props) {
+export function IntelligencePanel({ intent, decision, lastOperation, refreshKey = 0, libraryCode }: Props) {
   const [profile, setProfile] = React.useState<AdaptiveProfile | null>(null);
+  const [learning, setLearning] = React.useState<readonly BuildLearningEntry[]>([]);
 
   React.useEffect(() => {
     setProfile(loadProfile());
-  }, [refreshKey]);
+    setLearning(readBuildLearning(libraryCode).entries);
+  }, [refreshKey, libraryCode]);
+
+  const bias = React.useMemo(() => learnedBias(learning), [learning]);
+  const best = React.useMemo(() => topExemplars(learning, undefined, 3), [learning]);
+  const avgScore = learning.length
+    ? Math.round(learning.reduce((a, e) => a + scoreOf(e), 0) / learning.length)
+    : null;
 
   return (
     <div className="obs-card" id="rail-intelligence" data-testid="intelligence-panel">
@@ -103,6 +113,26 @@ export function IntelligencePanel({ intent, decision, lastOperation, refreshKey 
               ))}
             </ul>
           ) : <div style={{ opacity: 0.5 }}>Nothing learned yet. Confirm changes to teach Obsidian.</div>}
+        </section>
+        <section>
+          <div style={{ opacity: 0.6, textTransform: "uppercase", letterSpacing: 1, fontSize: 10, marginBottom: 4 }}>Build quality</div>
+          {learning.length ? (
+            <div>
+              <div>{learning.length} graded build{learning.length === 1 ? "" : "s"} · avg {avgScore}/100</div>
+              {best.length > 0 && (
+                <ul style={{ margin: "4px 0 0", paddingLeft: 14 }}>
+                  {best.map((e) => (
+                    <li key={e.id}>
+                      {e.family} · {e.profile} <span style={{ opacity: 0.5 }}>({scoreOf(e)}/100)</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {bias.weakModels.length > 0 && (
+                <div style={{ opacity: 0.7, marginTop: 4 }}>avoiding: {bias.weakModels.slice(0, 3).join(", ")}</div>
+              )}
+            </div>
+          ) : <div style={{ opacity: 0.5 }}>No graded builds yet. Every build you make teaches Obsidian.</div>}
         </section>
       </div>
     </div>
