@@ -180,6 +180,7 @@ import {
 } from "@/lib/build-learning";
 import { buildLearningBrief } from "@/lib/build-learning-prompt";
 import { escalateModel } from "@/lib/quality-retry";
+import { archiveBuild, takeArchiveHandoff } from "@/lib/build-archive";
 
 
 
@@ -1324,6 +1325,20 @@ function Index() {
   }
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
+
+  // A build handed over from /archive opens straight into the active session.
+  useEffect(() => {
+    const handoff = takeArchiveHandoff();
+    if (!handoff) return;
+    setSessions((all) =>
+      all.map((s) =>
+        s.id === activeId ? { ...s, html: handoff.html, title: handoff.title.slice(0, 40) } : s,
+      ),
+    );
+    setTab("preview");
+    setTerminal((t) => [...t, `→ Opened from archive: ${handoff.title}`]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // ---- Art direction (shared with Obsidian Pocket) -----------------------
   const artProfile: PocketProfile = current?.artProfile ?? "fast";
