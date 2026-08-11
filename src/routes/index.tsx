@@ -2410,9 +2410,13 @@ function Index() {
       const genBody: Record<string, unknown> = {
         prompt,
         currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
-        history: current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
+        // A fresh premium build carries no chat history — nothing in it can
+        // help, and it dilutes the art-direction brief.
+        history: !stableHtml && previewMode
+          ? []
+          : current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
         model: modelForServer,
-        pickerModel: current.model,
+        pickerModel: pickerModelForServer,
         advisory: !previewMode,
         designContract: loadDesignContract(current.id),
         themeBlueprintId: current.themeBlueprintId,
