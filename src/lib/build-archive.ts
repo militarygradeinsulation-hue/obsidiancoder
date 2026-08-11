@@ -11,6 +11,7 @@
 //    everything, not just the oldest build).
 
 import { safeGet, safeSet, safeRemove } from "./safe-storage";
+import { idbGet, idbMirror } from "./idb-storage";
 
 export const ARCHIVE_VERSION = 1 as const;
 /** Hard cap on entries kept per library code. */
