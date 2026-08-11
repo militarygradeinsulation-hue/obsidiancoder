@@ -2701,7 +2701,7 @@ function Index() {
           setTerminal((t) => [...t, `↺ Deterministic repair (${rep.attempt.fixes.length} fix${rep.attempt.fixes.length === 1 ? "" : "es"}) — commit continued.`]);
         } else {
           setSessions((all) => all.map((s) => s.id === sessionId
-            ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Generated document failed validation and could not be auto-repaired: ${validation.issues.map(i => i.message).join(" ")} — reverted to last stable version.` }] }
+            ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Generated document failed validation and could not be auto-repaired: ${validation.issues.filter(i => i.severity === "blocking").map(i => i.message).join(" ")} — reverted to last stable version.` }] }
             : s));
           const durationMs = performance.now() - t0;
           setTerminal((t) => [...t, `✗ Validation failed (repair inconclusive) — reverted.`]);
