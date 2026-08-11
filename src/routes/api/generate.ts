@@ -1033,6 +1033,12 @@ ${memBlock}`,
               });
             }
           }
+          // Learned quality memory: proven decisions from the user's best
+          // past builds. Sits directly before the art direction so the
+          // current brief can still override anything here.
+          if (!data.advisory && data.learningBrief && data.learningBrief.trim().length > 40) {
+            messages.push({ role: "system", content: data.learningBrief.slice(0, 2000) });
+          }
           // Art direction goes in LAST so nothing above can override it.
           for (const m of premiumMessages) messages.push(m);
           messages.push({ role: "user", content: data.prompt });
