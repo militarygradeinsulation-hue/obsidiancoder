@@ -113,6 +113,12 @@ const inputSchema = z.object({
       list ? list.map(normalizeRecentSignatureInput).filter(Boolean) : undefined,
     ),
   pocketCritiqueContext: z.string().max(4000).optional(),
+  /**
+   * "What worked before" brief derived client-side from graded past builds
+   * (design decisions only — never markup). Injected just BEFORE the premium
+   * art-direction block so the current direction still has the last word.
+   */
+  learningBrief: z.string().max(2000).optional(),
   /** Matched reusable components from the client-side registry — injected as system context. */
   reusableComponents: z.array(z.object({
     label: z.string(),
