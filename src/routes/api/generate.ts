@@ -118,7 +118,7 @@ const inputSchema = z.object({
    * (design decisions only — never markup). Injected just BEFORE the premium
    * art-direction block so the current direction still has the last word.
    */
-  learningBrief: z.string().max(2000).optional(),
+  learningBrief: z.string().max(4000).optional(),
   /** Matched reusable components from the client-side registry — injected as system context. */
   reusableComponents: z.array(z.object({
     label: z.string(),
@@ -465,7 +465,10 @@ interface ComponentPhaseResult {
 // previous 6s primary budget expired before Gemini ever produced a byte.
 const FIRST_RESPONSE_BUDGET_MS = 55_000;
 const ENRICHMENT_BUDGET_MS = 4_000;
-const PRIMARY_OPEN_BUDGET_MS = 32_000;
+// First-byte budget only — it never caps how long a generation may run once
+// the stream is open. Kept tight so a degraded provider costs seconds, not
+// half a minute, before the fallback is tried.
+const PRIMARY_OPEN_BUDGET_MS = 20_000;
 const FALLBACK_OPEN_BUDGET_MS = 16_000;
 const MAX_COMPONENT_CONTEXT_BYTES = 32_000;
 
@@ -798,8 +801,12 @@ export const Route = createFileRoute("/api/generate")({
           // 2) Image planning — skipped entirely unless the user explicitly
           //    asked for imagery or opted in via wantImages. This is what was
           //    silently adding 12-17s to every non-visual build.
-          const wantImages = !data.advisory && (data.wantImages || VISUAL_KEYWORDS.test(data.prompt));
-          const wantComponents = !data.advisory && !!apiKey && !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
+          // The `fast` profile trades enrichment for latency: it never pays
+          // the pre-stream image/component round-trips unless the user asked
+          // for imagery outright.
+          const fastProfile = (data.pocketProfile ?? "fast") === "fast";
+          const wantImages = !data.advisory && (data.wantImages || (!fastProfile && VISUAL_KEYWORDS.test(data.prompt)));
+          const wantComponents = !data.advisory && !fastProfile && !!apiKey && !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
           const emptyImagePhase: ImagePhaseResult = { images: [], usages: [], planUsage: null };
           const emptyComponentPhase: ComponentPhaseResult = { components: [], planUsage: null };
           const enrichmentBudget = Math.max(
@@ -1037,7 +1044,7 @@ ${memBlock}`,
           // past builds. Sits directly before the art direction so the
           // current brief can still override anything here.
           if (!data.advisory && data.learningBrief && data.learningBrief.trim().length > 40) {
-            messages.push({ role: "system", content: data.learningBrief.slice(0, 2000) });
+            messages.push({ role: "system", content: data.learningBrief.slice(0, 4000) });
           }
           // Art direction goes in LAST so nothing above can override it.
           for (const m of premiumMessages) messages.push(m);

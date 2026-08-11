@@ -477,6 +477,70 @@ ok(genSrc2.includes("detectForbiddenStorage(outSample)"), "generate.ts: logs for
   ok(checkDesignFloor(good).ok, "design floor: accepts a properly designed document");
 }
 
+/* ---------- latency pass: speed path, degraded keys, skeleton (12) ---------- */
+{
+  const {
+    provenDirection, scoreOf, MIN_OBSERVATIONS,
+  } = await import("../build-learning.ts");
+
+  const mkEntry = (over = {}) => ({
+    id: Math.random().toString(36).slice(2),
+    at: Date.now(),
+    surface: "vibe",
+    profile: "fast",
+    family: "editorial",
+    dnaId: "dna-1",
+    dnaSeed: 12345,
+    dnaAxes: { layout: "l", typography: "t", palette: "p", depth: "d", signature: "s" },
+    model: "m",
+    critique: {},
+    designIssues: [],
+    validationStatus: "passed",
+    latencyMs: 100,
+    outcome: "kept",
+    ...over,
+  });
+
+  ok(scoreOf(mkEntry()) >= 80, "learning: a clean kept build reaches a reusable score");
+  ok(scoreOf(mkEntry({ outcome: "discarded" })) < 60, "learning: discarded builds score low");
+
+  const few = [mkEntry(), mkEntry()];
+  ok(provenDirection(few, "editorial") === null, "speed path: one or two builds never become a rule");
+
+  const enough = [mkEntry(), mkEntry(), mkEntry()];
+  const proven = provenDirection(enough, "editorial");
+  ok(proven !== null && proven.family === "editorial", "speed path: three clean kept builds unlock reuse");
+  ok(provenDirection(enough, "auto") !== null, "speed path: auto resolves to the winning family");
+  ok(provenDirection([], "auto") === null, "speed path: no history means no reuse");
+  ok(MIN_OBSERVATIONS === 3, "speed path: observation floor unchanged");
+
+  const {
+    markRouteLLMKeySlow, isRouteLLMKeyDegraded, markRouteLLMKeyHealthy,
+    healthyRouteLLMKeys: healthy2, resetRouteLLMKeyHealth: reset2, DEGRADED_STRIKES,
+  } = await import("../routellm-keys.ts");
+  reset2();
+  markRouteLLMKeySlow("k-slow");
+  ok(!isRouteLLMKeyDegraded("k-slow"), "degraded keys: one timeout is not enough");
+  for (let i = 1; i < DEGRADED_STRIKES; i++) markRouteLLMKeySlow("k-slow");
+  ok(isRouteLLMKeyDegraded("k-slow"), "degraded keys: repeated timeouts demote the key");
+  process.env.ROUTELLM_API_KEY = "k-slow";
+  process.env.ROUTELLM_API_KEY_2 = "k-ok";
+  ok(healthy2()[0] === "k-ok", "degraded keys: healthy keys sort ahead of degraded ones");
+  markRouteLLMKeyHealthy("k-slow");
+  ok(!isRouteLLMKeyDegraded("k-slow"), "degraded keys: a success clears the strikes");
+  reset2();
+
+  const { extractSkeleton, skeletonToPrompt } = await import("../proven-templates.ts");
+  const page = `<!doctype html><html><head><style>body{font-size:1rem;color:#0b0b0b}h1{font-size:3.5rem}.g{display:grid;grid-template-columns:1fr 1fr}@keyframes f{to{opacity:1}}</style></head><body><header class="nav"></header><section class="hero"></section><section class="pricing"></section><footer></footer></body></html>`;
+  const sk = extractSkeleton(page);
+  ok(sk.sections[0] === "nav" && sk.sections.includes("hero") && sk.sections.includes("pricing"), "skeleton: reads section order");
+  ok(sk.layout === "grid", "skeleton: detects the dominant layout mechanism");
+  ok(sk.motion === true, "skeleton: detects motion");
+  const brief = skeletonToPrompt(sk, 88, "editorial");
+  ok(brief.includes("PROVEN STRUCTURE") && !brief.includes("<section"), "skeleton: brief carries structure, never markup");
+  ok(extractSkeleton("").sections.length === 0, "skeleton: empty input is safe");
+}
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);

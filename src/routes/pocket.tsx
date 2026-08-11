@@ -130,6 +130,7 @@ import {
 import { parseCritique, dnaPromptBlock } from "@/lib/pocket-prompt";
 import { readBuildLearning, recordBuildOutcome } from "@/lib/build-learning";
 import { buildLearningBrief } from "@/lib/build-learning-prompt";
+import { provenTemplateBrief } from "@/lib/proven-templates";
 import { newPocketMemory, updateMemoryFromPrompt, hasMemory, memorySummary } from "@/lib/pocket-memory";
 import type { ProjectMemory } from "@/lib/project-memory";
 import { patchSchema } from "@/lib/patch-protocol";
@@ -814,8 +815,11 @@ function ForgePage() {
             }
           : undefined,
         pocketRecentSignatures: recentDigest.slice(0, 12),
-        // Proven decisions from this user's best past builds.
-        learningBrief: buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
+        // Proven decisions + proven structure from this user's best past builds.
+        learningBrief: [
+          buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
+          provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
+        ].filter(Boolean).join("\n\n"),
       };
       const res = await authFetch("/api/generate", {
         method: "POST",

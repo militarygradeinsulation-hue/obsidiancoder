@@ -35,18 +35,56 @@ export function isRouteLLMKeyDead(key: string, now: number = Date.now()): boolea
   return true;
 }
 
+/* ------------------------------------------------------------------ *
+ * Degraded keys
+ * ------------------------------------------------------------------ *
+ * A key that is slow but not billing-dead used to cost every build the
+ * full first-byte budget before a healthy provider was tried. Repeated
+ * timeouts now demote the key for a short window: it drops to the back
+ * of the queue instead of being banned outright.
+ */
+const SLOW_KEYS = new Map<string, { strikes: number; until: number }>();
+export const DEGRADED_STRIKES = 2;
+export const DEGRADED_TTL_MS = 5 * 60_000;
+
+/** Record that a key failed to produce a first byte in time. */
+export function markRouteLLMKeySlow(key: string, now: number = Date.now()): void {
+  if (!key) return;
+  const prev = SLOW_KEYS.get(key);
+  const strikes = prev && prev.until > now ? prev.strikes + 1 : 1;
+  SLOW_KEYS.set(key, { strikes, until: now + DEGRADED_TTL_MS });
+}
+
+/** A key answered in time — clear its strikes. */
+export function markRouteLLMKeyHealthy(key: string): void {
+  SLOW_KEYS.delete(key);
+}
+
+/** True when the key has timed out enough times recently to be deprioritised. */
+export function isRouteLLMKeyDegraded(key: string, now: number = Date.now()): boolean {
+  const rec = SLOW_KEYS.get(key);
+  if (!rec) return false;
+  if (rec.until <= now) { SLOW_KEYS.delete(key); return false; }
+  return rec.strikes >= DEGRADED_STRIKES;
+}
+
 /** Test seam. */
 export function resetRouteLLMKeyHealth(): void {
   DEAD_KEYS.clear();
+  SLOW_KEYS.clear();
 }
 
 /**
- * Configured keys minus the ones known to be out of credits. Dead keys are
- * skipped entirely so the request budget goes to a provider that can answer;
- * they come back automatically once the TTL expires.
+ * Configured keys minus the ones known to be out of credits, with recently
+ * degraded keys pushed to the back. Dead keys are skipped entirely so the
+ * request budget goes to a provider that can answer; they come back
+ * automatically once the TTL expires.
  */
 export function healthyRouteLLMKeys(now: number = Date.now()): string[] {
-  return routellmKeys().filter((k) => !isRouteLLMKeyDead(k, now));
+  const live = routellmKeys().filter((k) => !isRouteLLMKeyDead(k, now));
+  const fresh = live.filter((k) => !isRouteLLMKeyDegraded(k, now));
+  const degraded = live.filter((k) => isRouteLLMKeyDegraded(k, now));
+  return [...fresh, ...degraded];
 }
 
 /** The key to use for a single-shot request. */

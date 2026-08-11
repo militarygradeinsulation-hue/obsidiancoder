@@ -11,6 +11,7 @@
 //    everything, not just the oldest build).
 
 import { safeGet, safeSet, safeRemove } from "./safe-storage";
+import { idbGet, idbMirror } from "./idb-storage";
 
 export const ARCHIVE_VERSION = 1 as const;
 /** Hard cap on entries kept per library code. */
@@ -116,7 +117,36 @@ export function writeArchive(next: BuildArchive, libraryCode?: string): BuildArc
   const key = archiveKey(libraryCode);
   safeSet(key, value);
   memStore.set(key, value);
+  // Durability past the ~4.5 MB localStorage ceiling: IndexedDB keeps the
+  // count-capped set even when the byte cap forced entries out of the hot
+  // cache above. Best-effort and never awaited.
+  const durable = [...next.entries].sort((a, b) => b.at - a.at).slice(0, ARCHIVE_LIMIT);
+  idbMirror(key, { v: ARCHIVE_VERSION, entries: durable });
   return value;
+}
+
+/**
+ * Merge any entries that only survive in IndexedDB back into the readable
+ * archive. Call this once when an archive view mounts; it resolves to the
+ * merged set and leaves storage consistent.
+ */
+export async function hydrateArchiveFromIdb(libraryCode?: string): Promise<BuildArchive> {
+  const key = archiveKey(libraryCode);
+  const local = readArchive(libraryCode);
+  const durable = await idbGet<BuildArchive>(key);
+  if (!durable || !Array.isArray(durable.entries)) return local;
+  const byId = new Map<string, ArchiveEntry>();
+  for (const e of durable.entries) {
+    const n = normalizeEntry(e);
+    if (n) byId.set(n.id, n);
+  }
+  // Local wins on conflict: it holds any rename/save flags written since.
+  for (const e of local.entries) byId.set(e.id, e);
+  const merged = [...byId.values()].sort((a, b) => b.at - a.at).slice(0, ARCHIVE_LIMIT);
+  const value: BuildArchive = { v: ARCHIVE_VERSION, entries: trimArchive(merged) };
+  safeSet(key, value);
+  memStore.set(key, value);
+  return { v: ARCHIVE_VERSION, entries: merged };
 }
 
 export type ArchiveInput = {
