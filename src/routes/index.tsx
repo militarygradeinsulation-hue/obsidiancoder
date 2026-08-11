@@ -4886,7 +4886,7 @@ function Index() {
             </div>
 
             {/* Core 4.0 — Adaptive Intelligence */}
-            <IntelligencePanel refreshKey={intelligenceTick} intent={lastIntent} decision={lastDecision} lastOperation={lastOperation} />
+            <IntelligencePanel refreshKey={intelligenceTick} libraryCode={libraryCode} intent={lastIntent} decision={lastDecision} lastOperation={lastOperation} />
             <EngineeringConsolePanel
               live={engineeringLive}
               report={engineeringReport}

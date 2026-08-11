@@ -7,7 +7,7 @@ import { loadProfile, type AdaptiveProfile } from "@/lib/adaptive-profile";
 import type { ResolvedIntent } from "@/lib/intent-resolver";
 import type { RoutingDecision } from "@/lib/adaptive-router";
 import type { OperationSummary } from "@/lib/operation-tracker";
-import { learnedBias, readBuildLearning, scoreOf, topExemplars, type BuildLearningEntry } from "@/lib/build-learning";
+import { learnedBias, modelUnderperforms, readBuildLearning, scoreOf, topExemplars, type BuildLearningEntry } from "@/lib/build-learning";
 
 interface Props {
   intent?: ResolvedIntent;
@@ -36,6 +36,10 @@ export function IntelligencePanel({ intent, decision, lastOperation, refreshKey 
 
   const bias = React.useMemo(() => learnedBias(learning), [learning]);
   const best = React.useMemo(() => topExemplars(learning, undefined, 3), [learning]);
+  const weakModels = React.useMemo(
+    () => Object.keys(bias.models).filter((m) => modelUnderperforms(bias, m)),
+    [bias],
+  );
   const avgScore = learning.length
     ? Math.round(learning.reduce((a, e) => a + scoreOf(e), 0) / learning.length)
     : null;
@@ -128,8 +132,8 @@ export function IntelligencePanel({ intent, decision, lastOperation, refreshKey 
                   ))}
                 </ul>
               )}
-              {bias.weakModels.length > 0 && (
-                <div style={{ opacity: 0.7, marginTop: 4 }}>avoiding: {bias.weakModels.slice(0, 3).join(", ")}</div>
+              {weakModels.length > 0 && (
+                <div style={{ opacity: 0.7, marginTop: 4 }}>avoiding: {weakModels.slice(0, 3).join(", ")}</div>
               )}
             </div>
           ) : <div style={{ opacity: 0.5 }}>No graded builds yet. Every build you make teaches Obsidian.</div>}
