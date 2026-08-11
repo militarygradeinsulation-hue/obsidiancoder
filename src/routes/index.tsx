@@ -3732,6 +3732,24 @@ function Index() {
             >
               <Code2 className="h-3.5 w-3.5" /> Code
             </button>
+            <button
+              type="button"
+              className="obs-chip"
+              data-testid="topbar-copy-all"
+              disabled={!current.html}
+              title={current.html ? "Copy the full source of this build to your clipboard" : "Build something first"}
+              onClick={async () => {
+                if (!current.html) return;
+                try {
+                  await navigator.clipboard?.writeText(current.html);
+                  setTerminal((t) => [...t, `✓ Copied all code (${current.html.length.toLocaleString()} chars)`]);
+                } catch {
+                  setTerminal((t) => [...t, "⚠ Clipboard unavailable — open the Code tab and copy manually"]);
+                }
+              }}
+            >
+              <Code2 className="h-3.5 w-3.5" /> Copy all
+            </button>
             <div className="obs-divider" />
             <button
               type="button"

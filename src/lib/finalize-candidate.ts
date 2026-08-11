@@ -17,6 +17,7 @@
 
 import { assessCandidateForCommit, type AssessResult } from "./candidate-assess";
 import { enforceQualityContract } from "./quality-contract";
+import { ensureBuildSignature } from "./build-signature";
 import { patchSchema } from "./patch-protocol";
 import { applyPatch } from "./patch-engine";
 import { validateHtml, type ValidationReport } from "./validation";
@@ -215,14 +216,17 @@ export async function finalizeCandidate(
   input: FinalizeInput,
   call: QaProductionCall,
 ): Promise<FinalizeResult> {
-  // Deterministic, local, idempotent: link declared web fonts and guarantee
-  // visible focus states BEFORE anything assesses or hashes the candidate.
+  // Deterministic, local, idempotent: link declared web fonts, guarantee
+  // visible focus states, and stamp the Obsidian attribution footer BEFORE
+  // anything assesses or hashes the candidate.
   const contract = enforceQualityContract(input.candidateHtml);
+  const signed = ensureBuildSignature(contract.html);
+  const fixes = signed.added ? [...contract.fixes, "added Obsidian attribution footer"] : contract.fixes;
   const core = await finalizeCore(
-    contract.html === input.candidateHtml ? input : { ...input, candidateHtml: contract.html },
+    signed.html === input.candidateHtml ? input : { ...input, candidateHtml: signed.html },
     call,
   );
-  return { ...core, contractFixes: contract.fixes, unloadableFonts: contract.unloadableFonts };
+  return { ...core, contractFixes: fixes, unloadableFonts: contract.unloadableFonts };
 }
 
 async function finalizeCore(
