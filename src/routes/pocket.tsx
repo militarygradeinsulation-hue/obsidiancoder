@@ -459,6 +459,19 @@ function ForgePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryCode, restoreSession]);
 
+  // A build handed over from /archive wins over the restored session.
+  React.useEffect(() => {
+    const handoff = takeArchiveHandoff();
+    if (!handoff) return;
+    const next = projectFromHtml(handoff.html);
+    setProject(next);
+    setActiveFileId(next.entryFileId);
+    setTitle(handoff.title);
+    setPrompt(handoff.prompt);
+    setPane("preview");
+    setStatus(`Opened from archive · ${handoff.title}`);
+  }, []);
+
   // Autosave whatever is on the canvas.
   React.useEffect(() => {
     if (!html || html === EMPTY_DOC || html.length < 40) return;
