@@ -21,7 +21,7 @@ import type { Operation } from "@/lib/credit-gate";
 import { searchComponents, type ComponentHit } from "@/lib/twentyfirst.server";
 import { recordTwentyfirstEvent } from "@/lib/twentyfirst-metrics.server";
 import { routellmKey, healthyRouteLLMKeys, markRouteLLMKeyDead, isRouteLLMKeyExhausted, lovableEquivalentFor } from "@/lib/routellm-keys";
-import { computeAttemptBudgetMs, ATTEMPT_BUDGET_FLOOR_MS } from "@/lib/provider-chain";
+import { computeAttemptBudgetMs, ATTEMPT_BUDGET_FLOOR_MS, routellmEquivalentFor, openaiEquivalentFor } from "@/lib/provider-chain";
 import {
   isAnthropicModel,
   anthropicApiKey,
