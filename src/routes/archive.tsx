@@ -18,6 +18,7 @@ import { authFetch } from "@/lib/auth-fetch";
 import {
   deleteArchiveEntry,
   readArchive,
+  hydrateArchiveFromIdb,
   renameArchiveEntry,
   searchArchive,
   stageArchiveHandoff,
@@ -107,6 +108,11 @@ function ArchivePage() {
 
   const refreshLocal = React.useCallback((c: string) => {
     setLocal(readArchive(c).entries);
+    // Pull back anything that only survives in the durable IndexedDB mirror
+    // (entries the localStorage byte cap pushed out).
+    void hydrateArchiveFromIdb(c)
+      .then((merged) => setLocal(merged.entries))
+      .catch(() => { /* the localStorage read above already rendered */ });
   }, []);
 
   const refreshCloud = React.useCallback(async (c: string) => {
