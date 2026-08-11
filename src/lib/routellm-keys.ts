@@ -66,6 +66,11 @@ export function isRouteLLMKeyExhausted(err: unknown): boolean {
     msg.includes("no remaining credits") ||
     msg.includes("out of credits") ||
     msg.includes("credits exhausted") ||
+    // Abacus returns HTTP 402 with this text when the account has no card on
+    // file. The key can never succeed until billing is fixed, so treat it as
+    // exhausted instead of burning an attempt on every single build.
+    msg.includes("valid payment method") ||
+    msg.includes("payment required") ||
     msg.includes("quota") ||
     msg.includes("invalid api key") ||
     msg.includes("unauthorized")

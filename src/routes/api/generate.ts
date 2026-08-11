@@ -891,8 +891,41 @@ ${memBlock}`,
             } catch { /* spec injection is non-fatal */ }
           }
 
-          // Reusable components from the client registry — injected for fresh builds.
-          if (!data.advisory && !contextHtml && data.reusableComponents?.length) {
+          // Premium creative direction (Pocket + Vibe). Built here but pushed
+          // LAST, so the art-direction brief is the final, authoritative word
+          // instead of competing with generic reference markup.
+          const premiumDirection =
+            !data.advisory &&
+            (data.surface === "pocket" || data.surface === "vibe") &&
+            !!data.pocketDesignDNA;
+          const premiumMessages: Array<{ role: string; content: string }> = [];
+          if (premiumDirection) {
+            try {
+              const { pocketPremiumBlock } = await import("@/lib/pocket-prompt");
+              premiumMessages.push({
+                role: "system",
+                content: pocketPremiumBlock({
+                  profile: data.pocketProfile ?? "fast",
+                  dna: data.pocketDesignDNA as Parameters<typeof pocketPremiumBlock>[0]["dna"],
+                  conceptName: data.pocketConcept?.name,
+                  conceptSentence: data.pocketConcept?.concept,
+                  selectionReason: data.pocketConcept?.selectionReason,
+                  recentSignatures: data.pocketRecentSignatures,
+                }),
+              });
+              if (data.pocketCritiqueContext) {
+                premiumMessages.push({
+                  role: "system",
+                  content: `DESIGN REVIEW NOTES to address in this revision:\n${data.pocketCritiqueContext}`,
+                });
+              }
+            } catch { /* pocket premium injection is non-fatal */ }
+          }
+
+          // Reusable components from the client registry — injected for fresh
+          // builds, but never on a premium art-directed build: pasting past
+          // markup is the single biggest source of generic-looking output.
+          if (!data.advisory && !contextHtml && !premiumDirection && data.reusableComponents?.length) {
             const compLines = [
               "REUSABLE PATTERNS FROM YOUR BUILD HISTORY:",
               "These are components you've built before. Reuse their structure where relevant.",
@@ -927,34 +960,6 @@ ${memBlock}`,
               if (bp) messages.push({ role: "system", content: blueprintToSystemPrompt(bp) });
             } catch { /* blueprint injection is non-fatal */ }
           }
-          // Premium creative direction. Injected for the Pocket and Vibe
-          // surfaces, and only when the client supplied a concrete DNA.
-          if (
-            !data.advisory &&
-            (data.surface === "pocket" || data.surface === "vibe") &&
-            data.pocketDesignDNA
-          ) {
-            try {
-              const { pocketPremiumBlock } = await import("@/lib/pocket-prompt");
-              messages.push({
-                role: "system",
-                content: pocketPremiumBlock({
-                  profile: data.pocketProfile ?? "fast",
-                  dna: data.pocketDesignDNA as Parameters<typeof pocketPremiumBlock>[0]["dna"],
-                  conceptName: data.pocketConcept?.name,
-                  conceptSentence: data.pocketConcept?.concept,
-                  selectionReason: data.pocketConcept?.selectionReason,
-                  recentSignatures: data.pocketRecentSignatures,
-                }),
-              });
-              if (data.pocketCritiqueContext) {
-                messages.push({
-                  role: "system",
-                  content: `DESIGN REVIEW NOTES to address in this revision:\n${data.pocketCritiqueContext}`,
-                });
-              }
-            } catch { /* pocket premium injection is non-fatal */ }
-          }
 
 
 
@@ -974,7 +979,7 @@ ${memBlock}`,
           // Keep a compact retry prompt ready before adding optional generated
           // images and component source. If the rich attempt cannot produce a
           // first token quickly, Auto mode retries with this lightweight form.
-          const lightweightMessages = [...messages, { role: "user", content: data.prompt }];
+          const lightweightMessages = [...messages, ...premiumMessages, { role: "user", content: data.prompt }];
           if (!data.advisory && images.length) {
             messages.push({
               role: "system",
@@ -1022,6 +1027,8 @@ ${memBlock}`,
               });
             }
           }
+          // Art direction goes in LAST so nothing above can override it.
+          for (const m of premiumMessages) messages.push(m);
           messages.push({ role: "user", content: data.prompt });
 
 

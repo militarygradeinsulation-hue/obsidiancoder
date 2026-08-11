@@ -2387,9 +2387,16 @@ function Index() {
         : s));
       setTerminal((t) => [...t, `🎨 Art direction · ${getProfile(artProfile).label} · ${getFamily(committedDna.family).label} · ${committedDna.id}`]);
     }
-    const modelForServer = previewMode && !current.model?.includes("/")
+    // Only a raw registry id counts as a genuine user pin. Tier chips
+    // (auto/fast/balanced/deep) leave the model to the art profile, exactly
+    // like Pocket — and must NOT be sent as `pickerModel`, because the
+    // generate route reads any non-"auto" pickerModel as an explicit pin and
+    // disables its safe first-byte fallback.
+    const hasRawPinnedModel = Boolean(current.model?.includes("/"));
+    const modelForServer = previewMode && !hasRawPinnedModel
       ? artModelChoice.model
       : adaptiveModel;
+    const pickerModelForServer = hasRawPinnedModel ? current.model : "auto";
     const controller = new AbortController();
     abortRef.current = controller;
     abortMapRef.current.set(sessionId, controller);
@@ -2403,9 +2410,13 @@ function Index() {
       const genBody: Record<string, unknown> = {
         prompt,
         currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
-        history: current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
+        // A fresh premium build carries no chat history — nothing in it can
+        // help, and it dilutes the art-direction brief.
+        history: !stableHtml && previewMode
+          ? []
+          : current.messages.slice(-6).filter((m) => !(m.role === "assistant" && /^(done|✓|✅|updated|ok\b)/i.test(m.content.trim()))).slice(-4),
         model: modelForServer,
-        pickerModel: current.model,
+        pickerModel: pickerModelForServer,
         advisory: !previewMode,
         designContract: loadDesignContract(current.id),
         themeBlueprintId: current.themeBlueprintId,

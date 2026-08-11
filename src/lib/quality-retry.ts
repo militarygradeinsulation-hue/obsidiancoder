@@ -22,12 +22,20 @@ const ESCALATION: Record<string, string> = {
   "openai/gpt-5-mini": "openai/gpt-5",
   "openai/gpt-5.6-luna": "openai/gpt-5.6-terra",
   "openai/gpt-5.6-terra": "openai/gpt-5.6-sol",
+  // Claude builds escalate WITHIN the Claude family — jumping to a Gemini id
+  // is a sideways move that loses the design quality Claude was chosen for.
+  "routellm/claude-haiku-4-5-20251001": "routellm/claude-sonnet-4-5-20250929",
+  "routellm/claude-sonnet-4-5-20250929": "routellm/claude-opus-4-1-20250805",
+  "claude-haiku-4-5-20251001": "routellm/claude-sonnet-4-5-20250929",
+  "claude-sonnet-4-5-20250929": "routellm/claude-opus-4-1-20250805",
 };
 
 /** Next model up for a corrective pass. Falls back to a strong default. */
 export function escalateModel(model: string | undefined | null): string {
   const m = (model ?? "").trim();
   if (m && ESCALATION[m]) return ESCALATION[m];
+  // Any other Claude id (including an already-top Opus) stays on Opus.
+  if (/claude/i.test(m)) return "routellm/claude-opus-4-1-20250805";
   if (m.startsWith("openai/")) return "openai/gpt-5.4";
   return "google/gemini-3.1-pro-preview";
 }
