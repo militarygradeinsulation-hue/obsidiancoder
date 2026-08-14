@@ -4254,6 +4254,18 @@ function Index() {
                 </button>
                 <button
                   type="button"
+                  className={"obs-chip" + (styleLocked ? " is-active" : "")}
+                  onClick={() => setStyleLocked((v) => !v)}
+                  aria-pressed={styleLocked}
+                  title={styleLocked
+                    ? "Style lock ON — colors, fonts, and layout stay fixed; only data and features change"
+                    : "Style lock OFF — the model may restyle the build"}
+                >
+                  {styleLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+                  {styleLocked ? "Style locked" : "Style lock"}
+                </button>
+                <button
+                  type="button"
                   className="obs-chip"
                   onClick={clearAll}
                   disabled={loading}
@@ -4261,6 +4273,7 @@ function Index() {
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Clear All
                 </button>
+
                 <div className="obs-avatar obs-avatar-sm">JT</div>
               </div>
             </div>
