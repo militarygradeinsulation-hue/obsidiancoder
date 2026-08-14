@@ -3495,9 +3495,16 @@ function Index() {
         <div className="obs-brand">
           <img src={aetherisLogo.url} alt="Aetheris Obsidian Logo" className="obs-mark obs-mark-img" />
           <span className="obs-brand-word">OBSIDIAN</span>
-          <button type="button" className="obs-icon-btn obs-sidebar-close" aria-label="Close menu" onClick={() => setSidebarOpen(false)}>
+          <button
+            type="button"
+            className="obs-icon-btn obs-sidebar-close"
+            aria-label="Close side panel"
+            title="Close side panel"
+            onClick={() => { setSidebarOpen(false); setSidebarCollapsed(true); }}
+          >
             <X className="h-4 w-4" />
           </button>
+
         </div>
 
         <button type="button" className="obs-search" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
