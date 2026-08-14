@@ -4254,7 +4254,7 @@ function Index() {
                 </button>
                 <button
                   type="button"
-                  className={"obs-chip" + (styleLocked ? " is-active" : "")}
+                  className={"obs-chip" + (styleLocked ? " is-on" : "")}
                   onClick={() => setStyleLocked((v) => !v)}
                   aria-pressed={styleLocked}
                   title={styleLocked
