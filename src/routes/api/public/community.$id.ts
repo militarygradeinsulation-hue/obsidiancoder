@@ -11,12 +11,32 @@ export const Route = createFileRoute("/api/public/community/$id")({
         const remix = new URL(request.url).searchParams.get("remix") === "1";
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-        const { data, error } = await supabaseAdmin
-          .from("builds" as never)
-          .select("id, title, prompt, model, html, share_slug, remix_count, created_at")
-          .eq("id", id)
-          .eq("is_public", true)
-          .maybeSingle();
+        // The param is either a build id (public library rows only) or a
+        // share slug. A slug is a capability token — knowing it is enough to
+        // open the build even when it was never added to the public library.
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
+        const cols = "id, title, prompt, model, html, share_slug, remix_count, created_at";
+        let data: unknown = null;
+        let error: { message: string } | null = null;
+        if (isUuid) {
+          const r = await supabaseAdmin
+            .from("builds" as never)
+            .select(cols)
+            .eq("id", id)
+            .eq("is_public", true)
+            .maybeSingle();
+          data = r.data;
+          error = r.error;
+        }
+        if (!data && !isUuid) {
+          const r = await supabaseAdmin
+            .from("builds" as never)
+            .select(cols)
+            .eq("share_slug", id)
+            .maybeSingle();
+          data = r.data;
+          error = r.error;
+        }
         if (error) return new Response(error.message, { status: 500 });
         if (!data) return new Response("Not found", { status: 404 });
 
@@ -29,7 +49,7 @@ export const Route = createFileRoute("/api/public/community/$id")({
           await supabaseAdmin
             .from("builds" as never)
             .update({ remix_count: (row.remix_count ?? 0) + 1 } as never)
-            .eq("id", id);
+            .eq("id", row.id);
         }
 
         const { sanitizeForExport } = await import("@/lib/clean-export");

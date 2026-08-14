@@ -259,7 +259,7 @@ function LibraryPage() {
           <input
             value={q}
             onChange={(e) => setQ(e.target.value)}
-            placeholder="Search builds…"
+            placeholder="Search builds or paste a share link…"
             aria-label="Search community builds"
             className="w-full bg-transparent text-sm text-[#f2eee7] placeholder:text-[#6b7180] focus:outline-none"
           />
@@ -365,7 +365,7 @@ function LibraryPage() {
                       >
                         {busyId === b.id ? <Loader2 size={13} className="animate-spin" /> : <Copy size={13} />} Copy code
                       </button>
-                      <a href={`/pocket?remix=${b.id}`} className={`${btn} !border-[#F4A125]/40 !text-[#F4A125]`}>
+                      <a href={`/pocket?remix=${b.share_slug || b.id}`} className={`${btn} !border-[#F4A125]/40 !text-[#F4A125]`}>
                         <Wand2 size={13} /> Remix
                       </a>
                       {adminCode && (
