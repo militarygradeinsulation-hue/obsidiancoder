@@ -23,10 +23,16 @@ export function PocketPreviewFrame({
   sandbox?: string;
 }) {
   // Two buffers; `front` says which one is currently visible.
-  const [buffers, setBuffers] = React.useState<[string, string]>([doc, ""]);
+  //
+  // Seed both buffers EMPTY and paint the first real doc straight into the
+  // visible buffer. Lazy-seeding from `doc` at mount locked in a blank
+  // buffer when the doc resolved a tick later, and recovery depended on the
+  // back iframe's onLoad, which never fired on that first transition.
+  const [buffers, setBuffers] = React.useState<[string, string]>(["", ""]);
   const [front, setFront] = React.useState<0 | 1>(0);
   const pendingRef = React.useRef<string | null>(null);
   const loadingRef = React.useRef(false);
+  const paintedRef = React.useRef(false);
 
   const startLoad = React.useCallback(
     (next: string) => {
@@ -39,6 +45,12 @@ export function PocketPreviewFrame({
 
   React.useEffect(() => {
     if (doc === buffers[front]) return;
+    if (!paintedRef.current) {
+      // First real content: paint directly into the visible buffer.
+      paintedRef.current = true;
+      setBuffers((b) => (front === 0 ? [doc, b[1]] : [b[0], doc]));
+      return;
+    }
     if (loadingRef.current) {
       pendingRef.current = doc;
       return;
