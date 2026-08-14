@@ -13,6 +13,9 @@ import {
   Mic, MicOff,
 } from "lucide-react";
 import { useVoiceControl } from "@/lib/voice-control";
+import { styleLockDirective } from "@/lib/style-lock";
+import { Lock, LockOpen } from "lucide-react";
+
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
 import {
