@@ -842,13 +842,15 @@ function Index() {
   // project automatically. Silent — never overwrites work the user started.
   useEffect(() => {
     if (!authUserId) return;
-    void cloudProjects.refresh().then(() => {
+    // Use the list refresh() RETURNS, not cloudProjects.projects read after
+    // the await — that closure holds the pre-fetch (usually empty) value.
+    void cloudProjects.refresh().then((freshProjects) => {
       // Snapshot sessions at this moment. If the active session has no html
       // yet, replace it with the most recent cloud project.
       setSessions((all) => {
         const active = all.find((s) => s.id === activeId);
         if (active?.html) return all; // user has work — don't touch it
-        const top = cloudProjects.projects[0];
+        const top = freshProjects[0];
         if (!top) return all;
         // Load the full project in the background; don't block the render.
         cloudProjects.load(top.id).then((full) => {

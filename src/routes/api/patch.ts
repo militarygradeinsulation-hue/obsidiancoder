@@ -5,7 +5,7 @@
 
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { resolveModel, isRouteLLMModel } from "@/lib/models";
+import { resolveModel } from "@/lib/models";
 import { parsePatchResponse, MAX_OPS } from "@/lib/patch-protocol";
 import { buildContext, nextTier, type ContextTier } from "@/lib/staged-context";
 import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors";
@@ -235,16 +235,22 @@ export const Route = createFileRoute("/api/patch")({
             });
           }
 
-          const primaryIsRouteLLM = isRouteLLMModel(data.model);
+          // callGateway() -> buildProviderChain() always tries every healthy
+          // RouteLLM key FIRST regardless of the requested model (it reads
+          // them itself via healthyRouteLLMKeys()), then falls back to the
+          // Lovable gateway using the `apiKey` argument as that leg's bearer
+          // token. `apiKey` must therefore always be the real Lovable key —
+          // never a RouteLLM key. Passing routellmApiKey here (as this used
+          // to, keyed off the requested model) meant that once every
+          // RouteLLM key was exhausted, the chain's own Lovable fallback
+          // sent the RouteLLM key as the bearer token to the Lovable
+          // gateway and was rejected, instead of quietly falling back.
           const lovableKey = process.env.LOVABLE_API_KEY;
           const routellmApiKey = routellmKey();
-          const primaryKey = primaryIsRouteLLM ? routellmApiKey : lovableKey;
-          if (!primaryKey) {
+          if (!lovableKey && !routellmApiKey) {
             throw new AiError({
               code: "ai_unauthorized", stage: "validate", requestId,
-              message: primaryIsRouteLLM
-                ? "RouteLLM is not configured (ROUTELLM_API_KEY missing)."
-                : "AI is not configured (LOVABLE_API_KEY missing).",
+              message: "AI is not configured (LOVABLE_API_KEY / ROUTELLM_API_KEY missing).",
             });
           }
 
@@ -277,7 +283,7 @@ export const Route = createFileRoute("/api/patch")({
           ];
 
           let modelUsed = data.model;
-          const attempt = await callGateway(primaryKey, data.model, baseMessages, requestId, request.signal);
+          const attempt = await callGateway(lovableKey ?? "", data.model, baseMessages, requestId, request.signal);
           if (attempt.ok) collected.push(attempt.usage);
 
           if (attempt.ok) {
@@ -299,7 +305,6 @@ export const Route = createFileRoute("/api/patch")({
           // ONE repair attempt. Prefer the cheap Lovable model; if only
           // RouteLLM is configured, repair on the same primary model instead.
           const repairModel = lovableKey ? CHEAP_REPAIR_MODEL : data.model;
-          const repairKey = isRouteLLMModel(repairModel) ? routellmApiKey! : lovableKey!;
           modelUsed = repairModel;
           const parseErr = attempt.ok ? "invalid patch schema" : attempt.error.message;
           const repairMessages = [
@@ -308,7 +313,7 @@ export const Route = createFileRoute("/api/patch")({
             { role: "assistant", content: attempt.ok ? attempt.text.slice(0, 4000) : "(previous attempt failed to reach the gateway)" },
             { role: "user", content: `Your previous response was invalid: ${parseErr}. Return ONLY a valid JSON patch document matching the schema. No prose, no fences.` },
           ];
-          const repair = await callGateway(repairKey, repairModel, repairMessages, requestId, request.signal);
+          const repair = await callGateway(lovableKey ?? "", repairModel, repairMessages, requestId, request.signal);
           if (repair.ok) collected.push(repair.usage);
 
           if (!repair.ok) {

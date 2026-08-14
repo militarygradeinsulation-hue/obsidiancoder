@@ -8,6 +8,7 @@ import { useState } from "react";
 import { X, Zap, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { CreditsRequiredEnvelope } from "@/lib/credit-gate";
+import { getTierById } from "@/lib/plans";
 
 export type NudgeReason =
   | "daily_limit"    // credits_required after free daily build
@@ -21,20 +22,26 @@ interface Props {
   onDismiss: () => void;
 }
 
+// Prices render from PLAN_TIERS (the same source checkout, the homepage, and
+// the pricing modal use) so this nudge can never quote a price checkout
+// won't honor. If the tier record disappears, degrade to "See plans".
+const upgradeTier = getTierById("vibe");
+const upgradeCta = upgradeTier ? `Upgrade to ${upgradeTier.name} — ${upgradeTier.price}${upgradeTier.cadence}` : "See plans";
+
 const COPY: Record<NudgeReason, { headline: string; sub: string; cta: string }> = {
   daily_limit: {
     headline: "You built something. Keep going.",
-    sub: "Your free build for today is used. Upgrade to Pro for 1,000 AI credits every month — unlimited builds, cloud saves, and deploy.",
-    cta: "Upgrade to Pro — $30/mo",
+    sub: "Your free build for today is used. Upgrade for 1,000 AI credits every month — unlimited builds, cloud saves, and deploy.",
+    cta: upgradeCta,
   },
   demo_used: {
     headline: "Ready to build for real?",
-    sub: "Your free demo is complete. Create a free account and get one AI build every day, or upgrade to Pro for unlimited.",
+    sub: "Your free demo is complete. Create a free account and get one AI build every day, or upgrade for unlimited.",
     cta: "Create account or upgrade",
   },
   not_pro: {
-    headline: "This feature requires Pro.",
-    sub: "Upgrade to Obsidian Pro for 1,000 AI credits/month, cloud saves, GitHub export, and deploy.",
+    headline: "This feature requires an upgrade.",
+    sub: "Upgrade for 1,000 AI credits/month, cloud saves, GitHub export, and deploy.",
     cta: "See plans",
   },
 };

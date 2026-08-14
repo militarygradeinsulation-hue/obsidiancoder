@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { PLAN_TIERS } from "@/lib/plans";
 
 export const Route = createFileRoute("/terms")({
   component: TermsPage,
@@ -30,7 +31,19 @@ function TermsPage() {
           </section>
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">3. Subscriptions and billing</h2>
-            <p>Paid Obsidian plans are billed monthly in USD through Stripe at the price shown on the plan you select (Starter $29, Creator $79, Professional $149, Business $299, Elite $499; Enterprise is custom). Legacy Obsidian Pro subscribers ($30/month) remain grandfathered on their original price. Each billing period includes an allowance of AI credits used for cloud AI and provider work. Unused credits do not roll over. You may cancel at any time. Under the current cancellation flow, cancellation takes effect immediately and paid access may end at that time; billing for future periods stops.</p>
+            {(() => {
+              // Rendered from PLAN_TIERS so it cannot drift out of sync with
+              // checkout (this used to list five tiers that no longer exist).
+              const priced = PLAN_TIERS.filter((t) => t.priceId);
+              const list = priced.map((t) => `${t.name} ${t.price}${t.cadence}`).join(", ");
+              const custom = PLAN_TIERS.find((t) => t.cta === "contact");
+              return (
+                <p>
+                  Paid Obsidian plans are billed monthly in USD through Stripe at the price shown on the plan you select ({list}
+                  {custom ? `; ${custom.name} is ${custom.price.toLowerCase()}` : ""}). Legacy Obsidian Pro subscribers ($30/month) remain grandfathered on their original price. Each billing period includes an allowance of AI credits used for cloud AI and provider work. Unused credits do not roll over. You may cancel at any time. Under the current cancellation flow, cancellation takes effect immediately and paid access may end at that time; billing for future periods stops.
+                </p>
+              );
+            })()}
           </section>
           <section>
             <h2 className="text-[#f2eee7] font-semibold mb-2">4. Local mode</h2>
