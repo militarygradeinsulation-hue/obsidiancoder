@@ -824,10 +824,8 @@
   color: #D9A84E;
   flex: 1;
 }
-.obs-sidebar-close { display: none; }
-@media (max-width: 900px) {
-  .obs-sidebar-close { display: inline-grid; }
-}
+.obs-sidebar-close { display: inline-grid; }
+
 
 /* Search */
 .obs-search {
