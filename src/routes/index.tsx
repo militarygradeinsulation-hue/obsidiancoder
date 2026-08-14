@@ -2377,8 +2377,17 @@ function Index() {
         prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
       }
     }
+    // ---- Style Lock: freeze the current visual identity, add features only.
+    if (styleLocked && stableHtml) {
+      const lockBrief = styleLockDirective(stableHtml);
+      if (lockBrief) {
+        prompt += `\n\n${lockBrief}`;
+        setTerminal((t) => [...t, "🔒 Style lock ON — palette, fonts, and layout language preserved."]);
+      }
+    }
     // ---- Art direction: choose (or reuse) a Design DNA, exactly like Pocket.
     const isRefineBuild = Boolean(stableHtml);
+
     // Graded memory of past builds — drives the exemplar brief, the proven
     // direction reuse, and the model bias below.
     const learningEntries = readBuildLearning(libraryCode).entries;
