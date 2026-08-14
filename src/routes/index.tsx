@@ -594,6 +594,16 @@ function Index() {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("obs.railCollapsed") === "1";
   });
+  // Style Lock — freeze the committed build's visual identity while the user
+  // keeps adding data and features.
+  const [styleLocked, setStyleLocked] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("obs.styleLock") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.styleLock", styleLocked ? "1" : "0"); } catch {}
+  }, [styleLocked]);
+
   useEffect(() => {
     try { window.localStorage.setItem("obs.sidebarCollapsed", sidebarCollapsed ? "1" : "0"); } catch {}
   }, [sidebarCollapsed]);
