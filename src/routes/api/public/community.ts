@@ -35,6 +35,25 @@ export const Route = createFileRoute("/api/public/community")({
           process.env['SUPABASE_PUBLISHABLE_KEY']!,
           { auth: { storage: undefined, persistSession: false, autoRefreshToken: false } },
         );
+        // Pasting a published share URL (or the bare slug) looks up that one
+        // build directly, even if it isn't in the public library.
+        const slug = (() => {
+          const m = q.match(/\/share\/([A-Za-z0-9_-]{6,})/);
+          if (m) return m[1];
+          return /^[A-Za-z0-9]{8,}$/.test(q) && !/\s/.test(q) ? q : null;
+        })();
+        if (slug) {
+          const { data, error } = await supabasePublic
+            .from("builds" as never)
+            .select(
+              "id, title, prompt, model, created_at, published_at, share_slug, author_label, remix_count, byte_size",
+            )
+            .eq("share_slug", slug)
+            .maybeSingle();
+          if (error) return new Response(error.message, { status: 500 });
+          return Response.json({ builds: data ? [data as CommunityBuild] : [] });
+        }
+
         let query = supabasePublic
           .from("builds" as never)
           .select(
