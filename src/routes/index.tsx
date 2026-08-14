@@ -13,6 +13,9 @@ import {
   Mic, MicOff,
 } from "lucide-react";
 import { useVoiceControl } from "@/lib/voice-control";
+import { styleLockDirective } from "@/lib/style-lock";
+import { Lock, LockOpen } from "lucide-react";
+
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
 import { BuildChatPanel } from "@/components/BuildChatPanel";
 import {
@@ -594,6 +597,16 @@ function Index() {
     if (typeof window === "undefined") return false;
     return window.localStorage.getItem("obs.railCollapsed") === "1";
   });
+  // Style Lock — freeze the committed build's visual identity while the user
+  // keeps adding data and features.
+  const [styleLocked, setStyleLocked] = useState<boolean>(() => {
+    if (typeof window === "undefined") return false;
+    return window.localStorage.getItem("obs.styleLock") === "1";
+  });
+  useEffect(() => {
+    try { window.localStorage.setItem("obs.styleLock", styleLocked ? "1" : "0"); } catch {}
+  }, [styleLocked]);
+
   useEffect(() => {
     try { window.localStorage.setItem("obs.sidebarCollapsed", sidebarCollapsed ? "1" : "0"); } catch {}
   }, [sidebarCollapsed]);
@@ -2367,8 +2380,17 @@ function Index() {
         prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
       }
     }
+    // ---- Style Lock: freeze the current visual identity, add features only.
+    if (styleLocked && stableHtml) {
+      const lockBrief = styleLockDirective(stableHtml);
+      if (lockBrief) {
+        prompt += `\n\n${lockBrief}`;
+        setTerminal((t) => [...t, "🔒 Style lock ON — palette, fonts, and layout language preserved."]);
+      }
+    }
     // ---- Art direction: choose (or reuse) a Design DNA, exactly like Pocket.
     const isRefineBuild = Boolean(stableHtml);
+
     // Graded memory of past builds — drives the exemplar brief, the proven
     // direction reuse, and the model bias below.
     const learningEntries = readBuildLearning(libraryCode).entries;
@@ -3495,9 +3517,16 @@ function Index() {
         <div className="obs-brand">
           <img src={aetherisLogo.url} alt="Aetheris Obsidian Logo" className="obs-mark obs-mark-img" />
           <span className="obs-brand-word">OBSIDIAN</span>
-          <button type="button" className="obs-icon-btn obs-sidebar-close" aria-label="Close menu" onClick={() => setSidebarOpen(false)}>
+          <button
+            type="button"
+            className="obs-icon-btn obs-sidebar-close"
+            aria-label="Close side panel"
+            title="Close side panel"
+            onClick={() => { setSidebarOpen(false); setSidebarCollapsed(true); }}
+          >
             <X className="h-4 w-4" />
           </button>
+
         </div>
 
         <button type="button" className="obs-search" onClick={() => setPaletteOpen(true)} aria-label="Open command palette">
@@ -4225,6 +4254,18 @@ function Index() {
                 </button>
                 <button
                   type="button"
+                  className={"obs-chip" + (styleLocked ? " is-on" : "")}
+                  onClick={() => setStyleLocked((v) => !v)}
+                  aria-pressed={styleLocked}
+                  title={styleLocked
+                    ? "Style lock ON — colors, fonts, and layout stay fixed; only data and features change"
+                    : "Style lock OFF — the model may restyle the build"}
+                >
+                  {styleLocked ? <Lock className="h-3.5 w-3.5" /> : <LockOpen className="h-3.5 w-3.5" />}
+                  {styleLocked ? "Style locked" : "Style lock"}
+                </button>
+                <button
+                  type="button"
                   className="obs-chip"
                   onClick={clearAll}
                   disabled={loading}
@@ -4232,6 +4273,7 @@ function Index() {
                 >
                   <Trash2 className="h-3.5 w-3.5" /> Clear All
                 </button>
+
                 <div className="obs-avatar obs-avatar-sm">JT</div>
               </div>
             </div>
