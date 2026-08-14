@@ -571,8 +571,9 @@ function ForgePage() {
     if (!authUserId) return;
     const blank = html === EMPTY_DOC || html.length < 40;
     if (!blank) return;
-    void cloudProjects.refresh().then(() => {
-      const top = cloudProjects.projects[0];
+    // See useCloudProjects.refresh(): must use the list it RETURNS.
+    void cloudProjects.refresh().then((freshProjects) => {
+      const top = freshProjects[0];
       if (!top) return;
       cloudProjects.load(top.id).then((full) => {
         if (!full) return;

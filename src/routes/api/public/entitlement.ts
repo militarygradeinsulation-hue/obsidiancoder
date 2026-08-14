@@ -9,6 +9,7 @@ import {
   serverStripeEnv,
   hasActivePro,
   pocketBuildUsage,
+  capForUser,
 } from "@/lib/credit-gate.server";
 
 export type EntitlementMode = "owner" | "pro" | "free";
@@ -89,6 +90,9 @@ export const Route = createFileRoute("/api/public/entitlement")({
         let periodEnd: string | null = null;
         let used = 0, reserved = 0, remaining = 0;
         let subStatus: string | null = "active";
+        // Resolve the caller's REAL tier cap once, up front, and use it for
+        // both the ledger RPC's _cap and everything the snapshot reports.
+        const resolvedCap = await capForUser(user.userId, env).catch(() => CAP_PRO_MONTHLY);
         try {
           const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
           const { data: subRow } = await supabaseAdmin
@@ -106,7 +110,7 @@ export const Route = createFileRoute("/api/public/entitlement")({
             periodEnd = r.current_period_end;
           }
           const { data: bal } = await supabaseAdmin.rpc("usage_balance" as never, {
-            _user_id: user.userId, _env: env, _cap: CAP_PRO_MONTHLY,
+            _user_id: user.userId, _env: env, _cap: resolvedCap,
           } as never);
           const row = (Array.isArray(bal) ? bal[0] : bal) as
             | { used: number; reserved: number; cap: number; remaining: number; period_start: string | null; period_end: string | null; active: boolean }
@@ -120,16 +124,17 @@ export const Route = createFileRoute("/api/public/entitlement")({
           }
         } catch { /* best-effort */ }
         let tier: string | null = null;
-        let builds = { used: 0, cap: 0, remaining: 0 };
+        // Pocket is metered on the same shared credit ledger as every other
+        // tier now, so `builds` mirrors the real ledger instead of the legacy
+        // per-build counter, which promised headroom the gate never honored.
         try {
-          const pocket = await pocketBuildUsage(user.userId, env);
-          tier = pocket.tier;
-          builds = { used: pocket.used, cap: pocket.cap, remaining: pocket.remaining };
+          tier = (await pocketBuildUsage(user.userId, env)).tier;
         } catch { /* best-effort */ }
+        const builds = { used, cap: resolvedCap, remaining };
 
         const snap: EntitlementSnapshot = {
           mode: "pro", authed: true, subStatus, environment: env,
-          periodStart, periodEnd, used, reserved, cap: CAP_PRO_MONTHLY, remaining,
+          periodStart, periodEnd, used, reserved, cap: resolvedCap, remaining,
           tier, builds,
         };
 

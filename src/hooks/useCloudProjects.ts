@@ -49,13 +49,21 @@ export function useCloudProjects({ isAuthenticated, surface = "coder" }: UseClou
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  /** Fetch the project list. No-ops when unauthenticated. */
-  const refresh = useCallback(async () => {
-    if (!isAuthenticated) return;
+  /**
+   * Fetch the project list. No-ops when unauthenticated.
+   *
+   * Returns the fetched list directly, IN ADDITION to updating `projects`
+   * state. Callers that need the result right after awaiting this must use
+   * the RETURN VALUE, not `cloudProjects.projects` from their own closure —
+   * that is still the pre-fetch value.
+   */
+  const refresh = useCallback(async (): Promise<CloudProjectMeta[]> => {
+    if (!isAuthenticated) return [];
     setLoading(true);
     try {
       const result = await listCloudProjects();
-      if (result.ok) setProjects(result.data);
+      if (result.ok) { setProjects(result.data); return result.data; }
+      return [];
     } finally {
       setLoading(false);
     }
