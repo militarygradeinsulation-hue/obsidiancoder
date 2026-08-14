@@ -43,7 +43,10 @@ export const Route = createFileRoute("/api/public/community")({
           return /^[A-Za-z0-9]{8,}$/.test(q) && !/\s/.test(q) ? q : null;
         })();
         if (slug) {
-          const { data, error } = await supabasePublic
+          // Slug is a capability token, so this read bypasses the public-only
+          // policy via the admin client.
+          const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+          const { data, error } = await supabaseAdmin
             .from("builds" as never)
             .select(
               "id, title, prompt, model, created_at, published_at, share_slug, author_label, remix_count, byte_size",
