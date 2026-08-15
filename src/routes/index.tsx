@@ -2537,12 +2537,19 @@ function Index() {
               ].filter(Boolean).join("\n\n"),
             }
           : {}),
-        // Inject reusable components for fresh builds only.
-        ...(!stableHtml && !previewMode
+        // Inject reusable components for fresh BUILDS only. This was doubly
+        // dead: the condition read `!previewMode` (chat/plan mode), while
+        // the server only reads reusableComponents when `!advisory` (i.e.
+        // previewMode) — so the payload was only ever sent in the one mode
+        // that ignores it, wasting the lookup and giving zero reuse value.
+        // The registry also has to be a static import: `require` is not
+        // defined in the browser bundle, so the try/catch silently
+        // swallowed a ReferenceError on every call.
+        ...(!stableHtml && previewMode
           ? (() => {
               try {
-                const { matchComponents } = require("@/lib/component-registry") as typeof import("@/lib/component-registry");
                 const comps = matchComponents(prompt, 3);
+
                 return comps.length ? { reusableComponents: comps.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) } : {};
               } catch { return {}; }
             })()

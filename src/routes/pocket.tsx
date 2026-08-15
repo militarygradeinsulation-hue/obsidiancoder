@@ -728,9 +728,20 @@ function ForgePage() {
     // Auto-extract project facts from this prompt and merge into session memory.
     // Only fills blank fields; never overwrites anything the user or a prior
     // extraction already set.
+    //
+    // This used to be `setPocketMemory((prev) => updateMemoryFromPrompt(prev, p))`
+    // followed, later in this same function, by reading `pocketMemory` (the
+    // closure variable) for the request body. `setPocketMemory` schedules a
+    // re-render — it does not mutate `pocketMemory` in this closure — so
+    // every build sent the PREVIOUS build's memory, one generation behind.
+    // Facts extracted from prompt N only ever reached the request for
+    // prompt N+1. Compute the merged value once, synchronously, and use it
+    // both to update state and to build this request.
+    const effectiveMemory = isRefine ? pocketMemory : updateMemoryFromPrompt(pocketMemory, p);
     if (!isRefine) {
-      setPocketMemory((prev) => updateMemoryFromPrompt(prev, p));
+      setPocketMemory(effectiveMemory);
     }
+
     let providerCalls = 0;
     let critiqueRan = false;
     try {
