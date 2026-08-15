@@ -64,7 +64,7 @@ import { PaymentTestModeBanner } from "@/components/PaymentTestModeBanner";
 import { useAuth, useSubscription } from "@/hooks/useSubscription";
 import { useEntitlement, refreshEntitlement } from "@/hooks/useEntitlement";
 import { useCloudProjects } from "@/hooks/useCloudProjects";
-import { extractComponents, saveToRegistry } from "@/lib/component-registry";
+import { extractComponents, saveToRegistry, matchComponents } from "@/lib/component-registry";
 import { requirePaidAction } from "@/lib/action-guard";
 import { authFetch } from "@/lib/auth-fetch";
 import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";

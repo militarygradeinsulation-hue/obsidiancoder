@@ -816,7 +816,7 @@ function ForgePage() {
         pickerModel: hasRawPinnedModel ? model : pickerModel,
         advisory: false,
         surface: "pocket",
-        projectMemory: pocketMemory,
+        projectMemory: effectiveMemory,
         pocketProfile: profile,
         pocketStyleFamily: styleFamily,
         pocketDesignDNA: buildDna,
