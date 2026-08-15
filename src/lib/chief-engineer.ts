@@ -91,11 +91,32 @@ export type ReviewInput = {
 
 // ---------- Utility ----------
 
+/**
+ * Only a genuinely unsafe or unusable build may stop a commit.
+ *
+ * The Chief Engineer is a REVIEW layer, not a safety gate: the real gates are
+ * validateHtml, checkCommitGate, the publish-artifact scanner, and QA, all of
+ * which have already run by the time reviewBuild() is called. Letting a
+ * heuristic agent revert a build on top of those means a user loses finished
+ * work over a taste-level opinion with no way to recover it — and burns the
+ * credits of a regeneration to fix a "problem" that was never real.
+ *
+ * So a critical finding still tanks the score and is surfaced as a risk, but
+ * it only BLOCKS when it is one of these: real leaked credential material, an
+ * empty document, or a document the validator already failed. Everything else
+ * is advisory.
+ */
+function isHardBlocker(f: Finding): boolean {
+  if (f.severity !== "critical") return false;
+  return f.id.startsWith("secret-") || f.id === "empty-doc" || f.id === "validation-failed";
+}
+
 function approvalFromFindings(findings: Finding[]): { approval: AgentApproval; score: number } {
   let penalty = 0;
   let blocking = false;
   for (const f of findings) {
-    if (f.severity === "critical") { penalty += 40; blocking = true; }
+    if (f.severity === "critical") { penalty += 40; blocking ||= isHardBlocker(f); }
+
     else if (f.severity === "high") { penalty += 18; }
     else if (f.severity === "medium") { penalty += 8; }
     else if (f.severity === "low") { penalty += 3; }
@@ -131,7 +152,7 @@ function reviewBackend(g: KnowledgeGraph): { findings: Finding[]; files: string[
     if (/^http:\/\//i.test(ep)) findings.push(mkFinding(`insecure-endpoint-${ep}`, "high", `Endpoint uses http:// — ${ep}`, "Switch to https://"));
   }
   for (const ref of g.envRefs) {
-    if (/API_KEY|SECRET|TOKEN|PRIVATE/i.test(ref)) findings.push(mkFinding(`env-in-doc-${ref}`, "critical", `Secret-like env reference embedded in document: ${ref}`, "Move to a server-only handler."));
+    if (/API_KEY|SECRET|TOKEN|PRIVATE/i.test(ref)) findings.push(mkFinding(`env-in-doc-${ref}`, "high", `Secret-like env reference embedded in document: ${ref}`, "Move to a server-only handler."));
   }
   if (g.integrations.length > 0 && g.endpoints.length === 0) recs.push(`Integrations referenced (${g.integrations.join(", ")}) with no backend endpoints — verify data flow.`);
   return { findings, files: g.endpoints.length ? ["preview.html", "endpoints(inline)"] : ["preview.html"], recs };
