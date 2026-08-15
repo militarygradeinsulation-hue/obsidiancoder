@@ -42,7 +42,11 @@ const SECRET_PATTERNS: [RegExp, string][] = [
 export function scanSecurity(html: string, g: KnowledgeGraph): ScanReport {
   const findings: Finding[] = [];
   for (const [rx, label] of SECRET_PATTERNS) {
+    // These are module-level /g regexes: .test() advances lastIndex and the
+    // NEXT build would resume mid-string and miss a real key. Reset first.
+    rx.lastIndex = 0;
     if (rx.test(html)) findings.push({ id: `secret-${label}`, severity: "critical", message: `Exposed secret in document: ${label}`, fix: "Move to server-side secret; never inline." });
+
   }
   if (/\beval\s*\(/.test(html)) findings.push({ id: "eval", severity: "high", message: "Uses eval() — arbitrary code execution risk.", fix: "Replace with explicit logic." });
   if (/document\.write\s*\(/.test(html)) findings.push({ id: "doc-write", severity: "medium", message: "Uses document.write — blocks parser, XSS risk." });

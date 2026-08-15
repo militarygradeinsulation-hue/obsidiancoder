@@ -235,19 +235,38 @@ export function matchComponents(prompt: string, topN = 3): StoredComponent[] {
   const promptWords = new Set(
     prompt.toLowerCase().split(/[\s,.:!?]+/).filter((w) => w.length >= 3)
   );
+  const lower = prompt.toLowerCase();
   const scored = registry.map((c) => {
-    const kindMatch = prompt.toLowerCase().includes(c.kind.replace("-", " ")) ||
-                      prompt.toLowerCase().includes(c.label.toLowerCase());
+    // Match the whole kind/label phrase, or any meaningful token inside it
+    // ("build a pricing page" should reach a stored `pricing-card`), not
+    // just an exact substring of the hyphenated kind or the full label.
+    const kindTokens = `${c.kind} ${c.label}`.toLowerCase().split(/[\s-]+/).filter((w) => w.length >= 4);
+    const kindMatch = lower.includes(c.kind.replace("-", " ")) ||
+                      lower.includes(c.label.toLowerCase()) ||
+                      kindTokens.some((w) => promptWords.has(w));
     const kwOverlap = c.keywords.filter((kw) => promptWords.has(kw)).length;
     const recencyBonus = Math.max(0, 1 - (Date.now() - c.lastUsedAt) / (7 * 24 * 60 * 60 * 1000));
     const score = (kindMatch ? 3 : 0) + kwOverlap + recencyBonus;
-    return { component: c, score };
+    // Recency alone is not relevance — it only breaks ties between
+    // components that already matched on kind or a real keyword. Without
+    // this, every recently-used component scored > 0 regardless of topic
+    // (a pricing card got injected into a job-costing-dashboard prompt),
+    // spending prompt tokens — and therefore credits — on irrelevant markup
+    // that made output worse, not better.
+    return { component: c, score, relevant: kindMatch || kwOverlap > 0 };
   });
-  return scored
-    .filter(({ score }) => score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, topN)
-    .map(({ component }) => component);
+  // One per kind: three near-duplicate pricing cards teach the model
+  // nothing a single one doesn't, and crowd out other relevant patterns.
+  const seenKinds = new Set<string>();
+  const picked: StoredComponent[] = [];
+  for (const { component } of scored.filter(({ relevant }) => relevant).sort((a, b) => b.score - a.score)) {
+    if (seenKinds.has(component.kind)) continue;
+    seenKinds.add(component.kind);
+    picked.push(component);
+    if (picked.length >= topN) break;
+  }
+  return picked;
+
 }
 
 /**
