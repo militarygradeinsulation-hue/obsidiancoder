@@ -815,6 +815,10 @@ export type Database = {
         Args: { _id: string; _lease_seconds?: number }
         Returns: boolean
       }
+      build_job_kick: {
+        Args: { _apikey: string; _base_url: string; _id: string }
+        Returns: number
+      }
       build_jobs_stale: {
         Args: { _limit?: number }
         Returns: {
