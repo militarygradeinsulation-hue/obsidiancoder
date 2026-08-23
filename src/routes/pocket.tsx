@@ -1035,7 +1035,8 @@ function ForgePage() {
       ]
         .filter(Boolean)
         .join(" ");
-      setVersions((v) => pushVersion(v, makeForgeVersion(finalHtml, label)));
+      const newVersions = pushVersion(versions, makeForgeVersion(finalHtml, label));
+      setVersions(() => newVersions);
       setLastCritiqueRan(critiqueRan);
       rememberSignature(dnaSignature(buildDna), libraryCode);
       // Quality memory: grade this build so the next one starts smarter.
@@ -1053,6 +1054,35 @@ function ForgePage() {
       } catch { /* learning is best-effort */ }
       const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
       if (title === "Untitled build") setTitle(buildTitle);
+
+      // Persist directly, independent of whether this component is still
+      // mounted. Generation is not cancelled by navigating away — nothing
+      // aborts the underlying fetch/stream when the route changes, and it
+      // keeps running exactly as intended. But the ONLY thing that ever
+      // wrote a finished build to storage was the debounced autosave effect
+      // above, which belongs to THIS component instance and — like every
+      // other state update in this function — becomes a no-op once the
+      // instance backing it is gone. A generation that finished while the
+      // user was on another page had a real result and nowhere for it to
+      // land, so it looked like the build had simply stopped. Writing it
+      // here, with real values rather than relying on setVersions/setTitle
+      // to have resolved, guarantees it survives regardless of mount state.
+      // The existing restore-on-mount logic in Pocket already reads this
+      // same key, so the next time Pocket opens the finished build is there.
+      safeSet(sessionKey(libraryCode), {
+        html: finalHtml,
+        title: buildTitle,
+        prompt: p,
+        versions: newVersions.slice(0, 10),
+        at: Date.now(),
+        profile,
+        styleFamily,
+        dna: buildDna,
+        conceptNames: plan?.concepts.map((c) => c.name).slice(0, 3),
+        conceptPlan: plan,
+        conceptPlanKey: activePlanKey,
+      } satisfies PocketSession);
+
       // Shelve every build in the permanent archive, saved or not.
       try {
         archiveBuild(
