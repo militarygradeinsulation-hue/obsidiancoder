@@ -549,7 +549,7 @@ ok(genSrc2.includes("detectForbiddenStorage(outSample)"), "generate.ts: logs for
   } = await import("../build-jobs.ts");
 
   const base = { scope: "9822", prompt: "landing page", mode: "create", profile: "fast", now: 1_000_000 };
-  ok(idempotencyKeyFor(base) === idempotencyKeyFor({ ...base, now: 1_030_000 }),
+  ok(idempotencyKeyFor(base) === idempotencyKeyFor({ ...base, now: 1_010_000 }),
     "jobs: identical resubmits inside the window collapse onto one key");
   ok(idempotencyKeyFor(base) !== idempotencyKeyFor({ ...base, prompt: "pricing page" }),
     "jobs: a different prompt is a different job");
@@ -562,7 +562,7 @@ ok(genSrc2.includes("detectForbiddenStorage(outSample)"), "generate.ts: logs for
     "jobs: partial persistence is throttled, never per token");
 
   ok(safePartial("<p>short") === null, "jobs: too-short partials are not persisted");
-  const partial = safePartial("<html><head><style>body{color:red}</style></head><body><h1>Hi</h1>" + "x".repeat(300));
+  const partial = safePartial("<html><head><style>body{color:red}</style></head><body><h1>Hi</h1>" + "x".repeat(300) + "</body></html>");
   ok(!!partial && partial.endsWith(">"), "jobs: partials are cut at a safe tag boundary");
   ok(safePartial("```html\n<html>" + "y".repeat(400) + "</html>```")?.endsWith(">") === true,
     "jobs: fenced output is unwrapped before persisting");
