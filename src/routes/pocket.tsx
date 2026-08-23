@@ -813,10 +813,13 @@ function ForgePage() {
     },
   });
 
+  cancelJobRef.current = () => void buildJob.cancel();
+
   // Reattach to a build that was still running when the user left the page.
   React.useEffect(() => {
     if (!libraryCode) return;
     buildJob.resume();
+
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryCode]);
 
