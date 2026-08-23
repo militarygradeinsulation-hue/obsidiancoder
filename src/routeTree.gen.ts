@@ -47,6 +47,8 @@ import { Route as ApiPublicEntitlementRouteImport } from './routes/api/public/en
 import { Route as ApiPublicCommunityRouteImport } from './routes/api/public/community'
 import { Route as ApiPublicBuildsRouteImport } from './routes/api/public/builds'
 import { Route as ApiPublicBaselineRouteImport } from './routes/api/public/baseline'
+import { Route as ApiJobsCreateRouteImport } from './routes/api/jobs/create'
+import { Route as ApiJobsIdRouteImport } from './routes/api/jobs/$id'
 import { Route as ApiDashboardStatsRouteImport } from './routes/api/dashboard/stats'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
@@ -57,6 +59,8 @@ import { Route as ApiPublicShareSlugRouteImport } from './routes/api/public/shar
 import { Route as ApiPublicSavedIdeasCodeRouteImport } from './routes/api/public/saved-ideas.$code'
 import { Route as ApiPublicPaymentsWebhookRouteImport } from './routes/api/public/payments/webhook'
 import { Route as ApiPublicLibraryCodeRouteImport } from './routes/api/public/library.$code'
+import { Route as ApiPublicJobsSweepRouteImport } from './routes/api/public/jobs/sweep'
+import { Route as ApiPublicJobsRunRouteImport } from './routes/api/public/jobs/run'
 import { Route as ApiPublicFreeDemoStatusRouteImport } from './routes/api/public/free-demo.status'
 import { Route as ApiPublicCommunityIdRouteImport } from './routes/api/public/community.$id'
 import { Route as ApiPublicBuildsIdRouteImport } from './routes/api/public/builds.$id'
@@ -256,6 +260,16 @@ const ApiPublicBaselineRoute = ApiPublicBaselineRouteImport.update({
   path: '/api/public/baseline',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiJobsCreateRoute = ApiJobsCreateRouteImport.update({
+  id: '/api/jobs/create',
+  path: '/api/jobs/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiJobsIdRoute = ApiJobsIdRouteImport.update({
+  id: '/api/jobs/$id',
+  path: '/api/jobs/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiDashboardStatsRoute = ApiDashboardStatsRouteImport.update({
   id: '/api/dashboard/stats',
   path: '/api/dashboard/stats',
@@ -307,6 +321,16 @@ const ApiPublicPaymentsWebhookRoute =
 const ApiPublicLibraryCodeRoute = ApiPublicLibraryCodeRouteImport.update({
   id: '/api/public/library/$code',
   path: '/api/public/library/$code',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicJobsSweepRoute = ApiPublicJobsSweepRouteImport.update({
+  id: '/api/public/jobs/sweep',
+  path: '/api/public/jobs/sweep',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicJobsRunRoute = ApiPublicJobsRunRouteImport.update({
+  id: '/api/public/jobs/run',
+  path: '/api/public/jobs/run',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicFreeDemoStatusRoute = ApiPublicFreeDemoStatusRouteImport.update({
@@ -363,6 +387,8 @@ export interface FileRoutesByFullPath {
   '/team/$slug': typeof TeamSlugRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
+  '/api/jobs/$id': typeof ApiJobsIdRoute
+  '/api/jobs/create': typeof ApiJobsCreateRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/community': typeof ApiPublicCommunityRouteWithChildren
@@ -374,6 +400,8 @@ export interface FileRoutesByFullPath {
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/community/$id': typeof ApiPublicCommunityIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
+  '/api/public/jobs/run': typeof ApiPublicJobsRunRoute
+  '/api/public/jobs/sweep': typeof ApiPublicJobsSweepRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
@@ -417,6 +445,8 @@ export interface FileRoutesByTo {
   '/team/$slug': typeof TeamSlugRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
+  '/api/jobs/$id': typeof ApiJobsIdRoute
+  '/api/jobs/create': typeof ApiJobsCreateRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/community': typeof ApiPublicCommunityRouteWithChildren
@@ -428,6 +458,8 @@ export interface FileRoutesByTo {
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/community/$id': typeof ApiPublicCommunityIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
+  '/api/public/jobs/run': typeof ApiPublicJobsRunRoute
+  '/api/public/jobs/sweep': typeof ApiPublicJobsSweepRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
@@ -472,6 +504,8 @@ export interface FileRoutesById {
   '/team/$slug': typeof TeamSlugRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
+  '/api/jobs/$id': typeof ApiJobsIdRoute
+  '/api/jobs/create': typeof ApiJobsCreateRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
   '/api/public/builds': typeof ApiPublicBuildsRouteWithChildren
   '/api/public/community': typeof ApiPublicCommunityRouteWithChildren
@@ -483,6 +517,8 @@ export interface FileRoutesById {
   '/api/public/builds/$id': typeof ApiPublicBuildsIdRoute
   '/api/public/community/$id': typeof ApiPublicCommunityIdRoute
   '/api/public/free-demo/status': typeof ApiPublicFreeDemoStatusRoute
+  '/api/public/jobs/run': typeof ApiPublicJobsRunRoute
+  '/api/public/jobs/sweep': typeof ApiPublicJobsSweepRoute
   '/api/public/library/$code': typeof ApiPublicLibraryCodeRouteWithChildren
   '/api/public/payments/webhook': typeof ApiPublicPaymentsWebhookRoute
   '/api/public/saved-ideas/$code': typeof ApiPublicSavedIdeasCodeRoute
@@ -528,6 +564,8 @@ export interface FileRouteTypes {
     | '/team/$slug'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
+    | '/api/jobs/$id'
+    | '/api/jobs/create'
     | '/api/public/baseline'
     | '/api/public/builds'
     | '/api/public/community'
@@ -539,6 +577,8 @@ export interface FileRouteTypes {
     | '/api/public/builds/$id'
     | '/api/public/community/$id'
     | '/api/public/free-demo/status'
+    | '/api/public/jobs/run'
+    | '/api/public/jobs/sweep'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
@@ -582,6 +622,8 @@ export interface FileRouteTypes {
     | '/team/$slug'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
+    | '/api/jobs/$id'
+    | '/api/jobs/create'
     | '/api/public/baseline'
     | '/api/public/builds'
     | '/api/public/community'
@@ -593,6 +635,8 @@ export interface FileRouteTypes {
     | '/api/public/builds/$id'
     | '/api/public/community/$id'
     | '/api/public/free-demo/status'
+    | '/api/public/jobs/run'
+    | '/api/public/jobs/sweep'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
@@ -636,6 +680,8 @@ export interface FileRouteTypes {
     | '/team/$slug'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
+    | '/api/jobs/$id'
+    | '/api/jobs/create'
     | '/api/public/baseline'
     | '/api/public/builds'
     | '/api/public/community'
@@ -647,6 +693,8 @@ export interface FileRouteTypes {
     | '/api/public/builds/$id'
     | '/api/public/community/$id'
     | '/api/public/free-demo/status'
+    | '/api/public/jobs/run'
+    | '/api/public/jobs/sweep'
     | '/api/public/library/$code'
     | '/api/public/payments/webhook'
     | '/api/public/saved-ideas/$code'
@@ -691,6 +739,8 @@ export interface RootRouteChildren {
   TeamSlugRoute: typeof TeamSlugRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiDashboardStatsRoute: typeof ApiDashboardStatsRoute
+  ApiJobsIdRoute: typeof ApiJobsIdRoute
+  ApiJobsCreateRoute: typeof ApiJobsCreateRoute
   ApiPublicBaselineRoute: typeof ApiPublicBaselineRoute
   ApiPublicBuildsRoute: typeof ApiPublicBuildsRouteWithChildren
   ApiPublicCommunityRoute: typeof ApiPublicCommunityRouteWithChildren
@@ -700,6 +750,8 @@ export interface RootRouteChildren {
   ApiPublicThemeThumbnailsRoute: typeof ApiPublicThemeThumbnailsRoute
   ApiPublicWaitlistRoute: typeof ApiPublicWaitlistRoute
   ApiPublicFreeDemoStatusRoute: typeof ApiPublicFreeDemoStatusRoute
+  ApiPublicJobsRunRoute: typeof ApiPublicJobsRunRoute
+  ApiPublicJobsSweepRoute: typeof ApiPublicJobsSweepRoute
   ApiPublicLibraryCodeRoute: typeof ApiPublicLibraryCodeRouteWithChildren
   ApiPublicPaymentsWebhookRoute: typeof ApiPublicPaymentsWebhookRoute
   ApiPublicSavedIdeasCodeRoute: typeof ApiPublicSavedIdeasCodeRoute
@@ -978,6 +1030,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicBaselineRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/jobs/create': {
+      id: '/api/jobs/create'
+      path: '/api/jobs/create'
+      fullPath: '/api/jobs/create'
+      preLoaderRoute: typeof ApiJobsCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/jobs/$id': {
+      id: '/api/jobs/$id'
+      path: '/api/jobs/$id'
+      fullPath: '/api/jobs/$id'
+      preLoaderRoute: typeof ApiJobsIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/dashboard/stats': {
       id: '/api/dashboard/stats'
       path: '/api/dashboard/stats'
@@ -1046,6 +1112,20 @@ declare module '@tanstack/react-router' {
       path: '/api/public/library/$code'
       fullPath: '/api/public/library/$code'
       preLoaderRoute: typeof ApiPublicLibraryCodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/jobs/sweep': {
+      id: '/api/public/jobs/sweep'
+      path: '/api/public/jobs/sweep'
+      fullPath: '/api/public/jobs/sweep'
+      preLoaderRoute: typeof ApiPublicJobsSweepRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/jobs/run': {
+      id: '/api/public/jobs/run'
+      path: '/api/public/jobs/run'
+      fullPath: '/api/public/jobs/run'
+      preLoaderRoute: typeof ApiPublicJobsRunRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/public/free-demo/status': {
@@ -1147,6 +1227,8 @@ const rootRouteChildren: RootRouteChildren = {
   TeamSlugRoute: TeamSlugRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiDashboardStatsRoute: ApiDashboardStatsRoute,
+  ApiJobsIdRoute: ApiJobsIdRoute,
+  ApiJobsCreateRoute: ApiJobsCreateRoute,
   ApiPublicBaselineRoute: ApiPublicBaselineRoute,
   ApiPublicBuildsRoute: ApiPublicBuildsRouteWithChildren,
   ApiPublicCommunityRoute: ApiPublicCommunityRouteWithChildren,
@@ -1156,6 +1238,8 @@ const rootRouteChildren: RootRouteChildren = {
   ApiPublicThemeThumbnailsRoute: ApiPublicThemeThumbnailsRoute,
   ApiPublicWaitlistRoute: ApiPublicWaitlistRoute,
   ApiPublicFreeDemoStatusRoute: ApiPublicFreeDemoStatusRoute,
+  ApiPublicJobsRunRoute: ApiPublicJobsRunRoute,
+  ApiPublicJobsSweepRoute: ApiPublicJobsSweepRoute,
   ApiPublicLibraryCodeRoute: ApiPublicLibraryCodeRouteWithChildren,
   ApiPublicPaymentsWebhookRoute: ApiPublicPaymentsWebhookRoute,
   ApiPublicSavedIdeasCodeRoute: ApiPublicSavedIdeasCodeRoute,

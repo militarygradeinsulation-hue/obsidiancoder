@@ -541,6 +541,49 @@ ok(genSrc2.includes("detectForbiddenStorage(outSample)"), "generate.ts: logs for
   ok(extractSkeleton("").sections.length === 0, "skeleton: empty input is safe");
 }
 
+/* ---------- durable build jobs ---------- */
+{
+  const {
+    idempotencyKeyFor, safePartial, shouldPersistPartial, isTerminal,
+    STAGE_PROGRESS, summarizeTimings, activeJobKey,
+  } = await import("../build-jobs.ts");
+
+  const base = { scope: "9822", prompt: "landing page", mode: "create", profile: "fast", now: 1_000_000 };
+  ok(idempotencyKeyFor(base) === idempotencyKeyFor({ ...base, now: 1_010_000 }),
+    "jobs: identical resubmits inside the window collapse onto one key");
+  ok(idempotencyKeyFor(base) !== idempotencyKeyFor({ ...base, prompt: "pricing page" }),
+    "jobs: a different prompt is a different job");
+  ok(idempotencyKeyFor(base) !== idempotencyKeyFor({ ...base, scope: "other" }),
+    "jobs: keys are scoped per user/library");
+  ok(idempotencyKeyFor(base) !== idempotencyKeyFor({ ...base, now: 5_000_000 }),
+    "jobs: a later window allows an intentional rebuild");
+
+  ok(shouldPersistPartial(0, 2500) === true && shouldPersistPartial(1000, 1200) === false,
+    "jobs: partial persistence is throttled, never per token");
+
+  ok(safePartial("<p>short") === null, "jobs: too-short partials are not persisted");
+  const partial = safePartial("<html><head><style>body{color:red}</style></head><body><h1>Hi</h1>" + "x".repeat(300) + "</body></html>");
+  ok(!!partial && partial.endsWith(">"), "jobs: partials are cut at a safe tag boundary");
+  ok(safePartial("```html\n<html>" + "y".repeat(400) + "</html>```")?.endsWith(">") === true,
+    "jobs: fenced output is unwrapped before persisting");
+
+  ok(isTerminal("completed") && isTerminal("failed") && isTerminal("cancelled"), "jobs: terminal statuses detected");
+  ok(!isTerminal("running") && !isTerminal("queued"), "jobs: active statuses keep polling");
+  ok(STAGE_PROGRESS.first_preview > STAGE_PROGRESS.generating && STAGE_PROGRESS.completed === 100,
+    "jobs: stage progress increases monotonically to 100");
+
+  const sum = summarizeTimings({ firstPreviewMs: 5200, totalMs: 14800, memoryHit: true });
+  ok(sum.includes("first preview 5.2s") && sum.includes("final 14.8s") && sum.includes("memory hit"),
+    "jobs: timing summary is human readable");
+  ok(summarizeTimings(null) === "", "jobs: missing timings summarise to nothing");
+  ok(activeJobKey("") === activeJobKey("anon"), "jobs: blank scope falls back to the anon slot");
+
+  const { readTimingTrailer } = await import("../job-runner.server.ts");
+  ok(readTimingTrailer('<html></html><!--OBS_TIMING:{"ttfb":1234}-->')["ttfb"] === 1234,
+    "jobs: server timing trailer is parsed");
+  ok(Object.keys(readTimingTrailer("<html></html>")).length === 0, "jobs: missing trailer is safe");
+}
+
 /* ---------- report ---------- */
 const total = passed + failures.length;
 console.log(`${passed}/${total} assertions passed`);
