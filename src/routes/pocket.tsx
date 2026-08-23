@@ -676,11 +676,13 @@ function ForgePage() {
     // HTML back into the sandbox right after we wipe it.
     try {
       abortRef.current?.abort();
+      cancelJobRef.current();
     } catch {
       /* ignore */
     }
     abortRef.current = null;
     setBusy(null);
+
     const next = projectFromHtml(EMPTY_DOC);
     setProject(next);
     setActiveFileId(next.entryFileId);
