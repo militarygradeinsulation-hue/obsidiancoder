@@ -978,7 +978,12 @@ function ForgePage() {
         throw new Error(started.error || "Could not start the build.");
       }
       setStatus("Queued on the server…");
-      log("Build running on the server — you can leave this page or close the tab.");
+      log(
+        `Build running on the server — you can leave this page or close the tab.${
+          providerCalls ? ` (${providerCalls} planning call${providerCalls === 1 ? "" : "s"})` : ""
+        }`,
+      );
+
     } catch (err) {
       setError(sanitizeErrorMessage(err, "Generation failed."));
       setStatus("Generation failed");
