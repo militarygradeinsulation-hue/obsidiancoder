@@ -852,8 +852,10 @@ function ForgePage() {
       setPocketMemory(effectiveMemory);
     }
 
+    // Planner calls are the only provider work the browser still performs;
+    // the build itself runs on the server job.
     let providerCalls = 0;
-    let critiqueRan = false;
+
     try {
       // ---- 1. Choose a creative direction --------------------------------
       setStatus("Choosing direction…");
