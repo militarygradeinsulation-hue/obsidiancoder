@@ -710,7 +710,114 @@ function ForgePage() {
     });
   }, []);
 
-  // ---- Real generation (streaming /api/generate) --------------------------
+  // ---- Durable server-side build job -------------------------------------
+  // The browser only creates and watches the job. Leaving /pocket, switching
+  // routes, reloading or closing the tab does NOT stop the build; the server
+  // runs it to completion and the client reattaches by job id.
+  const pendingRef = React.useRef<{
+    prompt: string;
+    dna: PocketDesignDNA;
+    previous: string;
+    isRefine: boolean;
+  } | null>(null);
+
+  const buildJob = useBuildJob({
+    scope: libraryCode || "anon",
+    authFetch,
+    onStage: (label, j) => {
+      setStatus(j.status === "running" || j.status === "queued" ? label : label);
+    },
+    onPartial: (partial) => {
+      setProject((prev) => setEntryHtml(prev, partial));
+    },
+    onFailed: (j) => {
+      setBusy(null);
+      if (j.status === "cancelled") {
+        setStatus("Stopped — server build cancelled");
+        return;
+      }
+      setError(j.error || "Generation failed.");
+      setStatus("Generation failed");
+    },
+    onComplete: (j) => {
+      const ctx = pendingRef.current;
+      const finalHtml = j.resultHtml ?? "";
+      if (!finalHtml) {
+        setBusy(null);
+        setStatus("Generation failed");
+        return;
+      }
+      setProject((prev) => setEntryHtml(prev, finalHtml));
+      const servedModel = j.servedModel ?? "auto";
+      const p = ctx?.prompt ?? j.prompt ?? "";
+      const buildDna = ctx?.dna ?? dna;
+      const label = [
+        titleFromPrompt(p),
+        `· ${getProfile(profile).label}`,
+        buildDna ? `· ${getFamily(buildDna.family).label}` : "",
+        buildDna ? `· ${buildDna.id}` : "",
+        `· ${servedModel}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+      setVersions((v) => pushVersion(v, makeForgeVersion(finalHtml, label)));
+      if (buildDna) rememberSignature(dnaSignature(buildDna), libraryCode);
+      try {
+        if (buildDna) {
+          recordBuildOutcome(
+            {
+              surface: "pocket",
+              profile,
+              dna: buildDna,
+              model: servedModel,
+              critique: null,
+              validationStatus: "passed",
+              latencyMs: j.timings?.totalMs ?? 0,
+              outcome: "kept",
+            },
+            libraryCode,
+          );
+        }
+      } catch { /* learning is best-effort */ }
+      const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
+      if (title === "Untitled build") setTitle(buildTitle);
+      try {
+        archiveBuild(
+          {
+            surface: "pocket",
+            title: buildTitle,
+            prompt: p,
+            model: servedModel,
+            html: finalHtml,
+            family: buildDna?.family ?? "auto",
+            profile,
+          },
+          libraryCode,
+        );
+      } catch { /* archiving is best-effort */ }
+      const timing = summarizeTimings(j.timings);
+      setStatus("Ready");
+      log(
+        `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel}${timing ? ` · ${timing}` : ""}`,
+      );
+      setBusy(null);
+    },
+  });
+
+  // Reattach to a build that was still running when the user left the page.
+  React.useEffect(() => {
+    if (!libraryCode) return;
+    buildJob.resume();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryCode]);
+
+  React.useEffect(() => {
+    if (buildJob.running && !busy) setBusy("generating");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildJob.running]);
+
+  // ---- Real generation (durable server job) -------------------------------
+
   const generate = React.useCallback(async () => {
     const p = prompt.trim();
     if (!p || busy) return;
