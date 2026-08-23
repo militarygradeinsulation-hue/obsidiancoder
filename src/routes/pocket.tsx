@@ -1016,9 +1016,16 @@ function ForgePage() {
     runCritique,
   ]);
 
+  // Explicit stop is the ONLY thing that cancels a build. It flags the job
+  // server-side so the runner halts; navigation never does this.
   const stop = React.useCallback(() => {
     abortRef.current?.abort();
-  }, []);
+    void buildJob.cancel();
+    setBusy(null);
+    setStatus("Stopped");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [buildJob.cancel]);
+
 
   // ---- Prompt enhancement (real server fn + credit gate) ------------------
   const runEnhanceMode = React.useCallback(
