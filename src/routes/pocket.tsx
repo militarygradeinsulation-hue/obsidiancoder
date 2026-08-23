@@ -387,6 +387,10 @@ function ForgePage() {
 
 
   const abortRef = React.useRef<AbortController | null>(null);
+  // Set once the durable job hook exists; lets earlier callbacks cancel a
+  // server-side build without a use-before-define reference.
+  const cancelJobRef = React.useRef<() => void>(() => {});
+
   const promptRef = React.useRef<HTMLTextAreaElement>(null);
   const enhance = useServerFn(enhancePrompt);
   const planConcepts = useServerFn(planPocketConcepts);
