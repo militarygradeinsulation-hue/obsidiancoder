@@ -945,17 +945,25 @@ function ForgePage() {
           qualityContractFragment(),
         ].filter(Boolean).join("\n\n"),
       };
-      const res = await authFetch("/api/generate", {
-        method: "POST",
-        headers: genHeaders,
-        body: JSON.stringify(genBody),
-        signal: controller.signal,
+      // ---- 3. Hand the build to the durable server job runner -------------
+      // Everything after this point (streaming, design floor retry, safety
+      // gate, save) happens SERVER-SIDE. The browser is only a viewer, so the
+      // build survives navigation, reload and tab close.
+      pendingRef.current = { prompt: p, dna: buildDna, previous, isRefine };
+      const started = await buildJob.start({
+        prompt: p,
+        mode: isRefine ? "refine" : "create",
+        profile,
+        styleFamily,
+        model: modelChoice.model,
+        title: title !== "Untitled build" ? title : titleFromPrompt(p),
+        libraryCode,
+        surface: "pocket",
+        previousHtml: isRefine ? previous : "",
+        requestBody: genBody,
       });
-
-
-      const ctype = (res.headers.get("content-type") || "").toLowerCase();
-      if (ctype.includes("application/json")) {
-        const envelope: unknown = await res.json().catch(() => null);
+      if (!started.ok) {
+        const envelope = started.envelope;
         if (isCreditsRequiredEnvelope(envelope)) {
           if (envelope.code === "credits_required") {
             setNudge({ reason: "daily_limit", envelope });
@@ -964,237 +972,19 @@ function ForgePage() {
           } else {
             setNudge({ reason: "not_pro", envelope });
           }
-          throw new Error(envelope.message);
         }
-        if (isAiErrorEnvelope(envelope)) throw new Error(envelope.message);
-        throw new Error(`Generation failed (${res.status})`);
+        throw new Error(started.error || "Could not start the build.");
       }
-      if (!res.ok || !res.body) throw new Error(`Generation failed (${res.status})`);
-      // Only now has the request actually reached a streaming provider response.
-      providerCalls += 1;
-      if (res.headers.get("x-obs-demo") === "1") log("Free demo claim committed server-side.");
-      const servedModel = readServedModel(res.headers, modelChoice.model);
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = "";
-      let lastPaint = 0;
-      const clean = (str: string) =>
-        str
-          .replace(/\s*<!--OBS_(?:TIMING|PLACEHOLDERS):[\s\S]*?-->\s*$/g, "")
-          .replace(/^```(?:html)?\s*/i, "")
-          .replace(/```\s*$/i, "");
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        acc += decoder.decode(value, { stream: true });
-        const now = performance.now();
-        // Repaint on a slower cadence and only at a safe tag boundary, so the
-        // preview grows in cleanly instead of flashing half-parsed markup.
-        if (now - lastPaint > 650) {
-          const partial = clean(acc);
-          const cut = partial.lastIndexOf(">");
-          if (cut > 200) {
-            lastPaint = now;
-            setProject((prev) => setEntryHtml(prev, partial.slice(0, cut + 1)));
-          }
-        }
-      }
-      let finalHtml = clean(acc).trim();
-      if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
-
-      // ---- 2b. Design floor -------------------------------------------------
-      // An unstyled or truncated page is a failed build even when it is valid
-      // HTML. Reject it and regenerate ONCE on an escalated model instead of
-      // committing browser-default markup to the preview.
-      {
-        const floor = checkDesignFloor(finalHtml);
-        // Same rule as the Coder: a second full generation is for truncated
-        // output or an unstyled FRESH build, never for a focused refinement.
-        const worthRetry =
-          floor.incomplete ||
-          (!isRefine && (floor.blockers.includes("no-css") || floor.blockers.includes("thin-css")));
-        if (!floor.ok && worthRetry) {
-          log(`Design floor rejected the first pass (${floor.blockers.join(", ")}) — regenerating.`);
-          setStatus("Rebuilding to design standard…");
-          const retry = await regenerateForQuality({
-            fetcher: authFetch,
-            body: genBody,
-            report: floor,
-            headers: genHeaders,
-            signal: controller.signal,
-            onChunk: (partial) => {
-              const cut = partial.lastIndexOf(">");
-              if (cut > 200) setProject((prev) => setEntryHtml(prev, partial.slice(0, cut + 1)));
-            },
-          });
-          if (retry) {
-            providerCalls += 1;
-            if (retry.improved || retry.report.blockers.length < floor.blockers.length) {
-              finalHtml = retry.html;
-              log(`Rebuild passed the design floor on ${retry.model}.`);
-            } else {
-              log("Rebuild still below standard — keeping the stronger of the two.");
-              finalHtml = retry.html.length > finalHtml.length ? retry.html : finalHtml;
-            }
-          } else {
-            log("Rebuild unavailable — committing the original for review.");
-          }
-        }
-      }
-
-
-      // ---- 3. Deterministic safety/parity gate, with a Claude repair pass
-      //         for paid accounts when the deterministic gate alone can't
-      //         resolve it (e.g. unbalanced JS brackets that repairHtml()
-      //         deliberately refuses to auto-patch). This is the same
-      //         finalizeCandidate() pipeline the Coder already uses for
-      //         full-generation — Pocket was calling the bare deterministic
-      //         assessment only and dead-ending on failure with no repair
-      //         attempt at all.
-      //
-      //         Free/demo accounts are UNCHANGED by this: finalizeCandidate
-      //         skips the Claude QA call entirely when demoMode is true, so
-      //         a free build that hits the gate reverts exactly as it did
-      //         before this pass was added. Only paid Pocket builds gain
-      //         the repair attempt.
-      setStatus("Running safety checks…");
-      const finP = await finalizeCandidate({
-        candidateHtml: finalHtml,
-        stableHtml: previous,
-        themeCss: null,
-        themeName: null,
-        demoMode: !paidAccess,
-        userRequest: p,
-        strategy: "full-generation",
-      }, productionQaCall);
-      if (finP.claudeInvoked) {
-        setStatus("Repairing…");
-        log(`Claude QA repair attempted via ${finP.claudeModel ?? "?"} — ${finP.claudeVerdict ?? "unknown"}`);
-      }
-      if (!finP.ok) {
-        setProject((prev) => setEntryHtml(prev, previous));
-        const blockers = finP.blockers.slice(0, 3).join(" · ");
-        setError(`Build blocked by the safety gate: ${blockers}`);
-        setStatus("Blocked by safety gate");
-        log(`Safety gate blocked this build — ${finP.blockers.join(" | ")}`);
-        return;
-      }
-      finalHtml = finP.finalHtml;
-      const safeFirstVersion = finalHtml;
-
-      // ---- 4. Originality + polish (Cinematic only) -----------------------
-      let critiqueScores: Record<string, number> | null = null;
-      setStatus("Checking originality…");
-      if (profile === "cinematic" && paidAccess) {
-        setStatus("Polishing…");
-        try {
-          const cres = await runCritique({
-            data: {
-              model: modelChoice.model,
-              html: finalHtml,
-              dnaSummary: dnaPromptBlock(buildDna).slice(0, 3000),
-            },
-          });
-          if (!("paywall" in cres) && cres.ok) {
-            if (!cres.cached) providerCalls += 1;
-            critiqueRan = true;
-            const critique = parseCritique(JSON.parse(cres.critiqueJson) as unknown);
-            critiqueScores = critique.scores;
-            if (critique.verdict === "repair" && critique.operations.length) {
-              const parsed = patchSchema.safeParse({
-                summary: critique.issues[0]?.slice(0, 200) || "Design review repair",
-                operations: critique.operations,
-              });
-              if (parsed.success) {
-                const applied = applyPatch(finalHtml, parsed.data);
-                // A failed patch — or one that fails the gate on rerun — must
-                // never ship. Fall back to the safe first repaired version.
-                const opCount = applied.ok ? applied.applied.length : 0;
-                const post =
-                  applied.ok && applied.html.length > 200
-                    ? assessCandidateForCommit({ html: applied.html })
-                    : null;
-                finalHtml = post?.ok ? post.repairedHtml : safeFirstVersion;
-                log(
-                  post?.ok
-                    ? `Polish applied (${opCount} ops)`
-                    : `Polish skipped — kept the safe version${post ? ` (${post.blockers.slice(0, 2).join(" · ")})` : ""}.`,
-                );
-              } else {
-                log("Polish skipped — review operations were not valid.");
-              }
-            } else {
-              log(`Design review verdict: ${critique.verdict}`);
-            }
-          }
-        } catch {
-          log("Design review unavailable — kept the first version.");
-        }
-      }
-
-      // ---- 5. Commit -------------------------------------------------------
-      setProject((prev) => setEntryHtml(prev, finalHtml));
-      const label = [
-        titleFromPrompt(p),
-        `· ${getProfile(profile).label}`,
-        `· ${getFamily(buildDna.family).label}`,
-        `· ${buildDna.id}`,
-        `· ${servedModel}`,
-        critiqueRan ? "· polished" : "",
-      ]
-        .filter(Boolean)
-        .join(" ");
-      setVersions((v) => pushVersion(v, makeForgeVersion(finalHtml, label)));
-      setLastCritiqueRan(critiqueRan);
-      rememberSignature(dnaSignature(buildDna), libraryCode);
-      // Quality memory: grade this build so the next one starts smarter.
-      try {
-        recordBuildOutcome({
-          surface: "pocket",
-          profile,
-          dna: buildDna,
-          model: servedModel,
-          critique: critiqueScores,
-          validationStatus: "passed",
-          latencyMs: 0,
-          outcome: "kept",
-        }, libraryCode);
-      } catch { /* learning is best-effort */ }
-      const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
-      if (title === "Untitled build") setTitle(buildTitle);
-      // Shelve every build in the permanent archive, saved or not.
-      try {
-        archiveBuild(
-          {
-            surface: "pocket",
-            title: buildTitle,
-            prompt: p,
-            model: servedModel,
-            html: finalHtml,
-            family: buildDna.family,
-            profile,
-          },
-          libraryCode,
-        );
-      } catch { /* archiving is best-effort */ }
-      setStatus("Ready");
-      log(
-        `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"}`,
-      );
-
+      setStatus("Queued on the server…");
+      log("Build running on the server — you can leave this page or close the tab.");
     } catch (err) {
-      if ((err as { name?: string })?.name === "AbortError") {
-        setProject((prev) => setEntryHtml(prev, previous));
-        setStatus("Stopped — preview unchanged");
-      } else {
-        setError(sanitizeErrorMessage(err, "Generation failed."));
-        setStatus("Generation failed");
-      }
+      setError(sanitizeErrorMessage(err, "Generation failed."));
+      setStatus("Generation failed");
+      setBusy(null);
     } finally {
       abortRef.current = null;
-      setBusy(null);
     }
+
   }, [
     prompt,
     busy,
