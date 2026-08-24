@@ -949,6 +949,24 @@ function Index() {
     if (composerPos) localStorage.setItem("obs.composer_pos", JSON.stringify(composerPos));
     else localStorage.removeItem("obs.composer_pos");
   }, [composerPos]);
+  // Self-heal: a floating prompt box dragged (or restored) off-screen is
+  // invisible with no way back. Dock it whenever it lands outside the viewport.
+  useEffect(() => {
+    if (typeof window === "undefined" || !composerPos) return;
+    const heal = () => {
+      const vw = document.documentElement.clientWidth || window.innerWidth;
+      const vh = document.documentElement.clientHeight || window.innerHeight;
+      setComposerPos((p) => {
+        if (!p) return p;
+        if (p.x < -40 || p.y < -20 || p.x > vw - 80 || p.y > vh - 60) return null;
+        return p;
+      });
+    };
+    heal();
+    window.addEventListener("resize", heal);
+    return () => window.removeEventListener("resize", heal);
+  }, [composerPos]);
+
   const composerFormRef = useRef<HTMLFormElement>(null);
   const dragStateRef = useRef<{ dx: number; dy: number } | null>(null);
   function onComposerDragStart(e: React.PointerEvent) {
