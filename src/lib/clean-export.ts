@@ -14,6 +14,84 @@
 
 import { repairNavigation } from "./navigation-repair";
 
+/**
+ * Faithful, working implementation of the same API contract
+ * memory-director.ts promises every generated build: async set/get/list/
+ * delete, plus onChange for reactive re-render. Backed by localStorage and
+ * scoped per-build (keyed by a stable hash of the document itself) so two
+ * different published builds opened in the same browser never collide.
+ *
+ * Semantics honestly narrow to what a single standalone page CAN provide:
+ * persistence survives a reload in the same browser, and change events
+ * propagate across tabs of the SAME browser (via the native `storage`
+ * event) -- there is no second device to sync with once a build has left
+ * the authenticated Pocket workspace, so onChange firing for a genuinely
+ * remote change is the one thing this cannot replicate. Everything else
+ * -- the exact method names, argument shapes, and Promise-returning async
+ * contract -- matches the real bridge exactly, so build code written
+ * against ObsidianMemory needs no awareness that it's running standalone.
+ */
+function obsidianMemoryShimScript(): string {
+  return `<script data-obsidian-memory-shim="1">(function(){
+if (window.ObsidianMemory) return;
+var NS = 'obs_export_mem:' + (function(){
+  var s = document.title + location.pathname, h = 0;
+  for (var i = 0; i < s.length; i++) { h = ((h << 5) - h) + s.charCodeAt(i); h |= 0; }
+  return Math.abs(h).toString(36);
+})() + ':';
+var listeners = [];
+function safeParse(raw) { try { return raw == null ? null : JSON.parse(raw); } catch (e) { return null; } }
+function notify(key, value) { listeners.forEach(function (fn) { try { fn(key, value); } catch (e) {} }); }
+window.addEventListener('storage', function (e) {
+  if (!e.key || e.key.indexOf(NS) !== 0) return;
+  notify(e.key.slice(NS.length), safeParse(e.newValue));
+});
+window.ObsidianMemory = {
+  set: function (key, value) {
+    try { localStorage.setItem(NS + key, JSON.stringify(value)); } catch (e) {}
+    notify(key, value);
+    return Promise.resolve(true);
+  },
+  get: function (key) {
+    try { return Promise.resolve(safeParse(localStorage.getItem(NS + key))); }
+    catch (e) { return Promise.resolve(null); }
+  },
+  list: function () {
+    var out = [];
+    try {
+      for (var i = 0; i < localStorage.length; i++) {
+        var k = localStorage.key(i);
+        if (k && k.indexOf(NS) === 0) out.push({ key: k.slice(NS.length), value: safeParse(localStorage.getItem(k)) });
+      }
+    } catch (e) {}
+    return Promise.resolve(out);
+  },
+  delete: function (key) {
+    try { localStorage.removeItem(NS + key); } catch (e) {}
+    notify(key, null);
+    return Promise.resolve(true);
+  },
+  onChange: function (fn) { if (typeof fn === 'function') listeners.push(fn); }
+};
+})();</script>`;
+}
+
+/**
+ * Insert the shim as early as possible so it is guaranteed to run before
+ * any later inline script in the document, including the build's own.
+ * Browsers execute non-deferred, non-module <script> tags in document
+ * order, so placement right after <head> opens is sufficient -- no need
+ * to touch anything else in the document.
+ */
+function injectObsidianMemoryShim(html: string): string {
+  if (!html) return html;
+  if (/window\.ObsidianMemory\s*=/.test(html)) return html; // already provided
+  const shim = obsidianMemoryShimScript();
+  if (/<head[^>]*>/i.test(html)) return html.replace(/<head[^>]*>/i, (m) => `${m}\n${shim}`);
+  if (/<body[^>]*>/i.test(html)) return html.replace(/<body[^>]*>/i, (m) => `${m}\n${shim}`);
+  return `${shim}\n${html}`;
+}
+
 const PREVIEW_MARKERS = [
   /<script>\s*\(function\(\)\{[\s\S]*?obsidian\.runtime[\s\S]*?\}\)\(\);\s*<\/script>/g,
   /<script data-obsidian-preview=(?:"[^"]*"|'[^']*')[\s\S]*?<\/script>/g,
@@ -68,5 +146,5 @@ export function containsCreatorLinks(html: string): boolean {
 
 /** Single entry point for anything leaving the sandbox. */
 export function sanitizeForExport(html: string): string {
-  return stripCreatorLinks(stripPreviewOnly(html));
+  return injectObsidianMemoryShim(stripCreatorLinks(stripPreviewOnly(html)));
 }
