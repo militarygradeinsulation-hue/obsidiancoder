@@ -3675,6 +3675,25 @@ function Index() {
             >
               {railCollapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
             </button>
+            <button
+              type="button"
+              className="obs-btn is-sm is-ghost"
+              data-testid="topbar-show-prompt"
+              title="Show the prompt box (where you tell the AI what to build)"
+              onClick={() => {
+                setRailCollapsed(false);
+                setComposerPos(null);
+                setRailGroup("agent");
+                if (isMobile) setMobileTab("chat");
+                requestAnimationFrame(() => {
+                  scrollRailTo("rail-agent");
+                  composerRef.current?.focus();
+                });
+              }}
+            >
+              Prompt
+            </button>
+
             <div className="obs-tabs">
               {sessions.map((s) => {
                 const isActive = s.id === activeId;
