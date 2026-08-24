@@ -95,6 +95,150 @@ export type Database = {
         }
         Relationships: []
       }
+      build_jobs: {
+        Row: {
+          anon_id: string | null
+          cancel_requested: boolean
+          completed_at: string | null
+          concept: Json | null
+          created_at: string
+          dna: Json | null
+          entitlement_kind: string | null
+          environment: string
+          error: string | null
+          first_byte_at: string | null
+          first_preview_at: string | null
+          id: string
+          idempotency_key: string
+          learning_brief: string | null
+          lease_until: string | null
+          library_code: string | null
+          memory: Json | null
+          memory_hit: boolean
+          mode: string
+          model_request: string | null
+          partial_html: string | null
+          previous_html: string | null
+          profile: string
+          progress: number
+          project_id: string | null
+          prompt: string
+          provider_attempts: Json
+          request_body: Json
+          request_id: string | null
+          reservation_cap: number | null
+          reservation_credits: number | null
+          reservation_id: string | null
+          result_html: string | null
+          retry_count: number
+          served_model: string | null
+          session_id: string | null
+          stage: string
+          started_at: string | null
+          status: string
+          style_family: string | null
+          surface: string
+          timings: Json
+          title: string | null
+          updated_at: string
+          user_id: string | null
+        }
+        Insert: {
+          anon_id?: string | null
+          cancel_requested?: boolean
+          completed_at?: string | null
+          concept?: Json | null
+          created_at?: string
+          dna?: Json | null
+          entitlement_kind?: string | null
+          environment?: string
+          error?: string | null
+          first_byte_at?: string | null
+          first_preview_at?: string | null
+          id?: string
+          idempotency_key: string
+          learning_brief?: string | null
+          lease_until?: string | null
+          library_code?: string | null
+          memory?: Json | null
+          memory_hit?: boolean
+          mode?: string
+          model_request?: string | null
+          partial_html?: string | null
+          previous_html?: string | null
+          profile?: string
+          progress?: number
+          project_id?: string | null
+          prompt: string
+          provider_attempts?: Json
+          request_body?: Json
+          request_id?: string | null
+          reservation_cap?: number | null
+          reservation_credits?: number | null
+          reservation_id?: string | null
+          result_html?: string | null
+          retry_count?: number
+          served_model?: string | null
+          session_id?: string | null
+          stage?: string
+          started_at?: string | null
+          status?: string
+          style_family?: string | null
+          surface?: string
+          timings?: Json
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Update: {
+          anon_id?: string | null
+          cancel_requested?: boolean
+          completed_at?: string | null
+          concept?: Json | null
+          created_at?: string
+          dna?: Json | null
+          entitlement_kind?: string | null
+          environment?: string
+          error?: string | null
+          first_byte_at?: string | null
+          first_preview_at?: string | null
+          id?: string
+          idempotency_key?: string
+          learning_brief?: string | null
+          lease_until?: string | null
+          library_code?: string | null
+          memory?: Json | null
+          memory_hit?: boolean
+          mode?: string
+          model_request?: string | null
+          partial_html?: string | null
+          previous_html?: string | null
+          profile?: string
+          progress?: number
+          project_id?: string | null
+          prompt?: string
+          provider_attempts?: Json
+          request_body?: Json
+          request_id?: string | null
+          reservation_cap?: number | null
+          reservation_credits?: number | null
+          reservation_id?: string | null
+          result_html?: string | null
+          retry_count?: number
+          served_model?: string | null
+          session_id?: string | null
+          stage?: string
+          started_at?: string | null
+          status?: string
+          style_family?: string | null
+          surface?: string
+          timings?: Json
+          title?: string | null
+          updated_at?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       build_memory: {
         Row: {
           created_at: string
@@ -667,6 +811,21 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      build_job_claim: {
+        Args: { _id: string; _lease_seconds?: number }
+        Returns: boolean
+      }
+      build_job_kick: {
+        Args: { _apikey: string; _base_url: string; _id: string }
+        Returns: number
+      }
+      build_jobs_stale: {
+        Args: { _limit?: number }
+        Returns: {
+          id: string
+          retry_count: number
+        }[]
+      }
       build_memory_delete: {
         Args: { _key: string; _project_id: string }
         Returns: boolean
