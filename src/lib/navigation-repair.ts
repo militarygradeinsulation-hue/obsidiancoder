@@ -410,6 +410,31 @@ function neutralizeScriptNavigation(body: string): ScriptRepairResult {
     while ((m = rx.exec(mask)) !== null) {
       const lhsStart = m.index;
       const lhsEnd = m.index + m[0].length;
+
+      // A bare `location` immediately preceded by let/const/var is a NEW
+      // LOCAL BINDING (e.g. `let location = row.city;`), not a reassignment
+      // of the navigation object — it shadows the global `location` and can
+      // never hijack navigation. This exclusion only applies to the bare
+      // identifier: you cannot write `let window.location = x` — member
+      // expressions are never valid declaration targets, so the qualified
+      // patterns (window.location, top.location, location.href, etc.) stay
+      // fully covered regardless of what precedes them.
+      //
+      // Real dashboards very plausibly use "location" as an ordinary field
+      // name (geography, position, "top performer by location", …). Without
+      // this check, neutralizing `let location = X` produces
+      // `let (void 0/*obs-nav-blocked*/);` — invalid syntax, since `let`
+      // requires a binding target, not an arbitrary expression. That throws
+      // a SyntaxError the instant the browser parses the script, which
+      // silently kills EVERY statement in that script block, not just the
+      // matched line — the entire document renders as an inert shell.
+      if (code === "script-location-write-neutralized") {
+        let j = lhsStart - 1;
+        while (j >= 0 && /\s/.test(mask[j])) j--;
+        const declStart = Math.max(0, j - 5);
+        if (/\b(?:let|const|var)$/.test(mask.slice(declStart, j + 1))) continue;
+      }
+
       // Look ahead: optional whitespace, then `=` not part of `==`/`===`/`=>`.
       let k = lhsEnd;
       while (k < mask.length && /\s/.test(mask[k])) k++;
