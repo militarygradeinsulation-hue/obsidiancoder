@@ -58,6 +58,56 @@ const card =
 const btn =
   "inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.04] px-2.5 py-1.5 text-xs text-[#B6BCC8] transition hover:border-[#F4A125]/40 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 disabled:opacity-50";
 
+// Live preview tile. Mounting 120 full-page iframes at once starves the
+// browser and leaves every thumbnail blank, so each frame only mounts once
+// its card scrolls near the viewport.
+function PreviewTile({ src, title }: { src: string | null; title: string }) {
+  const ref = React.useRef<HTMLDivElement | null>(null);
+  const [visible, setVisible] = React.useState(false);
+  const [loaded, setLoaded] = React.useState(false);
+
+  React.useEffect(() => {
+    const el = ref.current;
+    if (!el || visible) return;
+    if (typeof IntersectionObserver === "undefined") {
+      setVisible(true);
+      return;
+    }
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((e) => e.isIntersecting)) {
+          setVisible(true);
+          io.disconnect();
+        }
+      },
+      { rootMargin: "600px 0px" },
+    );
+    io.observe(el);
+    return () => io.disconnect();
+  }, [visible]);
+
+  return (
+    <div ref={ref} className="absolute inset-0">
+      {src && visible ? (
+        <iframe
+          src={src}
+          title={`Preview of ${title}`}
+          loading="lazy"
+          sandbox="allow-scripts"
+          onLoad={() => setLoaded(true)}
+          className="pointer-events-none h-[900px] w-[1440px] origin-top-left scale-[0.32] border-0"
+        />
+      ) : null}
+      {(!src || !loaded) && (
+        <div className="pointer-events-none absolute inset-0 grid place-items-center bg-[radial-gradient(80%_60%_at_50%_0%,rgba(244,161,37,0.10),transparent_70%)] text-xs text-[#6b7180]">
+          {src ? <Loader2 size={16} className="animate-spin text-[#F4A125]/70" /> : "No preview"}
+        </div>
+      )}
+    </div>
+  );
+}
+
+
 function LibraryPage() {
   const [builds, setBuilds] = React.useState<CommunityBuild[]>([]);
   const [loading, setLoading] = React.useState(true);
@@ -331,17 +381,8 @@ function LibraryPage() {
                       </label>
                     )}
 
-                    {url ? (
-                      <iframe
-                        src={url}
-                        title={`Preview of ${b.title}`}
-                        loading="lazy"
-                        sandbox="allow-scripts"
-                        className="pointer-events-none h-[900px] w-[1440px] origin-top-left scale-[0.32] border-0"
-                      />
-                    ) : (
-                      <div className="grid h-full place-items-center text-xs text-[#6b7180]">No preview</div>
-                    )}
+                    <PreviewTile src={url} title={b.title || "build"} />
+
                   </div>
                   <div className="p-4">
                     <h2 className="truncate text-sm font-semibold text-[#f2eee7]">{b.title || "Untitled"}</h2>
