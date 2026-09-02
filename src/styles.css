@@ -3082,10 +3082,11 @@ body.is-resizing-composer * { user-select: none !important; }
   user-select: none;
 }
 .sphere-demo-iframe {
-  transform: scale(0.5);
+  transform: scale(0.125);
   transform-origin: top left;
-  width: 200%;
-  height: 200%;
+  width: 800%;
+  height: 800%;
+  background: #f7f7f7;
 }
 .sphere-demo-tile-shade {
   position: absolute;
@@ -3119,6 +3120,7 @@ body.is-resizing-composer * { user-select: none !important; }
 }
 @media (max-width: 640px) {
   .sphere-demo-root { width: 340px !important; height: 340px !important; }
+  .demos-sphere-wrap { overflow: hidden; }
 }
 
 /* Demo view toggle + thumbnail grid */

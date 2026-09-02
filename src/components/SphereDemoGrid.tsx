@@ -1,6 +1,7 @@
 // Interactive 3D sphere gallery for /unlock Live Demos.
 // Fibonacci-distributed nodes, drag-to-rotate with momentum, auto-rotate,
-// hover pop, click opens demo in a new tab. No iframes — lightweight tiles.
+// hover pop, click opens demo in a new tab. Front-facing tiles render the
+// real build; back-facing tiles stay lightweight for smooth rotation.
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 export type SphereDemoItem = {
@@ -206,7 +207,7 @@ export default function SphereDemoGrid({
                     src={it.previewUrl}
                     title={it.title}
                     loading="lazy"
-                    sandbox="allow-scripts allow-same-origin"
+                    sandbox="allow-scripts allow-forms"
                     className="sphere-demo-thumb sphere-demo-iframe"
                     tabIndex={-1}
                   />
