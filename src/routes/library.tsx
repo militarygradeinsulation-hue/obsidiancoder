@@ -381,17 +381,8 @@ function LibraryPage() {
                       </label>
                     )}
 
-                    {url ? (
-                      <iframe
-                        src={url}
-                        title={`Preview of ${b.title}`}
-                        loading="lazy"
-                        sandbox="allow-scripts"
-                        className="pointer-events-none h-[900px] w-[1440px] origin-top-left scale-[0.32] border-0"
-                      />
-                    ) : (
-                      <div className="grid h-full place-items-center text-xs text-[#6b7180]">No preview</div>
-                    )}
+                    <PreviewTile src={url} title={b.title || "build"} />
+
                   </div>
                   <div className="p-4">
                     <h2 className="truncate text-sm font-semibold text-[#f2eee7]">{b.title || "Untitled"}</h2>
