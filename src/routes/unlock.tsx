@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 const GLSLHills = lazy(() => import("@/components/ui/glsl-hills"));
-import DomeGallery from "@/components/ui/dome-gallery";
+import SphereDemoGrid from "@/components/SphereDemoGrid";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { setAccountCode } from "@/lib/account-code";
 import { supabase } from "@/integrations/supabase/client";
@@ -1035,44 +1035,21 @@ function Unlock() {
             .filter(({ category }) => demoCategory === "All" || category === demoCategory);
 
 
-          // Self-hosted tile art. No third-party screenshot service (the free
-          // thum.io tier returns "Image not authorized" placeholders).
-          const placeholder = (slug: string, label: string, category: string) => {
-            let hue = 0;
-            for (let i = 0; i < slug.length; i++) hue = (hue * 31 + slug.charCodeAt(i)) % 360;
-            const esc = (s: string) => s.replace(/[<&>]/g, "").slice(0, 60);
-            const words = esc(label).split(/\s+/);
-            const lines: string[] = [];
-            let line = "";
-            for (const w of words) {
-              if ((line + " " + w).trim().length > 16) { if (line) lines.push(line); line = w; }
-              else line = (line ? line + " " : "") + w;
-            }
-            if (line) lines.push(line);
-            const top = lines.slice(0, 3);
-            const startY = 300 - (top.length - 1) * 30;
-            const text = top
-              .map((l, i) => `<text x='50%' y='${startY + i * 60}' text-anchor='middle' font-family='Inter,Arial' font-size='46' font-weight='700' fill='rgba(255,255,255,0.94)'>${l}</text>`)
-              .join("");
-            const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='600' height='600' viewBox='0 0 600 600'><defs><linearGradient id='g' x1='0' y1='0' x2='1' y2='1'><stop offset='0' stop-color='hsl(${hue},70%,26%)'/><stop offset='1' stop-color='hsl(${(hue + 40) % 360},80%,14%)'/></linearGradient></defs><rect width='600' height='600' fill='url(#g)'/><circle cx='300' cy='140' r='120' fill='rgba(244,161,37,0.18)'/>${text}<text x='50%' y='520' text-anchor='middle' font-family='Inter,Arial' font-size='26' letter-spacing='4' fill='rgba(244,161,37,0.9)'>${esc(category).toUpperCase()}</text></svg>`;
-            return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
-          };
-          const domeImages = merged.map((d) => {
-            const clean = d.title.replace(/^Demo\s*·\s*/, "");
-            const thumb = (d as { thumbnail_url?: string; thumbnailUrl?: string }).thumbnail_url
-              ?? (d as { thumbnailUrl?: string }).thumbnailUrl;
-            return { src: thumb || placeholder(d.slug, clean, d.category), alt: `${clean} — ${d.category}`, href: d.demoUrl };
-          });
+          const liveDemos = merged.map((d) => ({
+            id: d.slug,
+            title: d.title.replace(/^Demo\s*·\s*/, ""),
+            category: d.category,
+            url: d.demoUrl,
+            previewUrl: d.demoUrl,
+          }));
           return (
-            <div id="demos-grid" className="demos-dome-wrap">
-              <DomeGallery
-                images={domeImages}
-                grayscale={false}
-                minRadius={340}
-                segments={Math.max(20, Math.min(35, domeImages.length))}
-                overlayBlurColor="transparent"
-                autoRotateSpeed={4}
-                onImageClick={({ href }) => { if (href) window.open(href, "_blank", "noopener,noreferrer"); }}
+            <div id="demos-grid" className="demos-sphere-wrap">
+              <SphereDemoGrid
+                items={liveDemos}
+                containerSize={600}
+                sphereRadius={240}
+                tileSize={112}
+                autoRotateSpeed={0.12}
               />
               <p className="demos-sphere-hint">Drag to rotate · tap a tile to open</p>
             </div>
