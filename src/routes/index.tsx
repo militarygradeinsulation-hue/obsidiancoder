@@ -2940,7 +2940,7 @@ function Index() {
       // QA gate — deterministic + at-most-one metered Claude QA call.
       // Runs BEFORE Chief Engineer so it reviews the FINAL repaired artifact.
       setStage("validate"); setStageDetail("QA checks");
-      const finG = await finalizeCandidate({
+      const finG = applySalvage(await finalizeCandidate({
         candidateHtml: finalHtml,
         stableHtml,
         themeCss: current.themeCss ?? null,
@@ -2950,7 +2950,11 @@ function Index() {
         userRequest: basePrompt,
         taskType: classification.taskType,
         strategy: "full-generation",
-      }, productionQaCall);
+      }, productionQaCall), finalHtml);
+      if (finG.salvaged) {
+        setTerminal((t) => [...t, `⚠ QA findings kept as advisory — build committed so you can review and save it.`]);
+      }
+
       {
         const qa = statusFromFinalize(finG, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
         setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
