@@ -2313,7 +2313,7 @@ function Index() {
             }
             // QA gate — deterministic + at-most-one metered Claude QA call.
             setStage("validate"); setStageDetail("QA checks");
-            const finP = await finalizeCandidate({
+            const finP = applySalvage(await finalizeCandidate({
               candidateHtml: patchedHtml,
               stableHtml,
               themeCss: current.themeCss ?? null,
@@ -2323,7 +2323,11 @@ function Index() {
               userRequest: basePrompt,
               taskType: classification.taskType,
               strategy: "ai-patch",
-            }, productionQaCall);
+            }, productionQaCall), patchedHtml);
+            if (finP.salvaged) {
+              setTerminal((t) => [...t, `⚠ QA findings kept as advisory — edit committed instead of rebuilding from scratch.`]);
+            }
+
             {
               const qa = statusFromFinalize(finP, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
               setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
