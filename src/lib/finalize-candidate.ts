@@ -52,11 +52,9 @@ export interface FinalizeInput {
   /** Compact learned defect hints — bounded, no full transcripts. */
   failureHints?: string;
   /**
-   * When true, skip the metered QA provider call for candidates whose only
-   * problems are advisory (style/parity violations the caller will commit
-   * anyway). Truncated documents, failed validation and runtime blockers are
-   * unaffected — they are handled above and still block. Off by default, so
-   * every existing caller keeps the original behaviour.
+   * Build-completion mode. Deterministic validation and repair are final:
+   * complete, executable candidates never wait on the optional AI reviewer.
+   * Truncated documents, failed validation, and runtime blockers still block.
    */
   advisoryOnly?: boolean;
 
@@ -310,12 +308,20 @@ async function finalizeCore(
     };
   }
 
-  // 3b. Advisory-only caller: at this point the document is complete and has
-  //     no runtime blockers, so every remaining finding is stylistic. The
-  //     caller commits those anyway, which makes a metered QA round-trip pure
-  //     latency at the very end of a build. Return the deterministically
-  //     repaired artifact and let the caller surface the findings.
-  if (input.advisoryOnly && assessment.validation.status !== "failed") {
+  // 3b. A deterministic repair that still fails structural validation is a
+  //     genuine hard failure. Do not ask an AI reviewer to guess at a fix.
+  if (assessment.validation.status === "failed") {
+    return blockedResult(
+      input, assessment, contentHash,
+      assessment.blockers.length ? assessment.blockers : ["validation:failed"], noClaude,
+    );
+  }
+
+  // 3c. Build completion never depends on the optional AI reviewer. At this
+  //     point the document is complete, structurally valid, and has no runtime
+  //     blockers. Remaining findings are advisory and the deterministically
+  //     repaired source is safe to commit immediately.
+  if (input.advisoryOnly) {
     return {
       ok: true,
       finalHtml: assessment.repairedHtml,

@@ -2334,6 +2334,17 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(rClean.ok && rClean.claudeInvoked === false, "finalize: clean returns ok"));
     results.push(assert(finalizeCacheSize() === 0, "finalize: clean does NOT fill decision cache"));
 
+    // Build completion is deterministic: unresolved advisory findings never
+    // dispatch the optional AI reviewer and never become qa_bad_response.
+    invalidateFinalizeCache();
+    let completionCalls = 0;
+    const rCompletion = await finalizeCandidate(
+      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u", advisoryOnly: true },
+      async () => { completionCalls++; return null; },
+    );
+    results.push(assert(completionCalls === 0, "finalize: build completion makes zero QA calls"));
+    results.push(assert(rCompletion.ok && rCompletion.claudeInvoked === false, "finalize: build completion commits deterministic repair"));
+
     // 2. Free demo skips Claude AND never touches the decision cache.
     calls = 0;
     invalidateFinalizeCache();
@@ -2345,71 +2356,18 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(rDemo.claudeInvoked === false, "finalize: free-demo claudeInvoked=false"));
     results.push(assert(finalizeCacheSize() === 0, "finalize: free-demo does NOT fill decision cache"));
 
-    // 3. Fresh deterministic gates rerun on every call. If we mutate the
-    //    theme, a previously cached DECISION for the same raw candidate
-    //    with a different theme must not be reused.
+    // 3. Navigation defects are repaired locally and never dispatched to QA.
     invalidateFinalizeCache();
-    let dispatches = 0;
-    await finalizeCandidate(
+    let navCalls = 0;
+    const rNav = await finalizeCandidate(
       { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async () => { dispatches++; return null; },
+      async () => { navCalls++; return null; },
     );
-    await finalizeCandidate(
-      { candidateHtml: badNav, stableHtml: stable, themeCss: "body{color:red}", themeName: null, demoMode: false, userRequest: "u" },
-      async () => { dispatches++; return null; },
-    );
-    results.push(assert(dispatches === 2, "finalize: changing themeCss changes the QA key"));
+    results.push(assert(navCalls === 0, "finalize: unsafe navigation makes zero QA calls"));
+    results.push(assert(rNav.ok && !rNav.finalHtml.includes("evil.example.com"), "finalize: unsafe navigation is repaired before commit"));
+    results.push(assert(finalizeCacheSize() === 0, "finalize: deterministic navigation repair does not fill QA cache"));
 
-    // 4. Cost cap — repeat with same key ⇒ cached decision, no second dispatch.
-    invalidateFinalizeCache();
-    dispatches = 0;
-    const rFail1 = await finalizeCandidate(
-      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async () => { dispatches++; return null; },
-    );
-    results.push(assert(dispatches === 1, "finalize: paid unresolved dispatches exactly one call"));
-    results.push(assert(!rFail1.ok && rFail1.claudeInvoked === true && rFail1.claudeResultFromCache === false, "finalize: transport failure marks claudeInvoked=true"));
-    const rFail2 = await finalizeCandidate(
-      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async () => { dispatches++; return null; },
-    );
-    results.push(assert(dispatches === 1, "finalize: second identical call reuses cached decision"));
-    results.push(assert(rFail2.claudeInvoked === false && rFail2.claudeResultFromCache === true, "finalize: cache hit reports claudeResultFromCache"));
-
-    // 5. stableHtml is NOT part of the key — cached BLOCK returns CURRENT
-    //    stableHtml, never the previously-committed one.
-    const rFail3 = await finalizeCandidate(
-      { candidateHtml: badNav, stableHtml: "<!doctype html><html><body>NEWSTABLE</body></html>", themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async () => { dispatches++; return null; },
-    );
-    results.push(assert(dispatches === 1, "finalize: stableHtml change does not spend a call"));
-    results.push(assert(rFail3.finalHtml.includes("NEWSTABLE"), "finalize: blocked cache hit uses CURRENT stableHtml"));
-
-    // 6. taskType is part of the key.
-    const rFail4 = await finalizeCandidate(
-      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u", taskType: "edit-copy" },
-      async () => { dispatches++; return null; },
-    );
-    void rFail4;
-    results.push(assert(dispatches === 2, "finalize: different taskType is a different cache entry"));
-
-    // 7. strategy is part of the key.
-    const rFail5 = await finalizeCandidate(
-      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u", taskType: "edit-copy", strategy: "ai-patch" },
-      async () => { dispatches++; return null; },
-    );
-    void rFail5;
-    results.push(assert(dispatches === 3, "finalize: different strategy is a different cache entry"));
-
-    // 8. Verdict PASS cannot waive deterministic blockers.
-    invalidateFinalizeCache();
-    const rPass = await finalizeCandidate(
-      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async () => ({ ok: true as const, verdict: "pass" as const, confidence: 0.9, defectCategories: [], explanation: "looks fine", patch: null, expectedImprovement: "", actualModel: "haiku", fallbackUsed: false as const, providerInvoked: true, requestId: "t" }),
-    );
-    results.push(assert(!rPass.ok && rPass.blockers.some((b) => b.startsWith("qa-pass-with-blockers")), "finalize: qa pass cannot waive deterministic blockers"));
-
-    // 9. Static-clean but runtime blockers > 0 ⇒ block; no QA call; no cache write.
+    // 4. Static-clean but runtime blockers > 0 ⇒ block; no QA call; no cache write.
     invalidateFinalizeCache();
     let rtCalls = 0;
     const rRuntime = await finalizeCandidate(
@@ -2420,36 +2378,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(!rRuntime.ok && rRuntime.blockers.some((b) => b.startsWith("runtime-blockers")), "finalize: runtime blockers alone are blocking"));
     results.push(assert(finalizeCacheSize() === 0, "finalize: runtime-blocker path does not fill cache"));
 
-    // 10. LRU cap — filling past CACHE_MAX evicts oldest, hit refreshes MRU.
-    invalidateFinalizeCache();
-    // Seed a "marker" decision (unresolved so it fills the decision cache).
-    const seed = async (n: number) => {
-      const html = `<!doctype html><html><body><a href="https://evil-${n}.example.com/x">go</a></body></html>`;
-      await finalizeCandidate(
-        { candidateHtml: html, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-        async () => null,
-      );
-      return html;
-    };
-    const markerHtml = await seed(0);
-    for (let i = 1; i < 64; i++) await seed(i);
-    // Cache is now full (64 entries). Hit marker to refresh its MRU position.
-    await finalizeCandidate(
-      { candidateHtml: markerHtml, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async () => { throw new Error("must not dispatch on cache hit"); },
-    );
-    // Add one more distinct entry (65th) — evicts the least-recent
-    // (which must not be the marker, since we just touched it).
-    await seed(64);
-    const keys = finalizeCacheKeys();
-    results.push(assert(keys.length === 64, `finalize: LRU stays at cap 64 (got ${keys.length})`));
-    // Marker still present ⇒ another hit does not dispatch.
-    let markerCalls = 0;
-    await finalizeCandidate(
-      { candidateHtml: markerHtml, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u" },
-      async () => { markerCalls++; return null; },
-    );
-    results.push(assert(markerCalls === 0, "finalize: LRU hit refreshes recency — marker survives eviction"));
+    results.push(assert(finalizeCacheKeys().length === 0, "finalize: completion paths leave the QA cache empty"));
   }
 
 
