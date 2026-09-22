@@ -89,13 +89,17 @@ export function rankClaude(entries: readonly RegistryEntry[]): Ranked[] {
 }
 
 /**
- * Documented Studio cost/performance policy:
- * Studio prefers the newest Sonnet over an OLDER Opus generation (Sonnet major
- * version strictly greater than the best Opus major version), because a
+ * Documented cost/performance policy for the deep profiles:
+ * prefer the newest Sonnet over an OLDER Opus generation (Sonnet major version
+ * strictly greater than the best Opus major version), because a
  * newer-generation Sonnet is both cheaper and stronger than a prior-generation
  * Opus. When Opus is same-or-newer generation, raw capability wins.
- * Cinematic always takes raw capability.
+ *
+ * Studio AND cinematic both take this policy now. Writing a whole document is
+ * the slowest thing on the critical path, so the top-capability model is spent
+ * on the short review/repair passes instead, where its input is small.
  */
+
 export function applyStudioPolicy(ranked: Ranked[]): Ranked | null {
   if (!ranked.length) return null;
   const bestOpus = ranked.find((r) => r.family === "opus") ?? null;
@@ -170,7 +174,7 @@ export function resolvePocketModel(input: {
   }
 
   const ranked = rankClaude(registry);
-  const chosen = input.profile === "studio" ? applyStudioPolicy(ranked) : (ranked[0] ?? null);
+  const chosen = applyStudioPolicy(ranked);
 
   if (chosen) {
     return {
