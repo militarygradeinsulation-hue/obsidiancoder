@@ -315,7 +315,7 @@ async function finalizeCore(
   //     caller commits those anyway, which makes a metered QA round-trip pure
   //     latency at the very end of a build. Return the deterministically
   //     repaired artifact and let the caller surface the findings.
-  if (input.advisoryOnly) {
+  if (input.advisoryOnly && assessment.validation.status !== "failed") {
     return {
       ok: true,
       finalHtml: assessment.repairedHtml,
