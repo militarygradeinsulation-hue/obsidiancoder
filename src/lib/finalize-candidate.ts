@@ -310,6 +310,32 @@ async function finalizeCore(
     };
   }
 
+  // 3b. Advisory-only caller: at this point the document is complete and has
+  //     no runtime blockers, so every remaining finding is stylistic. The
+  //     caller commits those anyway, which makes a metered QA round-trip pure
+  //     latency at the very end of a build. Return the deterministically
+  //     repaired artifact and let the caller surface the findings.
+  if (input.advisoryOnly) {
+    return {
+      ok: true,
+      finalHtml: assessment.repairedHtml,
+      finalValidation: assessment.validation,
+      finalAssessment: assessment,
+      finalParity: assessment.parity,
+      deterministicRepairs: assessment.repairs,
+      remainingViolations: assessment.remainingViolations,
+      claudeInvoked: false,
+      claudeResultFromCache: false,
+      claudeModel: null,
+      claudeVerdict: null,
+      claudeExplanation: "",
+      blockers: [],
+      candidateHash: contentHash,
+      source: assessment.repairs.length ? "deterministic-repair" : "clean",
+    };
+  }
+
+
   // 4. Paid unresolved candidate — consult the decision cache first.
   const key = qaKey(input, rawCandidate, repairedSource);
   let decision = cacheGet(key);
