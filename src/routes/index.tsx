@@ -122,6 +122,8 @@ import { buildArtifact } from "@/lib/publish-artifact";
 import { checkParity } from "@/lib/parity-check";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
+import { applySalvage } from "@/lib/qa-salvage";
+
 import { checkDesignFloor } from "@/lib/design-floor";
 import { regenerateForQuality } from "@/lib/quality-retry";
 import { productionQaCall } from "@/lib/qa-client";
@@ -2101,7 +2103,7 @@ function Index() {
           }
           // QA gate: deterministic + at-most-one metered Claude QA call.
           setStage("validate"); setStageDetail("QA checks");
-          const fin = await finalizeCandidate({
+          const fin = applySalvage(await finalizeCandidate({
             candidateHtml: det.html,
             stableHtml,
             themeCss: current.themeCss ?? null,
@@ -2111,7 +2113,8 @@ function Index() {
             userRequest: basePrompt,
             taskType: classification.taskType,
             strategy: "deterministic",
-          }, productionQaCall);
+          }, productionQaCall), det.html);
+
           {
             const qa = statusFromFinalize(fin, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
             setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
@@ -2311,7 +2314,7 @@ function Index() {
             }
             // QA gate — deterministic + at-most-one metered Claude QA call.
             setStage("validate"); setStageDetail("QA checks");
-            const finP = await finalizeCandidate({
+            const finP = applySalvage(await finalizeCandidate({
               candidateHtml: patchedHtml,
               stableHtml,
               themeCss: current.themeCss ?? null,
@@ -2321,7 +2324,11 @@ function Index() {
               userRequest: basePrompt,
               taskType: classification.taskType,
               strategy: "ai-patch",
-            }, productionQaCall);
+            }, productionQaCall), patchedHtml);
+            if (finP.salvaged) {
+              setTerminal((t) => [...t, `⚠ QA findings kept as advisory — edit committed instead of rebuilding from scratch.`]);
+            }
+
             {
               const qa = statusFromFinalize(finP, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
               setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
@@ -2940,7 +2947,7 @@ function Index() {
       // QA gate — deterministic + at-most-one metered Claude QA call.
       // Runs BEFORE Chief Engineer so it reviews the FINAL repaired artifact.
       setStage("validate"); setStageDetail("QA checks");
-      const finG = await finalizeCandidate({
+      const finG = applySalvage(await finalizeCandidate({
         candidateHtml: finalHtml,
         stableHtml,
         themeCss: current.themeCss ?? null,
@@ -2950,7 +2957,15 @@ function Index() {
         userRequest: basePrompt,
         taskType: classification.taskType,
         strategy: "full-generation",
-      }, productionQaCall);
+        // A finished full build no longer waits on a metered QA round-trip for
+        // findings that would be committed anyway.
+        advisoryOnly: true,
+
+      }, productionQaCall), finalHtml);
+      if (finG.salvaged) {
+        setTerminal((t) => [...t, `⚠ QA findings kept as advisory — build committed so you can review and save it.`]);
+      }
+
       {
         const qa = statusFromFinalize(finG, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
         setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));

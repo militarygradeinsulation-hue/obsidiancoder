@@ -51,6 +51,15 @@ export interface FinalizeInput {
   runtimeBlockersForCandidateHash?: number;
   /** Compact learned defect hints — bounded, no full transcripts. */
   failureHints?: string;
+  /**
+   * When true, skip the metered QA provider call for candidates whose only
+   * problems are advisory (style/parity violations the caller will commit
+   * anyway). Truncated documents, failed validation and runtime blockers are
+   * unaffected — they are handled above and still block. Off by default, so
+   * every existing caller keeps the original behaviour.
+   */
+  advisoryOnly?: boolean;
+
 }
 
 export type FinalizeSource =
@@ -300,6 +309,32 @@ async function finalizeCore(
       ),
     };
   }
+
+  // 3b. Advisory-only caller: at this point the document is complete and has
+  //     no runtime blockers, so every remaining finding is stylistic. The
+  //     caller commits those anyway, which makes a metered QA round-trip pure
+  //     latency at the very end of a build. Return the deterministically
+  //     repaired artifact and let the caller surface the findings.
+  if (input.advisoryOnly && assessment.validation.status !== "failed") {
+    return {
+      ok: true,
+      finalHtml: assessment.repairedHtml,
+      finalValidation: assessment.validation,
+      finalAssessment: assessment,
+      finalParity: assessment.parity,
+      deterministicRepairs: assessment.repairs,
+      remainingViolations: assessment.remainingViolations,
+      claudeInvoked: false,
+      claudeResultFromCache: false,
+      claudeModel: null,
+      claudeVerdict: null,
+      claudeExplanation: "",
+      blockers: [],
+      candidateHash: contentHash,
+      source: assessment.repairs.length ? "deterministic-repair" : "clean",
+    };
+  }
+
 
   // 4. Paid unresolved candidate — consult the decision cache first.
   const key = qaKey(input, rawCandidate, repairedSource);
