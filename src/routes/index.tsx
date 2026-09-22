@@ -122,6 +122,8 @@ import { buildArtifact } from "@/lib/publish-artifact";
 import { checkParity } from "@/lib/parity-check";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
+import { applySalvage } from "@/lib/qa-salvage";
+
 import { checkDesignFloor } from "@/lib/design-floor";
 import { regenerateForQuality } from "@/lib/quality-retry";
 import { productionQaCall } from "@/lib/qa-client";
