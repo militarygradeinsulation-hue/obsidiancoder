@@ -439,7 +439,7 @@ async function finalizeCore(
     );
   }
 
-  const applied = applyPatch(assessment.repairedHtml, patchValid.data);
+  const applied = applyPatch(assessment.repairedHtml, patchValid.data, { skipMissingElementOps: true });
   if (!applied.ok) {
     return blockedResult(
       input, assessment, contentHash,

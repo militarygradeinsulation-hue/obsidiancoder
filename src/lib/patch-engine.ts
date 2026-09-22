@@ -119,7 +119,30 @@ function appendScript(html: string, code: string): { html: string; added: number
   return { html: html + `\n${block}`, added: block.length + 1 };
 }
 
-export type ApplyOptions = { dryRun?: boolean };
+export type ApplyOptions = {
+  dryRun?: boolean;
+  /**
+   * When true, an operation whose target element genuinely does not exist
+   * is SKIPPED (recorded, not applied) instead of aborting the whole patch.
+   * Off by default -- every existing caller (the deterministic ai-patch
+   * commit path) keeps today's strict all-or-nothing behavior unchanged.
+   *
+   * Why this exists: a QA repair patch can bundle several fixes in one
+   * response. Under strict all-or-nothing, ONE operation that references a
+   * nonexistent id -- which happens when QA is shown a violation whose
+   * whole point is that the target does not exist, e.g. a dead anchor, and
+   * tries to "fix" it by targeting the missing element instead of the
+   * anchor tag that actually points at it -- discards every OTHER
+   * operation in the same patch, including ones that would have correctly
+   * fixed the real problem. Skipping only this specific failure mode is
+   * safe: a reference to something that is not there cannot corrupt
+   * anything by being skipped, it is a no-op by construction. Every other
+   * failure mode (ambiguous match, missing attribute/class, malformed
+   * content) still aborts the whole patch exactly as before -- those CAN
+   * indicate a genuinely unsafe or confused patch.
+   */
+  skipMissingElementOps?: boolean;
+};
 
 export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions = {}): ApplyResult {
   let html = baseHtml;
@@ -180,7 +203,7 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
 
         case "replace_element_by_id": {
           const found = findElementById(html, op.id);
-          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found (or unmatched tag).` };
+          if (!found) { if (options.skipMissingElementOps) { applied.push({ op: op.op, summary: `Skipped replace_element_by_id: element #${op.id} not found`, charsAdded: 0, charsRemoved: 0 }); continue; } return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found (or unmatched tag).` }; }
           const oldInner = html.slice(found.openEnd, closeStartOf(html, found));
           html = html.slice(0, found.openEnd) + op.content + html.slice(closeStartOf(html, found));
           applied.push({ op: op.op, summary: `Replaced contents of #${op.id}`, charsAdded: op.content.length, charsRemoved: oldInner.length });
@@ -188,7 +211,7 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
         }
         case "set_attribute": {
           const found = findElementById(html, op.id);
-          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          if (!found) { if (options.skipMissingElementOps) { applied.push({ op: op.op, summary: `Skipped set_attribute: element #${op.id} not found`, charsAdded: 0, charsRemoved: 0 }); continue; } return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` }; }
           const openTag = html.slice(found.start, found.openEnd);
           const newOpen = setAttribute(openTag, op.attribute, op.value);
           html = html.slice(0, found.start) + newOpen + html.slice(found.openEnd);
@@ -209,7 +232,7 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
         }
         case "remove_element_by_id": {
           const found = findElementById(html, op.id);
-          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          if (!found) { if (options.skipMissingElementOps) { applied.push({ op: op.op, summary: `Skipped remove_element_by_id: element #${op.id} not found`, charsAdded: 0, charsRemoved: 0 }); continue; } return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` }; }
           const removed = html.slice(found.start, found.end);
           if (op.expected_prev && !removed.includes(op.expected_prev)) {
             return { ok: false, failedAt: i + 1, op: op.op, error: `expected_prev mismatch on #${op.id}` };
@@ -220,7 +243,7 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
         }
         case "remove_attribute": {
           const found = findElementById(html, op.id);
-          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          if (!found) { if (options.skipMissingElementOps) { applied.push({ op: op.op, summary: `Skipped remove_attribute: element #${op.id} not found`, charsAdded: 0, charsRemoved: 0 }); continue; } return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` }; }
           const openTag = html.slice(found.start, found.openEnd);
           const attrRe = new RegExp(`\\s${escapeRegex(op.attribute)}\\s*=\\s*("[^"]*"|'[^']*'|[^\\s>]+)`, "i");
           if (!attrRe.test(openTag)) return { ok: false, failedAt: i + 1, op: op.op, error: `attribute ${op.attribute} not present on #${op.id}` };
@@ -232,7 +255,7 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
         case "add_class":
         case "remove_class": {
           const found = findElementById(html, op.id);
-          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          if (!found) { if (options.skipMissingElementOps) { applied.push({ op: op.op, summary: `Skipped ${op.op}: element #${op.id} not found`, charsAdded: 0, charsRemoved: 0 }); continue; } return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` }; }
           const openTag = html.slice(found.start, found.openEnd);
           const classRe = /\sclass\s*=\s*("([^"]*)"|'([^']*)')/i;
           const m = classRe.exec(openTag);
@@ -253,7 +276,7 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
         }
         case "insert_child": {
           const found = findElementById(html, op.id);
-          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          if (!found) { if (options.skipMissingElementOps) { applied.push({ op: op.op, summary: `Skipped insert_child: element #${op.id} not found`, charsAdded: 0, charsRemoved: 0 }); continue; } return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` }; }
           const closeAt = closeStartOf(html, found);
           const insertAt = op.position === "first" ? found.openEnd : closeAt;
           html = html.slice(0, insertAt) + op.content + html.slice(insertAt);
@@ -262,7 +285,7 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
         }
         case "update_inline_style": {
           const found = findElementById(html, op.id);
-          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` };
+          if (!found) { if (options.skipMissingElementOps) { applied.push({ op: op.op, summary: `Skipped update_inline_style: element #${op.id} not found`, charsAdded: 0, charsRemoved: 0 }); continue; } return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.id} not found.` }; }
           const openTag = html.slice(found.start, found.openEnd);
           const styleRe = /\sstyle\s*=\s*("([^"]*)"|'([^']*)')/i;
           const m = styleRe.exec(openTag);
@@ -325,7 +348,7 @@ export function applyPatch(baseHtml: string, patch: Patch, options: ApplyOptions
         }
         case "rename_id": {
           const found = findElementById(html, op.from);
-          if (!found) return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.from} not found.` };
+          if (!found) { if (options.skipMissingElementOps) { applied.push({ op: op.op, summary: `Skipped rename_id: element #${op.from} not found`, charsAdded: 0, charsRemoved: 0 }); continue; } return { ok: false, failedAt: i + 1, op: op.op, error: `element #${op.from} not found.` }; }
           if (findElementById(html, op.to)) return { ok: false, failedAt: i + 1, op: op.op, error: `target id #${op.to} already exists.` };
           const openTag = html.slice(found.start, found.openEnd);
           const idRe = new RegExp(`(\\bid\\s*=\\s*["'])${escapeRegex(op.from)}(["'])`);
