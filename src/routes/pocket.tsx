@@ -121,7 +121,6 @@ import { finalizeCandidate } from "@/lib/finalize-candidate";
 import { applySalvage } from "@/lib/qa-salvage";
 import { checkDesignFloor } from "@/lib/design-floor";
 import { regenerateForQuality } from "@/lib/quality-retry";
-import { productionQaCall } from "@/lib/qa-client";
 import {
   compactRecentSignatures,
   conceptPlanKey,
@@ -935,20 +934,9 @@ function ForgePage() {
       }
 
 
-      // ---- 3. Deterministic safety/parity gate, with a Claude repair pass
-      //         for paid accounts when the deterministic gate alone can't
-      //         resolve it (e.g. unbalanced JS brackets that repairHtml()
-      //         deliberately refuses to auto-patch). This is the same
-      //         finalizeCandidate() pipeline the Coder already uses for
-      //         full-generation — Pocket was calling the bare deterministic
-      //         assessment only and dead-ending on failure with no repair
-      //         attempt at all.
-      //
-      //         Free/demo accounts are UNCHANGED by this: finalizeCandidate
-      //         skips the Claude QA call entirely when demoMode is true, so
-      //         a free build that hits the gate reverts exactly as it did
-      //         before this pass was added. Only paid Pocket builds gain
-      //         the repair attempt.
+      // ---- 3. Deterministic safety/parity gate. Build completion never
+      //         waits on an optional AI review; malformed scripts and unsafe
+      //         navigation are repaired locally before this result commits.
       setStatus("Running safety checks…");
       const finP = applySalvage(await finalizeCandidate({
         candidateHtml: finalHtml,
@@ -959,7 +947,7 @@ function ForgePage() {
         userRequest: p,
         strategy: "full-generation",
         advisoryOnly: true,
-      }, productionQaCall), finalHtml);
+      }, async () => null), finalHtml);
       if (finP.claudeInvoked) {
         setStatus("Repairing…");
         log(`Claude QA repair attempted via ${finP.claudeModel ?? "?"} — ${finP.claudeVerdict ?? "unknown"}`);

@@ -2334,6 +2334,17 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(rClean.ok && rClean.claudeInvoked === false, "finalize: clean returns ok"));
     results.push(assert(finalizeCacheSize() === 0, "finalize: clean does NOT fill decision cache"));
 
+    // Build completion is deterministic: unresolved advisory findings never
+    // dispatch the optional AI reviewer and never become qa_bad_response.
+    invalidateFinalizeCache();
+    let completionCalls = 0;
+    const rCompletion = await finalizeCandidate(
+      { candidateHtml: badNav, stableHtml: stable, themeCss: null, themeName: null, demoMode: false, userRequest: "u", advisoryOnly: true },
+      async () => { completionCalls++; return null; },
+    );
+    results.push(assert(completionCalls === 0, "finalize: build completion makes zero QA calls"));
+    results.push(assert(rCompletion.ok && rCompletion.claudeInvoked === false, "finalize: build completion commits deterministic repair"));
+
     // 2. Free demo skips Claude AND never touches the decision cache.
     calls = 0;
     invalidateFinalizeCache();

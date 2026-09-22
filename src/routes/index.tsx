@@ -126,7 +126,6 @@ import { applySalvage } from "@/lib/qa-salvage";
 
 import { checkDesignFloor } from "@/lib/design-floor";
 import { regenerateForQuality } from "@/lib/quality-retry";
-import { productionQaCall } from "@/lib/qa-client";
 import { statusFromFinalize, statusFromPublish, markStaleIfChanged, type QaSessionStatus } from "@/lib/qa-status";
 import { assessOutbound } from "@/lib/outbound-assess";
 
@@ -2101,8 +2100,8 @@ function Index() {
             setLoading(false); setStage(null); markBuildEnd(sessionId);
             return;
           }
-          // QA gate: deterministic + at-most-one metered Claude QA call.
-          setStage("validate"); setStageDetail("QA checks");
+          // Deterministic completion gate. AI review is never on this path.
+          setStage("validate"); setStageDetail("Safety checks");
           const fin = applySalvage(await finalizeCandidate({
             candidateHtml: det.html,
             stableHtml,
@@ -2113,7 +2112,8 @@ function Index() {
             userRequest: basePrompt,
             taskType: classification.taskType,
             strategy: "deterministic",
-          }, productionQaCall), det.html);
+            advisoryOnly: true,
+          }, async () => null), det.html);
 
           {
             const qa = statusFromFinalize(fin, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
@@ -2312,8 +2312,8 @@ function Index() {
               abortRef.current = null;
               break patchAttempt;
             }
-            // QA gate — deterministic + at-most-one metered Claude QA call.
-            setStage("validate"); setStageDetail("QA checks");
+            // Deterministic completion gate. AI review is never on this path.
+            setStage("validate"); setStageDetail("Safety checks");
             const finP = applySalvage(await finalizeCandidate({
               candidateHtml: patchedHtml,
               stableHtml,
@@ -2324,7 +2324,8 @@ function Index() {
               userRequest: basePrompt,
               taskType: classification.taskType,
               strategy: "ai-patch",
-            }, productionQaCall), patchedHtml);
+              advisoryOnly: true,
+            }, async () => null), patchedHtml);
             if (finP.salvaged) {
               setTerminal((t) => [...t, `⚠ QA findings kept as advisory — edit committed instead of rebuilding from scratch.`]);
             }
@@ -2944,9 +2945,9 @@ function Index() {
         return;
       }
 
-      // QA gate — deterministic + at-most-one metered Claude QA call.
-      // Runs BEFORE Chief Engineer so it reviews the FINAL repaired artifact.
-      setStage("validate"); setStageDetail("QA checks");
+      // Deterministic completion gate. Runs before Chief Engineer and never
+      // waits on the optional AI reviewer.
+      setStage("validate"); setStageDetail("Safety checks");
       const finG = applySalvage(await finalizeCandidate({
         candidateHtml: finalHtml,
         stableHtml,
@@ -2961,7 +2962,7 @@ function Index() {
         // findings that would be committed anyway.
         advisoryOnly: true,
 
-      }, productionQaCall), finalHtml);
+      }, async () => null), finalHtml);
       if (finG.salvaged) {
         setTerminal((t) => [...t, `⚠ QA findings kept as advisory — build committed so you can review and save it.`]);
       }
