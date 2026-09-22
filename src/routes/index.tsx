@@ -695,6 +695,28 @@ function Index() {
   const [paletteQuery, setPaletteQuery] = useState("");
   const [stage, setStage] = useState<StageName | null>(null);
   const [stageDetail, setStageDetail] = useState<string>("");
+  // Per-stage timing. A single effect on `stage` closes the previous stage and
+  // opens the next one, so every existing setStage() call site is measured
+  // without touching any of them. Reset happens when a run starts ("classify").
+  const stageOpenRef = useRef<{ name: StageName; at: number } | null>(null);
+  const [stageTimings, setStageTimings] = useState<Array<{ name: string; ms: number }>>([]);
+  useEffect(() => {
+    const now = performance.now();
+    const open = stageOpenRef.current;
+    if (open) {
+      const ms = Math.round(now - open.at);
+      setStageTimings((prev) => {
+        const i = prev.findIndex((p) => p.name === open.name);
+        if (i === -1) return [...prev, { name: open.name, ms }];
+        const next = prev.slice();
+        next[i] = { name: open.name, ms: next[i]!.ms + ms };
+        return next;
+      });
+    }
+    if (stage === "classify") setStageTimings([]);
+    stageOpenRef.current = stage ? { name: stage, at: now } : null;
+  }, [stage]);
+
   const [railGroup, setRailGroup] = useState<RailGroupId>("all");
   const [intelligenceTick, setIntelligenceTick] = useState<number>(0);
   const [lastIntent, setLastIntent] = useState<ResolvedIntent | undefined>(undefined);
