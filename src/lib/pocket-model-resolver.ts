@@ -174,7 +174,7 @@ export function resolvePocketModel(input: {
   }
 
   const ranked = rankClaude(registry);
-  const chosen = input.profile === "studio" ? applyStudioPolicy(ranked) : (ranked[0] ?? null);
+  const chosen = applyStudioPolicy(ranked);
 
   if (chosen) {
     return {
