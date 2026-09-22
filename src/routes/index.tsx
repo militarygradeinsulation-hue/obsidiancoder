@@ -3369,7 +3369,7 @@ function Index() {
       setTerminal((t) => [...t, "→ Go Live requires Obsidian Pro. Local export remains free."]);
       return;
     }
-    setTerminal((t) => [...t, "→ QA checks…"]);
+    setTerminal((t) => [...t, "→ Safety checks…"]);
     const oa = assessOutbound(current.html, {
       themeCss: current.themeCss ?? null,
       themeName: current.themeName ?? null,
@@ -3382,7 +3382,7 @@ function Index() {
     } : s));
     if (!oa.ok) {
       const reasons = oa.blockers.slice(0, 4).join("; ") || "empty artifact";
-      setTerminal((t) => [...t, `✗ Go Live blocked by QA: ${reasons}`]);
+      setTerminal((t) => [...t, `✗ Go Live blocked by safety checks: ${reasons}`]);
       return;
     }
     const art = { html: oa.finalHtml };
@@ -3901,7 +3901,7 @@ function Index() {
                   setTerminal((t) => [...t, "→ Go Live requires Obsidian Pro. Local export remains free."]);
                   return;
                 }
-                setTerminal((t) => [...t, "→ QA checks…"]);
+                setTerminal((t) => [...t, "→ Safety checks…"]);
                 // Single authoritative outbound assessment. Ship EXACTLY finalHtml.
                 const oa = assessOutbound(current.html, {
                   themeCss: current.themeCss ?? null,
@@ -3915,7 +3915,7 @@ function Index() {
                 } : s));
                 if (!oa.ok) {
                   const reasons = oa.blockers.slice(0, 4).join("; ") || "empty artifact";
-                  setTerminal((t) => [...t, `✗ Go Live blocked by QA: ${reasons}`]);
+                  setTerminal((t) => [...t, `✗ Go Live blocked by safety checks: ${reasons}`]);
                   return;
                 }
                 const art = { html: oa.finalHtml };
