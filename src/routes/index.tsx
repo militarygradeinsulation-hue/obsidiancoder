@@ -5266,6 +5266,13 @@ function Index() {
                   <div className="obs-metric-row"><span>Strategy</span><b>{lastMetrics.strategy ?? "—"}</b></div>
                   <div className="obs-metric-row"><span>Cost</span><b>{lastMetrics.costEstimate}</b></div>
                   <div className="obs-metric-row"><span>Duration</span><b>{formatDuration(lastMetrics.durationMs)}</b></div>
+                  {stageTimings.length > 0 && stageTimings.map((s) => (
+                    <div className="obs-metric-row" key={`stage-${s.name}`}>
+                      <span style={{ paddingLeft: 10, opacity: 0.75 }}>↳ {s.name}</span>
+                      <b>{formatDuration(s.ms)}</b>
+                    </div>
+                  ))}
+
                   <div className="obs-metric-row"><span>Changed</span><b>{lastMetrics.documentChanged ? "Yes" : "No"}</b></div>
                   {typeof lastMetrics.patchOperationCount === "number" && (
                     <div className="obs-metric-row"><span>Operations</span><b>{lastMetrics.patchOperationCount}</b></div>
