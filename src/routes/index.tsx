@@ -2103,7 +2103,7 @@ function Index() {
           }
           // QA gate: deterministic + at-most-one metered Claude QA call.
           setStage("validate"); setStageDetail("QA checks");
-          const fin = await finalizeCandidate({
+          const fin = applySalvage(await finalizeCandidate({
             candidateHtml: det.html,
             stableHtml,
             themeCss: current.themeCss ?? null,
@@ -2113,7 +2113,8 @@ function Index() {
             userRequest: basePrompt,
             taskType: classification.taskType,
             strategy: "deterministic",
-          }, productionQaCall);
+          }, productionQaCall), det.html);
+
           {
             const qa = statusFromFinalize(fin, { html: stableHtml, themeCss: current.themeCss ?? null, themeName: current.themeName ?? null, themeBlueprintId: current.themeBlueprintId ?? null });
             setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, qaStatus: qa } : s));
