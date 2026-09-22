@@ -51,6 +51,15 @@ export interface FinalizeInput {
   runtimeBlockersForCandidateHash?: number;
   /** Compact learned defect hints — bounded, no full transcripts. */
   failureHints?: string;
+  /**
+   * When true, skip the metered QA provider call for candidates whose only
+   * problems are advisory (style/parity violations the caller will commit
+   * anyway). Truncated documents, failed validation and runtime blockers are
+   * unaffected — they are handled above and still block. Off by default, so
+   * every existing caller keeps the original behaviour.
+   */
+  advisoryOnly?: boolean;
+
 }
 
 export type FinalizeSource =
