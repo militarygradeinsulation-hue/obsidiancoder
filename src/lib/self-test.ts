@@ -10,6 +10,7 @@ import { planFor } from "./orchestrator";
 import { anchorsFromPrompt, budgetSnippets, snippetsAround } from "./context-manager";
 import { extractOutline } from "./document-outline";
 import { repairHtml } from "./repair";
+import { applySalvage } from "./qa-salvage";
 import { extractDesignTokens, replaceColor, setCssVariable } from "./design-system";
 import { EMPTY_MEMORY, mergeMemory, lockKey } from "./project-memory";
 import { createPipeline } from "./pipeline";
@@ -133,6 +134,24 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   const brokenReport = validateHtml(brokenHtml);
   const repaired2 = repairHtml(brokenHtml, brokenReport.issues);
   results.push(assert(/<\/html>/i.test(repaired2.html), "repair: appends missing </html>"));
+  const brokenScriptHtml = '<!doctype html><html><body><h1>Keep build</h1><script>function boot(){ location.assign("/away");</script></body></html>';
+  const brokenScriptReport = validateHtml(brokenScriptHtml);
+  const repairedScript = repairHtml(brokenScriptHtml, brokenScriptReport.issues);
+  results.push(assert(
+    validateHtml(repairedScript.html).status !== "failed" && repairedScript.html.includes("Keep build"),
+    "repair: malformed script is quarantined without discarding build",
+  ));
+  const malformedQaSalvage = applySalvage({
+    ok: false,
+    blockers: ["qa-qa_bad_response: malformed response"],
+    finalHtml: SAMPLE_HTML,
+    finalValidation: { status: "passed" },
+    finalAssessment: { repairedHtml: SAMPLE_HTML },
+  }, SAMPLE_HTML);
+  results.push(assert(
+    malformedQaSalvage.ok && malformedQaSalvage.salvaged,
+    "QA salvage: malformed QA response never discards a valid build",
+  ));
 
   // Design system
   const dsHtml = '<!doctype html><html><head><style>body{color:#F4A125;font-family:Inter;border-radius:8px;padding:16px;box-shadow:0 1px 2px #000}</style></head><body></body></html>';
