@@ -2957,6 +2957,10 @@ function Index() {
         userRequest: basePrompt,
         taskType: classification.taskType,
         strategy: "full-generation",
+        // A finished full build no longer waits on a metered QA round-trip for
+        // findings that would be committed anyway.
+        advisoryOnly: true,
+
       }, productionQaCall), finalHtml);
       if (finG.salvaged) {
         setTerminal((t) => [...t, `⚠ QA findings kept as advisory — build committed so you can review and save it.`]);
