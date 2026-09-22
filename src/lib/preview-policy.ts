@@ -241,8 +241,17 @@ function scanScripts(html: string, out: PreviewViolation[]): void {
     if (/(?<![\w$.])(?:window\s*\.\s*|top\s*\.\s*|parent\s*\.\s*)?location\s*\.\s*(?:assign|replace|href)\s*(?:\(|=(?!=))/.test(mask)) {
       out.push({ code: "nav-location-assign", message: "script writes to location", index: m.index });
     }
-    if (/(?<![\w$.])location\s*=(?!=)/.test(mask)) {
+    // A local variable named `location` is ordinary application data, not a
+    // navigation attempt. Treat only a bare assignment as navigation; this
+    // mirrors navigation-repair and prevents valid dashboard scripts from
+    // being quarantined after repair.
+    const bareLocationWrite = /(?<![\w$.])location\s*=(?!=)/g;
+    let write: RegExpExecArray | null;
+    while ((write = bareLocationWrite.exec(mask))) {
+      const prefix = mask.slice(Math.max(0, write.index - 16), write.index);
+      if (/\b(?:let|const|var)\s*$/.test(prefix)) continue;
       out.push({ code: "nav-location-assign", message: "script writes to location", index: m.index });
+      break;
     }
   }
 }
