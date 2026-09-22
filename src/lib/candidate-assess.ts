@@ -13,6 +13,7 @@
 import { buildArtifact, type Artifact } from "./publish-artifact";
 import { checkParity, type ParityReport } from "./parity-check";
 import { validateHtml, type ValidationReport } from "./validation";
+import { repairHtml } from "./repair";
 import { checkDesignFloor, type DesignReport } from "./design-floor";
 import type { NavRepair } from "./navigation-repair";
 import type { PreviewViolation } from "./preview-policy";
@@ -76,14 +77,22 @@ export function assessCandidateForCommit(input: AssessInput): AssessResult {
   const cached = CACHE.get(key);
   if (cached) return cached;
 
+  // Repair deterministic structural failures before building preview/publish
+  // surfaces. In particular, a malformed generated script is isolated rather
+  // than allowing one unusable script to discard the whole finished build.
+  const initialValidation = validateHtml(input.html);
+  const repairedInput = initialValidation.status === "failed"
+    ? repairHtml(input.html, initialValidation.issues).html
+    : input.html;
+
   const publishArt = buildArtifact({
-    html: input.html,
+    html: repairedInput,
     themeCss: input.themeCss ?? null,
     themeName: input.themeName ?? null,
     surface: "publish",
   });
   const renderArt = buildArtifact({
-    html: input.html,
+    html: repairedInput,
     themeCss: input.themeCss ?? null,
     themeName: input.themeName ?? null,
     surface: "render",

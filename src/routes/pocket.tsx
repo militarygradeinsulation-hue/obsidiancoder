@@ -118,6 +118,7 @@ import {
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
+import { applySalvage } from "@/lib/qa-salvage";
 import { checkDesignFloor } from "@/lib/design-floor";
 import { regenerateForQuality } from "@/lib/quality-retry";
 import { productionQaCall } from "@/lib/qa-client";
@@ -949,7 +950,7 @@ function ForgePage() {
       //         before this pass was added. Only paid Pocket builds gain
       //         the repair attempt.
       setStatus("Running safety checks…");
-      const finP = await finalizeCandidate({
+      const finP = applySalvage(await finalizeCandidate({
         candidateHtml: finalHtml,
         stableHtml: previous,
         themeCss: null,
@@ -957,10 +958,14 @@ function ForgePage() {
         demoMode: !paidAccess,
         userRequest: p,
         strategy: "full-generation",
-      }, productionQaCall);
+        advisoryOnly: true,
+      }, productionQaCall), finalHtml);
       if (finP.claudeInvoked) {
         setStatus("Repairing…");
         log(`Claude QA repair attempted via ${finP.claudeModel ?? "?"} — ${finP.claudeVerdict ?? "unknown"}`);
+      }
+      if (finP.salvaged) {
+        log("QA findings were kept as advisory so the finished build remains available.");
       }
       if (!finP.ok) {
         setProject((prev) => setEntryHtml(prev, previous));

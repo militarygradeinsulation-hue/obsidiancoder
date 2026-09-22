@@ -36,7 +36,6 @@ export interface SalvageDecision {
 
 const HARD_PATTERNS = [
   "design:incomplete",
-  "validation-failed",
   "runtime-blockers",
 ];
 
@@ -51,7 +50,8 @@ export function decideSalvage(input: SalvageInput): SalvageDecision {
   const hardBlockers = input.blockers.filter(isHardBlocker);
   const softBlockers = input.blockers.filter((b) => !isHardBlocker(b));
 
-  // A document that does not survive HTML validation is never salvageable.
+  // Validation failures should normally have been deterministically repaired
+  // before this point. If one remains, do not claim the raw artifact is safe.
   if (input.finalValidationStatus === "failed") {
     return {
       commit: false,

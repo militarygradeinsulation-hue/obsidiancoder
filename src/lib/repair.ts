@@ -47,7 +47,23 @@ export function repairHtml(html: string, issues: ValidationIssue[]): RepairResul
         break;
       }
       case "js-syntax":
-        // We do NOT auto-patch JS — silent brace insertion is riskier than reverting.
+        // A malformed inline script cannot execute in the browser anyway, but it
+        // used to make the safety gate discard the entire otherwise-renderable
+        // build. Quarantine only the malformed executable block(s). This keeps
+        // the document visible/saveable without guessing at missing source.
+        out = out.replace(/(<script\b([^>]*)>)([\s\S]*?)(<\/script>)/gi, (m, open, attrs, code, close) => {
+          if (/\bsrc\s*=/i.test(attrs)) return m;
+          const type = String(attrs).match(/\btype\s*=\s*("([^"]*)"|'([^']*)')/i);
+          const scriptType = (type?.[2] ?? type?.[3] ?? "").trim().toLowerCase();
+          if (scriptType && !/^(text\/javascript|application\/javascript|module|text\/babel)$/.test(scriptType)) return m;
+          // Reuse the validator on a minimal document so string/template/comment
+          // contents are handled by the same lexical rules as the original scan.
+          const probe = `<!doctype html><html><body>${open}${code}${close}</body></html>`;
+          const stillBroken = validateScriptProbe(probe);
+          if (!stillBroken) return m;
+          fixes.push("Quarantined a malformed script so the build can still open and save.");
+          return `${open}console.warn("Obsidian isolated a malformed generated script.");${close}`;
+        });
         break;
       case "secret":
         // Redact detected secret-looking strings.
@@ -65,6 +81,43 @@ export function repairHtml(html: string, issues: ValidationIssue[]): RepairResul
   }
 
   return { html: out, fixes, attempted };
+}
+
+function validateScriptProbe(html: string): boolean {
+  // Kept local to avoid exporting parser internals. Mirrors validation's
+  // bracket stack after masking strings, templates, comments and regexes.
+  const match = html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
+  const source = match?.[1] ?? "";
+  let quote = "";
+  let escaped = false;
+  const stack: string[] = [];
+  const pairs: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
+  for (let i = 0; i < source.length; i++) {
+    const ch = source[i] ?? "";
+    if (escaped) { escaped = false; continue; }
+    if (quote) {
+      if (ch === "\\") escaped = true;
+      else if (ch === quote) quote = "";
+      continue;
+    }
+    if (ch === '"' || ch === "'" || ch === "`") { quote = ch; continue; }
+    if (ch === "/" && source[i + 1] === "/") {
+      i = source.indexOf("\n", i);
+      if (i < 0) break;
+      continue;
+    }
+    if (ch === "/" && source[i + 1] === "*") {
+      const end = source.indexOf("*/", i + 2);
+      if (end < 0) return true;
+      i = end + 1;
+      continue;
+    }
+    if (ch === "(" || ch === "[" || ch === "{") stack.push(ch);
+    else if (ch === ")" || ch === "]" || ch === "}") {
+      if (stack.pop() !== pairs[ch]) return true;
+    }
+  }
+  return quote !== "" || stack.length > 0;
 }
 
 /** Was every blocking issue at least attempted? */

@@ -56,6 +56,7 @@ export interface NavRepair {
     | "script-location-assign-neutralized"
     | "script-location-replace-neutralized"
     | "script-location-write-neutralized"
+    | "script-unsafe-quarantined"
     | "inline-handler-neutralized";
   label?: string;
   from?: string;
@@ -474,8 +475,17 @@ function repairScripts(html: string, repairs: NavRepair[]): string {
   return html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script>/gi, (m, attrs: string, body: string) => {
     if (/\bsrc\s*=/.test(attrs) && !body.trim()) return m; // external, empty body
     const { body: repaired, repairs: r } = neutralizeScriptNavigation(body);
-    if (r.length === 0) return m;
     for (const rep of r) repairs.push(rep);
+    // If a navigation expression could not be safely isolated, quarantine
+    // this script rather than rejecting the complete generated build. The
+    // original script is unsafe and would not be allowed to run regardless.
+    const residual = scanNavigationViolations(`<script${attrs}>${repaired}</script>`)
+      .some((v) => v.code === "nav-window-open" || v.code === "nav-location-assign");
+    if (residual) {
+      repairs.push({ code: "script-unsafe-quarantined" });
+      return `<script${attrs}>console.warn("Obsidian isolated unsafe generated navigation.");</script>`;
+    }
+    if (r.length === 0) return m;
     return `<script${attrs}>${repaired}</script>`;
   });
 }
