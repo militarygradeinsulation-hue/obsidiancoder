@@ -70,7 +70,7 @@ export function decideSalvage(input: SalvageInput): SalvageDecision {
  */
 export function salvageHtml(repairedHtml: string | null | undefined, candidateHtml: string): string {
   const r = (repairedHtml ?? "").trim();
-  return r.length > 0 ? repairedHtml! : candidateHtml;
+  return r.length > 0 && repairedHtml ? repairedHtml : candidateHtml;
 }
 
 /** One-line note appended to the assistant message on a salvaged commit. */

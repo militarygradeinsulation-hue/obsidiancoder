@@ -4,6 +4,7 @@
 // restore the previous stable snapshot.
 
 import type { ValidationIssue } from "./validation";
+import { jsLexicalMask } from "./js-lexical-mask";
 
 export type RepairResult = {
   html: string;
@@ -84,40 +85,23 @@ export function repairHtml(html: string, issues: ValidationIssue[]): RepairResul
 }
 
 function validateScriptProbe(html: string): boolean {
-  // Kept local to avoid exporting parser internals. Mirrors validation's
-  // bracket stack after masking strings, templates, comments and regexes.
   const match = html.match(/<script\b[^>]*>([\s\S]*?)<\/script>/i);
   const source = match?.[1] ?? "";
-  let quote = "";
-  let escaped = false;
+  let masked: string;
+  try {
+    masked = jsLexicalMask(source);
+  } catch {
+    return false;
+  }
   const stack: string[] = [];
   const pairs: Record<string, string> = { ")": "(", "]": "[", "}": "{" };
-  for (let i = 0; i < source.length; i++) {
-    const ch = source[i] ?? "";
-    if (escaped) { escaped = false; continue; }
-    if (quote) {
-      if (ch === "\\") escaped = true;
-      else if (ch === quote) quote = "";
-      continue;
-    }
-    if (ch === '"' || ch === "'" || ch === "`") { quote = ch; continue; }
-    if (ch === "/" && source[i + 1] === "/") {
-      i = source.indexOf("\n", i);
-      if (i < 0) break;
-      continue;
-    }
-    if (ch === "/" && source[i + 1] === "*") {
-      const end = source.indexOf("*/", i + 2);
-      if (end < 0) return true;
-      i = end + 1;
-      continue;
-    }
+  for (const ch of masked) {
     if (ch === "(" || ch === "[" || ch === "{") stack.push(ch);
     else if (ch === ")" || ch === "]" || ch === "}") {
       if (stack.pop() !== pairs[ch]) return true;
     }
   }
-  return quote !== "" || stack.length > 0;
+  return stack.length > 0;
 }
 
 /** Was every blocking issue at least attempted? */
