@@ -2250,7 +2250,7 @@ function ForgePage() {
                     className="h-full w-full"
                     style={frameWidth ? { maxWidth: `${frameWidth}px` } : undefined}
                   />
-                  {busy === "generating" ? <PocketBuildOrb label="Building your page…" /> : null}
+                  {busy === "generating" ? <PocketBuildOrb label={status} /> : null}
                 </div>
 
               </div>
