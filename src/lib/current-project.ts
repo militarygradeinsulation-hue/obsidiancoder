@@ -2,7 +2,7 @@
 // to the same project. It stores only an identity pointer — the project
 // itself stays in the existing session / cloud project stores.
 
-import { safeGet, safeSet } from "./safe-storage";
+import { safeGet, safeSet, safeRemove } from "./safe-storage";
 
 export const CURRENT_PROJECT_KEY = "obs.currentProject.v1";
 export const MISSION_HANDOFF_KEY = "obs.mission.handoff.v1";
@@ -38,7 +38,7 @@ export function stageMissionHandoff(prompt: string): boolean {
 
 export function takeMissionHandoff(maxAgeMs = 10 * 60_000): MissionHandoff | null {
   const raw = safeGet<MissionHandoff>(MISSION_HANDOFF_KEY);
-  safeSet(MISSION_HANDOFF_KEY, null);
+  safeRemove(MISSION_HANDOFF_KEY);
   if (!raw || typeof raw.prompt !== "string" || !raw.prompt.trim()) return null;
   if (typeof raw.at !== "number" || Date.now() - raw.at > maxAgeMs) return null;
   return raw;
