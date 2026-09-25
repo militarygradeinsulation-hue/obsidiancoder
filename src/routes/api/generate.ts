@@ -38,6 +38,13 @@ import {
   RECENT_SIGNATURE_LIMIT,
   normalizeRecentSignatureInput,
 } from "@/lib/pocket-hardening";
+import {
+  updateBuildJobProgress,
+  completeBuildJob,
+  failBuildJob,
+  cancelBuildJobRecord,
+  isBuildJobCancelRequested,
+} from "@/lib/build-jobs.server";
 
 
 
@@ -147,6 +154,15 @@ const inputSchema = z.object({
       locked: z.record(z.string(), z.boolean()).optional().default({}),
     })
     .optional(),
+  /**
+   * Id of a build_jobs row already created by the client (see
+   * /api/public/jobs/create) before this request was sent. When present,
+   * progress and the final result are persisted to that row as generation
+   * proceeds, so the browser can recover the outcome after a disconnect
+   * instead of losing it. Entirely optional and additive — omitting it
+   * reproduces today's behavior exactly.
+   */
+  jobId: z.string().uuid().optional(),
 });
 
 /**
@@ -615,10 +631,7 @@ async function planAndFetchComponents(
 
 
 
-export const Route = createFileRoute("/api/generate")({
-  server: {
-    handlers: {
-      POST: async ({ request }) => {
+export async function handleGenerate(request: Request): Promise<Response> {
         const requestId = newRequestId();
         const requestStartedAt = performance.now();
         const firstResponseDeadline = requestStartedAt + FIRST_RESPONSE_BUDGET_MS;
@@ -665,6 +678,13 @@ export const Route = createFileRoute("/api/generate")({
           });
           await settleOperation(entitlement, outcome);
         };
+        // Declared here, before try, specifically because both the try body
+        // AND its catch need to see these two — try {} and catch {} are
+        // separate block scopes, so a const declared inside try is not
+        // visible inside its own paired catch. Assigned (not declared)
+        // further down, once the real values are available.
+        let jobId: string | null = null;
+        let coreCeilingTimer: ReturnType<typeof setTimeout> | undefined;
         try {
           const apiKey = process.env.LOVABLE_API_KEY;
           const routellmApiKey = routellmKey();
@@ -782,6 +802,51 @@ export const Route = createFileRoute("/api/generate")({
           }
 
           const clientAbort = request.signal;
+          // The CORE generation call intentionally does NOT use clientAbort.
+          // A generation tied to the browser's live connection dies the
+          // instant that connection goes away for ANY reason — a phone
+          // backgrounding the tab, a network blip, the OS suspending an
+          // inactive tab to save memory — even though nothing about the
+          // generation itself failed. That is the actual cause of "leaves
+          // the page, comes back, has to restart it several times": every
+          // single disconnect was silently killing the real work outright.
+          // A generous, purely time-based ceiling still bounds it — this
+          // is not "run forever," it is "don't die just because nobody's
+          // watching right now." Explicit user cancellation (the Stop
+          // button) is a SEPARATE, deliberate signal — see jobId handling
+          // below — not something that should be indistinguishable from an
+          // accidental disconnect.
+          const serverAbort = new AbortController();
+          const CORE_GENERATION_CEILING_MS = 180_000;
+          coreCeilingTimer = setTimeout(() => serverAbort.abort(), CORE_GENERATION_CEILING_MS);
+          jobId = data.jobId ?? null;
+          let lastCancelCheckAt = 0;
+          let lastProgressWriteAt = 0;
+          const CANCEL_CHECK_INTERVAL_MS = 2_000;
+          const PROGRESS_WRITE_INTERVAL_MS = 2_000;
+          /** Thrown to distinguish a deliberate stop from a genuine failure at the finalize() funnel. */
+          class JobCancelledError extends Error {
+            constructor() {
+              super("Build stopped.");
+              this.name = "JobCancelledError";
+            }
+          }
+          /** Cooperative cancellation for job-backed requests: cheap, rate-limited, best-effort. */
+          const checkJobCancelled = async (): Promise<boolean> => {
+            if (!jobId) return false;
+            const now = performance.now();
+            if (now - lastCancelCheckAt < CANCEL_CHECK_INTERVAL_MS) return false;
+            lastCancelCheckAt = now;
+            try {
+              if (await isBuildJobCancelRequested(jobId)) {
+                serverAbort.abort();
+                return true;
+              }
+            } catch {
+              /* a failed cancel-check must never itself abort a generation */
+            }
+            return false;
+          };
           const t0 = performance.now();
           const timing: Record<string, number | string | boolean> = {};
 
@@ -1182,7 +1247,7 @@ ${memBlock}`,
                         breakerKey: a.label,
                         stage: "generate",
                         requestId,
-                        signal: clientAbort,
+                        signal: serverAbort.signal,
                         stream: true,
                         totalTimeoutMs: attemptBudgetMs,
                       },
@@ -1208,7 +1273,7 @@ ${memBlock}`,
                         breakerKey: a.label,
                         stage: "generate",
                         requestId,
-                        signal: clientAbort,
+                        signal: serverAbort.signal,
                         stream: true,
                         totalTimeoutMs: attemptBudgetMs,
                       },
@@ -1409,12 +1474,37 @@ ${memBlock}`,
               // Bounded sample of the generated output, used only for Cloud
               // Memory adoption telemetry (never sent to the client).
               let outSample = "";
+              // Unconditional (unlike outSample, which only accumulates when
+              // mem.needed) — this is what a job-backed request persists for
+              // recovery after a disconnect. Capped generously; matches the
+              // general document-size ceiling used elsewhere in this file.
+              let jobHtml = "";
+              const JOB_HTML_CAP = 6_000_000;
               const streamStartedAt = performance.now();
               const finalize = async (ok: boolean, err?: unknown) => {
                 const totalMs = Math.round(performance.now() - t0);
                 timing.stream_ms = Math.round(performance.now() - streamStartedAt);
                 timing.total_ms = totalMs;
                 timing.emitted_bytes = emittedBytes;
+                clearTimeout(coreCeilingTimer);
+                if (jobId) {
+                  try {
+                    if (err instanceof JobCancelledError) {
+                      await cancelBuildJobRecord(jobId);
+                    } else if (ok) {
+                      await completeBuildJob(jobId, { resultHtml: jobHtml, servedModel: modelUsed });
+                    } else {
+                      await failBuildJob(
+                        jobId,
+                        err instanceof Error ? err.message : "Generation failed.",
+                      );
+                    }
+                  } catch {
+                    // A failed job-row write must never affect the response
+                    // actually being streamed to whatever client is still
+                    // connected — this is purely for later recovery.
+                  }
+                }
                 if (ok && mem.needed) {
                   const forbidden = detectForbiddenStorage(outSample);
                   if (forbidden.length) {
@@ -1465,6 +1555,21 @@ ${memBlock}`,
                   controller.error(err ?? new Error("ai_upstream_empty"));
                 }
               };
+              const writeJobProgress = async () => {
+                if (!jobId) return;
+                const now = performance.now();
+                if (now - lastProgressWriteAt < PROGRESS_WRITE_INTERVAL_MS) return;
+                lastProgressWriteAt = now;
+                try {
+                  await updateBuildJobProgress(jobId, {
+                    stage: "streaming",
+                    progress: Math.min(95, Math.round((jobHtml.length / 20_000) * 100)),
+                    partialHtml: jobHtml,
+                  });
+                } catch {
+                  /* a failed progress write must never interrupt generation */
+                }
+              };
               try {
                 const drain = async (): Promise<boolean> => {
                   let idx;
@@ -1487,6 +1592,7 @@ ${memBlock}`,
                       if (typeof delta === "string" && delta.length) {
                         emittedBytes += delta.length;
                         if (mem.needed && outSample.length < 400_000) outSample += delta;
+                        if (jobId && jobHtml.length < JOB_HTML_CAP) jobHtml += delta;
                         controller.enqueue(encoder.encode(delta));
                       }
                     } catch { /* skip malformed */ }
@@ -1496,9 +1602,14 @@ ${memBlock}`,
                 if (await drain()) return;
                 if (firstChunk?.done) { await finalize(emittedBytes > 0); return; }
                 while (true) {
+                  if (await checkJobCancelled()) {
+                    try { await reader.cancel(); } catch { /* ignore */ }
+                    throw new JobCancelledError();
+                  }
                   const { done, value } = await reader.read();
                   if (done) break;
                   buffer += decoder.decode(value, { stream: true });
+                  await writeJobProgress();
                   if (await drain()) return;
                 }
                 await finalize(emittedBytes > 0);
@@ -1541,6 +1652,12 @@ ${memBlock}`,
 
 
         } catch (err) {
+          clearTimeout(coreCeilingTimer);
+          if (jobId) {
+            try {
+              await failBuildJob(jobId, err instanceof Error ? err.message : "Generation failed.");
+            } catch { /* best-effort — the response below is still authoritative */ }
+          }
           // Settle failure — refund only if no provider work started,
           // otherwise record failed_with_usage. If settlement itself fails
           // the pending ai_usage row is left for out-of-band reconciliation
@@ -1566,7 +1683,12 @@ ${memBlock}`,
               });
           return aiErr.toResponse();
         }
-      },
+}
+
+export const Route = createFileRoute("/api/generate")({
+  server: {
+    handlers: {
+      POST: async ({ request }) => handleGenerate(request),
     },
   },
 });
