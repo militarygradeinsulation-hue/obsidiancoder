@@ -398,14 +398,14 @@ function ForgePage() {
   React.useEffect(() => {
     const hasBuild = !(html === EMPTY_DOC || html.length < 40);
     setCurrentProject({
-      id: cloudProjectId ?? `pocket:${sessionKey}`,
+      id: cloudProjectId ?? `pocket:${libraryCode || "guest"}`,
       cloudId: cloudProjectId,
       title,
       surface: "pocket",
       hasBuild,
       memory: pocketMemoryText,
     });
-  }, [cloudProjectId, sessionKey, title, html, pocketMemoryText]);
+  }, [cloudProjectId, libraryCode, title, html, pocketMemoryText]);
   const activeFile =
     project.files.find((f) => f.id === (activeFileId || project.entryFileId)) ?? project.files[0];
   const log = React.useCallback((line: string) => {
