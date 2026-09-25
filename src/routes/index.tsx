@@ -188,6 +188,9 @@ import { qualityContractFragment } from "@/lib/quality-contract";
 import { escalateModel } from "@/lib/quality-retry";
 import { Archive as ArchiveIcon } from "lucide-react";
 import { archiveBuild, takeArchiveHandoff } from "@/lib/build-archive";
+import { ObsidianModeNav } from "@/components/ObsidianModeNav";
+import { queryBrain, brainMatchLabel, type BrainResult } from "@/lib/obsidian-brain";
+import { setCurrentProject, takeMissionHandoff } from "@/lib/current-project";
 
 
 
@@ -1386,6 +1389,28 @@ function Index() {
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
 
   // A build handed over from /archive opens straight into the active session.
+  // A mission sent from /agent lands in the composer for review — never auto-sent.
+  useEffect(() => {
+    const mission = takeMissionHandoff();
+    if (mission) {
+      setInput(mission.prompt);
+      setTerminal((t) => [...t, "→ Mission received from Agent — review and send"]);
+    }
+  }, []);
+
+  // Shared project identity for Pocket / Brain / Agent.
+  useEffect(() => {
+    if (!current) return;
+    setCurrentProject({
+      id: current.cloudId ?? current.id,
+      cloudId: current.cloudId,
+      title: current.title || "Untitled build",
+      surface: "studio",
+      hasBuild: Boolean(current.html),
+      memory: memoryToPrompt(current.memory),
+    });
+  }, [current?.id, current?.cloudId, current?.title, Boolean(current?.html), current?.memory]);
+
   useEffect(() => {
     const handoff = takeArchiveHandoff();
     if (!handoff) return;
@@ -2452,6 +2477,7 @@ function Index() {
     // reports its own stages through the OBS_TIMING trailer.
     const stageMarks: { planMs: number; plannerCalled: boolean; speedPath: boolean } =
       { planMs: 0, plannerCalled: false, speedPath: false };
+    let brain: BrainResult | null = null;
     const planStartedAt = performance.now();
     if (previewMode) {
       if (!isProfileAllowed(artProfile, paidAccess)) {
@@ -2480,8 +2506,12 @@ function Index() {
         // Speed path: a direction that already scored 80+ for this family is
         // reused (mutated, never copied) instead of paying for another
         // concept-planning provider call.
-        const proven = provenDirection(learningEntries, artFamily);
-        const provenDna = proven ? mutateProvenDna(proven, hashString(`${basePrompt}|${Date.now()}`)) : null;
+        // Obsidian Brain: one local lookup over proven directions, exemplars
+        // and components. A strong hit replaces the planner call.
+        brain = queryBrain({ prompt: basePrompt, family: artFamily, surface: "vibe", libraryCode, entries: learningEntries });
+        setTerminal((t) => [...t, `🧠 ${brainMatchLabel(brain!.match)} · ${brain!.lookupMs}ms · ${brain!.reasons.join(" · ")}`]);
+        const proven = brain.proven;
+        const provenDna = brain.provenDna;
         if (provenDna) {
           buildDna = provenDna;
           stageMarks.speedPath = true;
@@ -2579,8 +2609,8 @@ function Index() {
                 : undefined,
               pocketRecentSignatures: compactRecentSignatures(readCreativeMemory(libraryCode).entries).slice(0, 12),
               learningBrief: [
-                buildLearningBrief(learningEntries, buildDna.family),
-                provenTemplateBrief(learningEntries, buildDna.family, libraryCode, "vibe"),
+                brain ? brain.brief : buildLearningBrief(learningEntries, buildDna.family),
+                brain ? "" : provenTemplateBrief(learningEntries, buildDna.family, libraryCode, "vibe"),
                 qualityContractFragment(),
               ].filter(Boolean).join("\n\n"),
             }
@@ -2926,6 +2956,9 @@ function Index() {
           client_first_token_ms: firstChunkAt ? Math.round(firstChunkAt - t0) : 0,
           planner_called: Boolean(stageMarks.plannerCalled),
           speed_path: Boolean(stageMarks.speedPath),
+          brain_lookup_ms: brain ? brain.lookupMs : 0,
+          brain_match: brain ? brain.match : "not-queried",
+          generation_model: modelForServer,
         },
       };
       const gateBlockersG = checkCommitGate(stableHtml, finalHtml, "full-generation");
@@ -3704,6 +3737,7 @@ function Index() {
               <Menu className="h-4 w-4" />
             </button>
             <img src={aetherisLogo.url} alt="Aetheris Obsidian Logo" className="obs-mark obs-mark-img obs-topbar-logo" />
+            <ObsidianModeNav className="hidden md:inline-flex" />
             <button
               type="button"
               className="obs-icon-btn obs-rail-toggle-btn"
