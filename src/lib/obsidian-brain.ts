@@ -184,6 +184,7 @@ export interface BrainSnapshot {
 }
 
 export function brainSnapshot(libraryCode?: string, memory?: ProjectMemory | null): BrainSnapshot {
+  const project = readCurrentProject();
   const entries = safe(() => readBuildLearning(libraryCode).entries, [] as BuildLearningEntry[]);
   const bias = learnedBias(entries);
   const pref = preferredFamily(bias);
@@ -213,8 +214,8 @@ export function brainSnapshot(libraryCode?: string, memory?: ProjectMemory | nul
   if (registry.length) nextReasons.push(`${registry.length} stored component(s) will be offered when the prompt matches their kind.`);
 
   return {
-    project: readCurrentProject(),
-    memoryText: memoryToPrompt(memory ?? null),
+    project,
+    memoryText: memoryToPrompt(memory ?? null) || project?.memory || "",
     learning: {
       total: entries.length,
       kept: entries.filter((e) => e.outcome === "kept").length,
@@ -231,4 +232,16 @@ export function brainSnapshot(libraryCode?: string, memory?: ProjectMemory | nul
     preferences: { applied: prefs.filter(isAppliedPreference), observed: prefs.length },
     nextBuild: { family: next?.family ?? null, provenScore: next?.score ?? null, reasons: nextReasons },
   };
+}
+
+/** The library code the builders use, resolved the same way on every page. */
+export function resolveBrainLibraryCode(accountCode: string): string {
+  if (accountCode) return accountCode;
+  try {
+    const s = window.sessionStorage.getItem("obs.library_code");
+    if (s) return s;
+    const f = window.localStorage.getItem("forge.libraryCode");
+    if (f) return JSON.parse(f) as string;
+  } catch { /* ignore */ }
+  return "";
 }

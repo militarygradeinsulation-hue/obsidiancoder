@@ -14,14 +14,16 @@ export interface CurrentProject {
   title: string;
   surface: "pocket" | "studio";
   hasBuild: boolean;
+  /** Compact project-memory text (from memoryToPrompt), if any. */
+  memory?: string;
   at: number;
 }
 
 export function setCurrentProject(p: Omit<CurrentProject, "at">): void {
   if (!p.id) return;
   const prev = readCurrentProject();
-  if (prev && prev.id === p.id && prev.title === p.title && prev.surface === p.surface && prev.hasBuild === p.hasBuild && prev.cloudId === p.cloudId) return;
-  safeSet(CURRENT_PROJECT_KEY, { ...p, title: (p.title || "Untitled build").slice(0, 80), at: Date.now() });
+  if (prev && prev.id === p.id && prev.title === p.title && prev.surface === p.surface && prev.hasBuild === p.hasBuild && prev.cloudId === p.cloudId && prev.memory === p.memory) return;
+  safeSet(CURRENT_PROJECT_KEY, { ...p, title: (p.title || "Untitled build").slice(0, 80), memory: p.memory?.slice(0, 1500), at: Date.now() });
 }
 
 export function readCurrentProject(): CurrentProject | null {
