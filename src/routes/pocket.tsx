@@ -393,6 +393,19 @@ function ForgePage() {
   const runCritique = useServerFn(critiquePocketBuild);
 
   const html = entryHtml(project);
+  // Shared project identity for Studio / Brain / Agent.
+  const pocketMemoryText = memoryToPrompt(pocketMemory);
+  React.useEffect(() => {
+    const hasBuild = !(html === EMPTY_DOC || html.length < 40);
+    setCurrentProject({
+      id: cloudProjectId ?? `pocket:${sessionKey}`,
+      cloudId: cloudProjectId,
+      title,
+      surface: "pocket",
+      hasBuild,
+      memory: pocketMemoryText,
+    });
+  }, [cloudProjectId, sessionKey, title, html, pocketMemoryText]);
   const activeFile =
     project.files.find((f) => f.id === (activeFileId || project.entryFileId)) ?? project.files[0];
   const log = React.useCallback((line: string) => {
