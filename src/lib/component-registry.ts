@@ -230,7 +230,11 @@ export function saveToRegistry(incoming: StoredComponent[]): void {
 
 /** Find components relevant to a prompt (keyword overlap). Returns top N. */
 export function matchComponents(prompt: string, topN = 3): StoredComponent[] {
-  const registry = loadRegistry();
+  return matchComponentsIn(loadRegistry(), prompt, topN);
+}
+
+/** Pure variant of matchComponents over an explicit registry (used by the Brain + tests). */
+export function matchComponentsIn(registry: readonly StoredComponent[], prompt: string, topN = 3): StoredComponent[] {
   if (!registry.length) return [];
   const promptWords = new Set(
     prompt.toLowerCase().split(/[\s,.:!?]+/).filter((w) => w.length >= 3)

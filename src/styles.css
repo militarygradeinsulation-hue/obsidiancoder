@@ -3751,3 +3751,59 @@ body.is-resizing-composer * { user-select: none !important; }
   white-space: nowrap;
 }
 .obs-mode.is-locked { opacity: 0.65; }
+
+/* ---- Obsidian unified mode navigation ---------------------------------- */
+:root {
+  --obs-deep: #100F14;
+  --obs-orange: #DB861F;
+  --obs-orange-2: #C77A1E;
+}
+.obs-modenav {
+  display: inline-flex; align-items: center; gap: 2px; min-width: 0;
+  padding: 2px; border-radius: 999px;
+  background: color-mix(in oklab, var(--obs-deep) 82%, transparent);
+  border: 1px solid color-mix(in oklab, var(--obs-orange) 22%, transparent);
+  font-family: Inter, system-ui, sans-serif;
+  overflow-x: auto; scrollbar-width: none;
+}
+.obs-modenav::-webkit-scrollbar { display: none; }
+.obs-modenav a {
+  display: inline-flex; align-items: center; gap: 5px; white-space: nowrap;
+  padding: 4px 10px; border-radius: 999px; font-size: 11px; font-weight: 600;
+  letter-spacing: .04em; text-transform: uppercase; text-decoration: none;
+  color: color-mix(in oklab, #f5efe6 62%, transparent);
+  transition: color .15s, background .15s;
+}
+.obs-modenav a:hover { color: #f5efe6; background: color-mix(in oklab, var(--obs-orange) 12%, transparent); }
+.obs-modenav a:focus-visible { outline: 2px solid var(--obs-orange); outline-offset: 1px; }
+.obs-modenav a[data-status="active"] {
+  color: var(--obs-deep);
+  background: linear-gradient(180deg, var(--obs-orange), var(--obs-orange-2));
+}
+.obs-modenav .obs-modenav-sep { width: 1px; height: 14px; margin: 0 3px; background: color-mix(in oklab, var(--obs-orange) 25%, transparent); flex: none; }
+.obs-modenav .obs-modenav-secondary { text-transform: none; font-weight: 500; letter-spacing: 0; }
+@media (max-width: 640px) {
+  .obs-modenav a { padding: 4px 8px; }
+  .obs-modenav .obs-modenav-label-long { display: none; }
+}
+
+/* ---- Brain / Agent pages ---------------------------------------------- */
+.obs-page { min-height: 100vh; background: radial-gradient(1200px 600px at 20% -10%, color-mix(in oklab, var(--obs-orange) 10%, transparent), transparent 60%), var(--obs-deep); color: #f1ebe2; font-family: Inter, system-ui, sans-serif; }
+.obs-page-top { position: sticky; top: 0; z-index: 20; display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: color-mix(in oklab, var(--obs-deep) 85%, transparent); backdrop-filter: blur(10px); border-bottom: 1px solid color-mix(in oklab, var(--obs-orange) 14%, transparent); }
+.obs-page-wrap { max-width: 1180px; margin: 0 auto; padding: 28px 16px 64px; }
+.obs-display { font-family: "Bebas Neue", "Space Grotesk", Impact, sans-serif; letter-spacing: .02em; line-height: .95; }
+.obs-kicker { font-size: 11px; letter-spacing: .18em; text-transform: uppercase; color: var(--obs-orange); }
+.obs-node { position: relative; border-radius: 16px; padding: 16px; background: linear-gradient(180deg, color-mix(in oklab, #fff 4%, transparent), color-mix(in oklab, #fff 1.5%, transparent)); border: 1px solid color-mix(in oklab, #fff 8%, transparent); }
+.obs-node[data-live="true"] { border-color: color-mix(in oklab, var(--obs-orange) 40%, transparent); box-shadow: 0 0 0 1px color-mix(in oklab, var(--obs-orange) 12%, transparent), 0 18px 50px -30px var(--obs-orange); }
+.obs-node h3 { font-size: 12px; letter-spacing: .12em; text-transform: uppercase; color: color-mix(in oklab, #f1ebe2 70%, transparent); margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+.obs-empty { font-size: 13px; color: color-mix(in oklab, #f1ebe2 50%, transparent); font-style: italic; }
+.obs-pill { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; font-size: 11px; border: 1px solid color-mix(in oklab, #fff 12%, transparent); }
+.obs-pill[data-tone="good"] { color: var(--obs-orange); border-color: color-mix(in oklab, var(--obs-orange) 40%, transparent); }
+.obs-pill[data-tone="muted"] { opacity: .6; }
+.obs-bar { height: 4px; border-radius: 4px; background: color-mix(in oklab, #fff 8%, transparent); overflow: hidden; }
+.obs-bar > i { display: block; height: 100%; background: linear-gradient(90deg, var(--obs-orange-2), var(--obs-orange)); }
+.obs-btn-primary { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 10px; font-weight: 600; font-size: 13px; color: var(--obs-deep); background: linear-gradient(180deg, var(--obs-orange), var(--obs-orange-2)); }
+.obs-btn-primary:disabled { opacity: .4; }
+.obs-btn-ghost { display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border-radius: 10px; font-size: 13px; border: 1px solid color-mix(in oklab, #fff 14%, transparent); }
+.obs-textarea { width: 100%; min-height: 96px; border-radius: 12px; padding: 12px 14px; background: color-mix(in oklab, #000 40%, transparent); border: 1px solid color-mix(in oklab, #fff 12%, transparent); color: inherit; font-size: 14px; resize: vertical; }
+.obs-textarea:focus { outline: none; border-color: var(--obs-orange); }
