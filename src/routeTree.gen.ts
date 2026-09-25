@@ -22,8 +22,10 @@ import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as ForgeRouteImport } from './routes/forge'
 import { Route as DemosRouteImport } from './routes/demos'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as BrainRouteImport } from './routes/brain'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as ArchiveRouteImport } from './routes/archive'
+import { Route as AgentRouteImport } from './routes/agent'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as TeamSlugRouteImport } from './routes/team.$slug'
 import { Route as CheckoutReturnRouteImport } from './routes/checkout.return'
@@ -131,6 +133,11 @@ const DashboardRoute = DashboardRouteImport.update({
   path: '/dashboard',
   getParentRoute: () => rootRouteImport,
 } as any)
+const BrainRoute = BrainRouteImport.update({
+  id: '/brain',
+  path: '/brain',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
@@ -139,6 +146,11 @@ const AuthRoute = AuthRouteImport.update({
 const ArchiveRoute = ArchiveRouteImport.update({
   id: '/archive',
   path: '/archive',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AgentRoute = AgentRouteImport.update({
+  id: '/agent',
+  path: '/agent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -356,8 +368,10 @@ const ApiPublicLibraryCodeIdRoute = ApiPublicLibraryCodeIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
+  '/brain': typeof BrainRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
@@ -414,8 +428,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
+  '/brain': typeof BrainRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
@@ -473,8 +489,10 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agent': typeof AgentRoute
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
+  '/brain': typeof BrainRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
@@ -533,8 +551,10 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/agent'
     | '/archive'
     | '/auth'
+    | '/brain'
     | '/dashboard'
     | '/demos'
     | '/forge'
@@ -591,8 +611,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/agent'
     | '/archive'
     | '/auth'
+    | '/brain'
     | '/dashboard'
     | '/demos'
     | '/forge'
@@ -649,8 +671,10 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/agent'
     | '/archive'
     | '/auth'
+    | '/brain'
     | '/dashboard'
     | '/demos'
     | '/forge'
@@ -708,8 +732,10 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentRoute: typeof AgentRoute
   ArchiveRoute: typeof ArchiveRoute
   AuthRoute: typeof AuthRoute
+  BrainRoute: typeof BrainRoute
   DashboardRoute: typeof DashboardRoute
   DemosRoute: typeof DemosRoute
   ForgeRoute: typeof ForgeRoute
@@ -855,6 +881,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof DashboardRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/brain': {
+      id: '/brain'
+      path: '/brain'
+      fullPath: '/brain'
+      preLoaderRoute: typeof BrainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/auth': {
       id: '/auth'
       path: '/auth'
@@ -867,6 +900,13 @@ declare module '@tanstack/react-router' {
       path: '/archive'
       fullPath: '/archive'
       preLoaderRoute: typeof ArchiveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/agent': {
+      id: '/agent'
+      path: '/agent'
+      fullPath: '/agent'
+      preLoaderRoute: typeof AgentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -1195,8 +1235,10 @@ const ApiPublicLibraryCodeRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentRoute: AgentRoute,
   ArchiveRoute: ArchiveRoute,
   AuthRoute: AuthRoute,
+  BrainRoute: BrainRoute,
   DashboardRoute: DashboardRoute,
   DemosRoute: DemosRoute,
   ForgeRoute: ForgeRoute,
