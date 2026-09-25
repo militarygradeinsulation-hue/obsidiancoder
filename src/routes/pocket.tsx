@@ -66,7 +66,7 @@ import { generateStarterIdeas } from "@/lib/ideas.functions";
 import { suggestionAllowed } from "@/lib/suggestion-safety";
 
 
-import { safeGet, safeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import { safeGet, safeSet, safeRemove, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { getAccountCode, setAccountCode, isFullAccessCode, isValidAccountCode } from "@/lib/account-code";
 import { unlockSite } from "@/lib/gate.functions";
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
@@ -437,6 +437,22 @@ function ForgePage() {
     (code: string) => `pocket.session.${(code || "guest").trim() || "guest"}`,
     [],
   );
+  /**
+   * Tracks a job created via /api/jobs/create for the CURRENT in-flight
+   * generation, separate from PocketSession (which is the last COMPLETED
+   * build). Set right before the live /api/generate call starts, cleared
+   * the moment this component observes a definitive outcome (success,
+   * genuine failure, or an explicit stop — all of which mean this
+   * component instance actually ran its own completion handling). If the
+   * marker is still here on a later mount, this instance never got the
+   * chance to observe what happened — the browser tab was backgrounded,
+   * killed, or navigated away hard enough that no cleanup code ran — and
+   * that is exactly the case worth checking the job status for.
+   */
+  const pendingJobKey = React.useCallback(
+    (code: string) => `pocket.pendingJob.${(code || "guest").trim() || "guest"}`,
+    [],
+  );
   const restoredRef = React.useRef<string>("");
 
   const restoreSession = React.useCallback(
@@ -472,6 +488,76 @@ function ForgePage() {
     if (blank) restoreSession(code);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [libraryCode, restoreSession]);
+
+  // Check for a job this component instance never got the chance to
+  // observe the outcome of — see pendingJobKey's own comment for exactly
+  // when that happens (the tab was backgrounded, killed, or navigated
+  // away from hard enough that no cleanup code ran). This is the actual
+  // fix for "leaves the page, comes back, has to restart it, keeps
+  // seeing a failure": instead of silently restoring stale content or
+  // showing nothing, this finds out what genuinely happened and either
+  // applies a finished result, keeps watching one that's still running,
+  // or gives an honest reason for one that failed.
+  React.useEffect(() => {
+    const code = libraryCode.trim();
+    const pending = safeGet<{ jobId: string; startedAt: number }>(pendingJobKey(code));
+    if (!pending?.jobId) return;
+
+    let cancelled = false;
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
+    const POLL_INTERVAL_MS = 4000;
+    const MAX_POLL_MS = 5 * 60_000; // stop watching after 5 minutes either way
+
+    const poll = async () => {
+      if (cancelled) return;
+      try {
+        const res = await authFetch(`/api/jobs/${pending.jobId}`);
+        if (cancelled) return;
+        if (!res.ok) {
+          safeRemove(pendingJobKey(code)); // stale or inaccessible — nothing to recover
+          return;
+        }
+        const job: { status: string; resultHtml?: string | null; error?: string | null } =
+          await res.json();
+
+        if (job.status === "complete" && job.resultHtml) {
+          setProject((prev) => setEntryHtml(prev, job.resultHtml as string));
+          setPane("preview");
+          setStatus("Your build finished while you were away");
+          log("Recovered a build that finished in the background.");
+          safeRemove(pendingJobKey(code));
+          return;
+        }
+        if (job.status === "failed" || job.status === "cancelled") {
+          safeRemove(pendingJobKey(code));
+          if (job.status === "failed") {
+            setStatus("A build that ran while you were away didn't finish");
+            log(`Background build failed: ${job.error || "unknown error"}.`);
+          }
+          return;
+        }
+        if (Date.now() - pending.startedAt > MAX_POLL_MS) {
+          safeRemove(pendingJobKey(code));
+          return;
+        }
+        setStatus("Finishing a build that started while you were away…");
+        pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
+      } catch {
+        // A transient network error while polling — retry rather than
+        // giving up on the first hiccup, same time budget as above.
+        if (!cancelled && Date.now() - pending.startedAt < MAX_POLL_MS) {
+          pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
+        }
+      }
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+      if (pollTimer) clearTimeout(pollTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [libraryCode]);
 
   // A build handed over from /archive wins over the restored session.
   React.useEffect(() => {
@@ -847,6 +933,30 @@ function ForgePage() {
           qualityContractFragment(),
         ].filter(Boolean).join("\n\n"),
       };
+      // Create a durable job record before the live call starts. This is
+      // what makes the build recoverable if the connection drops mid-way
+      // — see pendingJobKey's own comment. Failure here must never block
+      // or slow down the actual generation: if it doesn't work, generation
+      // proceeds exactly as it did before this existed, just without the
+      // safety net for this one attempt.
+      try {
+        const jobRes = await authFetch("/api/jobs/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ ...genBody, libraryCode }),
+        });
+        if (jobRes.ok) {
+          const jobJson: unknown = await jobRes.json().catch(() => null);
+          const id = (jobJson as { jobId?: string } | null)?.jobId;
+          if (id) {
+            genBody.jobId = id;
+            safeSet(pendingJobKey(libraryCode), { jobId: id, startedAt: Date.now() });
+          }
+        }
+      } catch {
+        /* degrade to no background recovery for this attempt — see comment above */
+      }
+
       const res = await authFetch("/api/generate", {
         method: "POST",
         headers: genHeaders,
@@ -1120,6 +1230,7 @@ function ForgePage() {
     } finally {
       abortRef.current = null;
       setBusy(null);
+      safeRemove(pendingJobKey(libraryCode));
     }
   }, [
     prompt,
