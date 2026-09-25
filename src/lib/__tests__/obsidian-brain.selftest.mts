@@ -84,7 +84,6 @@ console.log('\nwiring');
   ok('Pocket still uses /api/generate', pocket.includes('authFetch("/api/generate"'));
   ok('mode nav in both', studio.includes('<ObsidianModeNav') && pocket.includes('<ObsidianModeNav'));
   ok('brain + agent routes exist', existsSync('src/routes/brain.tsx') && existsSync('src/routes/agent.tsx'));
-  ok('no final QA call reintroduced', !/productionQaCall\(/.test(studio.split('advisoryOnly: true').join('')) || true);
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
