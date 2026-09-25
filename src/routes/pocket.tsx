@@ -943,8 +943,8 @@ function ForgePage() {
           ? { reusableComponents: brain.components.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) }
           : {}),
         learningBrief: [
-          brain ? brain.brief : isRefine ? "" : buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
-          brain || isRefine ? "" : provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
+          brain ? brain.brief : buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
+          brain ? "" : provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
           qualityContractFragment(),
         ].filter(Boolean).join("\n\n"),
       };
