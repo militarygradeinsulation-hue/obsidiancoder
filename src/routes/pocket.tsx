@@ -133,7 +133,10 @@ import { buildLearningBrief } from "@/lib/build-learning-prompt";
 import { provenTemplateBrief } from "@/lib/proven-templates";
 import { qualityContractFragment } from "@/lib/quality-contract";
 import { newPocketMemory, updateMemoryFromPrompt, hasMemory, memorySummary } from "@/lib/pocket-memory";
-import type { ProjectMemory } from "@/lib/project-memory";
+import { memoryToPrompt, type ProjectMemory } from "@/lib/project-memory";
+import { ObsidianModeNav } from "@/components/ObsidianModeNav";
+import { queryBrain, brainMatchLabel, type BrainResult } from "@/lib/obsidian-brain";
+import { setCurrentProject } from "@/lib/current-project";
 import { patchSchema } from "@/lib/patch-protocol";
 import { applyPatch } from "@/lib/patch-engine";
 
@@ -842,6 +845,7 @@ function ForgePage() {
 
     let providerCalls = 0;
     let critiqueRan = false;
+    let brain: BrainResult | null = null;
     try {
       // ---- 1. Choose a creative direction --------------------------------
       setStatus("Choosing direction…");
@@ -868,7 +872,13 @@ function ForgePage() {
         const base = deterministicConceptPlan({ prompt: p, family: styleFamily, recent });
         plan = base;
         activePlanKey = nextPlanKey;
-        if (profile !== "fast" && paidAccess) {
+        // Obsidian Brain: local lookup (no provider call). A strong proven
+        // direction replaces the concept-planning call.
+        brain = queryBrain({ prompt: p, family: styleFamily, surface: "pocket", libraryCode });
+        log(`🧠 ${brainMatchLabel(brain.match)} · ${brain.lookupMs}ms · ${brain.reasons.join(" · ")}`);
+        if (brain.provenDna) {
+          log(`⚡ Reused a proven direction (scored ${brain.proven?.score}/100) — planner call skipped`);
+        } else if (profile !== "fast" && paidAccess) {
           const planner = resolvePocketPlannerModel();
           try {
             const res = await planConcepts({
@@ -892,7 +902,7 @@ function ForgePage() {
             log("Planner unavailable — using deterministic directions.");
           }
         }
-        buildDna = selectedConcept(plan).dna;
+        buildDna = brain?.provenDna ?? selectedConcept(plan).dna;
       }
       setConceptPlan(plan);
       setPlanKey(activePlanKey);
@@ -927,9 +937,14 @@ function ForgePage() {
           : undefined,
         pocketRecentSignatures: recentDigest.slice(0, 12),
         // Proven decisions + proven structure from this user's best past builds.
+        // Fresh builds use the Brain brief (proven decisions + structure, capped);
+        // reused-plan builds fall back to the same underlying sources.
+        ...(brain && brain.components.length
+          ? { reusableComponents: brain.components.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) }
+          : {}),
         learningBrief: [
-          buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
-          provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
+          brain ? brain.brief : isRefine ? "" : buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
+          brain || isRefine ? "" : provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
           qualityContractFragment(),
         ].filter(Boolean).join("\n\n"),
       };
@@ -1690,6 +1705,7 @@ function ForgePage() {
               className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#F4A125]/40"
             />
 
+            <ObsidianModeNav className="hidden lg:inline-flex" />
             <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket — Fast One-Prompt Prototyping</h1>
               <p className="truncate text-[10px] uppercase tracking-widest text-[#6b7180]">
