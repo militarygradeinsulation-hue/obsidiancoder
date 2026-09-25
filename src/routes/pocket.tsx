@@ -422,6 +422,16 @@ function ForgePage() {
     conceptNames?: string[];
     conceptPlan?: PocketConceptPlan | null;
     conceptPlanKey?: string;
+    /**
+     * "build" vs "refine". Previously never persisted, so ANY remount —
+     * leaving the page and coming back, the tab being backgrounded and
+     * restored, anything that recreates this component — silently reset
+     * an explicit "Refine current" choice back to the hardcoded "build"
+     * default. The very next generation would then be treated as a fresh
+     * build instead of a refinement of the work already on the canvas,
+     * with nothing in the UI signaling that the choice had reverted.
+     */
+    mode?: BuildMode;
   };
   const sessionKey = React.useCallback(
     (code: string) => `pocket.session.${(code || "guest").trim() || "guest"}`,
@@ -441,6 +451,7 @@ function ForgePage() {
       setVersions(saved.versions ?? []);
       if (saved.profile) setProfile(saved.profile);
       if (saved.styleFamily) setStyleFamily(saved.styleFamily);
+      if (saved.mode) setMode(saved.mode);
       setDna(saved.dna ?? null);
       setConceptPlan(saved.conceptPlan ?? null);
       setPlanKey(saved.conceptPlan ? (saved.conceptPlanKey ?? "") : "");
@@ -491,10 +502,11 @@ function ForgePage() {
         conceptNames: conceptPlan?.concepts.map((c) => c.name).slice(0, 3),
         conceptPlan,
         conceptPlanKey: planKey,
+        mode,
       } satisfies PocketSession);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan, planKey]);
+  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan, planKey, mode]);
 
 
   // Personal library (real builds rows, scoped by the user's library code).
@@ -1074,6 +1086,7 @@ function ForgePage() {
         conceptNames: plan?.concepts.map((c) => c.name).slice(0, 3),
         conceptPlan: plan,
         conceptPlanKey: activePlanKey,
+        mode,
       } satisfies PocketSession);
 
       // Shelve every build in the permanent archive, saved or not.
