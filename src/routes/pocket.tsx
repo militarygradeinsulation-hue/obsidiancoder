@@ -58,7 +58,7 @@ import { isCreditsRequiredEnvelope } from "@/lib/credit-gate";
 import { buildArtifact } from "@/lib/publish-artifact";
 import { assessOutbound } from "@/lib/outbound-assess";
 import { sanitizeForExport } from "@/lib/clean-export";
-import { DEFAULT_MODEL, MODEL_REGISTRY, ROUTELLM_MODELS } from "@/lib/models";
+import { DEFAULT_MODEL, MODEL_REGISTRY, ROUTELLM_MODELS, ANTHROPIC_MODELS, MODEL_PICKER_OPTIONS, isModeId } from "@/lib/models";
 import { updateContent, createFile, type Project } from "@/lib/project-model";
 import { enhancePrompt } from "@/lib/enhance.functions";
 import { suggestAddons, type Addon } from "@/lib/prompt-enhance";
@@ -448,6 +448,13 @@ function ForgePage() {
      * with nothing in the UI signaling that the choice had reverted.
      */
     mode?: BuildMode;
+    /**
+     * The picker's raw model/mode selection (see pocketPickerModel in
+     * pocket-hardening.ts). Had the same gap mode did above: never
+     * persisted, so pinning a specific model in Advanced silently reverted
+     * to DEFAULT_MODEL on any remount, with no indication it had happened.
+     */
+    model?: string;
   };
   const sessionKey = React.useCallback(
     (code: string) => `pocket.session.${(code || "guest").trim() || "guest"}`,
@@ -484,6 +491,7 @@ function ForgePage() {
       if (saved.profile) setProfile(saved.profile);
       if (saved.styleFamily) setStyleFamily(saved.styleFamily);
       if (saved.mode) setMode(saved.mode);
+      if (saved.model) setModel(saved.model);
       setDna(saved.dna ?? null);
       setConceptPlan(saved.conceptPlan ?? null);
       setPlanKey(saved.conceptPlan ? (saved.conceptPlanKey ?? "") : "");
@@ -605,10 +613,11 @@ function ForgePage() {
         conceptPlan,
         conceptPlanKey: planKey,
         mode,
+        model,
       } satisfies PocketSession);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan, planKey, mode]);
+  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan, planKey, mode, model]);
 
 
   // Personal library (real builds rows, scoped by the user's library code).
@@ -1225,6 +1234,7 @@ function ForgePage() {
         conceptPlan: plan,
         conceptPlanKey: activePlanKey,
         mode,
+        model,
       } satisfies PocketSession);
 
       // Shelve every build in the permanent archive, saved or not.
@@ -2616,8 +2626,22 @@ function ForgePage() {
               onChange={(e) => setModel(e.target.value)}
               className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
             >
+              <optgroup label="Smart modes">
+                {MODEL_PICKER_OPTIONS.filter((m) => isModeId(m.id)).map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </optgroup>
               <optgroup label="Obsidian gateway">
                 {MODEL_REGISTRY.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.label}
+                  </option>
+                ))}
+              </optgroup>
+              <optgroup label="Anthropic">
+                {ANTHROPIC_MODELS.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.label}
                   </option>
