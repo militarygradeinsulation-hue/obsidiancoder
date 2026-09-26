@@ -99,6 +99,21 @@ export const PLAN_TIERS: PlanTier[] = [
   },
 ];
 
+/**
+ * What a new visitor can actually see and buy. Pocket is the standard tool
+ * for everyone; Vibe is intentionally excluded here while remaining fully
+ * real in PLAN_TIERS above, since entitlement resolution (capForTier,
+ * tierForPriceId) and the owner's own account still need it to exist as a
+ * real tier, not deleted. Every PUBLIC-facing checkout surface should read
+ * from this constant, not PLAN_TIERS directly, so there is exactly one
+ * place that decides what's for sale rather than a filter repeated (and
+ * potentially missed) at each render site.
+ *
+ * Custom stays included — it's a contact-sales escape hatch for people who
+ * outgrow Pocket, not a self-serve tier competing with it.
+ */
+export const PUBLIC_CHECKOUT_TIERS: PlanTier[] = PLAN_TIERS.filter((t) => t.id !== "vibe");
+
 export function getTierById(id: PlanTierId): PlanTier | undefined {
   return PLAN_TIERS.find((t) => t.id === id);
 }

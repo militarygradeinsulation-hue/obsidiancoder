@@ -14,7 +14,7 @@ import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { getStripe } from "@/lib/stripe";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
-import { PLAN_TIERS, POCKET_MONTHLY_CREDITS } from "@/lib/plans";
+import { PLAN_TIERS, PUBLIC_CHECKOUT_TIERS, POCKET_MONTHLY_CREDITS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
@@ -22,6 +22,7 @@ import aetherisEmblem from "@/assets/aetheris-emblem.jpg.asset.json";
 import vibeShot from "@/assets/workspace-vibe.png.asset.json";
 import pocketShot from "@/assets/workspace-pocket.png.asset.json";
 import PocketPromoModal from "@/components/PocketPromoModal";
+import CompetitorComparison from "@/components/CompetitorComparison";
 
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
@@ -466,7 +467,7 @@ function Unlock() {
               </div>
 
               <div className="mt-10 grid items-stretch gap-7 sm:grid-cols-2 lg:grid-cols-3">
-                {PLAN_TIERS.map((t) => {
+                {PUBLIC_CHECKOUT_TIERS.map((t) => {
                   const featured = !!t.featured;
                   return (
                     <div
@@ -533,6 +534,8 @@ function Unlock() {
                 })}
               </div>
             </section>
+
+            <CompetitorComparison />
 
             <section className={`pocket-spotlight ${pocketExpanded ? "is-expanded" : "is-collapsed"}`} aria-labelledby="pocket-spotlight-heading">
               <div className="pocket-spotlight-glow" aria-hidden />
@@ -751,7 +754,7 @@ function Unlock() {
                 <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
 
                 <div className="plan-picker" role="radiogroup" aria-label="Choose your plan">
-                  {PLAN_TIERS.filter((t) => t.cta === "checkout" && t.priceId).map((t) => {
+                  {PUBLIC_CHECKOUT_TIERS.filter((t) => t.cta === "checkout" && t.priceId).map((t) => {
                     const active = selectedPriceId === t.priceId;
                     return (
                       <button
@@ -802,8 +805,8 @@ function Unlock() {
                     onClick={() => setPlansOpen(true)}
                   >
                     <span className="plans-toggle-label">
-                      <span className="plans-title">Compare all plans</span>
-                      <span className="plans-toggle-sub">Pocket · Vibe · Custom</span>
+                      <span className="plans-title">Compare plans</span>
+                      <span className="plans-toggle-sub">Pocket · Custom</span>
                     </span>
                     <span className="plans-toggle-caret" aria-hidden>▼</span>
                   </button>
@@ -820,14 +823,14 @@ function Unlock() {
                     onClick={() => setPlansOpen(false)}
                   >
                     <span className="plans-toggle-label">
-                      <span id="plans-heading" className="plans-title">Compare all plans</span>
-                      <span className="plans-toggle-sub">Pocket · Vibe · Custom</span>
+                      <span id="plans-heading" className="plans-title">Compare plans</span>
+                      <span className="plans-toggle-sub">Pocket · Custom</span>
                     </span>
                     <span className="plans-toggle-caret" aria-hidden>▲</span>
                   </button>
                   {plansOpen && (
                     <div id="plans-grid" className="tier-grid">
-                      {PLAN_TIERS.map((t) => (
+                      {PUBLIC_CHECKOUT_TIERS.map((t) => (
                         <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
                           {t.featured && <div className="tier-badge">Most Popular</div>}
                           <div className="tier-head">

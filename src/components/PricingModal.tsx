@@ -3,7 +3,7 @@ import { X, Check, Lock, Mail } from "lucide-react";
 import { StripeEmbeddedCheckout } from "./StripeEmbeddedCheckout";
 import { useAuth, useCredits, useSubscription } from "@/hooks/useSubscription";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { PLAN_TIERS, type PlanTier } from "@/lib/plans";
+import { PUBLIC_CHECKOUT_TIERS, type PlanTier } from "@/lib/plans";
 
 const FREE_FEATURES = [
   "Deterministic edits, preview, and export",
@@ -93,7 +93,7 @@ export function PricingModal({ onClose, initialPriceId }: { onClose: () => void;
 
             {/* Tier grid */}
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {PLAN_TIERS.map((p) => (
+              {PUBLIC_CHECKOUT_TIERS.map((p) => (
                 <TierCard
                   key={p.id}
                   tier={p}
