@@ -96,6 +96,7 @@ function Unlock() {
   const [selectedPriceId, setSelectedPriceId] = useState<string>(
     search.priceId && typeof search.priceId === "string" ? search.priceId : POCKET_PRICE_ID,
   );
+  const [addRollover, setAddRollover] = useState(false);
   const [expandDetails, setExpandDetails] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
   const [panelOpen, setPanelOpen] = useState<boolean>(
@@ -681,6 +682,19 @@ function Unlock() {
                   })}
                 </div>
 
+                <label className="rollover-toggle">
+                  <input
+                    type="checkbox"
+                    checked={addRollover}
+                    onChange={(e) => setAddRollover(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Roll over unused credits — +$5/month.</strong>{" "}
+                    Whatever you don&apos;t use this month carries into next month instead of expiring
+                    (up to one extra month of your plan&apos;s credits).
+                  </span>
+                </label>
+
                 {status && <div className="unlock-status" role="status">{status}</div>}
                 {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
 
@@ -695,8 +709,8 @@ function Unlock() {
                     : session
                     ? "Continue to Secure Checkout"
                     : selectedPriceId === POCKET_PRICE_ID
-                    ? "Start Obsidian Pocket — $10/month"
-                    : "Start Obsidian Vibe — $39/month"}
+                    ? `Start Obsidian Pocket — $${10 + (addRollover ? 5 : 0)}/month`
+                    : `Start Obsidian Vibe — $${39 + (addRollover ? 5 : 0)}/month`}
                 </button>
 
                 {!plansOpen && (
@@ -874,6 +888,7 @@ function Unlock() {
                 </div>
                 <CheckoutSurface
                   priceId={selectedPriceId}
+                  addRollover={addRollover}
                   onCancel={() => setShowCheckout(false)}
                 />
 
@@ -2155,6 +2170,9 @@ const unlockCss = `
 .plans-toggle + .tier-grid { margin-top: 14px; }
 .plans-toggle-closed { margin-top: 12px; }
 .plan-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 12px; }
+.rollover-toggle { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 12px; padding: 10px 12px; border: 1px solid rgba(219,134,31,.28); border-radius: 10px; background: rgba(219,134,31,.06); font-size: 13px; line-height: 1.45; cursor: pointer; }
+.rollover-toggle input { margin-top: 3px; accent-color: #db861f; }
+.rollover-toggle strong { color: #f4a125; }
 @media (max-width: 460px) { .plan-picker { grid-template-columns: 1fr; } }
 .plan-pick {
   display: flex; flex-direction: column; gap: 4px; text-align: left;

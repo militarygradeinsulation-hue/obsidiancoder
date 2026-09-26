@@ -13,10 +13,13 @@ export function CheckoutSurface({
   priceId,
   returnUrl,
   onCancel,
+  addRollover,
 }: {
   priceId: string;
   returnUrl?: string;
   onCancel?: () => void;
+  /** Include the $5/mo Credit Rollover add-on as a second line item. */
+  addRollover?: boolean;
 }) {
   const [state, setState] = useState<CheckoutState>({ kind: "loading" });
   const [attempt, setAttempt] = useState(0);
@@ -30,13 +33,14 @@ export function CheckoutSurface({
           priceId,
           returnUrl: returnUrl || `${window.location.origin}/checkout/return?session_id={CHECKOUT_SESSION_ID}`,
           environment: getStripeEnvironment(),
+          addRollover: addRollover === true,
         },
       });
       setState(nextCheckoutState(result));
     } catch (err) {
       setState(checkoutErrorFromThrow(err));
     }
-  }, [priceId, returnUrl]);
+  }, [priceId, returnUrl, addRollover]);
 
   useEffect(() => { load(); }, [load, attempt]);
 

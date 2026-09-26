@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
-import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
+import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS, ROLLOVER_PRICE_ID } from "@/lib/plans";
 
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
@@ -46,7 +46,7 @@ async function resolveOrCreateCustomer(
 
 export const createCheckoutSession = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { priceId: string; returnUrl: string; environment: StripeEnv }) => {
+  .inputValidator((data: { priceId: string; returnUrl: string; environment: StripeEnv; addRollover?: boolean }) => {
     if (!/^[a-zA-Z0-9_-]+$/.test(data.priceId)) throw new Error("Invalid priceId");
     // Launch policy: allow any tier whose Stripe price has been provisioned
     // in the Obsidian catalog. Enterprise is contact-sales, not self-serve.
@@ -64,10 +64,19 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       const email = userData.user?.email ?? undefined;
 
       const stripe = createStripeClient(data.environment);
-      const prices = await stripe.prices.list({ lookup_keys: [data.priceId] });
-      if (!prices.data.length) throw new Error("Price not found");
-      const stripePrice = prices.data[0];
+      const lookupKeys = [data.priceId];
+      // Credit Rollover add-on: only meaningful on a recurring plan, and
+      // never sold standalone through this path.
+      const wantRollover = data.addRollover === true;
+      if (wantRollover) lookupKeys.push(ROLLOVER_PRICE_ID);
+      const prices = await stripe.prices.list({ lookup_keys: lookupKeys });
+      const stripePrice = prices.data.find((p) => p.lookup_key === data.priceId);
+      if (!stripePrice) throw new Error("Price not found");
       const isRecurring = stripePrice.type === "recurring";
+      const rolloverPrice = wantRollover && isRecurring
+        ? prices.data.find((p) => p.lookup_key === ROLLOVER_PRICE_ID)
+        : undefined;
+      if (wantRollover && isRecurring && !rolloverPrice) throw new Error("Rollover price not found");
 
       const customerId = await resolveOrCreateCustomer(stripe, { email, userId });
 
@@ -81,7 +90,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       }
 
       const session = await stripe.checkout.sessions.create({
-        line_items: [{ price: stripePrice.id, quantity: 1 }],
+        line_items: [
+          { price: stripePrice.id, quantity: 1 },
+          ...(rolloverPrice ? [{ price: rolloverPrice.id, quantity: 1 }] : []),
+        ],
         mode: isRecurring ? "subscription" : "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,

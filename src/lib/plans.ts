@@ -18,6 +18,16 @@ export type PlanTierId =
 export const POCKET_MONTHLY_CREDITS = 300;
 
 /**
+ * Credit Rollover add-on: for an extra $5/month on any paid plan, unused
+ * AI credits from the previous billing period carry into the current one
+ * instead of expiring. The carryover is capped at one month of the plan's
+ * base allowance (standard rollover practice — credits can't accumulate
+ * without bound). Stripe lookup key: obsidian_rollover_monthly.
+ */
+export const ROLLOVER_PRICE_ID = "obsidian_rollover_monthly";
+export const ROLLOVER_MONTHLY_PRICE = 5;
+
+/**
  * Limited-time launch promotion: a Pocket subscription CREATED (not
  * renewed, not updated -- see the webhook handler) before
  * POCKET_PROMO_ENDS_AT gets this many credits per month instead of the
