@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { type StripeEnv, verifyWebhook } from "@/lib/stripe.server";
-import { tierForPriceId, resolvePocketPromoCap } from "@/lib/plans";
+import { tierForPriceId, resolvePocketPromoCap, ROLLOVER_PRICE_ID } from "@/lib/plans";
 
 let _supabase: any = null;
 function getSupabase(): any {
@@ -20,13 +20,19 @@ async function handleSubscriptionUpsert(sub: any, env: StripeEnv, isNewSubscript
     console.error("subscription missing userId metadata");
     return;
   }
-  const item = sub.items?.data?.[0];
+  const items: any[] = sub.items?.data ?? [];
+  // The plan price is the non-rollover item; the rollover add-on is a
+  // second line item on the same subscription when the buyer opted in.
+  const item = items.find((i) => (i?.price?.lookup_key ?? "") !== ROLLOVER_PRICE_ID) ?? items[0];
   const priceId = item?.price?.lookup_key
     || item?.price?.metadata?.lovable_external_id
     || item?.price?.id;
   const productId = item?.price?.product;
   const periodStart = item?.current_period_start ?? sub.current_period_start;
   const periodEnd = item?.current_period_end ?? sub.current_period_end;
+  const rolloverEnabled = items.some(
+    (i) => (i?.price?.lookup_key ?? i?.price?.metadata?.lovable_external_id ?? "") === ROLLOVER_PRICE_ID,
+  );
 
   // Limited-time launch promo: only ever granted at true first-time
   // creation (never re-evaluated on a later "updated"/renewal event),
