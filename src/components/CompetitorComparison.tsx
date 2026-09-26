@@ -9,13 +9,11 @@ import { cn } from "@/lib/utils";
  * Hercules, Lovable) use directly comparable systems: a fixed number of
  * credits included per month at a fixed price, so the multiplier math
  * below is a real, apples-to-apples comparison, not marketing rounding.
- * Everything below that line uses a materially different usage model
- * (message + integration splits, dollar-denominated usage, tokens, or
- * flat per-seat enterprise pricing) and is labeled as such rather than
- * forced into the same comparison — a $20/mo "usage-based" tier and a
- * $20/mo flat-credit tier are not the same kind of number, and presenting
- * them as if they were would be the kind of claim this file is deliberately
- * avoiding.
+ * The other tools meter usage in dollars, tokens, or split
+ * message/integration credits — in the scroller they are shown in their
+ * OWN published unit at the selected budget (e.g. "$60 of usage",
+ * "180 message credits"), never converted into fake "credits", and each
+ * row is labeled with its model so the comparison stays honest.
  */
 interface CreditRow {
   tool: string;
@@ -55,20 +53,95 @@ const FLAT_CREDIT_ROWS: CreditRow[] = [
   },
 ];
 
-const OTHER_MARKET_ROWS = [
-  { tool: "Base44 Starter", price: "$20/mo", usage: "100 message + 2,000 integration credits" },
-  { tool: "Base44 Builder", price: "$50/mo", usage: "250 message + 10,000 integration credits" },
-  { tool: "Replit Core", price: "$20/mo", usage: "~$25 worth of usage" },
-  { tool: "Replit Pro", price: "~$100/mo", usage: "~$100 worth of usage, up to 15 builders" },
-  { tool: "v0 Free", price: "$0", usage: "$5/mo in credits" },
-  { tool: "v0 Premium", price: "$20/mo", usage: "$20/mo in credits" },
-  { tool: "v0 Team", price: "$30/user/mo", usage: "$30/mo in credits + $2 daily" },
-  { tool: "Bolt.new", price: "~$20–25/mo", usage: "Token-based, not a flat credit count" },
-  { tool: "Cursor Pro", price: "$20/mo", usage: "Usage-based" },
-  { tool: "Cursor Pro+", price: "$60/mo", usage: "Usage-based" },
-  { tool: "Cursor Ultra", price: "$200/mo", usage: "Usage-based" },
-  { tool: "Devin", price: "~$500/seat/mo", usage: "Enterprise / engineering-team pricing" },
-] as const;
+/**
+ * One row per tool in the combined scroller. `atBudget(budget)` returns the
+ * numeric amount the budget buys in that tool's own unit, and `unit` /
+ * `format` render it honestly. `model` names the usage model so nothing is
+ * presented as a flat credit count when it is not one.
+ */
+interface ScrollerRow {
+  tool: string;
+  color: string;
+  isObsidian?: boolean;
+  model: string;
+  atBudget: (budget: number) => number;
+  format: (value: number) => string;
+}
+
+const SCROLLER_ROWS: ScrollerRow[] = [
+  {
+    tool: "Obsidian Pocket",
+    color: "#F4A125",
+    isObsidian: true,
+    model: "Flat credits",
+    atBudget: (b) => Math.round((b / 10) * 300),
+    format: (v) => `${v.toLocaleString()} credits`,
+  },
+  {
+    tool: "Obsidian Vibe",
+    color: "#DD9324",
+    isObsidian: true,
+    model: "Flat credits",
+    atBudget: (b) => Math.round((b / 39) * 1000),
+    format: (v) => `${v.toLocaleString()} credits`,
+  },
+  {
+    tool: "Hercules Pro",
+    color: "#5cc8be",
+    model: "Flat credits",
+    atBudget: (b) => Math.round((b / 25) * 75),
+    format: (v) => `${v.toLocaleString()} credits`,
+  },
+  {
+    tool: "Lovable Pro",
+    color: "#8f9bf0",
+    model: "Flat credits",
+    atBudget: (b) => Math.round((b / 25) * 100),
+    format: (v) => `${v.toLocaleString()} credits`,
+  },
+  {
+    tool: "Base44 Starter",
+    color: "#e07a5f",
+    model: "Message + integration credits",
+    atBudget: (b) => Math.round((b / 20) * 100),
+    format: (v) => `~${v.toLocaleString()} message credits`,
+  },
+  {
+    tool: "Replit Core",
+    color: "#f26207",
+    model: "Dollar-denominated usage",
+    atBudget: (b) => b,
+    format: (v) => `~$${v.toLocaleString()} of usage`,
+  },
+  {
+    tool: "v0 Premium",
+    color: "#9aa0a6",
+    model: "Dollar-denominated credits",
+    atBudget: (b) => b,
+    format: (v) => `~$${v.toLocaleString()} in credits`,
+  },
+  {
+    tool: "Bolt.new",
+    color: "#ffd02f",
+    model: "Token-based",
+    atBudget: (b) => b,
+    format: (v) => `~$${v.toLocaleString()} of tokens`,
+  },
+  {
+    tool: "Cursor Pro",
+    color: "#6e6e6e",
+    model: "Usage-based",
+    atBudget: (b) => b,
+    format: (v) => `~$${v.toLocaleString()} of usage`,
+  },
+  {
+    tool: "Devin",
+    color: "#b088f9",
+    model: "Per-seat enterprise",
+    atBudget: (b) => Math.floor(b / 500),
+    format: (v) => (v === 0 ? "Needs $500/seat" : `${v} seat${v === 1 ? "" : "s"}`),
+  },
+];
 
 function maxCredits(rows: CreditRow[]): number {
   return Math.max(...rows.map((r) => r.monthlyCredits));
@@ -128,34 +201,40 @@ function FlatCreditTable({ rows, caption }: { rows: CreditRow[]; caption: string
 }
 
 /**
- * Interactive budget scroller: drag the slider to a monthly budget and the
- * bars recompute live, showing how many flat credits each tool gives you at
- * that spend (credits scale linearly with the vendor's published $/credit).
+ * Interactive budget scroller: drag the slider to a monthly budget and
+ * every tool's bar recomputes live, in that tool's own published unit —
+ * flat credits for Obsidian/Hercules/Lovable, message credits for Base44,
+ * dollar usage for Replit/v0/Bolt/Cursor, seats for Devin. Nothing is
+ * converted into a unit the vendor does not sell.
  */
 function BudgetScroller() {
   const [budget, setBudget] = useState(25);
   const computed = useMemo(
     () =>
-      FLAT_CREDIT_ROWS.map((r) => ({
+      SCROLLER_ROWS.map((r) => ({
         ...r,
-        atBudget: Math.round((budget / r.monthlyPrice) * r.monthlyCredits),
+        value: r.atBudget(budget),
       })),
     [budget],
   );
-  const maxAtBudget = Math.max(...computed.map((r) => r.atBudget));
-  const obsidian = computed.find((r) => r.isObsidian)!;
-  const bestOther = Math.max(...computed.filter((r) => !r.isObsidian).map((r) => r.atBudget));
-  const multiple = (obsidian.atBudget / Math.max(1, bestOther)).toFixed(1);
+  const maxValue = Math.max(...computed.map((r) => r.value), 1);
+  const obsidian = computed.find((r) => r.tool === "Obsidian Pocket")!;
+  const bestOtherFlat = Math.max(
+    ...computed
+      .filter((r) => !r.isObsidian && r.model === "Flat credits")
+      .map((r) => r.value),
+  );
+  const multiple = (obsidian.value / Math.max(1, bestOtherFlat)).toFixed(1);
 
   return (
-    <div className="rounded-2xl border border-[#F4A125]/25 bg-[#F4A125]/[0.04] p-5 sm:p-6">
+    <div className="rounded-2xl border border-[#F4A125]/25 bg-[#F4A125]/[0.04] p-5 sm:p-6 lg:col-span-2">
       <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-widest text-[#F4A125]">
             Try it live — drag the budget
           </p>
           <p className="mt-1 text-sm text-[#a5a29c]">
-            See how many credits each tool gives you for the same money.
+            One budget, every tool — each shown in the unit it actually sells.
           </p>
         </div>
         <div className="text-right">
@@ -179,9 +258,9 @@ function BudgetScroller() {
         <span>$100</span>
       </div>
 
-      <div className="mt-5 space-y-4">
+      <div className="mt-5 grid gap-x-8 gap-y-4 sm:grid-cols-2">
         {computed.map((r) => {
-          const pct = Math.max(4, Math.round((r.atBudget / maxAtBudget) * 100));
+          const pct = Math.max(3, Math.round((r.value / maxValue) * 100));
           return (
             <div key={r.tool}>
               <div className="mb-1 flex items-baseline justify-between gap-2">
@@ -195,12 +274,15 @@ function BudgetScroller() {
                     aria-hidden
                   />
                   {r.tool}
+                  <span className="text-[10px] font-normal uppercase tracking-wider text-[#a5a29c]">
+                    {r.model}
+                  </span>
                 </span>
                 <span
                   className="text-sm font-bold tabular-nums"
                   style={{ color: r.isObsidian ? "#F4A125" : "#a5a29c" }}
                 >
-                  {r.atBudget.toLocaleString()} credits
+                  {r.format(r.value)}
                 </span>
               </div>
               <div className="h-3 w-full overflow-hidden rounded-full bg-white/[0.06]" aria-hidden>
@@ -222,7 +304,8 @@ function BudgetScroller() {
 
       <p className="mt-5 rounded-xl border border-[#F4A125]/30 bg-[#F4A125]/[0.06] px-4 py-3 text-sm text-[#e8e6e1]">
         At <span className="font-bold text-[#F4A125]">${budget}/mo</span>, Obsidian Pocket gives you{" "}
-        <span className="font-bold text-[#F4A125]">{multiple}x</span> the credits of the next best flat-credit tool.
+        <span className="font-bold text-[#F4A125]">{multiple}x</span> the credits of the next best flat-credit tool —
+        while usage-based tools just give you ${budget} of metered usage.
       </p>
     </div>
   );
@@ -267,40 +350,13 @@ export default function CompetitorComparison() {
         <BudgetScroller />
       </div>
 
-      <div className="mt-10">
-        <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h3 className="text-lg font-semibold text-[#f2eee7]">Other market pricing, for context</h3>
-          <p className="text-xs text-[#a5a29c]">Different usage models — not a direct 1:1 credit comparison.</p>
-        </div>
-        <div className="overflow-x-auto rounded-2xl border border-white/10 bg-white/[0.02]">
-          <table className="w-full min-w-[520px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-white/10 text-[11px] uppercase tracking-widest text-[#a5a29c]">
-                <th scope="col" className="px-4 py-3 font-semibold">Tool</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Monthly price</th>
-                <th scope="col" className="px-4 py-3 font-semibold">Credits / usage model</th>
-              </tr>
-            </thead>
-            <tbody>
-              {OTHER_MARKET_ROWS.map((r) => (
-                <tr key={r.tool} className="border-b border-white/5 last:border-0">
-                  <td className="border-l-2 border-white/15 px-4 py-3 font-medium text-[#d8d5cf]">{r.tool}</td>
-                  <td className="px-4 py-3 tabular-nums text-[#a5a29c]">{r.price}</td>
-                  <td className="px-4 py-3 text-[#a5a29c]">{r.usage}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
       <div className="mt-6 flex items-start gap-3 rounded-xl border border-white/10 bg-white/[0.02] p-4 text-xs text-[#a5a29c]">
         <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-[#F4A125]" aria-hidden />
         <p>
           Credit systems differ across tools. The flat-credit comparison above is directly comparable for Obsidian,
-          Hercules, and Lovable — all three sell a fixed number of credits for a fixed monthly price. Other platforms
-          meter usage in dollars, tokens, or split message/integration credits, so their numbers are shown for
-          context, not folded into the multiplier claims above.
+          Hercules, and Lovable — all three sell a fixed number of credits for a fixed monthly price. The other
+          platforms in the scroller meter usage in dollars, tokens, or split message/integration credits, so each is
+          shown in its own published unit at the selected budget, never converted into a credit count it does not sell.
         </p>
       </div>
     </section>
