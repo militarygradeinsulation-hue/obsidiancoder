@@ -2,7 +2,7 @@
 // Outcome-focused descriptions; no per-credit accounting exposed here.
 // Only tiers with `priceId` route through Stripe checkout.
 //
-// Simplified to exactly 3 tiers on request: Pocket, Vibe, Custom. No
+// Simplified to exactly 3 tiers on request: Pocket, Vibe, and a tailored business offering. No
 // waitlist tier — the earlier 7-tier ladder (with 4 waitlist-gated
 // placeholders) is gone entirely, not just hidden.
 
@@ -117,16 +117,16 @@ export const PLAN_TIERS: PlanTier[] = [
   },
   {
     id: "custom",
-    name: "Custom",
-    price: "Custom",
+    name: "Business Coder",
+    price: "Tailored",
     cadence: "",
-    headline: "Custom AI engineering, security, and support.",
-    bestFor: "Teams and companies with requirements beyond Vibe.",
+    headline: "We build the coder your business needs, specifically tailored so you can build anything you want.",
+    bestFor: "Businesses that need their own purpose-built AI software creation system.",
     outcomes: [
       "SSO, SCIM, and role-based access",
       "Private model routing and data controls",
       "Dedicated success and engineering partner",
-      "Custom SLAs and procurement",
+      "Business-specific SLAs and procurement",
     ],
     cta: "contact",
     icon: Landmark,
