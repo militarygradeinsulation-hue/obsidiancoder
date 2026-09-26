@@ -53,3 +53,19 @@ export const unlockIfPro = createServerFn({ method: "POST" })
     await setUnlocked(true);
     return { ok: true as const };
   });
+
+/**
+ * Aetheris Universe is a paid-member perk. The destination URL is only
+ * returned after the server verifies an active paid subscription.
+ */
+export const getUniverseAccess = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { hasActivePro, serverStripeEnv } = await import("./credit-gate.server");
+    const ok = await hasActivePro(
+      { userId: context.userId, token: "server", email: undefined } as { userId: string; token: string; email?: string },
+      serverStripeEnv(),
+    );
+    if (!ok) return { ok: false as const };
+    return { ok: true as const, url: "https://businessforensics.tech/aetheris-universe" };
+  });
