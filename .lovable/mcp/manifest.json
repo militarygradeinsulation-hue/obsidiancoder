@@ -3,12 +3,17 @@
   "sdk_version": "0.24.0",
   "path": "/mcp",
   "auth": {
-    "type": "none"
+    "type": "oauth",
+    "issuer": "https://fcdumxxgjnrnolqkishi.supabase.co/auth/v1",
+    "accepted_audiences": [
+      "authenticated"
+    ],
+    "jwks_uri": "https://fcdumxxgjnrnolqkishi.supabase.co/auth/v1/.well-known/jwks.json"
   },
   "mcp": {
     "server": {
       "name": "obsidian-vibe-mcp",
-      "version": "0.2.0",
+      "version": "0.3.0",
       "title": "Obsidian Vibe"
     },
     "tools": [
