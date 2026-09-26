@@ -2188,6 +2188,8 @@ const unlockCss = `
   .unlock-hero-slogan { padding: 18px 22px; margin-top: 14px; }
   .hero-slogan-headline { font-size: 19px; }
   .hero-slogan-body { font-size: 12.5px; }
+  .hero-slogan-steps { gap: 6px; }
+  .hero-slogan-steps li { font-size: 12px; }
   .unlock-examples { padding: 40px 14px 20px; }
   .unlock-examples-title { font-size: 20px; }
 }
@@ -2197,6 +2199,8 @@ const unlockCss = `
   .unlock-hero-slogan { padding: 14px 18px; }
   .hero-slogan-headline { font-size: 16px; }
   .hero-slogan-body { font-size: 11.5px; line-height: 1.55; }
+  .hero-slogan-steps li { font-size: 11.5px; }
+  .hero-slogan-step-num { width: 18px; height: 18px; font-size: 10px; }
   .unlock-examples-title { font-size: 18px; }
 }
 .plans-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(244,161,37,0.15); }
