@@ -17,6 +17,40 @@ export type PlanTierId =
 /** Monthly AI credit allowance for the Obsidian Pocket plan. */
 export const POCKET_MONTHLY_CREDITS = 300;
 
+/**
+ * Limited-time launch promotion: a Pocket subscription CREATED (not
+ * renewed, not updated -- see the webhook handler) before
+ * POCKET_PROMO_ENDS_AT gets this many credits per month instead of the
+ * standard POCKET_MONTHLY_CREDITS, for the life of that subscription.
+ * Chosen as a concrete, communicable window rather than an open-ended
+ * "for now" -- 14 days from the day this was built (2026-09-26), so it
+ * reads as genuinely limited, not indefinite. Adjust the date directly
+ * here if a different window is wanted; nothing else needs to change.
+ */
+export const POCKET_PROMO_CREDITS = 1000;
+export const POCKET_PROMO_ENDS_AT = "2026-10-10T23:59:59Z";
+
+/**
+ * The promo-eligibility rule, extracted as a pure function so it's testable
+ * in isolation from the webhook's Stripe/Supabase plumbing. Returns the
+ * credit cap to grant, or undefined if this subscription doesn't qualify.
+ * Deliberately requires the caller to state isNewSubscription explicitly
+ * (no default) -- there is no safe default for "is this really a brand
+ * new subscription," and a silent default here is exactly the kind of
+ * mistake that would grant the promo on every renewal instead of once.
+ */
+export function resolvePocketPromoCap(params: {
+  isNewSubscription: boolean;
+  tierId: PlanTierId | undefined;
+  now?: number;
+}): number | undefined {
+  const { isNewSubscription, tierId, now = Date.now() } = params;
+  if (!isNewSubscription) return undefined;
+  if (tierId !== "pocket") return undefined;
+  if (now >= new Date(POCKET_PROMO_ENDS_AT).getTime()) return undefined;
+  return POCKET_PROMO_CREDITS;
+}
+
 export interface PlanTier {
   id: PlanTierId;
   name: string;

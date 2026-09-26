@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { createClient } from "@supabase/supabase-js";
 import { type StripeEnv, verifyWebhook } from "@/lib/stripe.server";
+import { tierForPriceId, resolvePocketPromoCap } from "@/lib/plans";
 
 let _supabase: any = null;
 function getSupabase(): any {
@@ -13,7 +14,7 @@ function getSupabase(): any {
   return _supabase;
 }
 
-async function handleSubscriptionUpsert(sub: any, env: StripeEnv) {
+async function handleSubscriptionUpsert(sub: any, env: StripeEnv, isNewSubscription = false) {
   const userId = sub.metadata?.userId;
   if (!userId) {
     console.error("subscription missing userId metadata");
@@ -27,22 +28,33 @@ async function handleSubscriptionUpsert(sub: any, env: StripeEnv) {
   const periodStart = item?.current_period_start ?? sub.current_period_start;
   const periodEnd = item?.current_period_end ?? sub.current_period_end;
 
-  await getSupabase().from("subscriptions").upsert(
-    {
-      user_id: userId,
-      stripe_subscription_id: sub.id,
-      stripe_customer_id: sub.customer,
-      product_id: productId,
-      price_id: priceId,
-      status: sub.status,
-      current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
-      current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
-      cancel_at_period_end: sub.cancel_at_period_end ?? false,
-      environment: env,
-      updated_at: new Date().toISOString(),
-    },
-    { onConflict: "stripe_subscription_id" },
-  );
+  // Limited-time launch promo: only ever granted at true first-time
+  // creation (never re-evaluated on a later "updated"/renewal event),
+  // only for the Pocket tier, only within the promo window. See
+  // POCKET_PROMO_ENDS_AT in plans.ts for the cutoff.
+  const promoCreditCap = resolvePocketPromoCap({
+    isNewSubscription,
+    tierId: tierForPriceId(priceId)?.id,
+  });
+
+  const upsertPayload: Record<string, unknown> = {
+    user_id: userId,
+    stripe_subscription_id: sub.id,
+    stripe_customer_id: sub.customer,
+    product_id: productId,
+    price_id: priceId,
+    status: sub.status,
+    current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
+    current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+    cancel_at_period_end: sub.cancel_at_period_end ?? false,
+    environment: env,
+    updated_at: new Date().toISOString(),
+  };
+  // Only included on the insert path — never sent (so never overwritten
+  // back to null) on a plain "updated" upsert for an existing row.
+  if (promoCreditCap !== undefined) upsertPayload.promo_credit_cap = promoCreditCap;
+
+  await getSupabase().from("subscriptions").upsert(upsertPayload, { onConflict: "stripe_subscription_id" });
 }
 
 async function handleSubscriptionDeleted(sub: any, env: StripeEnv) {
@@ -108,6 +120,8 @@ async function handleWebhook(req: Request, env: StripeEnv) {
   const event = await verifyWebhook(req, env);
   switch (event.type) {
     case "customer.subscription.created":
+      await handleSubscriptionUpsert(event.data.object, env, true);
+      break;
     case "customer.subscription.updated":
       await handleSubscriptionUpsert(event.data.object, env);
       break;

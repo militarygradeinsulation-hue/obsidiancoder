@@ -221,13 +221,19 @@ export async function capForUser(userId: string, env: Environment): Promise<numb
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("subscriptions")
-      .select("price_id")
+      .select("price_id, promo_credit_cap")
       .eq("user_id", userId)
       .eq("environment", env)
       .in("status", ["active", "trialing"])
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle();
+    // A promo credit cap, once granted at true subscription creation, is a
+    // permanent perk of that subscription — always honored ahead of the
+    // standard tier cap, for as long as the subscription stays active.
+    if (typeof data?.promo_credit_cap === "number" && data.promo_credit_cap > 0) {
+      return data.promo_credit_cap;
+    }
     const tier = tierForPriceId(data?.price_id)?.id;
     const cap = tier ? capForTier(tier) : 0;
     return cap > 0 ? cap : CAP_PRO_MONTHLY;

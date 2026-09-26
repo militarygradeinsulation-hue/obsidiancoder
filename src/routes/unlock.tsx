@@ -14,7 +14,7 @@ import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { getStripe } from "@/lib/stripe";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
-import { PLAN_TIERS, PUBLIC_CHECKOUT_TIERS, POCKET_MONTHLY_CREDITS } from "@/lib/plans";
+import { PLAN_TIERS, PUBLIC_CHECKOUT_TIERS, POCKET_MONTHLY_CREDITS, POCKET_PROMO_CREDITS, POCKET_PROMO_ENDS_AT } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
@@ -467,21 +467,30 @@ function Unlock() {
               </div>
 
               <div className="mt-10 grid items-stretch gap-7 sm:grid-cols-2 lg:grid-cols-3">
-                {PUBLIC_CHECKOUT_TIERS.map((t) => {
+                {(() => {
+                  const pocketPromoActive = Date.now() < new Date(POCKET_PROMO_ENDS_AT).getTime();
+                  return PUBLIC_CHECKOUT_TIERS.map((t) => {
                   const featured = !!t.featured;
+                  const isPocketPromo = t.id === "pocket" && pocketPromoActive;
+                  const outcomes = isPocketPromo
+                    ? [
+                        `${POCKET_PROMO_CREDITS.toLocaleString()} AI credits every month — limited-time launch offer`,
+                        ...t.outcomes.slice(1),
+                      ]
+                    : t.outcomes;
                   return (
                     <div
                       key={t.id}
                       className={cn(
                         "relative flex w-full flex-col rounded-2xl p-8 text-left",
-                        featured
+                        featured || isPocketPromo
                           ? "bg-[#100d08] text-[#f2eee7] shadow-2xl ring-2 ring-[#F4A125]/60"
                           : "border border-white/10 bg-white/[0.03] text-[#e8e6e1] shadow-lg",
                       )}
                     >
-                      {featured && (
+                      {(featured || isPocketPromo) && (
                         <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-b from-[#F6B24A] to-[#DD9324] px-4 py-1 text-[11px] font-bold uppercase tracking-widest text-[#14100a] shadow-lg shadow-[#F4A125]/40">
-                          Most popular
+                          {isPocketPromo ? "Limited-time offer" : "Most popular"}
                         </div>
                       )}
 
@@ -495,7 +504,7 @@ function Unlock() {
                       <p className="mt-4 text-center text-sm leading-relaxed opacity-80">{t.headline}</p>
 
                       <ul className="mt-8 space-y-4">
-                        {t.outcomes.map((o) => (
+                        {outcomes.map((o) => (
                           <li key={o} className="flex items-start gap-3 text-sm leading-snug">
                             <CheckCircle2 className="mt-0.5 size-5 shrink-0 text-[#F4A125]" aria-hidden />
                             <span>{o}</span>
@@ -510,7 +519,7 @@ function Unlock() {
                             onClick={() => { setSelectedPriceId(t.priceId!); setPanelOpen(true); setTab("buy"); }}
                             className={cn(
                               "w-full rounded-xl px-6 py-3.5 text-[15px] font-semibold shadow-lg transition-transform hover:scale-[1.03]",
-                              featured
+                              featured || isPocketPromo
                                 ? "bg-gradient-to-b from-[#F6B24A] to-[#DD9324] text-[#14100a] shadow-[#F4A125]/25"
                                 : "bg-[#f2eee7] text-[#14100a]",
                             )}
@@ -531,7 +540,8 @@ function Unlock() {
                       </div>
                     </div>
                   );
-                })}
+                  });
+                })()}
               </div>
             </section>
 
@@ -833,9 +843,21 @@ function Unlock() {
                   </button>
                   {plansOpen && (
                     <div id="plans-grid" className="tier-grid">
-                      {PUBLIC_CHECKOUT_TIERS.map((t) => (
-                        <div key={t.id} className={`tier-row ${t.featured ? "is-featured" : ""}`}>
-                          {t.featured && <div className="tier-badge">Most Popular</div>}
+                      {(() => {
+                        const pocketPromoActive = Date.now() < new Date(POCKET_PROMO_ENDS_AT).getTime();
+                        return PUBLIC_CHECKOUT_TIERS.map((t) => {
+                        const isPocketPromo = t.id === "pocket" && pocketPromoActive;
+                        const outcomes = isPocketPromo
+                          ? [
+                              `${POCKET_PROMO_CREDITS.toLocaleString()} AI credits every month — limited-time launch offer`,
+                              ...t.outcomes.slice(1),
+                            ]
+                          : t.outcomes;
+                        return (
+                        <div key={t.id} className={`tier-row ${t.featured || isPocketPromo ? "is-featured" : ""}`}>
+                          {(t.featured || isPocketPromo) && (
+                            <div className="tier-badge">{isPocketPromo ? "Limited-time offer" : "Most Popular"}</div>
+                          )}
                           <div className="tier-head">
                             <span className="tier-name">{t.name}</span>
                             <span className="tier-price">
@@ -849,7 +871,7 @@ function Unlock() {
                           )}
                           <div className="tier-headline">{t.headline}</div>
                           <ul className="tier-outcomes">
-                            {t.outcomes.map((o) => <li key={o}>{o}</li>)}
+                            {outcomes.map((o) => <li key={o}>{o}</li>)}
                           </ul>
                           {t.cta === "checkout" && t.priceId ? (
                             <button
@@ -869,7 +891,9 @@ function Unlock() {
                             </a>
                           )}
                         </div>
-                      ))}
+                        );
+                        });
+                      })()}
                     </div>
                   )}
                 </div>

@@ -629,6 +629,7 @@ export type Database = {
           plan_tier: string | null
           price_id: string
           product_id: string
+          promo_credit_cap: number | null
           status: string
           stripe_customer_id: string
           stripe_subscription_id: string
@@ -646,6 +647,7 @@ export type Database = {
           plan_tier?: string | null
           price_id: string
           product_id: string
+          promo_credit_cap?: number | null
           status?: string
           stripe_customer_id: string
           stripe_subscription_id: string
@@ -663,6 +665,7 @@ export type Database = {
           plan_tier?: string | null
           price_id?: string
           product_id?: string
+          promo_credit_cap?: number | null
           status?: string
           stripe_customer_id?: string
           stripe_subscription_id?: string
