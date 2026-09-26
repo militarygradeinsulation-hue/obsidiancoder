@@ -351,7 +351,7 @@ function Unlock() {
             >
               <h2 id="hero-slogan-heading" className="hero-slogan-headline">Build as much as you want here. Ship it in Lovable.</h2>
               <p className="hero-slogan-body">
-                Obsidian and Lovable are teammates, not rivals. Iterate freely in Obsidian — every idea, experiment, and revision runs on cheap credits — then copy the finished code and paste it straight into Lovable. Handing Lovable working code instead of a blank prompt is the cheapest thing you can do: it assembles the full connected system for about a third of the credits.
+                Obsidian is built by one of the top 10% of developers on Lovable — so you get the same standard of craftsmanship behind every build. Iterate freely in Obsidian — every idea, experiment, and revision runs on cheap credits — then copy the finished code and paste it straight into Lovable. Handing Lovable working code instead of a blank prompt is the cheapest thing you can do: it assembles the full connected system for about a third of the credits.
               </p>
               <ol className="hero-slogan-steps">
                 <li>
