@@ -681,6 +681,19 @@ function Unlock() {
                   })}
                 </div>
 
+                <label className="rollover-toggle">
+                  <input
+                    type="checkbox"
+                    checked={addRollover}
+                    onChange={(e) => setAddRollover(e.target.checked)}
+                  />
+                  <span>
+                    <strong>Roll over unused credits — +$5/month.</strong>{" "}
+                    Whatever you don&apos;t use this month carries into next month instead of expiring
+                    (up to one extra month of your plan&apos;s credits).
+                  </span>
+                </label>
+
                 {status && <div className="unlock-status" role="status">{status}</div>}
                 {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
 
@@ -695,8 +708,8 @@ function Unlock() {
                     : session
                     ? "Continue to Secure Checkout"
                     : selectedPriceId === POCKET_PRICE_ID
-                    ? "Start Obsidian Pocket — $10/month"
-                    : "Start Obsidian Vibe — $39/month"}
+                    ? `Start Obsidian Pocket — $${10 + (addRollover ? 5 : 0)}/month`
+                    : `Start Obsidian Vibe — $${39 + (addRollover ? 5 : 0)}/month`}
                 </button>
 
                 {!plansOpen && (
@@ -874,6 +887,7 @@ function Unlock() {
                 </div>
                 <CheckoutSurface
                   priceId={selectedPriceId}
+                  addRollover={addRollover}
                   onCancel={() => setShowCheckout(false)}
                 />
 
