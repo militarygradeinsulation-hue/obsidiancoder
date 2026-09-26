@@ -6,7 +6,6 @@ import { cn } from "@/lib/utils";
 
 const AnomalousMatterScene = lazy(() => import("@/components/AnomalousMatterScene"));
 const GLSLHills = lazy(() => import("@/components/ui/glsl-hills"));
-import SphereDemoGrid from "@/components/SphereDemoGrid";
 import { unlockSite, unlockIfPro } from "@/lib/gate.functions";
 import { setAccountCode } from "@/lib/account-code";
 import { supabase } from "@/integrations/supabase/client";
@@ -27,41 +26,6 @@ import CompetitorComparison from "@/components/CompetitorComparison";
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
 const POCKET_PRICE_ID = "obsidian_pocket_monthly";
-
-type DemoCategory = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
-const DEMO_CATEGORIES: readonly DemoCategory[] = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
-
-const DEMOS: { slug: string; title: string; url?: string; category: DemoCategory }[] = [
-  { slug: "0v6h3d1b0k5e60", title: "Demo · Obsidian Build 01", category: "App" },
-  { slug: "254055672k2h6p", title: "Demo · Obsidian Build 02", category: "Landing" },
-  { slug: "68055l616v1f1m", title: "Demo · Obsidian Build 03", category: "Dashboard" },
-  { slug: "6u0k1t5t544959", title: "Demo · Obsidian Build 04", category: "Tool" },
-  { slug: "3u6i063s2u000m", title: "Demo · Obsidian Build 05", category: "Game" },
-  { slug: "712q5y47130j3k", title: "Demo · Obsidian Build 06", category: "Portfolio" },
-  { slug: "0o170e051k1558", title: "Demo · Obsidian Build 07", category: "App" },
-  { slug: "0w653a21633k5v", title: "Demo · Obsidian Build 08", category: "Landing", url: "https://obsidianvibe.live/api/public/share/0w653a21633k5v" },
-  { slug: "3s190o0x3o2r14", title: "Demo · Obsidian Build 09", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/3s190o0x3o2r14" },
-  { slug: "1l370y43144a2o", title: "Demo · Obsidian Build 10", category: "Tool", url: "https://obsidianvibe.live/api/public/share/1l370y43144a2o" },
-  { slug: "0t485n6s6i1203", title: "Demo · Obsidian Build 11", category: "Game", url: "https://obsidianvibe.live/api/public/share/0t485n6s6i1203" },
-  { slug: "5i3e202p646j66", title: "Demo · Obsidian Build 12", category: "Portfolio", url: "https://obsidianvibe.live/api/public/share/5i3e202p646j66" },
-  { slug: "1z63663n0j6c3n", title: "Demo · Obsidian Build 13", category: "App", url: "https://obsidianvibe.live/api/public/share/1z63663n0j6c3n#home" },
-  { slug: "6t4k4d2h31512r", title: "Demo · Obsidian Build 14", category: "Landing", url: "https://obsidianvibe.live/api/public/share/6t4k4d2h31512r" },
-  { slug: "0x1b67096z3d2l", title: "Demo · Obsidian Build 15", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/0x1b67096z3d2l" },
-  { slug: "4a452v014l4a3d", title: "Demo · Obsidian Build 16", category: "Tool", url: "https://obsidianvibe.live/api/public/share/4a452v014l4a3d" },
-  { slug: "4t4k4q2u0e2i0y", title: "Demo · Obsidian Build 17", category: "Game", url: "https://obsidianvibe.live/api/public/share/4t4k4q2u0e2i0y" },
-  { slug: "3u6x2m401k4y6q", title: "Demo · Obsidian Build 18", category: "Portfolio", url: "https://obsidianvibe.live/api/public/share/3u6x2m401k4y6q" },
-  { slug: "6u1l6b255s6n2t", title: "Demo · Obsidian Build 19", category: "App", url: "https://obsidianvibe.live/api/public/share/6u1l6b255s6n2t#mockup-anchor" },
-  { slug: "214o3v5d1g421g", title: "Demo · Obsidian Build 20", category: "Dashboard", url: "https://obsidianvibe.live/api/public/share/214o3v5d1g421g#live-map" },
-  { slug: "4b3k4t624s4n1l", title: "Demo · Obsidian Build 21", category: "Landing", url: "https://obsidianvibe.live/api/public/share/4b3k4t624s4n1l#preview" },
-  { slug: "3s2q0g011p2z3b", title: "Demo · Obsidian Build 22", category: "App", url: "https://obsidianvibe.live/api/public/share/3s2q0g011p2z3b#home" },
-  { slug: "2e5n3j0y47664q", title: "Demo · Obsidian Build 23", category: "Game", url: "https://obsidianvibe.live/api/public/share/2e5n3j0y47664q#episodes" },
-  { slug: "4g71725v6y2o5b", title: "Demo · Obsidian Build 24", category: "App", url: "https://obsidianvibe.live/api/public/share/4g71725v6y2o5b" },
-  { slug: "5j4x38736j4y56", title: "Demo · Obsidian Build 25", category: "App", url: "https://obsidianvibe.live/api/public/share/5j4x38736j4y56" },
-  { slug: "3e2s2m0q2i3b2s", title: "Demo · Obsidian Build 26", category: "Landing", url: "https://obsidianvibe.live/api/public/share/3e2s2m0q2i3b2s#top" },
-  { slug: "1i3r07161s0q6h", title: "Demo · Obsidian Build 27", category: "Tool", url: "https://obsidianvibe.live/api/public/share/1i3r07161s0q6h#" },
-  { slug: "1i54063l620y0h", title: "Demo · Obsidian Build 28", category: "App", url: "https://obsidianvibe.live/api/public/share/1i54063l620y0h" },
-  { slug: "6j0m0l1y016p44", title: "Demo · Obsidian Build 29", category: "App", url: "https://obsidianvibe.live/api/public/share/6j0m0l1y016p44" },
-];
 
 type Intent = "buy" | "code";
 
@@ -130,7 +94,7 @@ function Unlock() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
   const [selectedPriceId, setSelectedPriceId] = useState<string>(
-    search.priceId && typeof search.priceId === "string" ? search.priceId : CREATOR_PRICE_ID,
+    search.priceId && typeof search.priceId === "string" ? search.priceId : POCKET_PRICE_ID,
   );
   const [expandDetails, setExpandDetails] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
@@ -138,10 +102,7 @@ function Unlock() {
     search.checkout === "1" || search.intent === "buy" || search.intent === "code",
   );
   function openPanel(next: Intent) { setTab(next); setPanelOpen(true); }
-  const [demoCategory, setDemoCategory] = useState<DemoCategory | "All">("All");
-  const [demosOpen, setDemosOpen] = useState(false);
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
-  const [featuredDemos, setFeaturedDemos] = useState<{ slug: string; title: string; url?: string; category: DemoCategory }[]>([]);
   const [pocketExpanded, setPocketExpanded] = useState(false);
 
   // Community builds shared from Obsidian Pocket — shown right on the home
@@ -154,7 +115,13 @@ function Unlock() {
     fetch("/api/public/community?limit=24")
       .then((r) => (r.ok ? r.json() : { builds: [] }))
       .then((j: { builds?: typeof communityBuilds }) => {
-        if (alive && Array.isArray(j.builds)) setCommunityBuilds(j.builds.filter((b) => b.share_slug && b.byte_size > 900).slice(0, 8));
+        if (!alive || !Array.isArray(j.builds)) return;
+        const seen = new Set<string>();
+        setCommunityBuilds(j.builds.filter((b) => {
+          if (!b.share_slug || b.byte_size <= 900 || seen.has(b.share_slug)) return false;
+          seen.add(b.share_slug);
+          return true;
+        }).slice(0, 8));
       })
       .catch(() => {});
     return () => {
@@ -169,37 +136,6 @@ function Unlock() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [pocketExpanded]);
-
-  // Load admin-curated demos so newly promoted builds appear without a code edit.
-  useEffect(() => {
-    let alive = true;
-    supabase
-      .from("featured_demos")
-      .select("slug, title, category, url")
-      .order("sort_order", { ascending: false })
-      .limit(60)
-      .then(({ data }) => {
-        if (!alive || !data) return;
-        // Collapse duplicates (same title or same target URL promoted twice).
-        const seen = new Set<string>();
-        const unique = data.filter((d) => {
-          const key = (d.url || d.title || d.slug).toLowerCase().trim();
-          if (seen.has(key)) return false;
-          seen.add(key);
-          return true;
-        });
-        setFeaturedDemos(
-          unique.map((d) => ({
-            slug: d.slug,
-            title: d.title,
-            url: d.url ?? undefined,
-            category: (DEMO_CATEGORIES as readonly string[]).includes(d.category) ? (d.category as DemoCategory) : "App",
-          })),
-        );
-
-      });
-    return () => { alive = false; };
-  }, []);
 
   // Track auth session
   useEffect(() => {
@@ -347,7 +283,6 @@ function Unlock() {
         <div className="unlock-topbar-links">
           <a href="https://businessforensics.tech/aetheris-universe" target="_blank" rel="noopener noreferrer" className="unlock-topbar-link">Aetheris Universe</a>
           <button type="button" className="unlock-topbar-link" onClick={() => { openPanel("buy"); setPlansOpen(true); requestAnimationFrame(() => document.getElementById("plans-heading")?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>Pricing</button>
-          <button type="button" className="unlock-topbar-link" onClick={() => { setDemosOpen(true); requestAnimationFrame(() => document.getElementById("demos-anchor")?.scrollIntoView({ behavior: "smooth", block: "start" })); }}>Live Demos</button>
           <Link to="/pocket" className="unlock-topbar-link" title="Obsidian Pocket — simplified prompt-to-app workspace">Pocket</Link>
           <Link to="/library" className="unlock-topbar-link" title="Community Library — browse, copy and remix builds">Library</Link>
           <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Access Code</button>
@@ -450,7 +385,7 @@ function Unlock() {
                 large padded cards, oversized price, check-icon feature
                 list, full-width CTA, ring highlight on the featured tier. */}
             <section
-              id="pricing"
+              id="plans"
               aria-labelledby="pricing-heading"
               className={cn(
                 "mx-auto mt-16 w-full max-w-6xl px-4",
@@ -516,7 +451,7 @@ function Unlock() {
                         {t.cta === "checkout" && t.priceId ? (
                           <button
                             type="button"
-                            onClick={() => { setSelectedPriceId(t.priceId!); setPanelOpen(true); setTab("buy"); }}
+                            onClick={() => startPurchase(t.priceId)}
                             className={cn(
                               "w-full rounded-xl px-6 py-3.5 text-[15px] font-semibold shadow-lg transition-transform hover:scale-[1.03]",
                               featured || isPocketPromo
@@ -528,14 +463,16 @@ function Unlock() {
                           </button>
                         ) : (
                           <a
-                            href="mailto:hello@aetheris.technology?subject=Obsidian%20Custom%20inquiry"
+                            href="mailto:hello@aetheris.technology?subject=Business%20Coder%20inquiry"
                             className="block w-full rounded-xl border border-white/20 px-6 py-3.5 text-center text-[15px] font-semibold text-[#f2eee7] transition-colors hover:border-white/40 hover:bg-white/5"
                           >
                             Talk to us
                           </a>
                         )}
                         <p className="mt-3 text-center text-[11px] opacity-55">
-                          {t.cta === "checkout" ? "Cancel anytime. No contract." : "Custom terms, SLAs, and support."}
+                          {t.cta === "checkout" ? (
+                            <><a href="/pocket" className="text-[#F4A125] underline underline-offset-2">Use Pocket free</a> · Cancel anytime.</>
+                          ) : "Designed around your business, tools, and workflow."}
                         </p>
                       </div>
                     </div>
@@ -672,9 +609,9 @@ function Unlock() {
               <div className="unlock-community" id="community-anchor">
                 <div className="unlock-community-head">
                   <div>
-                    <h3 className="unlock-compare-card-title">Built in Pocket by the community</h3>
+                    <h3 className="unlock-compare-card-title">Community Library</h3>
                     <p className="unlock-compare-card-sub">
-                      Real, working pages people shared. Preview one live, then copy or remix it.
+                      Real builds made with Obsidian, collected in one place without duplicate demos. Preview, copy, or remix any build.
                     </p>
                   </div>
                   <a href="/library" className="unlock-compare-cta">Browse the Library</a>
@@ -716,7 +653,7 @@ function Unlock() {
 
 
       {panelOpen && (
-      <main className="unlock-card" role="main" aria-labelledby="unlock-heading" id="top">
+      <main className="unlock-card" role="main" aria-labelledby="unlock-heading">
         <button type="button" className="unlock-card-close" aria-label="Close" onClick={() => setPanelOpen(false)}>×</button>
         <div className="unlock-card-glow" aria-hidden />
 
@@ -819,7 +756,7 @@ function Unlock() {
                   >
                     <span className="plans-toggle-label">
                       <span className="plans-title">Compare plans</span>
-                      <span className="plans-toggle-sub">Pocket · Custom</span>
+                      <span className="plans-toggle-sub">Pocket · Business Coder</span>
                     </span>
                     <span className="plans-toggle-caret" aria-hidden>▼</span>
                   </button>
@@ -837,7 +774,7 @@ function Unlock() {
                   >
                     <span className="plans-toggle-label">
                       <span id="plans-heading" className="plans-title">Compare plans</span>
-                      <span className="plans-toggle-sub">Pocket · Custom</span>
+                      <span className="plans-toggle-sub">Pocket · Business Coder</span>
                     </span>
                     <span className="plans-toggle-caret" aria-hidden>▲</span>
                   </button>
@@ -885,7 +822,7 @@ function Unlock() {
                           ) : (
                             <a
                               className="tier-cta tier-cta-locked"
-                              href="mailto:hello@aetheris.technology?subject=Obsidian%20Custom%20inquiry"
+                              href="mailto:hello@aetheris.technology?subject=Business%20Coder%20inquiry"
                             >
                               Contact sales
                             </a>
@@ -1050,87 +987,6 @@ function Unlock() {
         <Link to="/demos" aria-label="Admin portal" className="unlock-backdoor" title="Admin">·</Link>
       )}
 
-      <section className="unlock-demos" aria-labelledby="demos-heading" id="demos-anchor">
-        <div className="demos-header">
-          <h2 id="demos-heading" className="demos-title">Live Demos</h2>
-          <p className="demos-sub">Real builds made with Obsidian. Open any one, then build your own free.</p>
-          <button
-            type="button"
-            className="demos-toggle"
-            aria-expanded={demosOpen || demoCategory !== "All"}
-            aria-controls="demos-grid"
-            onClick={() => {
-              const next = !(demosOpen || demoCategory !== "All");
-              setDemosOpen(next);
-              if (!next) setDemoCategory("All");
-            }}
-          >
-            {(demosOpen || demoCategory !== "All") ? "Hide gallery ▲" : "Show gallery ▼"}
-          </button>
-        </div>
-        <div className="demo-chips" role="tablist" aria-label="Filter demos by category">
-          {(["All", ...DEMO_CATEGORIES] as const).map((cat) => {
-            const active = demoCategory === cat;
-            return (
-              <button
-                key={cat}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                className={`demo-chip ${active ? "is-active" : ""}`}
-                onClick={() => {
-                  setDemoCategory(cat);
-                  if (cat !== "All") setDemosOpen(true);
-                }}
-              >
-                {cat}
-              </button>
-            );
-          })}
-        </div>
-        {(demosOpen || demoCategory !== "All") && (() => {
-          const seenTitles = new Set<string>();
-          const merged = Array.from(
-            new Map(
-              [...featuredDemos, ...DEMOS].map((d) => {
-                const demoUrl = d.url ?? `/api/public/share/${d.slug}`;
-                return [demoUrl, { ...d, demoUrl }] as const;
-              }),
-            ).values(),
-          )
-            // Same project promoted under two slugs shows once.
-            .filter(({ title }) => {
-              const key = (title || "").toLowerCase().replace(/\s+/g, " ").trim();
-              if (!key) return true;
-              if (seenTitles.has(key)) return false;
-              seenTitles.add(key);
-              return true;
-            })
-            .filter(({ category }) => demoCategory === "All" || category === demoCategory);
-
-
-          const liveDemos = merged.map((d) => ({
-            id: d.slug,
-            title: d.title.replace(/^Demo\s*·\s*/, ""),
-            category: d.category,
-            url: d.demoUrl,
-            previewUrl: d.demoUrl,
-          }));
-          return (
-            <div id="demos-grid" className="demos-sphere-wrap">
-              <SphereDemoGrid
-                items={liveDemos}
-                containerSize={600}
-                sphereRadius={240}
-                tileSize={112}
-                autoRotateSpeed={0.12}
-              />
-              <p className="demos-sphere-hint">Drag to rotate · tap a tile to open</p>
-            </div>
-          );
-        })()}
-      </section>
-
       <FeedbackWidget />
 
 
@@ -1150,8 +1006,7 @@ function Unlock() {
           panelOpen ||
           showCheckout ||
           !!waitlistTier ||
-          pocketExpanded ||
-          demosOpen
+          pocketExpanded
         }
         sessionLoading={sessionLoading}
         signedIn={!!session}
