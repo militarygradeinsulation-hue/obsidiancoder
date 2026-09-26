@@ -94,7 +94,7 @@ function Unlock() {
   const [sessionLoading, setSessionLoading] = useState(true);
   const [showCheckout, setShowCheckout] = useState(search.checkout === "1");
   const [selectedPriceId, setSelectedPriceId] = useState<string>(
-    search.priceId && typeof search.priceId === "string" ? search.priceId : CREATOR_PRICE_ID,
+    search.priceId && typeof search.priceId === "string" ? search.priceId : POCKET_PRICE_ID,
   );
   const [expandDetails, setExpandDetails] = useState(false);
   const [plansOpen, setPlansOpen] = useState(false);
@@ -385,7 +385,7 @@ function Unlock() {
                 large padded cards, oversized price, check-icon feature
                 list, full-width CTA, ring highlight on the featured tier. */}
             <section
-              id="pricing"
+              id="plans"
               aria-labelledby="pricing-heading"
               className={cn(
                 "mx-auto mt-16 w-full max-w-6xl px-4",
@@ -653,7 +653,7 @@ function Unlock() {
 
 
       {panelOpen && (
-      <main className="unlock-card" role="main" aria-labelledby="unlock-heading" id="top">
+      <main className="unlock-card" role="main" aria-labelledby="unlock-heading">
         <button type="button" className="unlock-card-close" aria-label="Close" onClick={() => setPanelOpen(false)}>×</button>
         <div className="unlock-card-glow" aria-hidden />
 
