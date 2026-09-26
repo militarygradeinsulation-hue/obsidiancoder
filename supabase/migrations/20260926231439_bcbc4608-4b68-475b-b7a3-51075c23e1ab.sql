@@ -1,0 +1,1 @@
+alter table public.subscriptions add column if not exists rollover_enabled boolean not null default false;
