@@ -1606,6 +1606,40 @@ const unlockCss = `
   margin: 0 auto;
   max-width: 560px;
 }
+.hero-slogan-steps {
+  list-style: none;
+  margin: 14px auto 0;
+  padding: 0;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+.hero-slogan-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(182,188,200,0.9);
+}
+.hero-slogan-steps strong { color: #f2eee7; font-weight: 600; }
+.hero-slogan-step-num {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(244,161,37,0.14);
+  border: 1px solid rgba(244,161,37,0.4);
+  color: #F4A125;
+  font-size: 11px;
+  font-weight: 700;
+}
 
 /* ---- Hero stack: title, slogan, and spotlight share the title's intrinsic width ---- */
 .unlock-hero-stack {
