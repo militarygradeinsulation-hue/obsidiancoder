@@ -103,7 +103,6 @@ function Unlock() {
   );
   function openPanel(next: Intent) { setTab(next); setPanelOpen(true); }
   const [waitlistTier, setWaitlistTier] = useState<string | null>(null);
-  const [pocketExpanded, setPocketExpanded] = useState(false);
 
   // Community builds shared from Obsidian Pocket — shown right on the home
   // screen so visitors see real work without opening /library first.
