@@ -53,6 +53,7 @@ async function handleSubscriptionUpsert(sub: any, env: StripeEnv, isNewSubscript
     current_period_start: periodStart ? new Date(periodStart * 1000).toISOString() : null,
     current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
     cancel_at_period_end: sub.cancel_at_period_end ?? false,
+    rollover_enabled: rolloverEnabled,
     environment: env,
     updated_at: new Date().toISOString(),
   };
