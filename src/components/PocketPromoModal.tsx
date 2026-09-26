@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
-import pocketShot from "@/assets/workspace-pocket.png.asset.json";
+import pricingComparison from "@/assets/obsidian-pricing-comparison.png.asset.json";
 import {
   POCKET_PROMO,
   emitPromoEvent,
@@ -226,11 +226,11 @@ export default function PocketPromoModal({
         <div className="pocket-promo-grid">
           <div className="pocket-promo-shot">
             <img
-              src={pocketShot.url}
-              alt="Obsidian Pocket workspace: one prompt box beside a live preview of the generated app"
+              src={pricingComparison.url}
+              alt="Obsidian Pocket and Obsidian Vibe monthly pricing and flat-credit comparison"
               loading="lazy"
-              width={1200}
-              height={750}
+              width={768}
+              height={960}
             />
           </div>
 

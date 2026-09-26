@@ -29,17 +29,17 @@ export interface PromoCampaign {
 
 export const POCKET_PROMO: PromoCampaign = {
   enabled: true,
-  campaignId: "pocket-launch-v1",
+  campaignId: "more-credits-lower-cost-v1",
   dismissCooldownDays: 7,
   engagedCooldownDays: 30,
   initialDelayMs: 1400,
   destination: "/pocket",
-  eyebrow: "NEW · OBSIDIAN POCKET",
-  headline: "The fastest way to build with Obsidian.",
-  body: "One prompt. Editable code. A live preview. Pocket puts Obsidian’s real generation, versions, QA, publishing, and project tools inside a simpler workspace.",
-  primaryCta: "Try Obsidian Pocket",
+  eyebrow: "OBSIDIAN PRICING",
+  headline: "More credits. Lower cost.",
+  body: "Obsidian Pocket gives you 300 credits for $10/month. Obsidian Vibe gives builders 1,000 credits for $39/month—more room to create without premium-tool prices.",
+  primaryCta: "Start with Pocket",
   secondaryCta: "Continue to Obsidian Vibe",
-  trustLine: "Same Obsidian engine. Simpler workspace.",
+  trustLine: "Start cheap. Build more. Ship faster.",
 };
 
 export const PROMO_STORAGE_KEY = "obs_pocket_promo_v1";
