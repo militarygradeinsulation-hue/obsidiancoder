@@ -18,8 +18,6 @@ import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
 import aetherisEmblem from "@/assets/aetheris-emblem.jpg.asset.json";
-import vibeShot from "@/assets/workspace-vibe.png.asset.json";
-import pocketShot from "@/assets/workspace-pocket.png.asset.json";
 import PocketPromoModal from "@/components/PocketPromoModal";
 import CompetitorComparison from "@/components/CompetitorComparison";
 
