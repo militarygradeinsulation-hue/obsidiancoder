@@ -3809,28 +3809,37 @@ body.is-resizing-composer * { user-select: none !important; }
 .obs-textarea:focus { outline: none; border-color: var(--obs-orange); }
 
 /* ---- Competitor comparison budget slider ---- */
+/* The visible track is 6px, but the input itself is 40px tall so a finger
+   can actually grab it on mobile. touch-action: pan-x keeps horizontal
+   drags on the slider instead of being stolen by vertical page scroll. */
 .obsidian-budget-slider {
   -webkit-appearance: none;
   appearance: none;
+  height: 40px;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  touch-action: pan-x;
+}
+.obsidian-budget-slider::-webkit-slider-runnable-track {
   height: 6px;
   border-radius: 999px;
   background: rgba(255, 255, 255, 0.08);
-  outline: none;
-  cursor: pointer;
 }
 .obsidian-budget-slider::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: linear-gradient(135deg, #F6B24A, #DD9324);
   border: 2px solid #100F14;
   box-shadow: 0 0 0 2px rgba(244, 161, 37, 0.45), 0 2px 10px rgba(0, 0, 0, 0.5);
+  margin-top: -10px; /* center the 26px thumb on the 6px track */
 }
 .obsidian-budget-slider::-moz-range-thumb {
-  width: 22px;
-  height: 22px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   background: linear-gradient(135deg, #F6B24A, #DD9324);
   border: 2px solid #100F14;

@@ -202,7 +202,9 @@ export default function PocketPromoModal({
   return (
     <div
       className="pocket-promo-backdrop"
-      onMouseDown={(e) => {
+      onPointerDown={(e) => {
+        // Pointer events cover touch, mouse, and pen — onMouseDown alone
+        // never fires reliably for finger taps on mobile.
         if (e.target === e.currentTarget) dismiss("backdrop");
       }}
     >

@@ -317,6 +317,7 @@ export default function CompetitorComparison() {
       id="competitor-comparison"
       aria-labelledby="competitor-comparison-heading"
       className="mx-auto mt-16 w-full max-w-5xl px-4"
+      style={{ pointerEvents: "auto" }}
     >
       <div className="mb-3 text-center">
         <h2
