@@ -1659,6 +1659,13 @@ const unlockCss = `
   flex-direction: column;
   align-items: center;
 }
+/* The wordmark container ignores pointer events (for the background canvas);
+   re-enable them for the content sections so buttons/links are clickable. */
+.unlock-hero-stack > section,
+.unlock-hero-stack > a,
+.unlock-hero-stack > button {
+  pointer-events: auto;
+}
 
 /* ---- Pocket spotlight ---- */
 .pocket-spotlight {
