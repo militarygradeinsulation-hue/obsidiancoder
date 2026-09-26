@@ -349,10 +349,30 @@ function Unlock() {
               )}
               aria-labelledby="hero-slogan-heading"
             >
-              <h2 id="hero-slogan-heading" className="hero-slogan-headline">Build without the meter running.</h2>
+              <h2 id="hero-slogan-heading" className="hero-slogan-headline">Build as much as you want here. Ship it in Lovable.</h2>
               <p className="hero-slogan-body">
-                Build in Obsidian, Finish in Lovable.&nbsp; Build where experimentation is cheap. Finish where production is powerful. Obsidian becomes the daily-driver development environment for builders who don't want every idea, mistake, experiment, or revision consuming expensive credits.
+                Obsidian and Lovable are teammates, not rivals. Iterate freely in Obsidian — every idea, experiment, and revision runs on cheap credits — then copy the finished code and paste it straight into Lovable. Handing Lovable working code instead of a blank prompt is the cheapest thing you can do: it assembles the full connected system for about a third of the credits.
               </p>
+              <ol className="hero-slogan-steps">
+                <li>
+                  <span className="hero-slogan-step-num">1</span>
+                  <div>
+                    <strong>Build and iterate here.</strong> As many versions as you want — failed ideas cost cents, not credits.
+                  </div>
+                </li>
+                <li>
+                  <span className="hero-slogan-step-num">2</span>
+                  <div>
+                    <strong>Copy the code.</strong> One click takes the whole finished build with you.
+                  </div>
+                </li>
+                <li>
+                  <span className="hero-slogan-step-num">3</span>
+                  <div>
+                    <strong>Paste it into Lovable.</strong> It builds the full connected system for about a third of the credits — because you showed up with working code.
+                  </div>
+                </li>
+              </ol>
             </div>
 
             {/* Paired primary/secondary CTA, per the reference. */}
