@@ -749,13 +749,31 @@ function Unlock() {
                 <h2 className="unlock-headline">Think it, Type it, See it.</h2>
                 <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
 
-                <div className="unlock-price">
-                  <span className="price-amount">$39</span>
-                  <span className="price-cadence">/month</span>
+                <div className="plan-picker" role="radiogroup" aria-label="Choose your plan">
+                  {PLAN_TIERS.filter((t) => t.cta === "checkout" && t.priceId).map((t) => {
+                    const active = selectedPriceId === t.priceId;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        className={`plan-pick ${active ? "is-active" : ""}`}
+                        onClick={() => setSelectedPriceId(t.priceId!)}
+                      >
+                        <span className="plan-pick-name">Obsidian {t.name}</span>
+                        <span className="plan-pick-price">
+                          {t.price}<span className="plan-pick-cadence">{t.cadence}</span>
+                        </span>
+                        <span className="plan-pick-credits">
+                          {t.id === "pocket"
+                            ? `${POCKET_MONTHLY_CREDITS.toLocaleString()} AI credits / month`
+                            : `${CAP_PRO_MONTHLY.toLocaleString()} AI credits / month`}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="unlock-allowance">
-                  Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period.
-                </p>
 
                 {status && <div className="unlock-status" role="status">{status}</div>}
                 {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
@@ -763,11 +781,33 @@ function Unlock() {
                 <button
                   type="button"
                   className="unlock-btn unlock-btn-primary"
-                  onClick={() => startPurchase(CREATOR_PRICE_ID)}
+                  onClick={() => startPurchase(selectedPriceId)}
                   disabled={sessionLoading}
                 >
-                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Vibe — $39/month"}
+                  {sessionLoading
+                    ? "…"
+                    : session
+                    ? "Continue to Secure Checkout"
+                    : selectedPriceId === POCKET_PRICE_ID
+                    ? "Start Obsidian Pocket — $10/month"
+                    : "Start Obsidian Vibe — $39/month"}
                 </button>
+
+                {!plansOpen && (
+                  <button
+                    type="button"
+                    className="plans-toggle plans-toggle-closed"
+                    aria-expanded={false}
+                    onClick={() => setPlansOpen(true)}
+                  >
+                    <span className="plans-toggle-label">
+                      <span className="plans-title">Compare all plans</span>
+                      <span className="plans-toggle-sub">Pocket · Vibe · Custom</span>
+                    </span>
+                    <span className="plans-toggle-caret" aria-hidden>▼</span>
+                  </button>
+                )}
+
 
                 {plansOpen && (
                 <div className="plans-block" aria-labelledby="plans-heading">
