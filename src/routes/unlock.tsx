@@ -568,7 +568,7 @@ function Unlock() {
             <CompetitorComparison />
 
             {/* Community Library */}
-
+            <section className="unlock-compare" aria-label="Community Library">
               {/* Live builds people shared from Pocket */}
               {communityBuilds.length > 0 && (
               <div className="unlock-community" id="community-anchor">
