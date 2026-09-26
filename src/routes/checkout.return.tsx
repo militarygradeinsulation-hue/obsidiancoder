@@ -51,11 +51,17 @@ function ReturnPage() {
         </h1>
         <p className="mt-2 text-sm text-[#B6BCC8]">
           {state === "verifying"
-            ? "Talking to Stripe to activate your Pro access."
+            ? "Confirming your payment and switching on your access."
             : state === "ready"
-            ? "Pro access is live. Opening Obsidian…"
-            : "Your payment is being processed. Refresh in a moment, or return to the app to sign in — Pro will unlock as soon as Stripe confirms."}
+            ? "Your plan is live. Opening Obsidian…"
+            : "Your payment is being processed. Refresh in a moment, or return and sign in — your access switches on as soon as the payment confirms."}
         </p>
+        {state !== "verifying" && (
+          <p className="mt-4 rounded-lg border border-[#c9953d]/25 bg-[#F4A125]/5 px-3 py-2 text-xs text-[#B6BCC8]">
+            You don&apos;t need an access code. Just sign in with the email you paid with and
+            Obsidian unlocks automatically on any device.
+          </p>
+        )}
         {session_id && (
           <p className="mt-3 text-[10px] text-[#B6BCC8]/60 break-all">Session: {session_id}</p>
         )}
