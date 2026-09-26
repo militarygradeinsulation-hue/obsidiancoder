@@ -327,6 +327,7 @@ function Unlock() {
             </a>
 
             <h1
+              id="unlock-heading"
               className={cn(
                 "unlock-title unlock-title-hero",
                 "fade-in slide-in-from-bottom-10 animate-in fill-mode-backwards delay-100 duration-500 ease-out",
@@ -679,9 +680,6 @@ function Unlock() {
         <div className="unlock-card-glow" aria-hidden />
 
 
-        <header className="unlock-brand" hidden aria-hidden>
-          <h1 id="unlock-heading" className="unlock-title" data-text="OBSIDIAN VIBE">OBSIDIAN VIBE</h1>
-        </header>
 
 
         {/* Tabs */}
