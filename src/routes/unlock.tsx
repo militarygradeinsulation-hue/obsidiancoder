@@ -349,10 +349,30 @@ function Unlock() {
               )}
               aria-labelledby="hero-slogan-heading"
             >
-              <h2 id="hero-slogan-heading" className="hero-slogan-headline">Build without the meter running.</h2>
+              <h2 id="hero-slogan-heading" className="hero-slogan-headline">Build as much as you want here. Ship it in Lovable.</h2>
               <p className="hero-slogan-body">
-                Build in Obsidian, Finish in Lovable.&nbsp; Build where experimentation is cheap. Finish where production is powerful. Obsidian becomes the daily-driver development environment for builders who don't want every idea, mistake, experiment, or revision consuming expensive credits.
+                Obsidian and Lovable are teammates, not rivals. Iterate freely in Obsidian — every idea, experiment, and revision runs on cheap credits — then copy the finished code and paste it straight into Lovable. Handing Lovable working code instead of a blank prompt is the cheapest thing you can do: it assembles the full connected system for about a third of the credits.
               </p>
+              <ol className="hero-slogan-steps">
+                <li>
+                  <span className="hero-slogan-step-num">1</span>
+                  <div>
+                    <strong>Build and iterate here.</strong> As many versions as you want — failed ideas cost cents, not credits.
+                  </div>
+                </li>
+                <li>
+                  <span className="hero-slogan-step-num">2</span>
+                  <div>
+                    <strong>Copy the code.</strong> One click takes the whole finished build with you.
+                  </div>
+                </li>
+                <li>
+                  <span className="hero-slogan-step-num">3</span>
+                  <div>
+                    <strong>Paste it into Lovable.</strong> It builds the full connected system for about a third of the credits — because you showed up with working code.
+                  </div>
+                </li>
+              </ol>
             </div>
 
             {/* Paired primary/secondary CTA, per the reference. */}
@@ -1586,6 +1606,40 @@ const unlockCss = `
   margin: 0 auto;
   max-width: 560px;
 }
+.hero-slogan-steps {
+  list-style: none;
+  margin: 14px auto 0;
+  padding: 0;
+  max-width: 560px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  text-align: left;
+}
+.hero-slogan-steps li {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  font-size: 13px;
+  line-height: 1.55;
+  color: rgba(182,188,200,0.9);
+}
+.hero-slogan-steps strong { color: #f2eee7; font-weight: 600; }
+.hero-slogan-step-num {
+  flex: none;
+  width: 20px;
+  height: 20px;
+  margin-top: 1px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: rgba(244,161,37,0.14);
+  border: 1px solid rgba(244,161,37,0.4);
+  color: #F4A125;
+  font-size: 11px;
+  font-weight: 700;
+}
 
 /* ---- Hero stack: title, slogan, and spotlight share the title's intrinsic width ---- */
 .unlock-hero-stack {
@@ -2134,6 +2188,8 @@ const unlockCss = `
   .unlock-hero-slogan { padding: 18px 22px; margin-top: 14px; }
   .hero-slogan-headline { font-size: 19px; }
   .hero-slogan-body { font-size: 12.5px; }
+  .hero-slogan-steps { gap: 6px; }
+  .hero-slogan-steps li { font-size: 12px; }
   .unlock-examples { padding: 40px 14px 20px; }
   .unlock-examples-title { font-size: 20px; }
 }
@@ -2143,6 +2199,8 @@ const unlockCss = `
   .unlock-hero-slogan { padding: 14px 18px; }
   .hero-slogan-headline { font-size: 16px; }
   .hero-slogan-body { font-size: 11.5px; line-height: 1.55; }
+  .hero-slogan-steps li { font-size: 11.5px; }
+  .hero-slogan-step-num { width: 18px; height: 18px; font-size: 10px; }
   .unlock-examples-title { font-size: 18px; }
 }
 .plans-block { margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(244,161,37,0.15); }
