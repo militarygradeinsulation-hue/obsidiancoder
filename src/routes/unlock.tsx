@@ -495,6 +495,73 @@ function Unlock() {
               </div>
             </section>
 
+            {/* Aetheris Universe — free with every account */}
+            <section
+              id="aetheris-universe"
+              aria-labelledby="aetheris-universe-heading"
+              className="mx-auto mt-16 w-full max-w-5xl px-4"
+              style={{ pointerEvents: "auto" }}
+            >
+              <div className="relative overflow-hidden rounded-3xl border border-[#F4A125]/25 bg-gradient-to-b from-[#171208] to-[#100F14] p-8 shadow-2xl md:p-12">
+                <div className="pointer-events-none absolute -top-24 right-0 size-72 rounded-full bg-[#F4A125]/10 blur-3xl" aria-hidden />
+                <div className="text-center">
+                  <span className="rounded-full border border-[#F4A125]/40 bg-[#F4A125]/10 px-4 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#F6B24A]">
+                    Free with every account
+                  </span>
+                  <h2 id="aetheris-universe-heading" className="mt-5 text-balance text-3xl font-semibold tracking-tight text-[#f2eee7] md:text-4xl">
+                    Aetheris Universe, included
+                  </h2>
+                  <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-[#a5a29c] md:text-base">
+                    Create a free account and the whole Aetheris Universe opens up for your business —
+                    a growing collection of tools, templates, and resources built to cover your day-to-day
+                    needs. No add-on, no upsell. It's yours the moment you sign up.
+                  </p>
+                </div>
+
+                <div className="mt-10 grid gap-5 sm:grid-cols-3">
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                    <h3 className="text-base font-semibold text-[#f2eee7]">Tools for every business need</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[#a5a29c]">
+                      Landing pages, dashboards, booking flows, internal tools — the Universe keeps
+                      growing, and members get all of it.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                    <h3 className="text-base font-semibold text-[#f2eee7]">A direct line to the developer</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[#a5a29c]">
+                      Want something specific? Saw a feature on another platform you wish you had here?
+                      Tell us — if it helps your business, we'll build it.
+                    </p>
+                  </div>
+                  <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
+                    <h3 className="text-base font-semibold text-[#f2eee7]">Requests become features</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-[#a5a29c]">
+                      Members shape the roadmap. Ask for what your business needs and watch it appear
+                      in the Universe.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+                  <a
+                    href="/auth"
+                    className="rounded-xl bg-gradient-to-b from-[#F6B24A] to-[#DD9324] px-8 py-3.5 text-[15px] font-semibold text-[#14100a] shadow-lg shadow-[#F4A125]/25 transition-transform hover:scale-[1.03]"
+                  >
+                    Create your free account
+                  </a>
+                  <a
+                    href="mailto:hello@aetheris.technology?subject=Aetheris%20Universe%20request"
+                    className="rounded-xl border border-white/20 px-8 py-3.5 text-[15px] font-semibold text-[#f2eee7] transition-colors hover:border-white/40 hover:bg-white/5"
+                  >
+                    Contact the developer
+                  </a>
+                </div>
+                <p className="mt-4 text-center text-[11px] text-[#a5a29c]/70">
+                  Free forever. No card required.
+                </p>
+              </div>
+            </section>
+
             <CompetitorComparison />
 
             {/* Product comparison: Vibe vs Pocket */}
