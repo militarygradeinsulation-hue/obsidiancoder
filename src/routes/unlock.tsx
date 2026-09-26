@@ -25,6 +25,7 @@ import PocketPromoModal from "@/components/PocketPromoModal";
 
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
+const POCKET_PRICE_ID = "obsidian_pocket_monthly";
 
 type DemoCategory = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
 const DEMO_CATEGORIES: readonly DemoCategory[] = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
