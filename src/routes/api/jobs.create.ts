@@ -63,16 +63,11 @@ export const Route = createFileRoute("/api/jobs/create")({
           requestBody: stored,
         });
 
-        // Kick it once immediately, in-process — no need to go through
-        // the HTTP /run route for this first attempt, since we're already
-        // inside a trusted server route. Not awaited: the client gets its
-        // jobId back right away and the live /api/generate call it's
-        // about to make in parallel is the fast path for the common case
-        // where the connection just stays up. This is the fallback that
-        // makes the result recoverable even when it doesn't.
-        claimAndRunBuildJob(jobId).catch(() => {
-          /* claimAndRunBuildJob already records failures on the job row itself */
-        });
+        // No immediate background kick: the live /api/generate call claims
+        // this job itself, so a parallel run here would build (and bill)
+        // the same prompt twice. The recovery sweep only picks up jobs the
+        // live request never claimed or abandoned (expired lease).
+        void claimAndRunBuildJob;
 
         return Response.json({ jobId });
       },

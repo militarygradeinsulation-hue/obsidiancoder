@@ -44,6 +44,7 @@ import {
   failBuildJob,
   cancelBuildJobRecord,
   isBuildJobCancelRequested,
+  claimBuildJob,
 } from "@/lib/build-jobs.server";
 
 
@@ -820,6 +821,18 @@ export async function handleGenerate(request: Request): Promise<Response> {
           const CORE_GENERATION_CEILING_MS = 180_000;
           coreCeilingTimer = setTimeout(() => serverAbort.abort(), CORE_GENERATION_CEILING_MS);
           jobId = data.jobId ?? null;
+          if (jobId) {
+            // Take the job's lease so the recovery sweep never starts a
+            // duplicate run while this live request is working it. A false
+            // result just means a background runner already owns it (and
+            // that runner is this very call) — continue either way.
+            try { await claimBuildJob(jobId, 300); } catch { /* best-effort */ }
+          } else {
+            // No recoverable job behind this request: a browser disconnect
+            // or Stop must end the work (and its billing) immediately.
+            if (clientAbort.aborted) serverAbort.abort();
+            else clientAbort.addEventListener("abort", () => serverAbort.abort(), { once: true });
+          }
           let lastCancelCheckAt = 0;
           let lastProgressWriteAt = 0;
           const CANCEL_CHECK_INTERVAL_MS = 2_000;

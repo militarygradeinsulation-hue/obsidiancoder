@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getBuildJob } from "@/lib/build-jobs.server";
+import { getBuildJob, requestBuildJobCancel } from "@/lib/build-jobs.server";
 import { isOwnerRequest, resolveUserFromRequest } from "@/lib/credit-gate.server";
 
 export const Route = createFileRoute("/api/jobs/$id")({
@@ -38,6 +38,21 @@ export const Route = createFileRoute("/api/jobs/$id")({
           createdAt: job.createdAt,
           completedAt: job.completedAt,
         });
+      },
+      DELETE: async ({ request, params }) => {
+        const id = params.id;
+        if (!id || !/^[0-9a-f-]{36}$/i.test(id)) {
+          return Response.json({ error: "Invalid job id" }, { status: 400 });
+        }
+        const owner = await isOwnerRequest(request);
+        const user = owner ? null : await resolveUserFromRequest(request);
+        if (!owner && !user) return Response.json({ error: "Sign in required" }, { status: 401 });
+        const job = await getBuildJob(id);
+        if (!job || (!owner && job.userId !== user?.userId)) {
+          return Response.json({ error: "Not found" }, { status: 404 });
+        }
+        await requestBuildJobCancel(id);
+        return Response.json({ ok: true });
       },
     },
   },
