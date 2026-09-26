@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { type StripeEnv, createStripeClient, getStripeErrorMessage } from "@/lib/stripe.server";
-import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS } from "@/lib/plans";
+import { tierForPriceId, PURCHASABLE_LOOKUP_KEYS, ROLLOVER_PRICE_ID } from "@/lib/plans";
 
 type CheckoutSessionResult = { clientSecret: string } | { error: string };
 type PortalSessionResult = { url: string } | { error: string };
@@ -90,7 +90,10 @@ export const createCheckoutSession = createServerFn({ method: "POST" })
       }
 
       const session = await stripe.checkout.sessions.create({
-        line_items: [{ price: stripePrice.id, quantity: 1 }],
+        line_items: [
+          { price: stripePrice.id, quantity: 1 },
+          ...(rolloverPrice ? [{ price: rolloverPrice.id, quantity: 1 }] : []),
+        ],
         mode: isRecurring ? "subscription" : "payment",
         ui_mode: "embedded_page",
         return_url: data.returnUrl,
