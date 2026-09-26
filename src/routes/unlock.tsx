@@ -334,6 +334,7 @@ function Unlock() {
               data-text="OBSIDIAN VIBE"
             >
               OBSIDIAN VIBE
+              <span className="sr-only"> — AI App Builder: build by chat, ship anywhere</span>
             </h1>
             <div
               className={cn(
