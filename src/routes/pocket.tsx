@@ -778,6 +778,15 @@ function ForgePage() {
 
   // Full reset: wipes the canvas, history, prompt and the saved session for
   // the current code so the user can start a brand-new build.
+  /** Deliberate stop: tell the server to cancel the job-backed run so it isn't finished and billed. */
+  const cancelPendingJob = React.useCallback(() => {
+    const key = pendingJobKey(libraryCode);
+    const pending = safeGet<{ jobId: string }>(key);
+    if (!pending?.jobId) return;
+    safeRemove(key);
+    authFetch(`/api/jobs/${pending.jobId}`, { method: "DELETE" }).catch(() => {});
+  }, [libraryCode, pendingJobKey]);
+
   const clearAll = React.useCallback(() => {
     if (typeof window !== "undefined") {
       const ok = window.confirm("Clear this build and start a new one? This cannot be undone.");
@@ -792,6 +801,7 @@ function ForgePage() {
     // HTML back into the sandbox right after we wipe it.
     try {
       abortRef.current?.abort();
+      cancelPendingJob();
     } catch {
       /* ignore */
     }
@@ -1296,7 +1306,8 @@ function ForgePage() {
 
   const stop = React.useCallback(() => {
     abortRef.current?.abort();
-  }, []);
+    cancelPendingJob();
+  }, [cancelPendingJob]);
 
   // ---- Prompt enhancement (real server fn + credit gate) ------------------
   const runEnhanceMode = React.useCallback(
@@ -1789,9 +1800,9 @@ function ForgePage() {
             {buildsLeft ? (
               <span
                 className="hidden rounded-md border border-[#F4A125]/30 bg-[#F4A125]/10 px-2 py-1 text-[11px] text-[#F4A125] md:inline"
-                title={`Pocket plan: ${buildsLeft.used} of ${buildsLeft.cap} builds used this month`}
+                title={`Pocket plan: ${buildsLeft.used} of ${buildsLeft.cap} credits used this month (a build uses about 10–60)`}
               >
-                {buildsLeft.remaining}/{buildsLeft.cap} builds left
+                {buildsLeft.remaining}/{buildsLeft.cap} credits left
               </span>
             ) : !paidAccess ? (
               <button
