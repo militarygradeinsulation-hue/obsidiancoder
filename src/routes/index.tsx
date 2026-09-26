@@ -3539,6 +3539,7 @@ function Index() {
 
   return (
     <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "") + (isMobile ? ` is-mobile mob-tab-${mobileTab}` : "")}>
+      <h1 className="sr-only">Obsidian Vibe — AI App Builder Workspace</h1>
       {isMobile && mobileTab === "preview" && current.html && (
         <button
           type="button"
