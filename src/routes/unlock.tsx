@@ -14,7 +14,7 @@ import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { getStripe } from "@/lib/stripe";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
-import { PLAN_TIERS } from "@/lib/plans";
+import { PLAN_TIERS, POCKET_MONTHLY_CREDITS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
