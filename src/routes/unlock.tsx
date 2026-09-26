@@ -2169,6 +2169,9 @@ const unlockCss = `
 .plans-toggle + .tier-grid { margin-top: 14px; }
 .plans-toggle-closed { margin-top: 12px; }
 .plan-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 12px; }
+.rollover-toggle { display: flex; gap: 10px; align-items: flex-start; margin: 0 0 12px; padding: 10px 12px; border: 1px solid rgba(219,134,31,.28); border-radius: 10px; background: rgba(219,134,31,.06); font-size: 13px; line-height: 1.45; cursor: pointer; }
+.rollover-toggle input { margin-top: 3px; accent-color: #db861f; }
+.rollover-toggle strong { color: #f4a125; }
 @media (max-width: 460px) { .plan-picker { grid-template-columns: 1fr; } }
 .plan-pick {
   display: flex; flex-direction: column; gap: 4px; text-align: left;
