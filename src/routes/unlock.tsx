@@ -14,7 +14,7 @@ import { CheckoutSurface } from "@/components/CheckoutSurface";
 import { EmbeddedCheckoutProvider, EmbeddedCheckout } from "@stripe/react-stripe-js";
 import { getStripe } from "@/lib/stripe";
 import { CAP_PRO_MONTHLY } from "@/lib/credit-gate";
-import { PLAN_TIERS } from "@/lib/plans";
+import { PLAN_TIERS, POCKET_MONTHLY_CREDITS } from "@/lib/plans";
 import { buildAuthUrl } from "@/lib/redirect-safe";
 import { submitFeedback } from "@/lib/feedback.functions";
 import unlockBg from "@/assets/unlock-bg.mp4.asset.json";
@@ -25,6 +25,7 @@ import PocketPromoModal from "@/components/PocketPromoModal";
 
 
 const CREATOR_PRICE_ID = "obsidian_creator_monthly";
+const POCKET_PRICE_ID = "obsidian_pocket_monthly";
 
 type DemoCategory = "App" | "Landing" | "Dashboard" | "Tool" | "Game" | "Portfolio";
 const DEMO_CATEGORIES: readonly DemoCategory[] = ["App", "Landing", "Dashboard", "Tool", "Game", "Portfolio"] as const;
@@ -749,13 +750,31 @@ function Unlock() {
                 <h2 className="unlock-headline">Think it, Type it, See it.</h2>
                 <p className="unlock-subheadline">A tool builder for people that can&apos;t code.</p>
 
-                <div className="unlock-price">
-                  <span className="price-amount">$39</span>
-                  <span className="price-cadence">/month</span>
+                <div className="plan-picker" role="radiogroup" aria-label="Choose your plan">
+                  {PLAN_TIERS.filter((t) => t.cta === "checkout" && t.priceId).map((t) => {
+                    const active = selectedPriceId === t.priceId;
+                    return (
+                      <button
+                        key={t.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={active}
+                        className={`plan-pick ${active ? "is-active" : ""}`}
+                        onClick={() => setSelectedPriceId(t.priceId!)}
+                      >
+                        <span className="plan-pick-name">Obsidian {t.name}</span>
+                        <span className="plan-pick-price">
+                          {t.price}<span className="plan-pick-cadence">{t.cadence}</span>
+                        </span>
+                        <span className="plan-pick-credits">
+                          {t.id === "pocket"
+                            ? `${POCKET_MONTHLY_CREDITS.toLocaleString()} AI credits / month`
+                            : `${CAP_PRO_MONTHLY.toLocaleString()} AI credits / month`}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
-                <p className="unlock-allowance">
-                  Includes <strong>{CAP_PRO_MONTHLY.toLocaleString()} AI credits</strong> each billing period.
-                </p>
 
                 {status && <div className="unlock-status" role="status">{status}</div>}
                 {error && <div role="alert" className="unlock-error">⚠ {error}</div>}
@@ -763,11 +782,33 @@ function Unlock() {
                 <button
                   type="button"
                   className="unlock-btn unlock-btn-primary"
-                  onClick={() => startPurchase(CREATOR_PRICE_ID)}
+                  onClick={() => startPurchase(selectedPriceId)}
                   disabled={sessionLoading}
                 >
-                  {sessionLoading ? "…" : session ? "Continue to Secure Checkout" : "Start Obsidian Vibe — $39/month"}
+                  {sessionLoading
+                    ? "…"
+                    : session
+                    ? "Continue to Secure Checkout"
+                    : selectedPriceId === POCKET_PRICE_ID
+                    ? "Start Obsidian Pocket — $10/month"
+                    : "Start Obsidian Vibe — $39/month"}
                 </button>
+
+                {!plansOpen && (
+                  <button
+                    type="button"
+                    className="plans-toggle plans-toggle-closed"
+                    aria-expanded={false}
+                    onClick={() => setPlansOpen(true)}
+                  >
+                    <span className="plans-toggle-label">
+                      <span className="plans-title">Compare all plans</span>
+                      <span className="plans-toggle-sub">Pocket · Vibe · Custom</span>
+                    </span>
+                    <span className="plans-toggle-caret" aria-hidden>▼</span>
+                  </button>
+                )}
+
 
                 {plansOpen && (
                 <div className="plans-block" aria-labelledby="plans-heading">
@@ -931,6 +972,9 @@ function Unlock() {
           <section id="panel-code" role="tabpanel" aria-labelledby="tab-code">
             <h2 className="unlock-headline compact">Private access</h2>
             <p className="unlock-allowance">Enter your access code to open the Obsidian terminal.</p>
+            <p className="unlock-allowance" style={{ opacity: 0.7 }}>
+              Paid a subscription? You don&apos;t need a code — just sign in with the email you paid with.
+            </p>
 
             <form onSubmit={onCodeSubmit} className="unlock-code-form">
               <label htmlFor="password" className="unlock-label">Access code</label>
@@ -2239,6 +2283,22 @@ const unlockCss = `
 .plans-toggle-sub { font-size: 12px; color: rgba(242,238,231,0.65); letter-spacing: 0.02em; }
 .plans-toggle-caret { color: #f4a125; font-size: 14px; }
 .plans-toggle + .tier-grid { margin-top: 14px; }
+.plans-toggle-closed { margin-top: 12px; }
+.plan-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 12px; }
+@media (max-width: 460px) { .plan-picker { grid-template-columns: 1fr; } }
+.plan-pick {
+  display: flex; flex-direction: column; gap: 4px; text-align: left;
+  padding: 12px 14px; border-radius: 12px; cursor: pointer;
+  border: 1px solid rgba(242,238,231,0.14);
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  color: #f2eee7; transition: border-color .15s ease, background .15s ease;
+}
+.plan-pick:hover { border-color: rgba(244,161,37,0.45); }
+.plan-pick.is-active { border-color: #f4a125; background: linear-gradient(180deg, rgba(244,161,37,0.16), rgba(244,161,37,0.04)); }
+.plan-pick-name { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(242,238,231,0.7); }
+.plan-pick-price { font-size: 26px; font-weight: 700; line-height: 1; color: #f4a125; }
+.plan-pick-cadence { font-size: 13px; font-weight: 500; color: rgba(242,238,231,0.6); margin-left: 3px; }
+.plan-pick-credits { font-size: 12px; color: rgba(242,238,231,0.62); }
 .unlock-topbar {
   position: sticky; top: 0; z-index: 5;
   width: 100%; max-width: min(1400px, 96vw);
