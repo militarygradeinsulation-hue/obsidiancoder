@@ -2280,6 +2280,22 @@ const unlockCss = `
 .plans-toggle-sub { font-size: 12px; color: rgba(242,238,231,0.65); letter-spacing: 0.02em; }
 .plans-toggle-caret { color: #f4a125; font-size: 14px; }
 .plans-toggle + .tier-grid { margin-top: 14px; }
+.plans-toggle-closed { margin-top: 12px; }
+.plan-picker { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 14px 0 12px; }
+@media (max-width: 460px) { .plan-picker { grid-template-columns: 1fr; } }
+.plan-pick {
+  display: flex; flex-direction: column; gap: 4px; text-align: left;
+  padding: 12px 14px; border-radius: 12px; cursor: pointer;
+  border: 1px solid rgba(242,238,231,0.14);
+  background: linear-gradient(180deg, rgba(255,255,255,0.04), rgba(255,255,255,0.01));
+  color: #f2eee7; transition: border-color .15s ease, background .15s ease;
+}
+.plan-pick:hover { border-color: rgba(244,161,37,0.45); }
+.plan-pick.is-active { border-color: #f4a125; background: linear-gradient(180deg, rgba(244,161,37,0.16), rgba(244,161,37,0.04)); }
+.plan-pick-name { font-size: 12px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(242,238,231,0.7); }
+.plan-pick-price { font-size: 26px; font-weight: 700; line-height: 1; color: #f4a125; }
+.plan-pick-cadence { font-size: 13px; font-weight: 500; color: rgba(242,238,231,0.6); margin-left: 3px; }
+.plan-pick-credits { font-size: 12px; color: rgba(242,238,231,0.62); }
 .unlock-topbar {
   position: sticky; top: 0; z-index: 5;
   width: 100%; max-width: min(1400px, 96vw);
