@@ -352,12 +352,12 @@ function Unlock() {
           <Link to="/library" className="unlock-topbar-link" title="Community Library — browse, copy and remix builds">Library</Link>
           <button type="button" className="unlock-topbar-link" onClick={() => openPanel("code")}>Access Code</button>
           <a
-            href="/?demo=1"
+            href="mailto:hello@aetheris.technology?subject=Obsidian%20Vibe%20for%20my%20business"
             className="unlock-topbar-link"
             style={{ color: "#f4a125", border: "1px solid rgba(244,161,37,0.35)" }}
-            aria-label="Try a free demo — one build, no card required"
+            aria-label="Obsidian Vibe for businesses — contact us"
           >
-            Try a Free Demo
+            Vibe for Business
           </a>
 
           {session ? (
@@ -428,18 +428,18 @@ function Unlock() {
               )}
             >
               <a
-                href="/?demo=1"
+                href="/pocket"
                 className="inline-flex items-center gap-2 rounded-lg bg-gradient-to-b from-[#F6B24A] to-[#DD9324] px-5 py-2.5 text-sm font-semibold text-[#14100a] shadow-lg shadow-[#F4A125]/20 transition-transform hover:scale-[1.03]"
               >
-                Start building free
+                Try Pocket free
                 <ArrowRight className="size-4" />
               </a>
               <a
-                href="/pocket"
+                href="mailto:hello@aetheris.technology?subject=Obsidian%20Vibe%20for%20my%20business"
                 className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-5 py-2.5 text-sm font-medium text-[#E8E6E1] transition-colors hover:border-white/30 hover:bg-white/5"
               >
                 <Sparkles className="size-4" />
-                Try Pocket
+                Vibe for Business
               </a>
             </div>
 
@@ -611,9 +611,9 @@ function Unlock() {
                     height={900}
                   />
                   <div className="unlock-compare-card-head">
-                    <span className="unlock-compare-badge">Full power</span>
+                    <span className="unlock-compare-badge">For businesses</span>
                     <h3 className="unlock-compare-card-title">Obsidian Vibe</h3>
-                    <p className="unlock-compare-card-sub">The complete builder for serious projects.</p>
+                    <p className="unlock-compare-card-sub">The complete builder for serious business projects.</p>
                   </div>
                   <ul className="unlock-compare-list">
                     <li>Multi-file project editor with version history</li>
@@ -622,8 +622,11 @@ function Unlock() {
                     <li>Co-designer chat, image uploads, and style guides</li>
                     <li>Best for polished apps, dashboards, and client work</li>
                   </ul>
-                  <a href="/?demo=1" className="unlock-compare-cta is-secondary">
-                    Try Obsidian Vibe free
+                  <a
+                    href="mailto:hello@aetheris.technology?subject=Obsidian%20Vibe%20for%20my%20business"
+                    className="unlock-compare-cta is-secondary"
+                  >
+                    Contact us for your business
                   </a>
                 </div>
 
