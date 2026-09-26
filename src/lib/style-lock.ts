@@ -43,6 +43,11 @@ function uniq(list: string[], max: number): string[] {
   return out;
 }
 
+/** Remove the Obsidian attribution footer so its fixed palette never becomes "locked" style. */
+function stripSignature(src: string): string {
+  return src.replace(/<footer\b[^>]*data-obs-build-signature[\s\S]*?<\/footer>/gi, "");
+}
+
 /** Extract a bounded, deterministic style fingerprint from a full document. */
 export function extractStyleFingerprint(html: string): StyleFingerprint {
   const src = stripSignature(typeof html === "string" ? html : "");
