@@ -127,14 +127,7 @@ function Unlock() {
       alive = false;
     };
   }, []);
-  useEffect(() => {
-    if (!pocketExpanded) return;
-    const onKey = (e: globalThis.KeyboardEvent) => {
-      if (e.key === "Escape") setPocketExpanded(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [pocketExpanded]);
+
 
   // Track auth session
   useEffect(() => {
