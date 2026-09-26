@@ -46,6 +46,9 @@ export const PLAN_TIERS: PlanTier[] = [
     outcomes: [
       `${POCKET_MONTHLY_CREDITS} AI credits every month`,
       "Full access to Obsidian Pocket",
+      "Watch your app get built live, not a loading screen",
+      "Builds survive a dropped connection — pick up right where you left off",
+      "Choose the AI model that builds your app",
       "Save every project to your account",
       "Copy and export your code, anytime",
       "Publish and share to the community library",
