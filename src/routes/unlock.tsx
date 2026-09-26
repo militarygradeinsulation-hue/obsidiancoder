@@ -274,7 +274,7 @@ function Unlock() {
           <span className="unlock-topbar-name">OBSIDIAN</span>
         </a>
         <div className="unlock-topbar-links">
-          <a href="https://businessforensics.tech/aetheris-universe" target="_blank" rel="noopener noreferrer" className="unlock-topbar-link">Aetheris Universe</a>
+          <Link to="/universe" className="unlock-topbar-link" title="Members only — included with any paid plan">Aetheris Universe 🔒</Link>
           <button type="button" className="unlock-topbar-link" onClick={() => { openPanel("buy"); setPlansOpen(true); requestAnimationFrame(() => document.getElementById("plans-heading")?.scrollIntoView({ behavior: "smooth", block: "center" })); }}>Pricing</button>
           <Link to="/pocket" className="unlock-topbar-link" title="Obsidian Pocket — simplified prompt-to-app workspace">Pocket</Link>
           <Link to="/library" className="unlock-topbar-link" title="Community Library — browse, copy and remix builds">Library</Link>
@@ -508,15 +508,15 @@ function Unlock() {
                 <div className="pointer-events-none absolute -top-24 right-0 size-72 rounded-full bg-[#F4A125]/10 blur-3xl" aria-hidden />
                 <div className="text-center">
                   <span className="rounded-full border border-[#F4A125]/40 bg-[#F4A125]/10 px-4 py-1 text-[11px] font-bold uppercase tracking-[0.2em] text-[#F6B24A]">
-                    Free with every account
+                    Included with every paid plan
                   </span>
                   <h2 id="aetheris-universe-heading" className="mt-5 text-balance text-3xl font-semibold tracking-tight text-[#f2eee7] md:text-4xl">
-                    Aetheris Universe, included
+                    Aetheris Universe, unlocked for members
                   </h2>
                   <p className="mx-auto mt-3 max-w-2xl text-sm leading-relaxed text-[#a5a29c] md:text-base">
-                    Create a free account and the whole Aetheris Universe opens up for your business —
+                    Pick any paid plan and the whole Aetheris Universe opens up for your business —
                     a growing collection of tools, templates, and resources built to cover your day-to-day
-                    needs. No add-on, no upsell. It's yours the moment you sign up.
+                    needs. No extra add-on. It's yours the moment your plan starts.
                   </p>
                 </div>
 
@@ -545,21 +545,22 @@ function Unlock() {
                 </div>
 
                 <div className="mt-10 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
-                  <a
-                    href="/auth"
+                  <button
+                    type="button"
+                    onClick={() => startPurchase(POCKET_PRICE_ID)}
                     className="rounded-xl bg-gradient-to-b from-[#F6B24A] to-[#DD9324] px-8 py-3.5 text-[15px] font-semibold text-[#14100a] shadow-lg shadow-[#F4A125]/25 transition-transform hover:scale-[1.03]"
                   >
-                    Create your free account
-                  </a>
-                  <a
-                    href="mailto:hello@aetheris.technology?subject=Aetheris%20Universe%20request"
+                    Unlock with Pocket — $10/month
+                  </button>
+                  <Link
+                    to="/universe"
                     className="rounded-xl border border-white/20 px-8 py-3.5 text-[15px] font-semibold text-[#f2eee7] transition-colors hover:border-white/40 hover:bg-white/5"
                   >
-                    Contact the developer
-                  </a>
+                    Members: enter the Universe
+                  </Link>
                 </div>
                 <p className="mt-4 text-center text-[11px] text-[#a5a29c]/70">
-                  Free forever. No card required.
+                  Locked until you have an active paid plan. Questions? <a className="underline" href="mailto:hello@aetheris.technology?subject=Aetheris%20Universe%20request">Contact the developer</a>.
                 </p>
               </div>
             </section>
