@@ -45,7 +45,7 @@ function uniq(list: string[], max: number): string[] {
 
 /** Extract a bounded, deterministic style fingerprint from a full document. */
 export function extractStyleFingerprint(html: string): StyleFingerprint {
-  const src = typeof html === "string" ? html : "";
+  const src = stripSignature(typeof html === "string" ? html : "");
 
   const tokens = uniq(
     Array.from(src.matchAll(/(--[a-z0-9-]+)\s*:\s*([^;}{]{1,80})[;}]/gi)).map(

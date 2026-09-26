@@ -167,8 +167,9 @@ export default function SphereDemoGrid({
           // Deterministic hue per id for placeholder background
           let hue = 0;
           for (let k = 0; k < it.id.length; k++) hue = (hue * 31 + it.id.charCodeAt(k)) % 360;
-          const isFront = n.opacity > 0.65;
-          const showIframe = isFront && !it.thumbnailUrl && !!it.previewUrl;
+          // Tiles always show a lightweight static card; live frames are never
+          // mounted/unmounted per rotation (that caused white flashing reloads).
+          const showIframe = false;
           return (
             <a
               key={it.id}

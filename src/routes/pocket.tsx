@@ -778,6 +778,15 @@ function ForgePage() {
 
   // Full reset: wipes the canvas, history, prompt and the saved session for
   // the current code so the user can start a brand-new build.
+  /** Deliberate stop: tell the server to cancel the job-backed run so it isn't finished and billed. */
+  const cancelPendingJob = React.useCallback(() => {
+    const key = pendingJobKey(libraryCode);
+    const pending = safeGet<{ jobId: string }>(key);
+    if (!pending?.jobId) return;
+    safeRemove(key);
+    authFetch(`/api/jobs/${pending.jobId}`, { method: "DELETE" }).catch(() => {});
+  }, [libraryCode, pendingJobKey]);
+
   const clearAll = React.useCallback(() => {
     if (typeof window !== "undefined") {
       const ok = window.confirm("Clear this build and start a new one? This cannot be undone.");
