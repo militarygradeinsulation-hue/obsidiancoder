@@ -972,6 +972,9 @@ function Unlock() {
           <section id="panel-code" role="tabpanel" aria-labelledby="tab-code">
             <h2 className="unlock-headline compact">Private access</h2>
             <p className="unlock-allowance">Enter your access code to open the Obsidian terminal.</p>
+            <p className="unlock-allowance" style={{ opacity: 0.7 }}>
+              Paid a subscription? You don&apos;t need a code — just sign in with the email you paid with.
+            </p>
 
             <form onSubmit={onCodeSubmit} className="unlock-code-form">
               <label htmlFor="password" className="unlock-label">Access code</label>
