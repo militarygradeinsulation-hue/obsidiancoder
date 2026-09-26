@@ -215,13 +215,19 @@ export async function hasActivePro(user: AuthedUser, env: Environment): Promise<
  * subscription's `price_id`. Falls back to CAP_PRO_MONTHLY when the tier
  * cannot be resolved (legacy rows, unknown price) so paying customers
  * are never denied service on a mapping gap.
+ *
+ * Credit Rollover add-on (rollover_enabled on the subscription row): the
+ * unused credits from the immediately previous billing window are added
+ * to this period's cap, capped at one month of the base allowance so
+ * credits can't accumulate without bound. Best-effort — any failure
+ * falls back to the plain base cap rather than denying service.
  */
 export async function capForUser(userId: string, env: Environment): Promise<number> {
   try {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await supabaseAdmin
       .from("subscriptions")
-      .select("price_id, promo_credit_cap")
+      .select("price_id, promo_credit_cap, rollover_enabled, current_period_start, current_period_end")
       .eq("user_id", userId)
       .eq("environment", env)
       .in("status", ["active", "trialing"])
@@ -231,12 +237,40 @@ export async function capForUser(userId: string, env: Environment): Promise<numb
     // A promo credit cap, once granted at true subscription creation, is a
     // permanent perk of that subscription — always honored ahead of the
     // standard tier cap, for as long as the subscription stays active.
+    let baseCap: number;
     if (typeof data?.promo_credit_cap === "number" && data.promo_credit_cap > 0) {
-      return data.promo_credit_cap;
+      baseCap = data.promo_credit_cap;
+    } else {
+      const tier = tierForPriceId(data?.price_id)?.id;
+      const cap = tier ? capForTier(tier) : 0;
+      baseCap = cap > 0 ? cap : CAP_PRO_MONTHLY;
     }
-    const tier = tierForPriceId(data?.price_id)?.id;
-    const cap = tier ? capForTier(tier) : 0;
-    return cap > 0 ? cap : CAP_PRO_MONTHLY;
+
+    if (!data?.rollover_enabled || !data.current_period_start || !data.current_period_end) {
+      return baseCap;
+    }
+    const periodStart = Date.parse(data.current_period_start as string);
+    const periodEnd = Date.parse(data.current_period_end as string);
+    if (!Number.isFinite(periodStart) || !Number.isFinite(periodEnd) || periodEnd <= periodStart) {
+      return baseCap;
+    }
+    const periodLength = periodEnd - periodStart;
+    const prevStart = new Date(periodStart - periodLength).toISOString();
+    const prevEnd = new Date(periodStart).toISOString();
+    const { data: prevRows } = await supabaseAdmin
+      .from("ai_usage")
+      .select("credits_charged")
+      .eq("user_id", userId)
+      .eq("environment", env)
+      .in("status", ["pending", "committed"])
+      .gte("created_at", prevStart)
+      .lt("created_at", prevEnd);
+    const prevUsed = (prevRows ?? []).reduce(
+      (sum: number, r: { credits_charged?: number }) => sum + Number(r.credits_charged ?? 0),
+      0,
+    );
+    const carryover = Math.min(Math.max(0, baseCap - prevUsed), baseCap);
+    return baseCap + carryover;
   } catch {
     return CAP_PRO_MONTHLY;
   }
