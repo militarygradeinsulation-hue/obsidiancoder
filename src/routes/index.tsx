@@ -53,6 +53,7 @@ function classifyDemoCategory(...parts: (string | undefined | null)[]): DemoCat 
 import aetherisLogo from "@/assets/aetheris-logo.png.asset.json";
 import { MODEL_PICKER_OPTIONS, DEFAULT_MODEL, resolveModel, type ModelId, type ModeId as ModelModeId } from "@/lib/models";
 import { GithubModal } from "@/components/GithubModal";
+import { PowerTools } from "@/components/PowerTools";
 import { PricingModal } from "@/components/PricingModal";
 import { UpgradeNudge, type NudgeReason } from "@/components/UpgradeNudge";
 import type { CreditsRequiredEnvelope } from "@/lib/credit-gate";
@@ -5020,6 +5021,11 @@ function Index() {
                 >
                   {expandingDraft ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
                 </button>
+                <PowerTools
+                  disabled={loading}
+                  onInsert={(text) => setInput((prev) => (prev.trim() ? `${prev.trim()}\n\n${text}` : text))}
+                  getLastReply={() => [...current.messages].reverse().find((m) => m.role === "assistant")?.content ?? ""}
+                />
                 {voice.supported && (
                   <button
                     {...composerToolProps("voice")}
