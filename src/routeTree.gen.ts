@@ -34,6 +34,7 @@ import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
 import { Route as ApiSyncRouteImport } from './routes/api/sync'
 import { Route as ApiQaRouteImport } from './routes/api/qa'
 import { Route as ApiProjectsRouteImport } from './routes/api/projects'
+import { Route as ApiPowersRouteImport } from './routes/api/powers'
 import { Route as ApiPatchRouteImport } from './routes/api/patch'
 import { Route as ApiMemoryRouteImport } from './routes/api/memory'
 import { Route as ApiHealthRouteImport } from './routes/api/health'
@@ -193,6 +194,11 @@ const ApiQaRoute = ApiQaRouteImport.update({
 const ApiProjectsRoute = ApiProjectsRouteImport.update({
   id: '/api/projects',
   path: '/api/projects',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPowersRoute = ApiPowersRouteImport.update({
+  id: '/api/powers',
+  path: '/api/powers',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPatchRoute = ApiPatchRouteImport.update({
@@ -407,6 +413,7 @@ export interface FileRoutesByFullPath {
   '/api/health': typeof ApiHealthRoute
   '/api/memory': typeof ApiMemoryRoute
   '/api/patch': typeof ApiPatchRoute
+  '/api/powers': typeof ApiPowersRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/qa': typeof ApiQaRoute
   '/api/sync': typeof ApiSyncRoute
@@ -469,6 +476,7 @@ export interface FileRoutesByTo {
   '/api/health': typeof ApiHealthRoute
   '/api/memory': typeof ApiMemoryRoute
   '/api/patch': typeof ApiPatchRoute
+  '/api/powers': typeof ApiPowersRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/qa': typeof ApiQaRoute
   '/api/sync': typeof ApiSyncRoute
@@ -532,6 +540,7 @@ export interface FileRoutesById {
   '/api/health': typeof ApiHealthRoute
   '/api/memory': typeof ApiMemoryRoute
   '/api/patch': typeof ApiPatchRoute
+  '/api/powers': typeof ApiPowersRoute
   '/api/projects': typeof ApiProjectsRoute
   '/api/qa': typeof ApiQaRoute
   '/api/sync': typeof ApiSyncRoute
@@ -596,6 +605,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/memory'
     | '/api/patch'
+    | '/api/powers'
     | '/api/projects'
     | '/api/qa'
     | '/api/sync'
@@ -658,6 +668,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/memory'
     | '/api/patch'
+    | '/api/powers'
     | '/api/projects'
     | '/api/qa'
     | '/api/sync'
@@ -720,6 +731,7 @@ export interface FileRouteTypes {
     | '/api/health'
     | '/api/memory'
     | '/api/patch'
+    | '/api/powers'
     | '/api/projects'
     | '/api/qa'
     | '/api/sync'
@@ -783,6 +795,7 @@ export interface RootRouteChildren {
   ApiHealthRoute: typeof ApiHealthRoute
   ApiMemoryRoute: typeof ApiMemoryRoute
   ApiPatchRoute: typeof ApiPatchRoute
+  ApiPowersRoute: typeof ApiPowersRoute
   ApiProjectsRoute: typeof ApiProjectsRoute
   ApiQaRoute: typeof ApiQaRoute
   ApiSyncRoute: typeof ApiSyncRoute
@@ -990,6 +1003,13 @@ declare module '@tanstack/react-router' {
       path: '/api/projects'
       fullPath: '/api/projects'
       preLoaderRoute: typeof ApiProjectsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/powers': {
+      id: '/api/powers'
+      path: '/api/powers'
+      fullPath: '/api/powers'
+      preLoaderRoute: typeof ApiPowersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/patch': {
@@ -1303,6 +1323,7 @@ const rootRouteChildren: RootRouteChildren = {
   ApiHealthRoute: ApiHealthRoute,
   ApiMemoryRoute: ApiMemoryRoute,
   ApiPatchRoute: ApiPatchRoute,
+  ApiPowersRoute: ApiPowersRoute,
   ApiProjectsRoute: ApiProjectsRoute,
   ApiQaRoute: ApiQaRoute,
   ApiSyncRoute: ApiSyncRoute,
