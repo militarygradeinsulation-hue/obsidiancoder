@@ -789,7 +789,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
     results.push(assert(cg.capForPlan("free") === 0 && cg.capForPlan("pro") === 1000, "credit-gate: plan caps"));
     const env = cg.creditsRequiredEnvelope({ code: "credits_required", operation: "generate_html", used: 1000, cap: 1000, needed: 10 });
     results.push(assert(cg.isCreditsRequiredEnvelope(env), "credit-gate: envelope guard"));
-    results.push(assert(env.suggestedPriceId === "obsidian_creator_monthly", "credit-gate: suggests Creator price on 402"));
+    results.push(assert(env.suggestedPriceId === "obsidian_pocket_monthly", "credit-gate: suggests Pocket price on 402"));
     results.push(assert(env.remaining === 0, "credit-gate: envelope computes remaining"));
 
     // creditsForUsd — actual/estimated/minimum + failure = 0
@@ -1020,8 +1020,8 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
 
     // 402 envelope shape — client decoder must recognize denial responses.
     const env402 = cg.creditsRequiredEnvelope({ code: "not_pro", operation: "generate_html" });
-    results.push(assert(env402.ok === false && env402.suggestedPriceId === "obsidian_creator_monthly",
-      "entitlement: not_pro envelope suggests obsidian_creator_monthly"));
+    results.push(assert(env402.ok === false && env402.suggestedPriceId === "obsidian_pocket_monthly",
+      "entitlement: not_pro envelope suggests obsidian_pocket_monthly"));
     results.push(assert(cg.isCreditsRequiredEnvelope(env402), "entitlement: envelope round-trips through detector"));
 
     // ─── plan catalog: tier ↔ price mapping + legacy compat ───────────────
