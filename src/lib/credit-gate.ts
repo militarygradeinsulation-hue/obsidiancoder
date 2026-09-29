@@ -213,7 +213,7 @@ export function creditsRequiredEnvelope(args: {
     cap: args.cap,
     remaining,
     suggestedPriceId: args.code === "not_pro" || args.code === "credits_required" || args.code === "free_demo_used" || args.code === "free_demo_unavailable"
-      ? "obsidian_creator_monthly"
+      ? "obsidian_pocket_monthly"
       : undefined,
   };
 }
