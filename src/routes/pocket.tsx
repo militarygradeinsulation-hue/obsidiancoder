@@ -2267,31 +2267,6 @@ function ForgePage() {
                   <Rocket size={13} /> {demoLive ? "On Demos" : "Push to Demos"}
                 </button>
               )}
-              <CloudMemoryButton
-                  canUse
-                  buildIgnoresMemory={liveSync.cloudMemory && !memoryHost.usesMemory}
-                  notReadyReason={
-                    !authUserId
-                      ? "Sign in with your account to use Cloud Memory for this build."
-                      : !cloudProjectId
-                        ? "Save this build first — Cloud Memory attaches to a saved cloud build."
-                        : undefined
-                  }
-                  cloudMemory={liveSync.cloudMemory}
-                  teamCodeSet={liveSync.teamCodeSet}
-                  live={liveSync.live}
-                  shareSlug={liveSync.shareSlug}
-                  entries={liveSync.entries}
-                  lastUpdate={liveSync.lastUpdate}
-                  lastBy={liveSync.lastBy}
-                  busy={liveSync.busy}
-                  onToggle={(on) => liveSync.setCloudMemory(on)}
-                  onSetCode={(teamCode) => liveSync.setCloudMemory(true, teamCode)}
-                  onReset={() => liveSync.resetCloudMemory()}
-                  onGoLive={() => { void liveSync.toggleLive(); }}
-                  className={btn}
-                />
-
             </div>
           </div>
 
@@ -2516,6 +2491,33 @@ function ForgePage() {
                 Shortcuts: ⌘/Ctrl+Enter generate · ⌘/Ctrl+S save · ⌘/Ctrl+K advanced · ⌘/Ctrl+/
                 focus prompt
               </p>
+              <div className="border-t border-white/10 pt-3">
+                <p className="mb-2 text-xs text-[#B6BCC8]">Cloud Memory (advanced)</p>
+                <CloudMemoryButton
+                  canUse
+                  buildIgnoresMemory={liveSync.cloudMemory && !memoryHost.usesMemory}
+                  notReadyReason={
+                    !authUserId
+                      ? "Sign in with your account to use Cloud Memory for this build."
+                      : !cloudProjectId
+                        ? "Save this build first — Cloud Memory attaches to a saved cloud build."
+                        : undefined
+                  }
+                  cloudMemory={liveSync.cloudMemory}
+                  teamCodeSet={liveSync.teamCodeSet}
+                  live={liveSync.live}
+                  shareSlug={liveSync.shareSlug}
+                  entries={liveSync.entries}
+                  lastUpdate={liveSync.lastUpdate}
+                  lastBy={liveSync.lastBy}
+                  busy={liveSync.busy}
+                  onToggle={(on) => liveSync.setCloudMemory(on)}
+                  onSetCode={(teamCode) => liveSync.setCloudMemory(true, teamCode)}
+                  onReset={() => liveSync.resetCloudMemory()}
+                  onGoLive={() => { void liveSync.toggleLive(); }}
+                  className={btn}
+                />
+              </div>
             </section>
           )}
         </main>
