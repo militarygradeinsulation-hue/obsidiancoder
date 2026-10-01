@@ -214,7 +214,10 @@ export function creditsRequiredEnvelope(args: {
     used: args.used,
     cap: args.cap,
     remaining,
-    suggestedPriceId: args.code === "not_pro" || args.code === "credits_required" || args.code === "free_demo_used" || args.code === "free_demo_unavailable" || args.code === "free_open_cap_reached"
+    // credits_required is only issued to callers who already hold a paid
+    // plan, so preselecting Pocket would sell them the plan they own. Leave
+    // it unset so the pricing modal shows the plan list instead.
+    suggestedPriceId: args.code === "not_pro" || args.code === "free_demo_used" || args.code === "free_demo_unavailable" || args.code === "free_open_cap_reached"
       ? "obsidian_pocket_monthly"
       : undefined,
   };
