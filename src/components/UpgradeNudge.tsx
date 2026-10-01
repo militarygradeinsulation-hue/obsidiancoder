@@ -8,7 +8,7 @@ import { useState } from "react";
 import { X, Zap, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { CreditsRequiredEnvelope } from "@/lib/credit-gate";
-import { getTierById } from "@/lib/plans";
+import { tierForPriceId, capForTier } from "@/lib/plans";
 
 export type NudgeReason =
   | "daily_limit"    // credits_required after free daily build
@@ -22,34 +22,32 @@ interface Props {
   onDismiss: () => void;
 }
 
-// Prices render from PLAN_TIERS (the same source checkout, the homepage, and
-// the pricing modal use) so this nudge can never quote a price checkout
-// won't honor. If the tier record disappears, degrade to "See plans".
-const upgradeTier = getTierById("vibe");
-const upgradeCta = upgradeTier ? `Upgrade to ${upgradeTier.name} — ${upgradeTier.price}${upgradeTier.cadence}` : "See plans";
-
-const COPY: Record<NudgeReason, { headline: string; sub: string; cta: string }> = {
-  daily_limit: {
-    headline: "You built something. Keep going.",
-    sub: "Your free build for today is used. Upgrade for 1,000 AI credits every month — unlimited builds, cloud saves, and deploy.",
-    cta: upgradeCta,
-  },
-  demo_used: {
-    headline: "Ready to build for real?",
-    sub: "Your free demo is complete. Create a free account and get one AI build every day, or upgrade for unlimited.",
-    cta: "Create account or upgrade",
-  },
-  not_pro: {
-    headline: "This feature requires an upgrade.",
-    sub: "Upgrade for 1,000 AI credits/month, cloud saves, GitHub export, and deploy.",
-    cta: "See plans",
-  },
-};
+// Copy is derived from the SAME tier the button will open (envelope's
+// suggestedPriceId → PLAN_TIERS), so the CTA can never quote a plan that
+// differs from the checkout. With no suggested tier (e.g. a paid user who
+// ran out of credits), the button opens the plan list instead.
+function copyFor(reason: NudgeReason, priceId?: string): { headline: string; sub: string; cta: string } {
+  const tier = priceId ? tierForPriceId(priceId) : undefined;
+  const credits = tier ? capForTier(tier.id) : 0;
+  const tierCta = tier ? `Get ${tier.name} — ${tier.price}${tier.cadence ?? ""}` : "See plans";
+  const tierLine = tier && credits ? `${tier.name} includes ${credits.toLocaleString()} AI credits every month, cloud saves, and deploy.` : "";
+  switch (reason) {
+    case "daily_limit":
+      return tier
+        ? { headline: "You built something. Keep going.", sub: `Your free build for today is used. ${tierLine}`, cta: tierCta }
+        : { headline: "You've used this month's credits.", sub: "Your plan's monthly credits are used up. See plans to get more, or keep editing locally for free.", cta: "See plans" };
+    case "demo_used":
+      return { headline: "Ready to build for real?", sub: "Your free demo is complete. Create a free account and get one AI build every day, or upgrade for more.", cta: tier ? tierCta : "Create account or upgrade" };
+    case "not_pro":
+    default:
+      return { headline: "This feature requires an upgrade.", sub: tierLine || "Upgrade for AI credits, cloud saves, GitHub export, and deploy.", cta: tierCta };
+  }
+}
 
 export function UpgradeNudge({ reason, envelope, onUpgrade, onDismiss }: Props) {
   const [leaving, setLeaving] = useState(false);
-  const copy = COPY[reason];
   const suggestedPriceId = envelope?.suggestedPriceId;
+  const copy = copyFor(reason, suggestedPriceId);
 
   function dismiss() {
     setLeaving(true);

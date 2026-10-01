@@ -30,7 +30,7 @@ export const Route = createFileRoute("/demos")({
   errorComponent: ({ error, reset }) => (
     <div style={{ padding: 32, color: "#f2eee7", background: "#111317", minHeight: "100vh" }}>
       <h1>Couldn't load demos admin</h1>
-      <p style={{ color: "#B6BCC8" }}>{error.message}</p>
+      <p style={{ color: "#B6BCC8" }}>{error instanceof Error ? error.message : String(error)}</p>
       <button onClick={reset}>Try again</button>
     </div>
   ),

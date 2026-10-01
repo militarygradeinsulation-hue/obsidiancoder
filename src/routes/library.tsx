@@ -44,7 +44,7 @@ export const Route = createFileRoute("/library")({
   errorComponent: ({ error, reset }) => (
     <div className="min-h-screen bg-[#08090b] p-8 text-[#f2eee7]">
       <h1 className="text-xl font-semibold">Couldn't load the library</h1>
-      <p className="mt-2 text-sm text-[#B6BCC8]">{error.message}</p>
+      <p className="mt-2 text-sm text-[#B6BCC8]">{error instanceof Error ? error.message : String(error)}</p>
       <button type="button" className="mt-4 rounded-md border border-white/15 px-3 py-1.5 text-sm" onClick={reset}>
         Try again
       </button>
