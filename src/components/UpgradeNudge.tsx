@@ -8,7 +8,7 @@ import { useState } from "react";
 import { X, Zap, ArrowRight } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import type { CreditsRequiredEnvelope } from "@/lib/credit-gate";
-import { getTierByPriceId, capForTier } from "@/lib/plans";
+import { tierForPriceId, capForTier } from "@/lib/plans";
 
 export type NudgeReason =
   | "daily_limit"    // credits_required after free daily build
@@ -27,7 +27,7 @@ interface Props {
 // differs from the checkout. With no suggested tier (e.g. a paid user who
 // ran out of credits), the button opens the plan list instead.
 function copyFor(reason: NudgeReason, priceId?: string): { headline: string; sub: string; cta: string } {
-  const tier = priceId ? getTierByPriceId(priceId) : undefined;
+  const tier = priceId ? tierForPriceId(priceId) : undefined;
   const credits = tier ? capForTier(tier.id) : 0;
   const tierCta = tier ? `Get ${tier.name} — ${tier.price}${tier.cadence ?? ""}` : "See plans";
   const tierLine = tier && credits ? `${tier.name} includes ${credits.toLocaleString()} AI credits every month, cloud saves, and deploy.` : "";
