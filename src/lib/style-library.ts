@@ -18,6 +18,7 @@ MASTER RULES (non-negotiable, apply to every archetype):
 8. Copy: active voice, sentence case, plain verbs. Buttons say what they do ("Get the audit", not "Submit"). No lorem ipsum.
 9. Consistent lighting and style across every image slot in one build.
 10. Max one icon set (Lucide-style inline SVG), consistent stroke width, sized to the type scale.
+11. QUALITY BAR: every build should look like it belongs on 21st.dev or in a shadcn/ui showcase — the component-level polish of a premium, funded SaaS product, not a prototype. Concretely: borders at low opacity (8-12%) rather than solid lines, shadows that are soft and layered rather than one hard drop-shadow, consistent spacing from the 8px scale on every element (no eyeballed padding), buttons and inputs sized and rounded consistently with each other, hover and focus states on every interactive element, and restraint — one confident accent color used deliberately, not several competing for attention. If in doubt, build it plainer and more precise rather than busier.
 
 SELECTION LOGIC (pick by subject, not by what looks cool):
 - AI / dev tools / infra → A1 or A7
@@ -59,8 +60,8 @@ LAYOUT: hero asymmetric photo grid, overlapping images at different sizes, headl
 MOTION: images parallax at subtle 0.9-1.1 factors. Headline reveals via clip-path wipe. Hover: image scales 1.03 inside a fixed frame, 400ms ease.
 IMAGE PROMPT: "Editorial fashion photography, [subject], natural window light, muted warm tones, shot on medium format, shallow depth of field, magazine quality, no text"
 
-A5. LUXURY MINIMAL SERIF (real estate, architecture, hospitality, high-ticket services — also the Aetheris/Obsidian house style)
-TOKENS: commit to ONE — bg #0F0F0D (dark) or #F7F5F1 (light) | text #E8E4DC on dark / #1A1915 on light | muted #8C877C | accent #B29A6B (muted brass) — ONLY for hairlines and hover states | radius 0-4px | shadow NONE (depth comes from photography)
+A5. LUXURY MINIMAL SERIF (real estate, architecture, hospitality, high-ticket services)
+TOKENS: commit to ONE — bg #0F0F0D (dark) or #F7F5F1 (light) | text #E8E4DC on dark / #1A1915 on light | muted #8C877C | accent #2A5F4A (deep emerald) — ONLY for hairlines and hover states | radius 0-4px | shadow NONE (depth comes from photography)
 TYPE: display Cormorant 400 or Canela-style serif, large and airy, letterspacing 0.01em | body a quiet grotesk — Suisse-style, Aeonik, or Figtree 300/400
 LAYOUT: hero full-bleed photograph, headline overlaid in serif, nav nearly invisible. Slow and spacious. Section padding 160px+. Single large image + short text blocks. Numbered project index if listing work.
 MOTION: hero image slow zoom-out from 1.06→1.0 over 2s. Text fades up after. Scroll fade only, no bounce or slide. Ease 600-800ms.

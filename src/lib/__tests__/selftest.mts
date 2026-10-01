@@ -124,14 +124,14 @@ ok(axisDiff(THEMES[0], THEMES[5]) >= 4, 'Dark Tech vs Brutalist differ broadly')
 const { pickArchetype, fnv1a } = await import('../theme-director');
 ok(fnv1a('obsidian') === fnv1a('obsidian'), 'hash is deterministic');
 const p1 = pickArchetype('accounting dashboard for a CPA firm');
-ok(['A3', 'A7', 'A5'].includes(p1.id), 'trust vertical stays in its subject pool');
+ok(['A3', 'A7', 'A1'].includes(p1.id), 'trust vertical stays in its subject pool');
 ok(p1.directive.includes(p1.id) && p1.directive.includes('no substitutes'), 'directive names the pick and forbids substitution');
 const p2 = pickArchetype('accounting dashboard for a CPA firm');
 ok(p1.id === p2.id, 'same prompt, same recent state -> same pick');
 const p3 = pickArchetype('accounting dashboard for a CPA firm', [p1.id]);
 ok(p3.id !== p1.id, 'rotation avoids the recent pick when alternatives exist');
-const p4 = pickArchetype('accounting dashboard for a CPA firm', ['A3', 'A7', 'A5']);
-ok(['A3', 'A7', 'A5'].includes(p4.id), 'exhausted rotation falls back to the full pool');
+const p4 = pickArchetype('accounting dashboard for a CPA firm', ['A3', 'A7', 'A1']);
+ok(['A3', 'A7', 'A1'].includes(p4.id), 'exhausted rotation falls back to the full pool');
 
 /* ---------- pocket memory extractor (8) ---------- */
 const { extractMemoryFromPrompt, updateMemoryFromPrompt, hasMemory, memorySummary } = await import("../pocket-memory");

@@ -31,7 +31,7 @@ const ARCHETYPE_NAMES: Record<string, string> = {
 /** Subject pools: every pool has >=3 members so rotation has room. */
 const POOLS: Array<{ match: RegExp; pool: string[] }> = [
   { match: /\b(crypto|nft|token|web3|blockchain|gaming|game)\b/i, pool: ['A2', 'A1', 'A7'] },
-  { match: /\b(accounting|hr|payroll|finance|analytics|dashboard|ops|b2b|crm|invoic)/i, pool: ['A3', 'A7', 'A5'] },
+  { match: /\b(accounting|hr|payroll|finance|analytics|dashboard|ops|b2b|crm|invoic)/i, pool: ['A3', 'A7', 'A1'] },
   { match: /\b(fashion|portfolio|photograph|creator|lookbook|apparel|model)\b/i, pool: ['A4', 'A5', 'A6'] },
   { match: /\b(real ?estate|architect|hospitality|hotel|luxury|villa|interior)\b/i, pool: ['A5', 'A4', 'A3'] },
   { match: /\b(edtech|education|school|kids|community|course|learn)\b/i, pool: ['A6', 'A8', 'A4'] },
