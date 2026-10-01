@@ -172,7 +172,7 @@ export class ReservationLedger {
 /** Client-facing envelope for a 402 response. */
 export interface CreditsRequiredEnvelope {
   ok: false;
-  code: "credits_required" | "not_pro" | "auth_required" | "free_demo_used" | "free_demo_unavailable";
+  code: "credits_required" | "not_pro" | "auth_required" | "free_demo_used" | "free_demo_unavailable" | "free_open_cap_reached";
   message: string;
   operation?: Operation;
   needed?: number;
@@ -206,13 +206,15 @@ export function creditsRequiredEnvelope(args: {
             ? "Your free demo is complete. Sign in or upgrade to keep building."
             : args.code === "free_demo_unavailable"
               ? "The free demo is temporarily unavailable. Please sign in or upgrade to keep building."
-              : `Monthly credit limit reached. Free local editing remains available.`),
+              : args.code === "free_open_cap_reached"
+                ? "You've used your free builds for today. Come back tomorrow, or sign in for more."
+                : `Monthly credit limit reached. Free local editing remains available.`),
     operation: args.operation,
     needed: args.needed,
     used: args.used,
     cap: args.cap,
     remaining,
-    suggestedPriceId: args.code === "not_pro" || args.code === "credits_required" || args.code === "free_demo_used" || args.code === "free_demo_unavailable"
+    suggestedPriceId: args.code === "not_pro" || args.code === "credits_required" || args.code === "free_demo_used" || args.code === "free_demo_unavailable" || args.code === "free_open_cap_reached"
       ? "obsidian_pocket_monthly"
       : undefined,
   };
@@ -224,7 +226,7 @@ export function isCreditsRequiredEnvelope(v: unknown): v is CreditsRequiredEnvel
   return o.ok === false && (
     o.code === "credits_required" || o.code === "not_pro" ||
     o.code === "auth_required"    || o.code === "free_demo_used" ||
-    o.code === "free_demo_unavailable"
+    o.code === "free_demo_unavailable" || o.code === "free_open_cap_reached"
   );
 }
 

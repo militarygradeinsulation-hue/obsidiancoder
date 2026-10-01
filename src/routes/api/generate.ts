@@ -713,9 +713,28 @@ export async function handleGenerate(request: Request): Promise<Response> {
 
           // Obsidian Pocket is a completely free surface — no credits, no
           // sign-in, no one-shot demo ledger. It opts in with x-obs-free.
+          // Rate-limited by a generous rolling-window cap per fingerprint
+          // (free-open.server.ts), not a hard sign-in wall — see that
+          // file's header for why this exists and why it fails open.
           if (request.headers.get("x-obs-free") === "1") {
             const { serverStripeEnv: _envFree } = await import("@/lib/credit-gate.server");
-            entitlement = { kind: "free_open", env: _envFree(), requestId };
+            const envForFreeOpen = _envFree();
+            const { claimFreeOpen, FREE_OPEN_DAILY_CAP } = await import("@/lib/free-open.server");
+            const claim = await claimFreeOpen(request, envForFreeOpen);
+            if (claim.ok) {
+              entitlement = { kind: "free_open", env: envForFreeOpen, requestId };
+            } else {
+              const { creditsRequiredEnvelope } = await import("@/lib/credit-gate");
+              return denialResponse(
+                creditsRequiredEnvelope({
+                  code: "free_open_cap_reached",
+                  operation: op,
+                  message: `You've used your ${FREE_OPEN_DAILY_CAP} free builds for today. Come back tomorrow, or sign in for more.`,
+                }),
+                requestId,
+                claim.setCookieHeader ? { "Set-Cookie": claim.setCookieHeader } : undefined,
+              );
+            }
           }
 
           // Free-demo path — one full generate_html per browser fingerprint.
