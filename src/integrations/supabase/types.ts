@@ -458,6 +458,30 @@ export type Database = {
         }
         Relationships: []
       }
+      free_open_usage: {
+        Row: {
+          environment: string
+          fingerprint: string
+          id: string
+          ip_prefix: string | null
+          used_at: string
+        }
+        Insert: {
+          environment: string
+          fingerprint: string
+          id?: string
+          ip_prefix?: string | null
+          used_at?: string
+        }
+        Update: {
+          environment?: string
+          fingerprint?: string
+          id?: string
+          ip_prefix?: string | null
+          used_at?: string
+        }
+        Relationships: []
+      }
       one_time_purchases: {
         Row: {
           amount_paid: number
@@ -884,6 +908,16 @@ export type Database = {
       }
       claim_free_demo: {
         Args: { _environment: string; _fingerprint: string; _ip_prefix: string }
+        Returns: boolean
+      }
+      claim_free_open: {
+        Args: {
+          _daily_cap: number
+          _environment: string
+          _fingerprint: string
+          _ip_prefix: string
+          _window_hours?: number
+        }
         Returns: boolean
       }
       commit_credits: {
