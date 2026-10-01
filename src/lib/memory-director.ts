@@ -79,24 +79,49 @@ RULES:
 2. Register \`ObsidianMemory.onChange\` BEFORE first render. A build that writes but never listens looks broken to a second viewer.
 3. On load, read initial state with \`await ObsidianMemory.list()\` (or \`.get\`) and render from it. Never assume an empty start.
 4. FORBIDDEN as storage: localStorage, sessionStorage, IndexedDB, cookies, Firebase, Firestore, Supabase, or any external database/API. The build runs inside a sandboxed, opaque-origin iframe: browser storage throws, external SDKs fail to initialize (often a blank page), and none of them sync across devices.
-5. Use stable, descriptive keys ("tasks", "messages", "settings"). For collections store ONE array under ONE key, not one key per item.
-6. Writes are last-write-wins. For append-style data, read the current array, append, write the whole array back.
+5. COLLECTIONS (a CRM's customers, a tracker's tasks, a board's cards, any list of similarly-shaped records): give each record its OWN key, namespaced with a stable prefix and a unique id -- \`customer:<id>\`, \`task:<id>\`, \`card:<id>\`. Never store a collection as one array under one key. This is the difference between a real system and a shell: with per-record keys, adding, editing, or deleting ONE record is a single isolated write that touches nothing else, and two people editing two different records can never clobber each other. With one array under one key, every edit reads the whole collection, mutates it, and writes the whole thing back -- and a second person's concurrent edit to a DIFFERENT record silently vanishes the moment your write lands after theirs.
+6. SINGLE VALUES (one settings object, one running counter, one config) still use one plain key -- the per-record rule is specifically for collections.
+7. Use \`crypto.randomUUID()\` for new record ids (available in the sandbox). Never reuse an array index as an id -- it is not stable once an item is removed.
+8. List a collection by reading \`await ObsidianMemory.list()\` once and filtering client-side for keys starting with its prefix (e.g. \`key.startsWith("task:")\`). Keep that filtered list in local state and update it incrementally from \`onChange\` rather than re-filtering the whole list on every event.
 
-WORKED EXAMPLE (message list):
-  let messages = [];
-  function render() { /* paint messages */ }
+WORKED EXAMPLE (task list -- collection, per-record keys):
+  let tasks = {};  // id -> task, the in-memory mirror of every "task:<id>" record
+  function render() { /* paint Object.values(tasks) */ }
   ObsidianMemory.onChange((key, value) => {
-    if (key === "messages") { messages = value || []; render(); }
+    if (!key.startsWith("task:")) return;
+    const id = key.slice("task:".length);
+    if (value === null) delete tasks[id]; else tasks[id] = value;
+    render();
   });
   (async () => {
-    messages = (await ObsidianMemory.get("messages")) || [];
+    for (const row of await ObsidianMemory.list()) {
+      if (row.key.startsWith("task:")) tasks[row.key.slice("task:".length)] = row.value;
+    }
     render();
   })();
-  async function send(text) {
-    messages = [...messages, { text, at: Date.now() }];
-    await ObsidianMemory.set("messages", messages);
+  async function addTask(text) {
+    const id = crypto.randomUUID();
+    const task = { id, text, done: false, at: Date.now() };
+    tasks[id] = task;             // paint immediately, don't wait on the round trip
     render();
+    await ObsidianMemory.set("task:" + id, task);
   }
+  async function toggleTask(id) {
+    tasks[id] = { ...tasks[id], done: !tasks[id].done };
+    render();
+    await ObsidianMemory.set("task:" + id, tasks[id]);
+  }
+  async function removeTask(id) {
+    delete tasks[id];
+    render();
+    await ObsidianMemory.delete("task:" + id);
+  }
+
+WORKED EXAMPLE (settings -- single value, one key):
+  let settings = {};
+  ObsidianMemory.onChange((key, value) => { if (key === "settings") { settings = value || {}; render(); } });
+  (async () => { settings = (await ObsidianMemory.get("settings")) || {}; render(); })();
+  async function saveSettings(next) { settings = next; render(); await ObsidianMemory.set("settings", settings); }
 ${correction}`.trim();
 }
 

@@ -26,7 +26,7 @@ REQUIRED PATTERN:
 3. Register \`ObsidianMemory.onChange((key, value) => { /* merge + re-render */ })\` so a teammate's change updates this screen live.
 State must be derived from memory, not held only in JS variables.
 
-KEYS: use stable, namespaced keys ("tasks", "messages", "settings"). For collections, store ONE array under ONE key rather than one key per item.`;
+KEYS: use stable, namespaced keys ("settings", "config") for single values. For a COLLECTION of similarly-shaped records (tasks, customers, messages, any list), give each record its OWN key with a prefix and a unique id — \`task:<id>\`, \`customer:<id>\` — generated with \`crypto.randomUUID()\`. Never store a collection as one array under one key: that forces every single edit to rewrite the whole collection, and silently drops a second person's concurrent edit to a different record. List a collection by reading \`ObsidianMemory.list()\` once and filtering client-side for keys starting with its prefix.`;
 }
 
 export default memoryDirective;
