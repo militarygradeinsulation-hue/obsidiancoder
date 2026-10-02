@@ -393,6 +393,10 @@ function ForgePage() {
   const runCritique = useServerFn(critiquePocketBuild);
 
   const html = entryHtml(project);
+  // Always-current html, readable from async work that outlives a render
+  // (post-generation image fill must not overwrite a newer build).
+  const htmlRef = React.useRef(html);
+  htmlRef.current = html;
   // Shared project identity for Studio / Brain / Agent.
   const pocketMemoryText = memoryToPrompt(pocketMemory);
   React.useEffect(() => {
@@ -1266,6 +1270,39 @@ function ForgePage() {
       log(
         `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"}`,
       );
+
+      // ---- 6. Real photography (non-blocking) -----------------------------
+      // The page is already on screen. If the model marked image slots
+      // (data-obs-image), generate real images for them now and swap them in
+      // without blocking or re-running the build. Every failure is silent:
+      // the placeholder simply stays. See src/lib/image-slots.ts.
+      if (/data-obs-image\s*=/.test(finalHtml) && !/data-obs-image-filled/.test(finalHtml)) {
+        const builtHtml = finalHtml;
+        const fillLabel = `${label} · photography`;
+        setStatus("Ready · adding photography…");
+        void (async () => {
+          try {
+            const res = await authFetch("/api/images/fill", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...(paidAccess ? {} : { "x-obs-free": "1" }) },
+              body: JSON.stringify({ html: builtHtml }),
+            });
+            if (!res.ok) return;
+            const out = (await res.json()) as { html?: unknown; filled?: unknown };
+            if (typeof out.html !== "string" || typeof out.filled !== "number" || out.filled < 1) return;
+            // Only land if the user is still looking at this exact build.
+            if (htmlRef.current !== builtHtml) return;
+            const withImages = out.html;
+            setProject((prev) => (entryHtml(prev) === builtHtml ? setEntryHtml(prev, withImages) : prev));
+            setVersions((prev) => pushVersion(prev, makeForgeVersion(withImages, fillLabel)));
+            log(`Added ${out.filled} generated image${out.filled === 1 ? "" : "s"}`);
+          } catch {
+            /* images are an enhancement; the build is already complete */
+          } finally {
+            setStatus((s) => (s === "Ready · adding photography…" ? "Ready" : s));
+          }
+        })();
+      }
 
     } catch (err) {
       if ((err as { name?: string })?.name === "AbortError") {

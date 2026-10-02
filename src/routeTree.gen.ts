@@ -46,6 +46,7 @@ import { Route as TeamSlugRouteImport } from './routes/team.$slug'
 import { Route as Char91DotlovableChar93OauthConsentRouteImport } from './routes/[.lovable]/oauth/consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as ApiDashboardStatsRouteImport } from './routes/api/dashboard/stats'
+import { Route as ApiImagesFillRouteImport } from './routes/api/images.fill'
 import { Route as ApiJobsIdRouteImport } from './routes/api/jobs.$id'
 import { Route as ApiJobsCreateRouteImport } from './routes/api/jobs.create'
 import { Route as ApiPublicBaselineRouteImport } from './routes/api/public/baseline'
@@ -260,6 +261,11 @@ const ApiDashboardStatsRoute = ApiDashboardStatsRouteImport.update({
   path: '/api/dashboard/stats',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiImagesFillRoute = ApiImagesFillRouteImport.update({
+  id: '/api/images/fill',
+  path: '/api/images/fill',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiJobsIdRoute = ApiJobsIdRouteImport.update({
   id: '/api/jobs/$id',
   path: '/api/jobs/$id',
@@ -423,6 +429,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof Char91DotlovableChar93OauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
+  '/api/images/fill': typeof ApiImagesFillRoute
   '/api/jobs/$id': typeof ApiJobsIdRoute
   '/api/jobs/create': typeof ApiJobsCreateRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
@@ -486,6 +493,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof Char91DotlovableChar93OauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
+  '/api/images/fill': typeof ApiImagesFillRoute
   '/api/jobs/$id': typeof ApiJobsIdRoute
   '/api/jobs/create': typeof ApiJobsCreateRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
@@ -550,6 +558,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof Char91DotlovableChar93OauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
+  '/api/images/fill': typeof ApiImagesFillRoute
   '/api/jobs/$id': typeof ApiJobsIdRoute
   '/api/jobs/create': typeof ApiJobsCreateRoute
   '/api/public/baseline': typeof ApiPublicBaselineRoute
@@ -615,6 +624,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
+    | '/api/images/fill'
     | '/api/jobs/$id'
     | '/api/jobs/create'
     | '/api/public/baseline'
@@ -678,6 +688,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
+    | '/api/images/fill'
     | '/api/jobs/$id'
     | '/api/jobs/create'
     | '/api/public/baseline'
@@ -741,6 +752,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
+    | '/api/images/fill'
     | '/api/jobs/$id'
     | '/api/jobs/create'
     | '/api/public/baseline'
@@ -805,6 +817,7 @@ export interface RootRouteChildren {
   Char91DotlovableChar93OauthConsentRoute: typeof Char91DotlovableChar93OauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiDashboardStatsRoute: typeof ApiDashboardStatsRoute
+  ApiImagesFillRoute: typeof ApiImagesFillRoute
   ApiJobsIdRoute: typeof ApiJobsIdRoute
   ApiJobsCreateRoute: typeof ApiJobsCreateRoute
   ApiPublicBaselineRoute: typeof ApiPublicBaselineRoute
@@ -1089,6 +1102,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiDashboardStatsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/images/fill': {
+      id: '/api/images/fill'
+      path: '/api/images/fill'
+      fullPath: '/api/images/fill'
+      preLoaderRoute: typeof ApiImagesFillRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/jobs/$id': {
       id: '/api/jobs/$id'
       path: '/api/jobs/$id'
@@ -1334,6 +1354,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotlovableChar93OauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiDashboardStatsRoute: ApiDashboardStatsRoute,
+  ApiImagesFillRoute: ApiImagesFillRoute,
   ApiJobsIdRoute: ApiJobsIdRoute,
   ApiJobsCreateRoute: ApiJobsCreateRoute,
   ApiPublicBaselineRoute: ApiPublicBaselineRoute,

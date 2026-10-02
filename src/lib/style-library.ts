@@ -91,7 +91,7 @@ IMAGES: prefer real product screenshots in device frames. If illustration needed
 WIRING NOTES:
 - Load display + body fonts via <link> from Google Fonts or Fontshare CDN and expose as CSS variables --font-display and --font-body. Declare the full stack — never silently fall back to system fonts.
 - Ship every archetype hex as CSS custom properties in :root. Reference variables only in components — no inline hex.
-- For image slots, insert <img> with GENERATED IMAGES (if provided) or an https placeholder. Fill [subject] and [accent color] in the IMAGE PROMPT template so slots are self-documenting via data-image-prompt attributes when generation is deferred.
+- For image slots, insert <img> with GENERATED IMAGES (if provided). Otherwise mark the slot with data-obs-image=\"<the archetype's IMAGE PROMPT with [subject] and [accent color] filled in>\" and an inline SVG gradient placeholder src in the archetype's palette. Real images are generated into data-obs-image slots after the page renders. Never guess stock-photo URLs.
 - Since output is a single-file HTML document, use CSS transitions/animations for hovers and small motion. Wrap animated blocks in @media (prefers-reduced-motion: reduce) { animation: none; transition: none; }.
 
 Before you start writing HTML: state (in a single <!-- comment --> at the top of <head>) which archetype you picked and why in ≤ 20 words. Then follow that archetype exactly.`;

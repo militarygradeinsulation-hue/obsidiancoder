@@ -251,7 +251,7 @@ async function downloadAsDataUrl(url: string, signal?: AbortSignal): Promise<str
   }
 }
 
-async function generateImageWithFallback(prompt: string, requestId: string, signal?: AbortSignal): Promise<{ dataUrl: string | null; providerUsed: ImageProvider | null; providersTried: ImageProvider[] }> {
+export async function generateImageWithFallback(prompt: string, requestId: string, signal?: AbortSignal): Promise<{ dataUrl: string | null; providerUsed: ImageProvider | null; providersTried: ImageProvider[] }> {
   const tried: ImageProvider[] = [];
   tried.push("leonardo");
   const leo = await tryLeonardo(prompt, requestId, signal);

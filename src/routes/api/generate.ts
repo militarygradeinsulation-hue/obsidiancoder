@@ -203,7 +203,7 @@ Every build must look and feel like a top-tier 21st.dev template — not a gener
 Hard rules:
 - Return ONLY the raw HTML document, starting with <!doctype html>. No markdown fences, no prose.
 - Inline all CSS in a <style> tag and all JS in a <script> tag. No external CSS, no external JS, no external fonts.
-- Images ARE allowed and encouraged when they improve the design. If GENERATED IMAGES are provided in system context, use those data URLs verbatim. Otherwise use inline SVG or an https placeholder (unsplash/picsum/dicebear). Set width, height, alt.
+- Images ARE allowed and encouraged when they improve the design. If GENERATED IMAGES are provided in system context, use those data URLs verbatim. Otherwise, for the 1-3 images that matter most (hero first, then key feature or gallery shots), write <img data-obs-image=\"<specific visual description of the photo, subject, setting, lighting, mood, matching this page's palette>\" src=\"<inline SVG data URI: a soft gradient in this page's own palette>\" width height alt loading=\"lazy\">. Real photography is generated into those slots after the page renders, so describe the image you actually want, never a stock-site URL. Do NOT guess unsplash/picsum URLs. Icons and decorative graphics stay inline SVG.
 - If the user attaches an image (data: URL or https URL) in the prompt, embed it exactly.
 - Accessibility: semantic HTML, WCAG AA contrast, keyboard focus, labels, prefers-reduced-motion respected.
 - Responsive mobile-first, no horizontal scroll at 320px. Fluid type with clamp().

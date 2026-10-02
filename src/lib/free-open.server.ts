@@ -157,5 +157,39 @@ export async function claimFreeOpen(
   }
 }
 
+/** Free-path image fills per fingerprint per rolling window (separate from builds). */
+export const FREE_OPEN_IMAGE_DAILY_CAP = 5;
+
+/**
+ * Same rolling-window RPC as claimFreeOpen, scoped to its own ledger bucket
+ * ("<env>:images") so image fills never consume a visitor's free builds and
+ * vice versa. Unlike claimFreeOpen this fails CLOSED: a missing image is a
+ * graceful degradation (the placeholder stays), while an unmetered image
+ * call on an error path is real spend with no backstop.
+ */
+export async function claimFreeOpenImages(
+  request: Request,
+  environment: Environment,
+): Promise<FreeOpenClaimResult> {
+  const info = readOrMintFreeOpenCookie(request);
+  const fp = fingerprintFromFreeOpenCookie(info);
+  try {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { data, error } = await supabaseAdmin.rpc("claim_free_open" as never, {
+      _fingerprint: fp,
+      _environment: `${environment}:images`,
+      _ip_prefix: info.ipPrefixHash,
+      _daily_cap: FREE_OPEN_IMAGE_DAILY_CAP,
+      _window_hours: FREE_OPEN_WINDOW_HOURS,
+    } as never);
+    if (error) return { ok: false, reason: "unavailable", setCookieHeader: info.setCookieHeader };
+    return data === true
+      ? { ok: true, setCookieHeader: info.setCookieHeader }
+      : { ok: false, reason: "cap_reached", setCookieHeader: info.setCookieHeader };
+  } catch {
+    return { ok: false, reason: "unavailable", setCookieHeader: info.setCookieHeader };
+  }
+}
+
 /** Header the client already sends to opt into the free_open path. */
 export const FREE_OPEN_REQUEST_HEADER = "x-obs-free";
