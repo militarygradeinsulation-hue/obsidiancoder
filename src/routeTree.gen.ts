@@ -11,6 +11,14 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as IntrosIndexRouteImport } from './routes/intros/index'
+import { Route as IntrosRequestsRouteImport } from './routes/intros/requests'
+import { Route as IntrosProfileRouteImport } from './routes/intros/profile'
+import { Route as IntrosPreferencesRouteImport } from './routes/intros/preferences'
+import { Route as IntrosPeopleRouteImport } from './routes/intros/people'
+import { Route as IntrosMessagesRouteImport } from './routes/intros/messages'
+import { Route as IntrosMemoryRouteImport } from './routes/intros/memory'
+import { Route as IntrosInsightsRouteImport } from './routes/intros/insights'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -22,31 +30,134 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntrosIndexRoute = IntrosIndexRouteImport.update({
+  id: '/intros/',
+  path: '/intros/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntrosRequestsRoute = IntrosRequestsRouteImport.update({
+  id: '/intros/requests',
+  path: '/intros/requests',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntrosProfileRoute = IntrosProfileRouteImport.update({
+  id: '/intros/profile',
+  path: '/intros/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntrosPreferencesRoute = IntrosPreferencesRouteImport.update({
+  id: '/intros/preferences',
+  path: '/intros/preferences',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntrosPeopleRoute = IntrosPeopleRouteImport.update({
+  id: '/intros/people',
+  path: '/intros/people',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntrosMessagesRoute = IntrosMessagesRouteImport.update({
+  id: '/intros/messages',
+  path: '/intros/messages',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntrosMemoryRoute = IntrosMemoryRouteImport.update({
+  id: '/intros/memory',
+  path: '/intros/memory',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const IntrosInsightsRoute = IntrosInsightsRouteImport.update({
+  id: '/intros/insights',
+  path: '/intros/insights',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/intros/insights': typeof IntrosInsightsRoute
+  '/intros/memory': typeof IntrosMemoryRoute
+  '/intros/messages': typeof IntrosMessagesRoute
+  '/intros/people': typeof IntrosPeopleRoute
+  '/intros/preferences': typeof IntrosPreferencesRoute
+  '/intros/profile': typeof IntrosProfileRoute
+  '/intros/requests': typeof IntrosRequestsRoute
+  '/intros/': typeof IntrosIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/intros/insights': typeof IntrosInsightsRoute
+  '/intros/memory': typeof IntrosMemoryRoute
+  '/intros/messages': typeof IntrosMessagesRoute
+  '/intros/people': typeof IntrosPeopleRoute
+  '/intros/preferences': typeof IntrosPreferencesRoute
+  '/intros/profile': typeof IntrosProfileRoute
+  '/intros/requests': typeof IntrosRequestsRoute
+  '/intros': typeof IntrosIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/intros/insights': typeof IntrosInsightsRoute
+  '/intros/memory': typeof IntrosMemoryRoute
+  '/intros/messages': typeof IntrosMessagesRoute
+  '/intros/people': typeof IntrosPeopleRoute
+  '/intros/preferences': typeof IntrosPreferencesRoute
+  '/intros/profile': typeof IntrosProfileRoute
+  '/intros/requests': typeof IntrosRequestsRoute
+  '/intros/': typeof IntrosIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/sitemap.xml'
+  fullPaths:
+    | '/'
+    | '/sitemap.xml'
+    | '/intros/insights'
+    | '/intros/memory'
+    | '/intros/messages'
+    | '/intros/people'
+    | '/intros/preferences'
+    | '/intros/profile'
+    | '/intros/requests'
+    | '/intros/'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sitemap.xml'
-  id: '__root__' | '/' | '/sitemap.xml'
+  to:
+    | '/'
+    | '/sitemap.xml'
+    | '/intros/insights'
+    | '/intros/memory'
+    | '/intros/messages'
+    | '/intros/people'
+    | '/intros/preferences'
+    | '/intros/profile'
+    | '/intros/requests'
+    | '/intros'
+  id:
+    | '__root__'
+    | '/'
+    | '/sitemap.xml'
+    | '/intros/insights'
+    | '/intros/memory'
+    | '/intros/messages'
+    | '/intros/people'
+    | '/intros/preferences'
+    | '/intros/profile'
+    | '/intros/requests'
+    | '/intros/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  IntrosInsightsRoute: typeof IntrosInsightsRoute
+  IntrosMemoryRoute: typeof IntrosMemoryRoute
+  IntrosMessagesRoute: typeof IntrosMessagesRoute
+  IntrosPeopleRoute: typeof IntrosPeopleRoute
+  IntrosPreferencesRoute: typeof IntrosPreferencesRoute
+  IntrosProfileRoute: typeof IntrosProfileRoute
+  IntrosRequestsRoute: typeof IntrosRequestsRoute
+  IntrosIndexRoute: typeof IntrosIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -65,13 +176,87 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/intros/': {
+      id: '/intros/'
+      path: '/intros'
+      fullPath: '/intros/'
+      preLoaderRoute: typeof IntrosIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intros/requests': {
+      id: '/intros/requests'
+      path: '/intros/requests'
+      fullPath: '/intros/requests'
+      preLoaderRoute: typeof IntrosRequestsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intros/profile': {
+      id: '/intros/profile'
+      path: '/intros/profile'
+      fullPath: '/intros/profile'
+      preLoaderRoute: typeof IntrosProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intros/preferences': {
+      id: '/intros/preferences'
+      path: '/intros/preferences'
+      fullPath: '/intros/preferences'
+      preLoaderRoute: typeof IntrosPreferencesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intros/people': {
+      id: '/intros/people'
+      path: '/intros/people'
+      fullPath: '/intros/people'
+      preLoaderRoute: typeof IntrosPeopleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intros/messages': {
+      id: '/intros/messages'
+      path: '/intros/messages'
+      fullPath: '/intros/messages'
+      preLoaderRoute: typeof IntrosMessagesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intros/memory': {
+      id: '/intros/memory'
+      path: '/intros/memory'
+      fullPath: '/intros/memory'
+      preLoaderRoute: typeof IntrosMemoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/intros/insights': {
+      id: '/intros/insights'
+      path: '/intros/insights'
+      fullPath: '/intros/insights'
+      preLoaderRoute: typeof IntrosInsightsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  IntrosInsightsRoute: IntrosInsightsRoute,
+  IntrosMemoryRoute: IntrosMemoryRoute,
+  IntrosMessagesRoute: IntrosMessagesRoute,
+  IntrosPeopleRoute: IntrosPeopleRoute,
+  IntrosPreferencesRoute: IntrosPreferencesRoute,
+  IntrosProfileRoute: IntrosProfileRoute,
+  IntrosRequestsRoute: IntrosRequestsRoute,
+  IntrosIndexRoute: IntrosIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
