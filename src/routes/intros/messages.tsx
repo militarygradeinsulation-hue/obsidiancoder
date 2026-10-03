@@ -4,6 +4,7 @@ import {
   Calendar,
   Edit3,
   Link2,
+  MessageCircle,
   Paperclip,
   Plus,
   Search,
@@ -15,8 +16,10 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
-import { InitialsAvatar, Panel, Tag } from "@/components/intros/primitives";
+import { IntrosLanding, IntrosLoading } from "@/components/intros/landing";
+import { InitialsAvatar, Panel, Tag, EmptyState } from "@/components/intros/primitives";
 import { introRequests, threadDetails, threads } from "@/lib/intros-data";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 export const Route = createFileRoute("/intros/messages")({
   head: () => ({ meta: [{ title: "Aetheris Intros — Messages" }] }),
@@ -26,12 +29,30 @@ export const Route = createFileRoute("/intros/messages")({
 const FILTERS = ["All", "Unread", "Introductions", "Starred"] as const;
 
 function MessagesPage() {
+  const { mode, enterDemo } = useIntrosMode();
   const [active, setActive] = useState(threads[0].id);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [draft, setDraft] = useState("");
   const [starred, setStarred] = useState<Set<number>>(
     () => new Set(threads.filter((t) => t.starred).map((t) => t.id)),
   );
+
+  if (mode === "loading") return <IntrosLoading />;
+  if (mode === null) return <IntrosLanding onDemo={enterDemo} />;
+
+  if (mode === "live") {
+    return (
+      <IntrosShell>
+        <Page>
+          <EmptyState
+            icon={<MessageCircle className="h-7 w-7 text-muted-foreground" />}
+            title="No messages yet"
+            description="Conversations with people you connect with on Aetheris will show up here."
+          />
+        </Page>
+      </IntrosShell>
+    );
+  }
 
   const isStarred = (id: number) => starred.has(id);
   const toggleStarred = (id: number) =>

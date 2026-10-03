@@ -1,9 +1,11 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { MapPin, Search, Sparkles } from "lucide-react";
+import { MapPin, Search, Sparkles, UserPlus } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
-import { InitialsAvatar, Panel, Tag } from "@/components/intros/primitives";
+import { IntrosLanding, IntrosLoading } from "@/components/intros/landing";
+import { InitialsAvatar, Panel, Tag, EmptyState } from "@/components/intros/primitives";
 import { people } from "@/lib/intros-data";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 export const Route = createFileRoute("/intros/people")({
   head: () => ({ meta: [{ title: "Aetheris Intros — People" }] }),
@@ -13,6 +15,7 @@ export const Route = createFileRoute("/intros/people")({
 const FILTERS = ["All", "Founders", "Investors", "Operators", "Advisors"] as const;
 
 function PeoplePage() {
+  const { mode, enterDemo } = useIntrosMode();
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
 
@@ -24,6 +27,31 @@ function PeoplePage() {
       return p.category === filter;
     });
   }, [query, filter]);
+
+  if (mode === "loading") return <IntrosLoading />;
+  if (mode === null) return <IntrosLanding onDemo={enterDemo} />;
+
+  if (mode === "live") {
+    return (
+      <IntrosShell>
+        <Page>
+          <EmptyState
+            icon={<UserPlus className="h-7 w-7 text-muted-foreground" />}
+            title="No one in your directory yet"
+            description="As you connect with people on Aetheris, they'll show up here."
+            action={
+              <Link
+                to="/intros/preferences"
+                className="mt-2 rounded-full bg-primary px-5 py-2 text-[13px] font-medium text-primary-foreground hover:opacity-90 transition"
+              >
+                Set your intro preferences
+              </Link>
+            }
+          />
+        </Page>
+      </IntrosShell>
+    );
+  }
 
   return (
     <IntrosShell>

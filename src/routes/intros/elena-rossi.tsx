@@ -20,6 +20,7 @@ import {
   Users,
 } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
+import { IntrosLanding, IntrosLoading } from "@/components/intros/landing";
 import {
   InitialsAvatar,
   Panel,
@@ -28,8 +29,10 @@ import {
   Creed,
   Tag,
   IconLine,
+  EmptyState,
 } from "@/components/intros/primitives";
 import { elena } from "@/lib/intros-data";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 export const Route = createFileRoute("/intros/elena-rossi")({
   head: () => ({ meta: [{ title: `Aetheris Intros — ${elena.name}` }] }),
@@ -46,7 +49,24 @@ const CONTROLS = [
 ];
 
 function ElenaProfilePage() {
+  const { mode, enterDemo } = useIntrosMode();
   const [tab, setTab] = useState<(typeof TABS)[number]>("Overview");
+
+  if (mode === "loading") return <IntrosLoading />;
+  if (mode === null) return <IntrosLanding onDemo={enterDemo} />;
+
+  if (mode === "live") {
+    return (
+      <IntrosShell>
+        <Page>
+          <EmptyState
+            title="Profile not found"
+            description="This person isn't on your network yet."
+          />
+        </Page>
+      </IntrosShell>
+    );
+  }
 
   return (
     <IntrosShell>

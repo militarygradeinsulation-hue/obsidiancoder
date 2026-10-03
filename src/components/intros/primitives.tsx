@@ -228,6 +228,29 @@ export function IconLine({ icon, children }: { icon?: ReactNode; children: React
   );
 }
 
+export function EmptyState({
+  icon,
+  title,
+  description,
+  action,
+}: {
+  icon?: ReactNode;
+  title: string;
+  description?: string;
+  action?: ReactNode;
+}) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-2.5 rounded-md border border-dashed border-border px-6 py-16 text-center">
+      {icon}
+      <h3 className="font-serif text-lg font-semibold">{title}</h3>
+      {description && (
+        <p className="max-w-sm text-[13px] leading-relaxed text-muted-foreground">{description}</p>
+      )}
+      {action}
+    </div>
+  );
+}
+
 export function ListRow({
   left,
   title,

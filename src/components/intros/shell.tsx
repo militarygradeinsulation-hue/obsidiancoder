@@ -1,8 +1,8 @@
 import type { ReactNode } from "react";
 import { Link } from "@tanstack/react-router";
-import { Bell, ChevronDown, Search } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Search } from "lucide-react";
 import { InitialsAvatar } from "@/components/intros/primitives";
-import { me } from "@/lib/intros-data";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 const NAV = [
   { to: "/intros", label: "Home" },
@@ -25,6 +25,13 @@ export function Mark({ size = 26 }: { size?: number }) {
 }
 
 export function IntrosShell({ children }: { children: ReactNode }) {
+  const { mode, user, exitDemo, signOut } = useIntrosMode();
+  const isDemo = mode === "demo";
+  const accountName = isDemo
+    ? "Demo Account"
+    : user?.user_metadata?.full_name || user?.email || "Account";
+  const accountMeta = isDemo ? "Sample network" : "Live account";
+
   return (
     <div className="bg-constellation min-h-screen">
       <header className="sticky top-0 z-20 flex items-center gap-6 border-b border-border/60 bg-background/70 px-6 py-3 backdrop-blur-xl">
@@ -35,6 +42,16 @@ export function IntrosShell({ children }: { children: ReactNode }) {
             <span className="block text-[10px] tracking-[0.2em] text-muted-foreground">INTROS</span>
           </span>
         </Link>
+
+        {isDemo && (
+          <button
+            onClick={exitDemo}
+            title="Exit demo mode"
+            className="flex-none rounded-full border border-yellow-400/40 bg-yellow-400/10 px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-wider text-yellow-400 transition hover:bg-yellow-400/20"
+          >
+            Demo
+          </button>
+        )}
 
         <nav className="hidden flex-1 items-center gap-1 lg:flex" aria-label="Primary">
           {NAV.map((n) => (
@@ -84,13 +101,25 @@ export function IntrosShell({ children }: { children: ReactNode }) {
             <span className="absolute -right-0.5 -top-0.5 h-1.5 w-1.5 rounded-full bg-primary" />
           </button>
           <Link to="/intros/profile" className="flex items-center gap-2">
-            <InitialsAvatar name={me.name} size={32} />
+            <InitialsAvatar name={accountName} size={32} />
             <span className="hidden text-left leading-tight sm:block">
-              <span className="block text-xs font-medium">{me.name}</span>
-              <span className="block text-[10.5px] text-muted-foreground">{me.meta}</span>
+              <span className="block max-w-[140px] truncate text-xs font-medium">
+                {accountName}
+              </span>
+              <span className="block text-[10.5px] text-muted-foreground">{accountMeta}</span>
             </span>
             <ChevronDown className="hidden h-3.5 w-3.5 text-muted-foreground sm:block" />
           </Link>
+          {mode === "live" && (
+            <button
+              onClick={signOut}
+              aria-label="Sign out"
+              title="Sign out"
+              className="text-muted-foreground hover:text-foreground transition"
+            >
+              <LogOut className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </header>
 

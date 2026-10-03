@@ -9,10 +9,13 @@ import {
   Sparkles,
   MoreHorizontal,
   Mail,
+  MessageSquarePlus,
 } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
-import { InitialsAvatar, Panel, Plate } from "@/components/intros/primitives";
+import { IntrosLanding, IntrosLoading } from "@/components/intros/landing";
+import { InitialsAvatar, Panel, Plate, EmptyState } from "@/components/intros/primitives";
 import { posts, events, people, me } from "@/lib/intros-data";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 export const Route = createFileRoute("/intros/")({
   head: () => ({
@@ -24,11 +27,37 @@ export const Route = createFileRoute("/intros/")({
 const TABS = ["For you", "Network", "Following", "Opportunities"] as const;
 
 function IntrosHome() {
+  const { mode, enterDemo } = useIntrosMode();
   const [tab, setTab] = useState<(typeof TABS)[number]>("For you");
   const [text, setText] = useState("");
 
   const shownPosts =
     tab === "For you" ? posts : posts.filter((p) => (p.feed as readonly string[]).includes(tab));
+
+  if (mode === "loading") return <IntrosLoading />;
+  if (mode === null) return <IntrosLanding onDemo={enterDemo} />;
+
+  if (mode === "live") {
+    return (
+      <IntrosShell>
+        <Page>
+          <EmptyState
+            icon={<MessageSquarePlus className="h-7 w-7 text-muted-foreground" />}
+            title="Your feed is empty"
+            description="Posts from your network will show up here once you start connecting with people on Aetheris."
+            action={
+              <Link
+                to="/intros/people"
+                className="mt-2 rounded-full bg-primary px-5 py-2 text-[13px] font-medium text-primary-foreground hover:opacity-90 transition"
+              >
+                Find people to meet
+              </Link>
+            }
+          />
+        </Page>
+      </IntrosShell>
+    );
+  }
 
   return (
     <IntrosShell>

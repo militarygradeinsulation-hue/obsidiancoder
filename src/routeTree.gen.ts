@@ -18,6 +18,7 @@ import { Route as IntrosPreferencesRouteImport } from './routes/intros/preferenc
 import { Route as IntrosPeopleRouteImport } from './routes/intros/people'
 import { Route as IntrosMessagesRouteImport } from './routes/intros/messages'
 import { Route as IntrosMemoryRouteImport } from './routes/intros/memory'
+import { Route as IntrosLoginRouteImport } from './routes/intros/login'
 import { Route as IntrosInsightsRouteImport } from './routes/intros/insights'
 import { Route as IntrosElenaRossiRouteImport } from './routes/intros/elena-rossi'
 
@@ -66,6 +67,11 @@ const IntrosMemoryRoute = IntrosMemoryRouteImport.update({
   path: '/intros/memory',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntrosLoginRoute = IntrosLoginRouteImport.update({
+  id: '/intros/login',
+  path: '/intros/login',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IntrosInsightsRoute = IntrosInsightsRouteImport.update({
   id: '/intros/insights',
   path: '/intros/insights',
@@ -82,6 +88,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/intros/elena-rossi': typeof IntrosElenaRossiRoute
   '/intros/insights': typeof IntrosInsightsRoute
+  '/intros/login': typeof IntrosLoginRoute
   '/intros/memory': typeof IntrosMemoryRoute
   '/intros/messages': typeof IntrosMessagesRoute
   '/intros/people': typeof IntrosPeopleRoute
@@ -95,6 +102,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/intros/elena-rossi': typeof IntrosElenaRossiRoute
   '/intros/insights': typeof IntrosInsightsRoute
+  '/intros/login': typeof IntrosLoginRoute
   '/intros/memory': typeof IntrosMemoryRoute
   '/intros/messages': typeof IntrosMessagesRoute
   '/intros/people': typeof IntrosPeopleRoute
@@ -109,6 +117,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/intros/elena-rossi': typeof IntrosElenaRossiRoute
   '/intros/insights': typeof IntrosInsightsRoute
+  '/intros/login': typeof IntrosLoginRoute
   '/intros/memory': typeof IntrosMemoryRoute
   '/intros/messages': typeof IntrosMessagesRoute
   '/intros/people': typeof IntrosPeopleRoute
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/intros/elena-rossi'
     | '/intros/insights'
+    | '/intros/login'
     | '/intros/memory'
     | '/intros/messages'
     | '/intros/people'
@@ -137,6 +147,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/intros/elena-rossi'
     | '/intros/insights'
+    | '/intros/login'
     | '/intros/memory'
     | '/intros/messages'
     | '/intros/people'
@@ -150,6 +161,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/intros/elena-rossi'
     | '/intros/insights'
+    | '/intros/login'
     | '/intros/memory'
     | '/intros/messages'
     | '/intros/people'
@@ -164,6 +176,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   IntrosElenaRossiRoute: typeof IntrosElenaRossiRoute
   IntrosInsightsRoute: typeof IntrosInsightsRoute
+  IntrosLoginRoute: typeof IntrosLoginRoute
   IntrosMemoryRoute: typeof IntrosMemoryRoute
   IntrosMessagesRoute: typeof IntrosMessagesRoute
   IntrosPeopleRoute: typeof IntrosPeopleRoute
@@ -238,6 +251,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntrosMemoryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/intros/login': {
+      id: '/intros/login'
+      path: '/intros/login'
+      fullPath: '/intros/login'
+      preLoaderRoute: typeof IntrosLoginRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/intros/insights': {
       id: '/intros/insights'
       path: '/intros/insights'
@@ -260,6 +280,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   IntrosElenaRossiRoute: IntrosElenaRossiRoute,
   IntrosInsightsRoute: IntrosInsightsRoute,
+  IntrosLoginRoute: IntrosLoginRoute,
   IntrosMemoryRoute: IntrosMemoryRoute,
   IntrosMessagesRoute: IntrosMessagesRoute,
   IntrosPeopleRoute: IntrosPeopleRoute,

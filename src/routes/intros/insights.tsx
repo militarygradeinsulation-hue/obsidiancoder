@@ -1,7 +1,15 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { IntrosShell, Page } from "@/components/intros/shell";
-import { InitialsAvatar, Panel, Creed, StatLine, IconLine } from "@/components/intros/primitives";
+import { IntrosLanding, IntrosLoading } from "@/components/intros/landing";
+import {
+  InitialsAvatar,
+  Panel,
+  Creed,
+  StatLine,
+  IconLine,
+  EmptyState,
+} from "@/components/intros/primitives";
 import { NetworkMap } from "@/components/intros/network-map";
 import {
   locations,
@@ -10,7 +18,8 @@ import {
   joinedThisWeek,
   relationshipPatterns,
 } from "@/lib/intros-data";
-import { Sparkles } from "lucide-react";
+import { Globe2, Sparkles } from "lucide-react";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 export const Route = createFileRoute("/intros/insights")({
   head: () => ({ meta: [{ title: "Aetheris Intros — Insights" }] }),
@@ -24,9 +33,27 @@ const TABS = {
 } as const;
 
 function InsightsPage() {
+  const { mode, enterDemo } = useIntrosMode();
   const [tab, setTab] = useState<keyof typeof TABS>("Top locations");
   const rows = TABS[tab];
   const max = Math.max(...rows.map((r) => r.n));
+
+  if (mode === "loading") return <IntrosLoading />;
+  if (mode === null) return <IntrosLanding onDemo={enterDemo} />;
+
+  if (mode === "live") {
+    return (
+      <IntrosShell>
+        <Page>
+          <EmptyState
+            icon={<Globe2 className="h-7 w-7 text-muted-foreground" />}
+            title="Network insights aren't available yet"
+            description="Insights about your network will appear here as your connections grow."
+          />
+        </Page>
+      </IntrosShell>
+    );
+  }
 
   return (
     <IntrosShell>

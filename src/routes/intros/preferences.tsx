@@ -2,9 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { ArrowRight, Calendar, Database, MapPin, Plus } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
+import { IntrosLanding, IntrosLoading } from "@/components/intros/landing";
 import { Panel, Plate, Pill, Creed } from "@/components/intros/primitives";
 import { Switch } from "@/components/ui/switch";
 import { me } from "@/lib/intros-data";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 export const Route = createFileRoute("/intros/preferences")({
   head: () => ({ meta: [{ title: "Aetheris Intros — Preferences" }] }),
@@ -80,17 +82,27 @@ function usePillGroup(initial: string[]) {
 }
 
 function PreferencesPage() {
+  const { mode, enterDemo, user } = useIntrosMode();
+  const isDemo = mode === "demo";
   const [theme, setTheme] = useState("Dark");
-  const [circles, setCircles] = useState(["Horizon Capital Portfolio", "Stanford Network"]);
+  const [circles, setCircles] = useState<string[]>(
+    isDemo ? ["Horizon Capital Portfolio", "Stanford Network"] : [],
+  );
 
   const toggleCircle = (c: string) =>
     setCircles((x) => (x.includes(c) ? x.filter((y) => y !== c) : [...x, c]));
 
-  const [meet, toggleMeet] = usePillGroup(MEET.slice(0, 4));
-  const [focus, toggleFocus] = usePillGroup(FOCUS.slice(0, 3));
-  const [industries, toggleIndustries] = usePillGroup(INDUSTRIES.slice(0, 1));
-  const [geos, toggleGeos] = usePillGroup(GEOS.slice(0, 3));
-  const [goals, toggleGoals] = usePillGroup(GOALS.slice(0, 1));
+  const [meet, toggleMeet] = usePillGroup(isDemo ? MEET.slice(0, 4) : []);
+  const [focus, toggleFocus] = usePillGroup(isDemo ? FOCUS.slice(0, 3) : []);
+  const [industries, toggleIndustries] = usePillGroup(isDemo ? INDUSTRIES.slice(0, 1) : []);
+  const [geos, toggleGeos] = usePillGroup(isDemo ? GEOS.slice(0, 3) : []);
+  const [goals, toggleGoals] = usePillGroup(isDemo ? GOALS.slice(0, 1) : []);
+
+  if (mode === "loading") return <IntrosLoading />;
+  if (mode === null) return <IntrosLanding onDemo={enterDemo} />;
+
+  const previewName = isDemo ? "Demo Account" : (user?.email ?? "You");
+  const previewTags = isDemo ? me.tags : [...meet, ...focus].slice(0, 4);
 
   return (
     <IntrosShell>
@@ -122,27 +134,31 @@ function PreferencesPage() {
               context. Better connections. A smarter network, on your terms.
             </p>
 
-            <div className="mt-6 grid grid-cols-3 gap-3 border-t border-border pt-4">
-              <div>
-                <div className="font-serif text-xl font-semibold">10K+</div>
-                <div className="text-[11px] text-muted-foreground">Relationships</div>
-              </div>
-              <div>
-                <div className="font-serif text-xl font-semibold">312</div>
-                <div className="text-[11px] text-muted-foreground">Companies</div>
-              </div>
-              <div>
-                <div className="font-serif text-xl font-semibold">28</div>
-                <div className="text-[11px] text-muted-foreground">Countries</div>
-              </div>
-            </div>
+            {isDemo && (
+              <>
+                <div className="mt-6 grid grid-cols-3 gap-3 border-t border-border pt-4">
+                  <div>
+                    <div className="font-serif text-xl font-semibold">10K+</div>
+                    <div className="text-[11px] text-muted-foreground">Relationships</div>
+                  </div>
+                  <div>
+                    <div className="font-serif text-xl font-semibold">312</div>
+                    <div className="text-[11px] text-muted-foreground">Companies</div>
+                  </div>
+                  <div>
+                    <div className="font-serif text-xl font-semibold">28</div>
+                    <div className="text-[11px] text-muted-foreground">Countries</div>
+                  </div>
+                </div>
 
-            <blockquote className="mt-6 border-l border-border pl-4">
-              <p className="font-serif text-[15px] leading-snug">
-                "The right settings don't just filter noise — they create opportunity."
-              </p>
-              <p className="mt-2 text-[11px] text-muted-foreground">— Marcus Lee</p>
-            </blockquote>
+                <blockquote className="mt-6 border-l border-border pl-4">
+                  <p className="font-serif text-[15px] leading-snug">
+                    "The right settings don't just filter noise — they create opportunity."
+                  </p>
+                  <p className="mt-2 text-[11px] text-muted-foreground">— Marcus Lee</p>
+                </blockquote>
+              </>
+            )}
 
             <button className="mt-2 flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2.5 text-[13px] font-medium text-primary-foreground hover:opacity-90 transition">
               Save changes <ArrowRight className="h-3.5 w-3.5" />
@@ -283,23 +299,31 @@ function PreferencesPage() {
                   <p className="mb-3 text-[12px] text-muted-foreground">
                     Prioritize introductions within your trusted circles.
                   </p>
-                  <select
-                    className="mb-3 h-9 w-full rounded-md border border-border bg-white/5 px-2.5 text-[13px]"
-                    aria-label="Circles"
-                  >
-                    <option>All saved circles</option>
-                  </select>
-                  {CIRCLES.map((c) => (
-                    <label key={c} className="flex items-center gap-2 py-1 text-[12.5px]">
-                      <input
-                        type="checkbox"
-                        checked={circles.includes(c)}
-                        onChange={() => toggleCircle(c)}
-                        className="h-3.5 w-3.5 accent-[var(--primary)]"
-                      />
-                      {c}
-                    </label>
-                  ))}
+                  {isDemo ? (
+                    <>
+                      <select
+                        className="mb-3 h-9 w-full rounded-md border border-border bg-white/5 px-2.5 text-[13px]"
+                        aria-label="Circles"
+                      >
+                        <option>All saved circles</option>
+                      </select>
+                      {CIRCLES.map((c) => (
+                        <label key={c} className="flex items-center gap-2 py-1 text-[12.5px]">
+                          <input
+                            type="checkbox"
+                            checked={circles.includes(c)}
+                            onChange={() => toggleCircle(c)}
+                            className="h-3.5 w-3.5 accent-[var(--primary)]"
+                          />
+                          {c}
+                        </label>
+                      ))}
+                    </>
+                  ) : (
+                    <p className="text-[12px] text-muted-foreground">
+                      You haven't created any circles yet.
+                    </p>
+                  )}
                 </Panel>
               </div>
 
@@ -395,33 +419,47 @@ function PreferencesPage() {
                   Professional member
                 </span>
               </Plate>
-              <h3 className="font-serif text-2xl font-semibold">{me.name}</h3>
-              <p className="mt-1.5 text-[15px] font-medium leading-snug">
-                {me.role}
-                <br />
-                {me.company}
+              <h3 className="font-serif text-2xl font-semibold">{previewName}</h3>
+              {isDemo ? (
+                <p className="mt-1.5 text-[15px] font-medium leading-snug">
+                  {me.role}
+                  <br />
+                  {me.company}
+                </p>
+              ) : (
+                <p className="mt-1.5 text-[13px] text-muted-foreground">
+                  Add your role and company in your profile.
+                </p>
+              )}
+              {isDemo && (
+                <div className="mt-2 flex items-center gap-2 text-[12px] text-muted-foreground">
+                  <span className="flex items-center gap-1">
+                    <MapPin className="h-3.5 w-3.5" /> {me.location}
+                  </span>
+                </div>
+              )}
+              <p className="mt-2.5 text-[12.5px] leading-relaxed text-muted-foreground">
+                {isDemo ? me.bio : "Your bio will appear here once you add one."}
               </p>
-              <div className="mt-2 flex items-center gap-2 text-[12px] text-muted-foreground">
-                <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" /> {me.location}
-                </span>
-              </div>
-              <p className="mt-2.5 text-[12.5px] leading-relaxed text-muted-foreground">{me.bio}</p>
-              <div className="mt-3 flex flex-wrap gap-1.5">
-                {me.tags.map((t) => (
-                  <Pill key={t} on>
-                    {t}
-                  </Pill>
-                ))}
-              </div>
-              <div className="my-3.5 grid grid-cols-3 gap-2 border-t border-border pt-3 text-center">
-                {me.stats.map((s) => (
-                  <div key={s.l}>
-                    <div className="font-serif text-lg font-semibold">{s.n}</div>
-                    <div className="text-[10px] text-muted-foreground">{s.l}</div>
-                  </div>
-                ))}
-              </div>
+              {previewTags.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-1.5">
+                  {previewTags.map((t) => (
+                    <Pill key={t} on>
+                      {t}
+                    </Pill>
+                  ))}
+                </div>
+              )}
+              {isDemo && (
+                <div className="my-3.5 grid grid-cols-3 gap-2 border-t border-border pt-3 text-center">
+                  {me.stats.map((s) => (
+                    <div key={s.l}>
+                      <div className="font-serif text-lg font-semibold">{s.n}</div>
+                      <div className="text-[10px] text-muted-foreground">{s.l}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
               <Link
                 to="/intros/profile"
                 className="flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2 text-[13px] font-medium text-primary-foreground hover:opacity-90 transition"

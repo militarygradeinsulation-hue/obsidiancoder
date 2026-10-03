@@ -2,8 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Mail, Sparkles } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
-import { InitialsAvatar, Panel } from "@/components/intros/primitives";
+import { IntrosLanding, IntrosLoading } from "@/components/intros/landing";
+import { InitialsAvatar, Panel, EmptyState } from "@/components/intros/primitives";
 import { connectors, introRequests, people } from "@/lib/intros-data";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 export const Route = createFileRoute("/intros/requests")({
   head: () => ({ meta: [{ title: "Aetheris Intros — Introductions" }] }),
@@ -11,9 +13,27 @@ export const Route = createFileRoute("/intros/requests")({
 });
 
 function RequestsPage() {
+  const { mode, enterDemo } = useIntrosMode();
   const [target, setTarget] = useState<string>(people[0].id);
   const [via, setVia] = useState<string>(connectors[0].name);
   const [note, setNote] = useState("");
+
+  if (mode === "loading") return <IntrosLoading />;
+  if (mode === null) return <IntrosLanding onDemo={enterDemo} />;
+
+  if (mode === "live") {
+    return (
+      <IntrosShell>
+        <Page>
+          <EmptyState
+            icon={<Mail className="h-7 w-7 text-muted-foreground" />}
+            title="No introduction requests yet"
+            description="Once you're connected with people on Aetheris, you'll be able to request and track introductions here."
+          />
+        </Page>
+      </IntrosShell>
+    );
+  }
 
   return (
     <IntrosShell>

@@ -12,11 +12,21 @@ import {
   Users,
 } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
-import { Panel, Plate, Creed, Tag, IconLine, StatLine } from "@/components/intros/primitives";
+import { IntrosLanding, IntrosLoading } from "@/components/intros/landing";
+import {
+  Panel,
+  Plate,
+  Creed,
+  Tag,
+  IconLine,
+  StatLine,
+  EmptyState,
+} from "@/components/intros/primitives";
 import { me } from "@/lib/intros-data";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 export const Route = createFileRoute("/intros/profile")({
-  head: () => ({ meta: [{ title: `Aetheris Intros — ${me.name}` }] }),
+  head: () => ({ meta: [{ title: "Aetheris Intros — My Profile" }] }),
   component: MyProfilePage,
 });
 
@@ -28,6 +38,38 @@ const CONTROLS = [
 ];
 
 function MyProfilePage() {
+  const { mode, enterDemo, user } = useIntrosMode();
+
+  if (mode === "loading") return <IntrosLoading />;
+  if (mode === null) return <IntrosLanding onDemo={enterDemo} />;
+
+  if (mode === "live") {
+    return (
+      <IntrosShell>
+        <Page>
+          <div className="mx-auto max-w-lg text-center">
+            <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
+              Your professional profile
+            </p>
+            <h1 className="mt-2 font-serif text-3xl font-semibold">{user?.email}</h1>
+            <p className="mt-2 text-[13px] text-muted-foreground">
+              Your profile is empty. Add your role, company, and what you're looking for so Aetheris
+              can start suggesting relevant people.
+            </p>
+            <Link
+              to="/intros/preferences"
+              className="mt-5 inline-flex items-center justify-center gap-2 rounded-md bg-primary px-5 py-2.5 text-[13px] font-medium text-primary-foreground hover:opacity-90 transition"
+            >
+              Complete your profile
+            </Link>
+          </div>
+        </Page>
+      </IntrosShell>
+    );
+  }
+
+  const displayName = "Demo Account";
+
   return (
     <IntrosShell>
       {/* masthead */}
@@ -41,7 +83,7 @@ function MyProfilePage() {
             <p className="text-[11px] uppercase tracking-[0.2em] text-muted-foreground">
               Your professional profile
             </p>
-            <h1 className="mt-2 font-serif text-4xl font-semibold">{me.name}</h1>
+            <h1 className="mt-2 font-serif text-4xl font-semibold">{displayName}</h1>
             <h2 className="mt-1 text-lg font-medium leading-snug text-foreground/85">
               {me.role}
               <br />
@@ -58,7 +100,7 @@ function MyProfilePage() {
             </p>
             <blockquote className="mt-5 border-l border-border pl-4">
               <p className="font-serif text-base leading-snug">"{me.quote}"</p>
-              <p className="mt-2 text-[11px] text-muted-foreground">— {me.name}</p>
+              <p className="mt-2 text-[11px] text-muted-foreground">— {displayName}</p>
             </blockquote>
           </div>
 
@@ -94,7 +136,7 @@ function MyProfilePage() {
 
       <Page>
         <div className="grid gap-4 lg:grid-cols-4">
-          <Panel title={`About ${me.name.split(" ")[0]}`} action="kebab">
+          <Panel title="About" action="kebab">
             <p className="mb-3 text-[12.5px] leading-relaxed text-muted-foreground">{me.bio}</p>
             {me.credentials.map((c) => (
               <IconLine

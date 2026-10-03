@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { MessageCircle, Sparkles } from "lucide-react";
+import { Database, MessageCircle, Sparkles } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
+import { IntrosLanding, IntrosLoading } from "@/components/intros/landing";
 import {
   InitialsAvatar,
   Panel,
@@ -8,6 +9,7 @@ import {
   Creed,
   StatLine,
   IconLine,
+  EmptyState,
 } from "@/components/intros/primitives";
 import { NetworkMap } from "@/components/intros/network-map";
 import {
@@ -20,6 +22,7 @@ import {
   contextualConnections,
   relationshipPatterns,
 } from "@/lib/intros-data";
+import { useIntrosMode } from "@/lib/use-intros-mode";
 
 export const Route = createFileRoute("/intros/memory")({
   head: () => ({ meta: [{ title: "Aetheris Intros — Memory" }] }),
@@ -36,6 +39,25 @@ const FILTERS = [
 ];
 
 function MemoryPage() {
+  const { mode, enterDemo } = useIntrosMode();
+
+  if (mode === "loading") return <IntrosLoading />;
+  if (mode === null) return <IntrosLanding onDemo={enterDemo} />;
+
+  if (mode === "live") {
+    return (
+      <IntrosShell>
+        <Page>
+          <EmptyState
+            icon={<Database className="h-7 w-7 text-muted-foreground" />}
+            title="Nothing remembered yet"
+            description="As you talk with people on Aetheris, context from your conversations will be remembered here."
+          />
+        </Page>
+      </IntrosShell>
+    );
+  }
+
   return (
     <IntrosShell>
       {/* hero */}
