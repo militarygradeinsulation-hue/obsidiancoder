@@ -4,6 +4,8 @@
 
 export const me = { name: "Daniel Kim", meta: "Member since 2024" };
 
+export type PeopleCategory = "Founders" | "Investors" | "Operators" | "Advisors";
+
 export const people = [
   {
     id: "sarah-chen",
@@ -13,6 +15,7 @@ export const people = [
     location: "San Francisco, CA",
     note: "Scaling AI infrastructure for the real economy.",
     tags: ["AI", "Infrastructure"],
+    category: "Founders" as PeopleCategory,
     fit: 98,
     fitLabel: "Excellent fit",
     mutuals: 12,
@@ -25,6 +28,7 @@ export const people = [
     location: "Seattle, WA",
     note: "Building enterprise software for critical industries.",
     tags: ["Enterprise", "Cloud"],
+    category: "Operators" as PeopleCategory,
     fit: 94,
     fitLabel: "Strong fit",
     mutuals: 8,
@@ -37,6 +41,7 @@ export const people = [
     location: "New York, NY",
     note: "Backing exceptional founders at seed and Series A.",
     tags: ["Venture Capital", "Fintech"],
+    category: "Investors" as PeopleCategory,
     fit: 92,
     fitLabel: "Strong fit",
     mutuals: 15,
@@ -49,6 +54,7 @@ export const people = [
     location: "Dubai, UAE",
     note: "Advising global companies on AI strategy and markets.",
     tags: ["Strategy", "Global"],
+    category: "Advisors" as PeopleCategory,
     fit: 88,
     fitLabel: "Great fit",
     mutuals: 11,
@@ -61,6 +67,7 @@ export const people = [
     location: "Singapore",
     note: "Building developer tools for the next generation.",
     tags: ["Product", "Infrastructure"],
+    category: "Operators" as PeopleCategory,
     fit: 85,
     fitLabel: "Great fit",
     mutuals: 7,
@@ -73,6 +80,7 @@ export const people = [
     location: "Berlin, Germany",
     note: "Applying AI to climate and industrial transformation.",
     tags: ["Climate Tech", "B2B"],
+    category: "Founders" as PeopleCategory,
     fit: 82,
     fitLabel: "Great fit",
     mutuals: 9,
@@ -85,6 +93,7 @@ export const people = [
     location: "Seoul, South Korea",
     note: "Growth investor focused on marketplaces and vertical software.",
     tags: ["Growth", "Marketplaces"],
+    category: "Investors" as PeopleCategory,
     fit: 78,
     fitLabel: "Good fit",
     mutuals: 6,
@@ -97,6 +106,7 @@ export const people = [
     location: "Boston, MA",
     note: "Scaling healthcare infrastructure for broader access.",
     tags: ["Healthcare", "Operations"],
+    category: "Operators" as PeopleCategory,
     fit: 76,
     fitLabel: "Good fit",
     mutuals: 4,
@@ -133,17 +143,19 @@ export type Thread = {
   unread: boolean;
   badge?: string;
   live?: boolean;
+  starred?: boolean;
 };
 
 export const threads: Thread[] = [
   {
     id: 1,
     name: "Sarah Chen",
-    preview: "Glad to connect, Marcus. We're …",
+    preview: "Glad to connect, Sarah. We're …",
     time: "10:26 AM",
     badge: "Introduction",
     unread: false,
     live: true,
+    starred: true,
   },
   {
     id: 2,
@@ -180,6 +192,7 @@ export const threads: Thread[] = [
     preview: "This could be a great fit. …",
     time: "Mar 10",
     unread: false,
+    starred: true,
   },
   {
     id: 7,
@@ -190,32 +203,199 @@ export const threads: Thread[] = [
   },
 ];
 
-export const conversation = [
-  {
-    from: "them",
-    who: "Sarah Chen",
-    time: "10:14 AM",
-    text: "Thanks for the introduction, Marcus. I've been following Aetheris Intros and am impressed with your focus on real-world infrastructure use cases. We're currently exploring strategic partners to expand our enterprise reach, and your perspective would be valuable.",
+export type ThreadDetail = {
+  role: string;
+  tags: string[];
+  sharedInterests: string;
+  sharedConnections: { name: string; role: string }[];
+  relevantTopics: string;
+  currentNeed: string;
+  commitments: string;
+  conversation: { from: "me" | "them"; who: string; time: string; text: string }[];
+};
+
+export const threadDetails: Record<number, ThreadDetail> = {
+  1: {
+    role: "Founder & CEO, Woven AI",
+    tags: ["AI Infrastructure", "Enterprise Software", "Series B"],
+    sharedInterests: "AI Infrastructure, Enterprise Software",
+    sharedConnections: [
+      { name: "Alex Monroe", role: "Strategic Advisor" },
+      { name: "Priya Desai", role: "Operating Advisor, Aurora Ventures" },
+    ],
+    relevantTopics: "Go-to-market, Partnerships, Global expansion",
+    currentNeed:
+      "Exploring strategic partners to expand enterprise reach and accelerate go-to-market.",
+    commitments: "Raising Series B. Targeting Q3 close. Expanding U.S. enterprise team.",
+    conversation: [
+      {
+        from: "them",
+        who: "Sarah Chen",
+        time: "10:14 AM",
+        text: "Thanks for the introduction. I've been following Aetheris Intros and am impressed with your focus on real-world infrastructure use cases. We're currently exploring strategic partners to expand our enterprise reach, and your perspective would be valuable.",
+      },
+      {
+        from: "me",
+        who: "Daniel Kim",
+        time: "10:26 AM",
+        text: "Glad to connect, Sarah. We're focused on making AI infrastructure more accessible to enterprises, and I think there's strong alignment with the types of companies you back.",
+      },
+      {
+        from: "them",
+        who: "Sarah Chen",
+        time: "10:38 AM",
+        text: "Agreed. We're particularly interested in teams building at the intersection of applied AI and operational infrastructure. Would you be open to a short call next week to explore potential synergies?",
+      },
+      {
+        from: "me",
+        who: "Daniel Kim",
+        time: "10:45 AM",
+        text: "Absolutely. I'm free Tuesday or Wednesday next week. I'll send a few time options, and can also share a brief deck in advance.",
+      },
+    ],
   },
-  {
-    from: "me",
-    who: "Marcus Lee",
-    time: "10:26 AM",
-    text: "Glad to connect, Sarah. We're focused on making AI infrastructure more accessible to enterprises, and I think there's strong alignment with the types of companies you back.",
+  2: {
+    role: "General Partner, Horizon Capital",
+    tags: ["Venture Capital", "Climate Tech"],
+    sharedInterests: "Climate Tech, Early-Stage Investing",
+    sharedConnections: [{ name: "James Okafor", role: "Founder & CEO, Forge AI" }],
+    relevantTopics: "Climate adaptation, Co-investment, Introductions",
+    currentNeed: "Looking to meet founders working on climate adaptation in Asia.",
+    commitments: "Open to co-investing on aligned deals this quarter.",
+    conversation: [
+      {
+        from: "me",
+        who: "Daniel Kim",
+        time: "10:30 AM",
+        text: "Does Thursday at 2pm work for the intro call with the climate adaptation founder I mentioned?",
+      },
+      {
+        from: "them",
+        who: "Marcus Lee",
+        time: "10:45 AM",
+        text: "Perfect. Looking forward to it.",
+      },
+    ],
   },
-  {
-    from: "them",
-    who: "Sarah Chen",
-    time: "10:38 AM",
-    text: "Agreed. We're particularly interested in teams building at the intersection of applied AI and operational infrastructure. Would you be open to a short call next week to explore potential synergies?",
+  3: {
+    role: "Operating Partner, Voltera Partners",
+    tags: ["Climate Tech", "Infrastructure", "Introduction"],
+    sharedInterests: "Climate Tech, Clean Infrastructure",
+    sharedConnections: [
+      { name: "Marcus Lee", role: "General Partner, Horizon Capital" },
+      { name: "James Okafor", role: "Founder & CEO, Forge AI" },
+    ],
+    relevantTopics: "Portfolio introductions, European expansion",
+    currentNeed: "Following up after being introduced to James Okafor.",
+    commitments: "Will loop James in on the Berlin expansion thread this week.",
+    conversation: [
+      {
+        from: "me",
+        who: "Daniel Kim",
+        time: "Yesterday, 2:40 PM",
+        text: "Glad I could connect you two — I think there's real overlap between what you're both building.",
+      },
+      {
+        from: "them",
+        who: "Elena Rossi",
+        time: "Yesterday, 3:05 PM",
+        text: "Thanks for the introduction. I'll follow up with James directly about the Berlin opportunity.",
+      },
+    ],
   },
-  {
-    from: "me",
-    who: "Marcus Lee",
-    time: "10:45 AM",
-    text: "Absolutely. I'm free Tuesday or Wednesday next week. I'll send a few time options, and can also share a brief deck in advance.",
+  4: {
+    role: "Founder & CEO, Forge AI",
+    tags: ["Deep Tech", "AI Infrastructure"],
+    sharedInterests: "AI Infrastructure, Deep Tech",
+    sharedConnections: [{ name: "Elena Rossi", role: "Operating Partner, Voltera Partners" }],
+    relevantTopics: "Infrastructure benchmarks, Hiring",
+    currentNeed: "Hiring a Head of Partnerships in Q3.",
+    commitments: "Sharing an intro deck ahead of the first call.",
+    conversation: [
+      {
+        from: "me",
+        who: "Daniel Kim",
+        time: "Mar 12, 11:02 AM",
+        text: "Elena mentioned you two might be a good fit to compare notes on infrastructure benchmarks — happy to make the intro properly if useful.",
+      },
+      {
+        from: "them",
+        who: "James Okafor",
+        time: "Mar 12, 11:40 AM",
+        text: "Looking forward to connecting and comparing notes on infra. Always good to meet people building in the same space.",
+      },
+    ],
   },
-] as const;
+  5: {
+    role: "Strategic Advisor",
+    tags: ["Strategy", "Global Markets"],
+    sharedInterests: "Global Strategy, AI Markets",
+    sharedConnections: [{ name: "Sarah Chen", role: "Founder & CEO, Woven AI" }],
+    relevantTopics: "Market entry, Advisory scope",
+    currentNeed: "Advising a few companies entering APAC and the Gulf this year.",
+    commitments: "Will circle back once he's reviewed the context you shared.",
+    conversation: [
+      {
+        from: "me",
+        who: "Daniel Kim",
+        time: "Mar 11, 9:15 AM",
+        text: "Sharing some context on our expansion plans ahead of our call — let me know if anything's missing.",
+      },
+      {
+        from: "them",
+        who: "Alex Monroe",
+        time: "Mar 11, 9:50 AM",
+        text: "Appreciate the context. I'll reach out early next week once I've had a chance to go through it.",
+      },
+    ],
+  },
+  6: {
+    role: "Operating Advisor, Aurora Ventures",
+    tags: ["AI & Enterprise", "Introduction"],
+    sharedInterests: "AI & Enterprise, Consumer Brands",
+    sharedConnections: [{ name: "Daniel Kim", role: "CTO, Nexus Systems" }],
+    relevantTopics: "Portfolio fit, Design partnerships",
+    currentNeed: "Looking for design partners for a new consumer brand.",
+    commitments: "Will set up a call with the portfolio team next week.",
+    conversation: [
+      {
+        from: "me",
+        who: "Daniel Kim",
+        time: "Mar 10, 1:10 PM",
+        text: "Wanted to flag an AI + enterprise team that might be a strong fit for Aurora's portfolio thesis.",
+      },
+      {
+        from: "them",
+        who: "Priya Desai",
+        time: "Mar 10, 1:35 PM",
+        text: "This could be a great fit for our portfolio — let's set up a call to go deeper.",
+      },
+    ],
+  },
+  7: {
+    role: "Partner, GreenEdge",
+    tags: ["Clean Energy", "Co-investment"],
+    sharedInterests: "Clean Energy, Climate Infrastructure",
+    sharedConnections: [{ name: "Elena Rossi", role: "Operating Partner, Voltera Partners" }],
+    relevantTopics: "Co-investment, Diligence timeline",
+    currentNeed: "Evaluating a co-investment opportunity in clean energy infrastructure.",
+    commitments: "Targeting a decision before the end of the month.",
+    conversation: [
+      {
+        from: "me",
+        who: "Daniel Kim",
+        time: "Mar 8, 4:20 PM",
+        text: "Would love to get your take on the clean energy deal we discussed at the summit.",
+      },
+      {
+        from: "them",
+        who: "David Park",
+        time: "Mar 8, 4:55 PM",
+        text: "Let's find time next week to go deeper on the diligence timeline.",
+      },
+    ],
+  },
+};
 
 export const introRequests = [
   { from: "Elena Rossi", role: "CTO, Nebula Cloud", target: "James Okafor", date: "Mar 12, 2024" },
@@ -374,11 +554,14 @@ export const relationshipPatterns = [
   { text: "Your strongest relationships lead to investment opportunities." },
 ] as const;
 
+export type FeedTab = "Network" | "Following" | "Opportunities";
+
 export const posts = [
   {
     name: "Sarah Chen",
     role: "Founder & CEO, Vercelity",
     time: "2h ago",
+    feed: ["Network", "Opportunities"] as FeedTab[],
     body: "We just closed our Series B to expand AI infrastructure for creative work.\nGrateful to an incredible group of operators and investors who believe in a more open, human-centered future for AI.",
     card: {
       title: "From idea to global scale.",
@@ -394,6 +577,7 @@ export const posts = [
     name: "Marcus Lee",
     role: "General Partner, Horizon Capital",
     time: "4h ago",
+    feed: ["Opportunities"] as FeedTab[],
     body: "Looking to meet innovative founders working on climate adaptation, especially in Asia. Would love to hear what you're building and explore how we can help.",
     likes: 118,
     comments: 24,
@@ -404,6 +588,7 @@ export const posts = [
     name: "Elena Rossi",
     role: "Operating Partner, Voltera Partners",
     time: "Yesterday",
+    feed: ["Network", "Following"] as FeedTab[],
     body: "Five signals I watch before backing an industrial-tech team: a real customer in production, a cost curve that bends, a permitting path, an operator on the founding team, and honest unit economics.",
     likes: 431,
     comments: 57,

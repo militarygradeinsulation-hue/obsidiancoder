@@ -50,6 +50,23 @@ export function IntrosShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
+        <nav
+          className="flex flex-1 items-center gap-1 overflow-x-auto lg:hidden"
+          aria-label="Primary"
+        >
+          {NAV.map((n) => (
+            <Link
+              key={n.to}
+              to={n.to}
+              activeOptions={{ exact: n.to === "/intros" }}
+              className="flex-none whitespace-nowrap rounded-md px-2.5 py-1.5 text-[12.5px] text-muted-foreground transition hover:text-foreground"
+              activeProps={{ className: "text-foreground bg-white/5" }}
+            >
+              {n.label}
+            </Link>
+          ))}
+        </nav>
+
         <div className="ml-auto flex items-center gap-3">
           <label className="hidden h-9 items-center gap-2 rounded-full border border-border bg-white/5 px-3 text-xs text-muted-foreground md:flex">
             <Search className="h-3.5 w-3.5" />

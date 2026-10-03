@@ -66,12 +66,30 @@ function ToggleRow({ label, defaultOn = false }: { label: string; defaultOn?: bo
   );
 }
 
+function usePillGroup(initial: string[]) {
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(initial));
+  const toggle = (item: string) =>
+    setSelected((s) => {
+      const next = new Set(s);
+      if (next.has(item)) next.delete(item);
+      else next.add(item);
+      return next;
+    });
+  return [selected, toggle] as const;
+}
+
 function PreferencesPage() {
   const [theme, setTheme] = useState("Dark");
   const [circles, setCircles] = useState(["Horizon Capital Portfolio", "Stanford Network"]);
 
   const toggleCircle = (c: string) =>
     setCircles((x) => (x.includes(c) ? x.filter((y) => y !== c) : [...x, c]));
+
+  const [meet, toggleMeet] = usePillGroup(MEET.slice(0, 4));
+  const [focus, toggleFocus] = usePillGroup(FOCUS.slice(0, 3));
+  const [industries, toggleIndustries] = usePillGroup(INDUSTRIES.slice(0, 1));
+  const [geos, toggleGeos] = usePillGroup(GEOS.slice(0, 3));
+  const [goals, toggleGoals] = usePillGroup(GOALS.slice(0, 1));
 
   return (
     <IntrosShell>
@@ -163,8 +181,8 @@ function PreferencesPage() {
                   </p>
                   <p className="mb-2 text-[12px]">I'm most interested in meeting</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {MEET.map((m, i) => (
-                      <Pill key={m} on={i < 4}>
+                    {MEET.map((m) => (
+                      <Pill key={m} on={meet.has(m)} onClick={() => toggleMeet(m)}>
                         {m}
                       </Pill>
                     ))}
@@ -176,8 +194,8 @@ function PreferencesPage() {
                     Select the topics and sectors you're focused on.
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {FOCUS.map((f, i) => (
-                      <Pill key={f} on={i < 3}>
+                    {FOCUS.map((f) => (
+                      <Pill key={f} on={focus.has(f)} onClick={() => toggleFocus(f)}>
                         {f}
                       </Pill>
                     ))}
@@ -192,8 +210,8 @@ function PreferencesPage() {
                     Which industries are most relevant to you?
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {INDUSTRIES.map((f, i) => (
-                      <Pill key={f} on={i === 0}>
+                    {INDUSTRIES.map((f) => (
+                      <Pill key={f} on={industries.has(f)} onClick={() => toggleIndustries(f)}>
                         {f}
                       </Pill>
                     ))}
@@ -208,8 +226,8 @@ function PreferencesPage() {
                     Where are you looking to make connections?
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {GEOS.map((f, i) => (
-                      <Pill key={f} on={i < 3}>
+                    {GEOS.map((f) => (
+                      <Pill key={f} on={geos.has(f)} onClick={() => toggleGeos(f)}>
                         {f}
                       </Pill>
                     ))}
@@ -252,8 +270,8 @@ function PreferencesPage() {
                     What are you hoping to achieve through Aetheris?
                   </p>
                   <div className="flex flex-wrap gap-1.5">
-                    {GOALS.map((g, i) => (
-                      <Pill key={g} on={i === 0}>
+                    {GOALS.map((g) => (
+                      <Pill key={g} on={goals.has(g)} onClick={() => toggleGoals(g)}>
                         {g}
                       </Pill>
                     ))}

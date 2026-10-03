@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
 import { InitialsAvatar, Panel, Tag } from "@/components/intros/primitives";
-import { conversation, elena, introRequests, threads } from "@/lib/intros-data";
+import { introRequests, threadDetails, threads } from "@/lib/intros-data";
 
 export const Route = createFileRoute("/intros/messages")({
   head: () => ({ meta: [{ title: "Aetheris Intros — Messages" }] }),
@@ -26,15 +26,31 @@ export const Route = createFileRoute("/intros/messages")({
 const FILTERS = ["All", "Unread", "Introductions", "Starred"] as const;
 
 function MessagesPage() {
-  const [active, setActive] = useState(1);
+  const [active, setActive] = useState(threads[0].id);
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>("All");
   const [draft, setDraft] = useState("");
+  const [starred, setStarred] = useState<Set<number>>(
+    () => new Set(threads.filter((t) => t.starred).map((t) => t.id)),
+  );
+
+  const isStarred = (id: number) => starred.has(id);
+  const toggleStarred = (id: number) =>
+    setStarred((s) => {
+      const next = new Set(s);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
 
   const shown = threads.filter((t) => {
     if (filter === "Unread") return t.unread;
     if (filter === "Introductions") return t.badge;
+    if (filter === "Starred") return isStarred(t.id);
     return true;
   });
+
+  const activeThread = threads.find((t) => t.id === active) ?? threads[0];
+  const detail = threadDetails[activeThread.id];
 
   return (
     <IntrosShell>
@@ -144,31 +160,40 @@ function MessagesPage() {
                   </span>
                 </button>
               ))}
+              {shown.length === 0 && (
+                <p className="px-3 py-6 text-center text-[12px] text-muted-foreground">
+                  No conversations here yet.
+                </p>
+              )}
             </div>
           </div>
 
           {/* chat */}
           <div className="glass-panel flex flex-col overflow-hidden p-0">
             <header className="flex items-center gap-3 border-b border-border/60 px-4 py-3">
-              <InitialsAvatar name="Sarah Chen" size={42} live />
+              <InitialsAvatar name={activeThread.name} size={42} live={activeThread.live} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-[15px] font-semibold">Sarah Chen</span>
-                  <span className="h-2 w-2 rounded-full bg-emerald-400" />
+                  <span className="text-[15px] font-semibold">{activeThread.name}</span>
+                  {activeThread.live && <span className="h-2 w-2 rounded-full bg-emerald-400" />}
                 </div>
-                <div className="text-[11px] text-muted-foreground">Founder & CEO, Woven AI</div>
+                <div className="text-[11px] text-muted-foreground">{detail.role}</div>
                 <div className="mt-1.5 flex gap-1.5">
-                  <Tag>AI Infrastructure</Tag>
-                  <Tag>Enterprise Software</Tag>
-                  <Tag>Series B</Tag>
-                  <Tag>+1</Tag>
+                  {detail.tags.map((t) => (
+                    <Tag key={t}>{t}</Tag>
+                  ))}
                 </div>
               </div>
               <button
-                aria-label="Star"
-                className="text-muted-foreground hover:text-foreground transition"
+                aria-label={isStarred(activeThread.id) ? "Unstar" : "Star"}
+                aria-pressed={isStarred(activeThread.id)}
+                onClick={() => toggleStarred(activeThread.id)}
+                className={`transition ${isStarred(activeThread.id) ? "text-primary" : "text-muted-foreground hover:text-foreground"}`}
               >
-                <Star className="h-[17px] w-[17px]" />
+                <Star
+                  className="h-[17px] w-[17px]"
+                  fill={isStarred(activeThread.id) ? "currentColor" : "none"}
+                />
               </button>
               <button
                 aria-label="More"
@@ -179,10 +204,7 @@ function MessagesPage() {
             </header>
 
             <div className="flex-1 overflow-y-auto px-4 py-3">
-              <p className="mb-3 text-center text-[11px] text-muted-foreground">
-                Tuesday, March 12, 2024
-              </p>
-              {conversation.map((m, i) => (
+              {detail.conversation.map((m, i) => (
                 <div
                   key={i}
                   className={`mb-3 flex gap-2.5 ${m.from === "me" ? "flex-row-reverse" : ""}`}
@@ -204,14 +226,6 @@ function MessagesPage() {
                   </div>
                 </div>
               ))}
-              <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-                <span className="flex gap-0.5">
-                  <i className="h-1 w-1 animate-pulse rounded-full bg-muted-foreground" />
-                  <i className="h-1 w-1 animate-pulse rounded-full bg-muted-foreground [animation-delay:150ms]" />
-                  <i className="h-1 w-1 animate-pulse rounded-full bg-muted-foreground [animation-delay:300ms]" />
-                </span>
-                Sarah Chen is typing
-              </div>
             </div>
 
             <div className="flex items-center gap-2 border-t border-border/60 px-3 py-2.5">
@@ -222,7 +236,7 @@ function MessagesPage() {
                 <Plus className="h-[19px] w-[19px]" />
               </button>
               <input
-                placeholder="Write a message..."
+                placeholder={`Message ${activeThread.name}...`}
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 aria-label="Write a message"
@@ -253,17 +267,13 @@ function MessagesPage() {
           <div className="flex flex-col gap-3.5 overflow-y-auto">
             <Panel title="Shared context" action="View more">
               {[
+                { icon: Sparkles, k: "Shared interests", v: detail.sharedInterests },
                 {
-                  icon: Sparkles,
-                  k: "Shared interests",
-                  v: "AI Infrastructure, Enterprise Software",
+                  icon: Users,
+                  k: "Shared connections",
+                  v: detail.sharedConnections.map((c) => c.name).join(", "),
                 },
-                { icon: Users, k: "Shared connections", v: "Alex Monroe, Priya Desai (+2)" },
-                {
-                  icon: Link2,
-                  k: "Relevant topics",
-                  v: "Go-to-market, Partnerships, Global expansion",
-                },
+                { icon: Link2, k: "Relevant topics", v: detail.relevantTopics },
               ].map((r) => (
                 <div
                   key={r.k}
@@ -276,15 +286,13 @@ function MessagesPage() {
                   </div>
                 </div>
               ))}
-              <p className="mt-2 text-[12px] leading-relaxed text-muted-foreground">
-                Both of you are focused on AI infrastructure and have complementary networks in
-                enterprise and developer ecosystems. Sarah is raising a Series B and exploring
-                strategic partners for go-to-market expansion.
-              </p>
             </Panel>
 
-            <Panel title="Mutual connections (3)" action="View all">
-              {elena.sharedConnections.map((c) => (
+            <Panel
+              title={`Mutual connections (${detail.sharedConnections.length})`}
+              action="View all"
+            >
+              {detail.sharedConnections.map((c) => (
                 <div
                   key={c.name}
                   className="flex items-center gap-2.5 border-b border-border/60 py-2 last:border-0"
@@ -301,20 +309,19 @@ function MessagesPage() {
             <div className="grid grid-cols-2 gap-3.5">
               <Panel title="Current need">
                 <p className="text-[12px] leading-relaxed text-muted-foreground">
-                  Exploring strategic partners to expand enterprise reach and accelerate
-                  go-to-market.
+                  {detail.currentNeed}
                 </p>
               </Panel>
               <Panel title="Commitments">
                 <p className="text-[12px] leading-relaxed text-muted-foreground">
-                  Raising Series B. Targeting Q3 close. Expanding U.S. enterprise team.
+                  {detail.commitments}
                 </p>
               </Panel>
             </div>
 
             <Panel title="Suggested next step">
               <p className="mb-3 text-[12.5px] leading-relaxed text-muted-foreground">
-                Schedule a 30-minute call to explore partnership opportunities.
+                Schedule a 30-minute call to explore next steps with {activeThread.name}.
               </p>
               <button className="flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2 text-[13px] font-medium text-primary-foreground hover:opacity-90 transition">
                 <Calendar className="h-[15px] w-[15px]" /> Schedule meeting

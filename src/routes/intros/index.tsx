@@ -21,11 +21,14 @@ export const Route = createFileRoute("/intros/")({
   component: IntrosHome,
 });
 
-const TABS = ["For you", "Network", "Following", "Opportunities"];
+const TABS = ["For you", "Network", "Following", "Opportunities"] as const;
 
 function IntrosHome() {
-  const [tab, setTab] = useState("For you");
+  const [tab, setTab] = useState<(typeof TABS)[number]>("For you");
   const [text, setText] = useState("");
+
+  const shownPosts =
+    tab === "For you" ? posts : posts.filter((p) => (p.feed as readonly string[]).includes(tab));
 
   return (
     <IntrosShell>
@@ -102,7 +105,7 @@ function IntrosHome() {
               </div>
 
               <div className="flex flex-col gap-3">
-                {posts.map((p) => (
+                {shownPosts.map((p) => (
                   <article key={p.name + p.time} className="glass-panel p-4">
                     <div className="flex items-start gap-3.5">
                       <InitialsAvatar name={p.name} size={46} square />
@@ -160,6 +163,11 @@ function IntrosHome() {
                     </div>
                   </article>
                 ))}
+                {shownPosts.length === 0 && (
+                  <p className="py-10 text-center text-sm text-muted-foreground">
+                    Nothing in {tab} yet.
+                  </p>
+                )}
               </div>
             </div>
           </div>

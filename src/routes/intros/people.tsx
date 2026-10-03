@@ -21,10 +21,7 @@ function PeoplePage() {
       if (query && !`${p.name} ${p.company} ${p.role}`.toLowerCase().includes(query.toLowerCase()))
         return false;
       if (filter === "All") return true;
-      return (
-        p.role.toLowerCase().includes(filter.slice(0, -1).toLowerCase()) ||
-        p.tags.some((t) => t.toLowerCase().includes(filter.toLowerCase()))
-      );
+      return p.category === filter;
     });
   }, [query, filter]);
 

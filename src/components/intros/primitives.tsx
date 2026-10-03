@@ -87,17 +87,28 @@ export function Panel({
   );
 }
 
-export function Pill({ children, on = false }: { children: ReactNode; on?: boolean }) {
-  return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] transition",
-        on ? "border-primary/40 bg-primary/15 text-primary" : "border-border text-muted-foreground",
-      )}
-    >
-      {children}
-    </span>
+export function Pill({
+  children,
+  on = false,
+  onClick,
+}: {
+  children: ReactNode;
+  on?: boolean;
+  onClick?: () => void;
+}) {
+  const className = cn(
+    "inline-flex items-center rounded-full border px-3 py-1 text-[11.5px] transition",
+    on ? "border-primary/40 bg-primary/15 text-primary" : "border-border text-muted-foreground",
+    onClick && "cursor-pointer hover:border-primary/40 hover:text-foreground",
   );
+  if (onClick) {
+    return (
+      <button type="button" aria-pressed={on} onClick={onClick} className={className}>
+        {children}
+      </button>
+    );
+  }
+  return <span className={className}>{children}</span>;
 }
 
 export function Tag({ children, blue = false }: { children: ReactNode; blue?: boolean }) {
