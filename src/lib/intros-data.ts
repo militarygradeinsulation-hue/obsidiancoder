@@ -2,7 +2,32 @@
    queries later — component props are shaped to match these exports, so
    nothing else needs to change. */
 
-export const me = { name: "Daniel Kim", meta: "Member since 2024" };
+export const me = {
+  name: "Daniel Kim",
+  meta: "Member since 2024",
+  role: "Founder & CEO",
+  company: "Solari Systems",
+  location: "Seattle, WA",
+  bio: "Building enterprise infrastructure software for critical industries, and looking for the right partners to help scale it.",
+  quote: "The best infrastructure is invisible — it just lets people build faster.",
+  tags: ["Enterprise Software", "Cloud Infrastructure", "AI"],
+  credentials: ["Solari Systems", "3x founder, 2x operator"],
+  lookingFor: [
+    "Strategic investors for our Series B",
+    "Enterprise design partners in regulated industries",
+    "Operators who've scaled through compliance-heavy markets",
+  ],
+  helpWith: [
+    "Enterprise infrastructure architecture",
+    "Scaling engineering teams through hypergrowth",
+    "Navigating procurement in regulated industries",
+  ],
+  stats: [
+    { n: "3", l: "Companies founded" },
+    { n: "12+", l: "Years operating" },
+    { n: "40+", l: "Enterprise customers" },
+  ],
+};
 
 export type PeopleCategory = "Founders" | "Investors" | "Operators" | "Advisors";
 
@@ -21,11 +46,11 @@ export const people = [
     mutuals: 12,
   },
   {
-    id: "daniel-kim",
-    name: "Daniel Kim",
+    id: "victor-hale",
+    name: "Victor Hale",
     role: "CTO",
-    company: "Nexus Systems",
-    location: "Seattle, WA",
+    company: "Meridian Systems",
+    location: "Austin, TX",
     note: "Building enterprise software for critical industries.",
     tags: ["Enterprise", "Cloud"],
     category: "Operators" as PeopleCategory,
@@ -117,7 +142,7 @@ export const connectors = [
   {
     name: "Marcus Lee",
     role: "General Partner",
-    company: "Horizon Ventures",
+    company: "Horizon Capital",
     focus: "Venture Capital",
   },
   {
@@ -216,7 +241,7 @@ export type ThreadDetail = {
 
 export const threadDetails: Record<number, ThreadDetail> = {
   1: {
-    role: "Founder & CEO, Woven AI",
+    role: "Founder & CEO, Vercelity",
     tags: ["AI Infrastructure", "Enterprise Software", "Series B"],
     sharedInterests: "AI Infrastructure, Enterprise Software",
     sharedConnections: [
@@ -330,7 +355,7 @@ export const threadDetails: Record<number, ThreadDetail> = {
     role: "Strategic Advisor",
     tags: ["Strategy", "Global Markets"],
     sharedInterests: "Global Strategy, AI Markets",
-    sharedConnections: [{ name: "Sarah Chen", role: "Founder & CEO, Woven AI" }],
+    sharedConnections: [{ name: "Sarah Chen", role: "Founder & CEO, Vercelity" }],
     relevantTopics: "Market entry, Advisory scope",
     currentNeed: "Advising a few companies entering APAC and the Gulf this year.",
     commitments: "Will circle back once he's reviewed the context you shared.",
@@ -353,7 +378,7 @@ export const threadDetails: Record<number, ThreadDetail> = {
     role: "Operating Advisor, Aurora Ventures",
     tags: ["AI & Enterprise", "Introduction"],
     sharedInterests: "AI & Enterprise, Consumer Brands",
-    sharedConnections: [{ name: "Daniel Kim", role: "CTO, Nexus Systems" }],
+    sharedConnections: [{ name: "Victor Hale", role: "CTO, Meridian Systems" }],
     relevantTopics: "Portfolio fit, Design partnerships",
     currentNeed: "Looking for design partners for a new consumer brand.",
     commitments: "Will set up a call with the portfolio team next week.",
@@ -411,7 +436,7 @@ export const introRequests = [
 export const rememberedConversations = [
   {
     name: "Sarah Chen",
-    role: "Founder & CEO, Vernality",
+    role: "Founder & CEO, Vercelity",
     summary:
       "Discussed their Series B plans, hiring a Head of Product, and interest in climate tech partners.",
     date: "Apr 16, 2025",
@@ -420,7 +445,7 @@ export const rememberedConversations = [
   },
   {
     name: "James Okafor",
-    role: "Partner, Horizon Ventures",
+    role: "Founder & CEO, Forge AI",
     summary:
       "Talked about AI infrastructure trends, potential co-investment opportunities, and meeting at VC Summit.",
     date: "Apr 10, 2025",
@@ -429,7 +454,7 @@ export const rememberedConversations = [
   },
   {
     name: "Elena Rossi",
-    role: "Operating Partner, Velora Ventures",
+    role: "Operating Partner, Voltera Partners",
     summary:
       "Shared perspective on European market expansion and introduced a potential portfolio company.",
     date: "Mar 12, 2025",
@@ -438,7 +463,7 @@ export const rememberedConversations = [
   },
   {
     name: "Priya Desai",
-    role: "Investor, ArcGrid",
+    role: "Operating Advisor, Aurora Ventures",
     summary:
       "Discussed clean energy opportunities, mentioned their interest in meeting their LP network.",
     date: "Mar 12, 2025",
@@ -457,10 +482,10 @@ export const rememberedConversations = [
 ] as const;
 
 export const peopleInMemory = [
-  { name: "Sarah Chen", role: "Founder, Vernality", score: 95 },
-  { name: "James Okafor", role: "Partner, Horizon Ventures", score: 88 },
-  { name: "Elena Rossi", role: "Operating Partner, Velora", score: 94 },
-  { name: "Priya Desai", role: "Investor, ArcGrid", score: 91 },
+  { name: "Sarah Chen", role: "Founder, Vercelity", score: 95 },
+  { name: "James Okafor", role: "Founder & CEO, Forge AI", score: 88 },
+  { name: "Elena Rossi", role: "Operating Partner, Voltera Partners", score: 94 },
+  { name: "Priya Desai", role: "Operating Advisor, Aurora Ventures", score: 91 },
   { name: "Alex Morales", role: "CEO, Stratos", score: 87 },
 ] as const;
 
@@ -493,7 +518,7 @@ export const learned = [
     src: "Meeting",
   },
   {
-    name: "Daniel Kim",
+    name: "Victor Hale",
     text: "plans to expand to Singapore next year.",
     confidence: 87,
     privacy: "Shared",
@@ -525,7 +550,7 @@ export const reconnect = [
     note: "Discuss product launch progress.",
   },
   {
-    name: "Daniel Kim",
+    name: "Victor Hale",
     last: "Last conversation 3 months ago",
     note: "Follow up on potential partnership.",
   },

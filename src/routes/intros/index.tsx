@@ -209,9 +209,12 @@ function IntrosHome() {
                 >
                   <Mail className="h-[15px] w-[15px]" /> Request introduction
                 </Link>
-                <button className="rounded-md border border-border px-3 py-2 text-[13px] hover:bg-white/5 transition">
-                  View reasoning
-                </button>
+                <Link
+                  to="/intros/elena-rossi"
+                  className="rounded-md border border-border px-3 py-2 text-[13px] hover:bg-white/5 transition"
+                >
+                  View profile
+                </Link>
               </div>
             </Panel>
 

@@ -4,6 +4,7 @@ import { ArrowRight, Calendar, Database, MapPin, Plus } from "lucide-react";
 import { IntrosShell, Page } from "@/components/intros/shell";
 import { Panel, Plate, Pill, Creed } from "@/components/intros/primitives";
 import { Switch } from "@/components/ui/switch";
+import { me } from "@/lib/intros-data";
 
 export const Route = createFileRoute("/intros/preferences")({
   head: () => ({ meta: [{ title: "Aetheris Intros — Preferences" }] }),
@@ -394,44 +395,39 @@ function PreferencesPage() {
                   Professional member
                 </span>
               </Plate>
-              <h3 className="font-serif text-2xl font-semibold">Marcus Lee</h3>
+              <h3 className="font-serif text-2xl font-semibold">{me.name}</h3>
               <p className="mt-1.5 text-[15px] font-medium leading-snug">
-                General Partner
+                {me.role}
                 <br />
-                Horizon Capital
+                {me.company}
               </p>
               <div className="mt-2 flex items-center gap-2 text-[12px] text-muted-foreground">
                 <span className="flex items-center gap-1">
-                  <MapPin className="h-3.5 w-3.5" /> New York, NY
+                  <MapPin className="h-3.5 w-3.5" /> {me.location}
                 </span>
               </div>
-              <p className="mt-2.5 text-[12.5px] leading-relaxed text-muted-foreground">
-                Investing in category-defining AI and infrastructure companies to build a more
-                connected, human future.
-              </p>
+              <p className="mt-2.5 text-[12.5px] leading-relaxed text-muted-foreground">{me.bio}</p>
               <div className="mt-3 flex flex-wrap gap-1.5">
-                <Pill on>AI Infrastructure</Pill>
-                <Pill on>Enterprise Software</Pill>
-                <Pill on>Climate Tech</Pill>
-                <Pill>+3</Pill>
+                {me.tags.map((t) => (
+                  <Pill key={t} on>
+                    {t}
+                  </Pill>
+                ))}
               </div>
               <div className="my-3.5 grid grid-cols-3 gap-2 border-t border-border pt-3 text-center">
-                <div>
-                  <div className="font-serif text-lg font-semibold">10+</div>
-                  <div className="text-[10px] text-muted-foreground">Years in VC</div>
-                </div>
-                <div>
-                  <div className="font-serif text-lg font-semibold">50+</div>
-                  <div className="text-[10px] text-muted-foreground">Portfolio companies</div>
-                </div>
-                <div>
-                  <div className="font-serif text-lg font-semibold">3x</div>
-                  <div className="text-[10px] text-muted-foreground">Founder operator</div>
-                </div>
+                {me.stats.map((s) => (
+                  <div key={s.l}>
+                    <div className="font-serif text-lg font-semibold">{s.n}</div>
+                    <div className="text-[10px] text-muted-foreground">{s.l}</div>
+                  </div>
+                ))}
               </div>
-              <button className="flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2 text-[13px] font-medium text-primary-foreground hover:opacity-90 transition">
-                Request introduction <ArrowRight className="h-3.5 w-3.5" />
-              </button>
+              <Link
+                to="/intros/profile"
+                className="flex w-full items-center justify-center gap-2 rounded-md bg-primary py-2 text-[13px] font-medium text-primary-foreground hover:opacity-90 transition"
+              >
+                View my profile <ArrowRight className="h-3.5 w-3.5" />
+              </Link>
             </Panel>
 
             <div className="glass-panel p-4 text-right">

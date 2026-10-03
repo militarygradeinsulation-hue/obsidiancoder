@@ -19,6 +19,7 @@ import { Route as IntrosPeopleRouteImport } from './routes/intros/people'
 import { Route as IntrosMessagesRouteImport } from './routes/intros/messages'
 import { Route as IntrosMemoryRouteImport } from './routes/intros/memory'
 import { Route as IntrosInsightsRouteImport } from './routes/intros/insights'
+import { Route as IntrosElenaRossiRouteImport } from './routes/intros/elena-rossi'
 
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
@@ -70,10 +71,16 @@ const IntrosInsightsRoute = IntrosInsightsRouteImport.update({
   path: '/intros/insights',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntrosElenaRossiRoute = IntrosElenaRossiRouteImport.update({
+  id: '/intros/elena-rossi',
+  path: '/intros/elena-rossi',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/intros/elena-rossi': typeof IntrosElenaRossiRoute
   '/intros/insights': typeof IntrosInsightsRoute
   '/intros/memory': typeof IntrosMemoryRoute
   '/intros/messages': typeof IntrosMessagesRoute
@@ -86,6 +93,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/intros/elena-rossi': typeof IntrosElenaRossiRoute
   '/intros/insights': typeof IntrosInsightsRoute
   '/intros/memory': typeof IntrosMemoryRoute
   '/intros/messages': typeof IntrosMessagesRoute
@@ -99,6 +107,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/intros/elena-rossi': typeof IntrosElenaRossiRoute
   '/intros/insights': typeof IntrosInsightsRoute
   '/intros/memory': typeof IntrosMemoryRoute
   '/intros/messages': typeof IntrosMessagesRoute
@@ -113,6 +122,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/sitemap.xml'
+    | '/intros/elena-rossi'
     | '/intros/insights'
     | '/intros/memory'
     | '/intros/messages'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/sitemap.xml'
+    | '/intros/elena-rossi'
     | '/intros/insights'
     | '/intros/memory'
     | '/intros/messages'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/sitemap.xml'
+    | '/intros/elena-rossi'
     | '/intros/insights'
     | '/intros/memory'
     | '/intros/messages'
@@ -150,6 +162,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  IntrosElenaRossiRoute: typeof IntrosElenaRossiRoute
   IntrosInsightsRoute: typeof IntrosInsightsRoute
   IntrosMemoryRoute: typeof IntrosMemoryRoute
   IntrosMessagesRoute: typeof IntrosMessagesRoute
@@ -232,12 +245,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntrosInsightsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/intros/elena-rossi': {
+      id: '/intros/elena-rossi'
+      path: '/intros/elena-rossi'
+      fullPath: '/intros/elena-rossi'
+      preLoaderRoute: typeof IntrosElenaRossiRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  IntrosElenaRossiRoute: IntrosElenaRossiRoute,
   IntrosInsightsRoute: IntrosInsightsRoute,
   IntrosMemoryRoute: IntrosMemoryRoute,
   IntrosMessagesRoute: IntrosMessagesRoute,
