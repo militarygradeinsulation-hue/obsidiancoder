@@ -180,7 +180,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  @utility float-slow {
+  .float-slow {
     animation: none;
   }
 }
