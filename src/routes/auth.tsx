@@ -74,6 +74,17 @@ function AuthPage() {
       // The `redirect_uri` remains the public origin (never a protected
       // route); the auth-state listener above consumes the stash on return.
       stashOAuthDest(dest);
+      // Self-hosted builds set VITE_OAUTH_MODE=supabase and use Supabase's own
+      // Google provider (enable it in your Supabase dashboard). Unset, the
+      // original Lovable OAuth broker is used exactly as before.
+      if (import.meta.env.VITE_OAUTH_MODE === "supabase") {
+        const { error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: { redirectTo: window.location.origin },
+        });
+        if (error) throw new Error(error.message || "Google sign-in failed");
+        return; // browser is redirecting to Google
+      }
       const result = await lovable.auth.signInWithOAuth("google", {
         redirect_uri: window.location.origin,
       });

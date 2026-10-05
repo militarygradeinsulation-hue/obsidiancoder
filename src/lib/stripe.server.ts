@@ -16,7 +16,28 @@ export function getConnectionApiKey(env: StripeEnv): string {
     : getEnv("STRIPE_LIVE_API_KEY");
 }
 
+/**
+ * Your own Stripe secret key, for running outside Lovable. When set, Stripe
+ * is called directly at api.stripe.com and Lovable's connector gateway is not
+ * used at all. Live: STRIPE_SECRET_KEY. Sandbox: STRIPE_SANDBOX_SECRET_KEY.
+ * Only real secret/restricted keys (sk_ / rk_) qualify, so a Lovable
+ * connection key can never be mistaken for one. Unset on Lovable, so the
+ * existing connector path below is unchanged there.
+ */
+export function directStripeSecret(env: StripeEnv): string | undefined {
+  const raw = env === "sandbox" ? process.env.STRIPE_SANDBOX_SECRET_KEY : process.env.STRIPE_SECRET_KEY;
+  const v = raw?.trim();
+  return v && /^(sk|rk)_(live|test)_/.test(v) ? v : undefined;
+}
+
 export function createStripeClient(env: StripeEnv): Stripe {
+  const direct = directStripeSecret(env);
+  if (direct) {
+    return new Stripe(direct, {
+      apiVersion: "2026-03-25.dahlia",
+      httpClient: Stripe.createFetchHttpClient(),
+    });
+  }
   const connectionApiKey = getConnectionApiKey(env);
   const lovableApiKey = getEnv("LOVABLE_API_KEY");
 
