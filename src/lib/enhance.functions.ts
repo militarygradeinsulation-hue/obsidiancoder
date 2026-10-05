@@ -14,6 +14,7 @@ import {
   isExplicitTradesContext,
   neutralEnhancementFallbacks,
 } from "@/lib/suggestion-safety";
+import { gatewayKey, gatewayChatUrl, gatewayModel, gatewayTranscribeUrl } from "@/lib/ai-gateway";
 
 const inputSchema = z.object({
   prompt: z.string().min(1).max(4000),
@@ -65,17 +66,17 @@ export const enhancePrompt = createServerFn({ method: "POST" })
     let parsedUsage: { inputTokens: number; outputTokens: number; totalTokens: number; model?: string } | null = null;
     let errorCode: string | undefined;
     try {
-      const apiKey = process.env.LOVABLE_API_KEY;
+      const apiKey = gatewayKey();
       if (!apiKey) {
         // Pre-provider failure — nothing consumed, refund.
         await settleOperation(entitlement, { kind: "no_provider", errorCode: "ai_unauthorized" });
         throw new Error("AI is not configured yet.");
       }
-      const res = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
+      const res = await fetch(gatewayChatUrl(), {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: ENHANCE_MODEL,
+          model: gatewayModel(ENHANCE_MODEL),
           messages: [
             { role: "system", content: data.mode === "extend" ? SYSTEM_EXTEND : SYSTEM },
             {

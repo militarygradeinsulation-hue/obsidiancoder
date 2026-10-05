@@ -33,6 +33,7 @@ import {
 } from "@/lib/anthropic";
 import { googleAiKey, googleModelFor, GOOGLE_OPENAI_CHAT_URL } from "@/lib/google-ai";
 import { CONCRETE_FAMILIES, POCKET_STYLE_FAMILIES } from "@/lib/pocket-creative";
+import { resolveGateway, gatewayChatUrl, gatewayModel, gatewayImagesUrl, gatewayImageModel } from "@/lib/ai-gateway";
 import {
   RECENT_SIGNATURE_INPUT_MAX,
   RECENT_SIGNATURE_LIMIT,
@@ -361,13 +362,15 @@ async function providerHiggsfield(prompt: string, requestId: string, signal: Abo
 }
 
 async function providerGemini(apiKey: string, prompt: string, requestId: string, signal: AbortSignal): Promise<string | null> {
+  const imagesUrl = gatewayImagesUrl();
+  if (!imagesUrl) return null;
   try {
     const r = await aiFetch(
-      "https://ai.gateway.lovable.dev/v1/images/generations",
+      imagesUrl,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
-        body: JSON.stringify({ model: "google/gemini-3-pro-image", messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
+        body: JSON.stringify({ model: gatewayImageModel("google/gemini-3-pro-image"), messages: [{ role: "user", content: prompt }], modalities: ["image", "text"] }),
       },
       { breakerKey: "lovable/image", stage: "image", requestId, signal, maxAttempts: 1, totalTimeoutMs: 8_000 },
     );
@@ -410,12 +413,12 @@ async function planAndGenerateImages(
   let planUsage: UsageRecord | null = null;
   try {
     const planRes = await aiFetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      gatewayChatUrl(),
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: "google/gemini-3.1-flash-lite",
+          model: gatewayModel("google/gemini-3.1-flash-lite"),
           messages: [
             { role: "system", content: 'Decide if this web build needs real generated images. Return ONLY JSON: {"images":[{"slot":"hero|card|logo|bg|icon","prompt":"detailed visual prompt, no text-in-image"}]}. Include images ONLY if the user explicitly asks for a visual OR the build is inherently visual (portfolio, gallery, product landing). Otherwise {"images":[]}. Max 2.' },
             { role: "user", content: `USER REQUEST: ${prompt}\n\nCURRENT HTML: ${currentHtml.slice(0, 1500)}` },
@@ -540,12 +543,12 @@ async function planAndFetchComponents(
   let components: ComponentHit[] = [];
   try {
     const planRes = await aiFetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      gatewayChatUrl(),
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: "google/gemini-3.1-flash-lite",
+          model: gatewayModel("google/gemini-3.1-flash-lite"),
           messages: [
             { role: "system", content:
               'You pick shadcn/Tailwind component search queries for a marketing/product build. Rules:\n' +
@@ -687,7 +690,8 @@ export async function handleGenerate(request: Request): Promise<Response> {
         let jobId: string | null = null;
         let coreCeilingTimer: ReturnType<typeof setTimeout> | undefined;
         try {
-          const apiKey = process.env.LOVABLE_API_KEY;
+          const gateway = resolveGateway();
+          const apiKey = gateway.key;
           const routellmApiKey = routellmKey();
           if (!apiKey && !routellmApiKey && !googleAiKey()) {
             throw new AiError({ code: "ai_unauthorized", stage: "validate", requestId, message: "AI is not configured." });
@@ -1208,11 +1212,14 @@ ${memBlock}`,
             }
 
             // 2. OpenAI via the Lovable gateway (plus the requested gateway model).
-            if (apiKey) {
-              const oa = openaiEquivalentFor(model);
+            // Skipped when the resolved gateway IS Google: step 3 already
+            // covers Google direct, and a Lovable-shaped attempt with a Google
+            // key would just fail. Custom gateways (AI_GATEWAY_URL) run here.
+            if (apiKey && gateway.kind !== "google") {
+              const oa = gatewayModel(openaiEquivalentFor(model));
               attempts.push({
                 key: apiKey,
-                url: "https://ai.gateway.lovable.dev/v1/chat/completions",
+                url: gatewayChatUrl(),
                 wireModel: oa,
                 routed: false,
                 label: `lovable/generate:${oa}`,
@@ -1221,8 +1228,8 @@ ${memBlock}`,
               if (requested !== oa && !requested.startsWith("claude-")) {
                 attempts.push({
                   key: apiKey,
-                  url: "https://ai.gateway.lovable.dev/v1/chat/completions",
-                  wireModel: requested,
+                  url: gatewayChatUrl(),
+                  wireModel: gatewayModel(requested),
                   routed: false,
                   label: `lovable/generate:${requested}`,
                 });

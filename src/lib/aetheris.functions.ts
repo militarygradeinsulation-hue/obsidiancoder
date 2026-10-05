@@ -12,6 +12,7 @@ import { creditsRequiredEnvelope, type CreditsRequiredEnvelope } from "./credit-
 import { makeUsage, estimateUsdForCall, mergeUsage, parseUsageFromChatJson, IMAGE_COST_USD, type UsageRecord } from "./usage-record";
 import { AETHERIS_VISUAL_STANDARD } from "./aetheris-visual-standard";
 import { routellmKey } from "@/lib/routellm-keys";
+import { gatewayKey, gatewayChatUrl, gatewayModel, gatewayImagesUrl, gatewayImageModel } from "@/lib/ai-gateway";
 
 /** Structured paywall error the client recognizes. */
 class PaywallError extends Error {
@@ -207,16 +208,17 @@ async function tryHiggsfield(prompt: string, requestId: string, signal?: AbortSi
 }
 
 async function tryGemini(prompt: string, requestId: string, signal?: AbortSignal): Promise<string | null> {
-  const apiKey = process.env.LOVABLE_API_KEY;
-  if (!apiKey) return null;
+  const apiKey = gatewayKey();
+  const imagesUrl = gatewayImagesUrl();
+  if (!apiKey || !imagesUrl) return null;
   try {
     const r = await aiFetch(
-      "https://ai.gateway.lovable.dev/v1/images/generations",
+      imagesUrl,
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: "google/gemini-3-pro-image",
+          model: gatewayImageModel("google/gemini-3-pro-image"),
           messages: [{ role: "user", content: prompt }],
           modalities: ["image", "text"],
         }),
@@ -317,12 +319,12 @@ export const generateImage = createServerFn({ method: "POST" })
 async function planImages(apiKey: string, prompt: string, currentHtml: string, requestId: string): Promise<Array<{ slot?: string; prompt: string }>> {
   try {
     const r = await aiFetch(
-      "https://ai.gateway.lovable.dev/v1/chat/completions",
+      gatewayChatUrl(),
       {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
         body: JSON.stringify({
-          model: "google/gemini-3.1-flash-lite",
+          model: gatewayModel("google/gemini-3.1-flash-lite"),
           messages: [
             {
               role: "system",
@@ -364,7 +366,7 @@ export const generateHtml = createServerFn({ method: "POST" })
     let mainUsage: { inputTokens: number; outputTokens: number; totalTokens: number; model?: string } | null = null;
     let mainErrorCode: string | undefined;
     try {
-      const apiKey = process.env.LOVABLE_API_KEY;
+      const apiKey = gatewayKey();
       const routellmApiKey = routellmKey();
       const usingRouteLLM = isRouteLLMModel(data.model);
       const activeKey = usingRouteLLM ? routellmApiKey : apiKey;
@@ -424,8 +426,8 @@ export const generateHtml = createServerFn({ method: "POST" })
 
       const upstreamUrl = usingRouteLLM
         ? "https://routellm.abacus.ai/v1/chat/completions"
-        : "https://ai.gateway.lovable.dev/v1/chat/completions";
-      const upstreamModel = usingRouteLLM ? stripRouteLLMPrefix(data.model) : data.model;
+        : gatewayChatUrl();
+      const upstreamModel = usingRouteLLM ? stripRouteLLMPrefix(data.model) : gatewayModel(data.model);
       const r = await aiFetch(
         upstreamUrl,
         {

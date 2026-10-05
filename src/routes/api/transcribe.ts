@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { gatewayKey, gatewayChatUrl, gatewayModel, gatewayTranscribeUrl } from "@/lib/ai-gateway";
 
 const MAX_AUDIO_BYTES = 25 * 1024 * 1024;
 
@@ -16,14 +17,15 @@ export const Route = createFileRoute("/api/transcribe")({
         if (!(audio instanceof File) || audio.size < 2_048) return new Response("That recording was empty. Please try again.", { status: 400 });
         if (audio.size > MAX_AUDIO_BYTES) return new Response("Recording is too large.", { status: 413 });
         if (audio.type.split(";")[0] !== "audio/wav") return new Response("Only complete WAV recordings are accepted.", { status: 415 });
-        const apiKey = process.env.LOVABLE_API_KEY;
-        if (!apiKey) return new Response("Voice transcription is unavailable.", { status: 503 });
+        const apiKey = gatewayKey();
+        const transcribeUrl = gatewayTranscribeUrl();
+        if (!apiKey || !transcribeUrl) return new Response("Voice transcription is unavailable.", { status: 503 });
 
         const upstream = new FormData();
-        upstream.append("model", "openai/gpt-4o-mini-transcribe");
+        upstream.append("model", process.env.AI_TRANSCRIBE_MODEL?.trim() || "openai/gpt-4o-mini-transcribe");
         upstream.append("file", audio, "recording.wav");
         upstream.append("stream", "true");
-        const response = await fetch("https://ai.gateway.lovable.dev/v1/audio/transcriptions", {
+        const response = await fetch(transcribeUrl, {
           method: "POST", headers: { Authorization: `Bearer ${apiKey}` }, body: upstream,
         });
         if (!response.ok) {

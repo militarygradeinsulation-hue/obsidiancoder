@@ -20,6 +20,7 @@ import {
 import { makeUsage, mergeUsage, estimateUsdForCall, parseUsageFromChatJson, type UsageRecord } from "@/lib/usage-record";
 import { routellmKey } from "@/lib/routellm-keys";
 import { buildProviderChain, runProviderChain, chainFailureMessage, type ChainAttempt } from "@/lib/provider-chain";
+import { googleAiKey } from "@/lib/google-ai";
 
 const CHEAP_REPAIR_MODEL = "google/gemini-3.1-flash-lite";
 
@@ -247,10 +248,13 @@ export const Route = createFileRoute("/api/patch")({
           // gateway and was rejected, instead of quietly falling back.
           const lovableKey = process.env.LOVABLE_API_KEY;
           const routellmApiKey = routellmKey();
-          if (!lovableKey && !routellmApiKey) {
+          // buildProviderChain ends with Google direct, so a Google-only
+          // deployment (GOOGLE_AI_API_KEY, e.g. the free AI Studio tier) is
+          // fully able to patch. Only refuse when no provider exists at all.
+          if (!lovableKey && !routellmApiKey && !googleAiKey()) {
             throw new AiError({
               code: "ai_unauthorized", stage: "validate", requestId,
-              message: "AI is not configured (LOVABLE_API_KEY / ROUTELLM_API_KEY missing).",
+              message: "AI is not configured (set GOOGLE_AI_API_KEY, LOVABLE_API_KEY, or ROUTELLM_API_KEY).",
             });
           }
 

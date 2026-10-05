@@ -19,6 +19,7 @@ import { creditsRequiredEnvelope, type CreditsRequiredEnvelope } from "@/lib/cre
 import { makeUsage } from "@/lib/usage-record";
 import { newRequestId } from "@/lib/ai-errors";
 import { routellmKey } from "@/lib/routellm-keys";
+import { gatewayKey, gatewayChatUrl, gatewayModel } from "@/lib/ai-gateway";
 
 const messageSchema = z.object({
   role: z.enum(["user", "assistant", "system"]),
@@ -72,13 +73,18 @@ function resolveKey(envName: string): string | undefined {
 }
 
 async function callProvider(p: Provider, messages: Array<{ role: string; content: string }>): Promise<string | null> {
-  const key = resolveKey(p.keyEnv);
+  // The gateway-backed provider resolves through ai-gateway.ts so it works on
+  // Lovable (unchanged), Google AI Studio's free tier, or any custom gateway.
+  const viaGateway = p.url === LOVABLE_URL;
+  const key = viaGateway ? (gatewayKey() ?? resolveKey(p.keyEnv)) : resolveKey(p.keyEnv);
   if (!key) return null;
+  const url = viaGateway ? gatewayChatUrl() : p.url;
+  const model = viaGateway ? gatewayModel(p.model) : p.model;
   try {
-    const res = await fetch(p.url, {
+    const res = await fetch(url, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model: p.model, messages, temperature: 0.7 }),
+      body: JSON.stringify({ model, messages, temperature: 0.7 }),
       signal: AbortSignal.timeout(45_000),
     });
     if (!res.ok) return null;

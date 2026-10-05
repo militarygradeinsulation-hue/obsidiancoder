@@ -12,9 +12,9 @@ import {
   isExplicitTradesContext,
   neutralEnhancementFallbacks,
 } from "./suggestion-safety";
+import { gatewayKey, gatewayChatUrl, gatewayModel, gatewayTranscribeUrl } from "@/lib/ai-gateway";
 
 const MODEL = "google/gemini-3.1-flash-lite";
-const GATEWAY = "https://ai.gateway.lovable.dev/v1/chat/completions";
 
 export type IdeaSuggestion = { id: string; label: string; snippet: string };
 
@@ -99,13 +99,13 @@ function parseIdeas(raw: string): Array<{ label: string; snippet: string }> {
 }
 
 async function callGateway(system: string, user: string): Promise<string> {
-  const apiKey = process.env.LOVABLE_API_KEY;
+  const apiKey = gatewayKey();
   if (!apiKey) throw new Error("AI is not configured yet.");
-  const res = await fetch(GATEWAY, {
+  const res = await fetch(gatewayChatUrl(), {
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${apiKey}` },
     body: JSON.stringify({
-      model: MODEL,
+      model: gatewayModel(MODEL),
       response_format: { type: "json_object" },
       messages: [
         { role: "system", content: system },
