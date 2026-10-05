@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useRouter } from "@tanstack/react-router";
-import pricingComparison from "@/assets/obsidian-pricing-comparison.png.asset.json";
+import { POCKET_MONTHLY_CREDITS, POCKET_PROMO_CREDITS, POCKET_PROMO_ENDS_AT } from "@/lib/plans";
 import {
   POCKET_PROMO,
   emitPromoEvent,
@@ -198,6 +198,7 @@ export default function PocketPromoModal({
   }, [open, dismiss]);
 
   if (!open) return null;
+  const promoActive = Date.now() < new Date(POCKET_PROMO_ENDS_AT).getTime();
 
   return (
     <div
@@ -227,13 +228,7 @@ export default function PocketPromoModal({
 
         <div className="pocket-promo-grid">
           <div className="pocket-promo-shot">
-            <img
-              src={pricingComparison.url}
-              alt="Obsidian Pocket and Obsidian Vibe monthly pricing and flat-credit comparison"
-              loading="lazy"
-              width={768}
-              height={960}
-            />
+            <PocketCreditCompare promoActive={promoActive} />
           </div>
 
           <div className="pocket-promo-copy">
@@ -242,7 +237,7 @@ export default function PocketPromoModal({
               {campaign.headline}
             </h2>
             <p id="pocket-promo-body" className="pocket-promo-body">
-              {campaign.body}
+              {promoActive && campaign.promoBody ? campaign.promoBody : campaign.body}
             </p>
 
             <div className="pocket-promo-actions">
@@ -266,6 +261,56 @@ export default function PocketPromoModal({
             <p className="pocket-promo-trust">{campaign.trustLine}</p>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Native replacement for the old pricing image, which advertised Obsidian
+ * Vibe as a $39 self-serve tier. Pocket-only, same verified flat-credit
+ * numbers as CompetitorComparison, and it reflects the live launch offer
+ * automatically (reverts to 300 after POCKET_PROMO_ENDS_AT).
+ */
+function PocketCreditCompare({ promoActive }: { promoActive: boolean }) {
+  const pocketCredits = promoActive ? POCKET_PROMO_CREDITS : POCKET_MONTHLY_CREDITS;
+  const rows = [
+    { name: "Obsidian Pocket", price: "$10/mo", credits: pocketCredits, ours: true },
+    { name: "Lovable Pro", price: "$25/mo", credits: 100, ours: false },
+    { name: "Hercules Pro", price: "$25/mo", credits: 75, ours: false },
+  ];
+  const max = Math.max(...rows.map((r) => r.credits));
+  return (
+    <div
+      role="img"
+      aria-label={`Obsidian Pocket: ${pocketCredits} credits for $10 a month. Lovable Pro: 100 credits for $25. Hercules Pro: 75 credits for $25.`}
+      style={{ display: "flex", flexDirection: "column", justifyContent: "center", gap: 18, height: "100%", padding: "32px 28px", background: "radial-gradient(120% 80% at 0% 0%, rgba(244,161,37,0.10), transparent 60%), #0c0d10" }}
+    >
+      <div style={{ fontSize: 11, letterSpacing: "0.18em", textTransform: "uppercase", color: "#a5a29c" }}>
+        Monthly AI credits{promoActive ? " · launch offer" : ""}
+      </div>
+      {rows.map((r) => (
+        <div key={r.name} style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", fontSize: 14 }}>
+            <span style={{ fontWeight: 600, color: r.ours ? "#f2eee7" : "#b6b3ad" }}>{r.name}</span>
+            <span style={{ color: "#a5a29c", fontVariantNumeric: "tabular-nums" }}>
+              {r.price} · <strong style={{ color: r.ours ? "#F4A125" : "#d8d5cf" }}>{r.credits.toLocaleString()}</strong>
+            </span>
+          </div>
+          <div style={{ height: 10, borderRadius: 999, background: "rgba(255,255,255,0.06)", overflow: "hidden" }}>
+            <div
+              style={{
+                width: `${Math.max(6, Math.round((r.credits / max) * 100))}%`,
+                height: "100%",
+                borderRadius: 999,
+                background: r.ours ? "linear-gradient(90deg,#F6B24A,#DD9324)" : "rgba(255,255,255,0.22)",
+              }}
+            />
+          </div>
+        </div>
+      ))}
+      <div style={{ fontSize: 11, color: "#76736d", lineHeight: 1.5 }}>
+        Flat-credit plans compared at published monthly prices.
       </div>
     </div>
   );

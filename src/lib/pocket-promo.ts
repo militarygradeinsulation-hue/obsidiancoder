@@ -22,6 +22,8 @@ export interface PromoCampaign {
   eyebrow: string;
   headline: string;
   body: string;
+  /** Shown instead of body while the Pocket launch offer is live. */
+  promoBody?: string;
   primaryCta: string;
   secondaryCta: string;
   trustLine: string;
@@ -29,16 +31,20 @@ export interface PromoCampaign {
 
 export const POCKET_PROMO: PromoCampaign = {
   enabled: true,
-  campaignId: "more-credits-lower-cost-v1",
+  campaignId: "more-credits-lower-cost-v2",
   dismissCooldownDays: 7,
   engagedCooldownDays: 30,
   initialDelayMs: 1400,
   destination: "/pocket",
   eyebrow: "OBSIDIAN PRICING",
   headline: "More credits. Lower cost.",
-  body: "Obsidian Pocket gives you 300 credits for $10/month. Obsidian Vibe gives builders 1,000 credits for $39/month—more room to create without premium-tool prices.",
+  // Pocket-only by direction: Vibe is contact-only for businesses and is
+  // never sold self-serve here. While the launch offer is live the modal
+  // swaps in promoBody (see PocketPromoModal + POCKET_PROMO_ENDS_AT).
+  body: "Obsidian Pocket gives you 300 AI credits for $10/month. That is 3x the credits of Lovable Pro and 4x Hercules Pro, at less than half the price.",
+  promoBody: "Launch offer: sign up for Obsidian Pocket now and get 1,000 AI credits every month for $10. Lovable Pro and Hercules Pro charge $25 for 100 or fewer.",
   primaryCta: "Start with Pocket",
-  secondaryCta: "Continue to Obsidian Vibe",
+  secondaryCta: "Maybe later",
   trustLine: "Start cheap. Build more. Ship faster.",
 };
 
