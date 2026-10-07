@@ -726,7 +726,9 @@ export async function handleGenerate(request: Request): Promise<Response> {
             const { claimFreeOpen, FREE_OPEN_DAILY_CAP } = await import("@/lib/free-open.server");
             const claim = await claimFreeOpen(request, envForFreeOpen);
             if (claim.ok) {
-              entitlement = { kind: "free_open", env: envForFreeOpen, requestId };
+              // Deliver the minted cookie on success too, or the fingerprint
+              // changes every request and the daily cap never triggers.
+              entitlement = { kind: "free_open", env: envForFreeOpen, requestId, setCookieHeader: claim.setCookieHeader };
             } else {
               const { creditsRequiredEnvelope } = await import("@/lib/credit-gate");
               return denialResponse(

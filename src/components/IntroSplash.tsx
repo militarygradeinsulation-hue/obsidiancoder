@@ -30,6 +30,8 @@ export default function IntroSplash() {
 
   useEffect(() => {
     setMounted(true);
+    // No playable video → never show an empty overlay.
+    if (!RESOLVED.ok) return;
     // Never hold the page for someone who has asked the OS for reduced motion.
     try {
       if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
