@@ -569,21 +569,16 @@ export async function requirePaidOperation(
         : "This feature requires Obsidian Pro. Local editing remains free.";
       return {
         kind: "denied", env, requestId, user,
-        denial: creditsRequiredEnvelope({
-          code: claim.reason === "already_used" ? "credits_required" : "not_pro",
-          operation,
-          message: msg,
-        }),
-        // Free user out of today's build: they hold no plan, so offer Pocket
-        // (credits_required alone means "paid user over cap" → plan list).
-        ...{},
-      } as never,
-    };
-  }
-  if (false) {
-    return {
-      kind: "denied", env, requestId, user,
-      denial: creditsRequiredEnvelope({ code: "not_pro", operation }),
+        denial: {
+          ...creditsRequiredEnvelope({
+            code: claim.reason === "already_used" ? "credits_required" : "not_pro",
+            operation,
+            message: msg,
+          }),
+          // A free user out of today's build holds no plan, so offer Pocket
+          // (credits_required without a price means "paid user over cap").
+          suggestedPriceId: "obsidian_pocket_monthly",
+        },
       };
     }
     return {
