@@ -3113,6 +3113,28 @@ function Index() {
         }
       }
 
+      // Real photography (non-blocking), same contract as Pocket: swap
+      // data-obs-image placeholders for generated images after commit.
+      // Lands only if the session still shows exactly this document.
+      if (/data-obs-image\s*=/.test(committedFinalHtml) && !/data-obs-image-filled/.test(committedFinalHtml)) {
+        const photoBase = committedFinalHtml;
+        void (async () => {
+          try {
+            const res = await authFetch("/api/images/fill", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", ...(paidAccess ? {} : { "x-obs-free": "1" }) },
+              body: JSON.stringify({ html: photoBase }),
+            });
+            if (!res.ok) return;
+            const out = (await res.json()) as { html?: unknown; filled?: unknown };
+            if (typeof out.html !== "string" || typeof out.filled !== "number" || out.filled < 1) return;
+            const withImages = out.html;
+            setSessions((all) => all.map((s) => (s.id === sessionId && s.html === photoBase ? { ...s, html: withImages } : s)));
+            setTerminal((t) => [...t, `✓ Added ${out.filled} generated image${out.filled === 1 ? "" : "s"}`]);
+          } catch { /* images are an enhancement; build already committed */ }
+        })();
+      }
+
       if (willCritique && buildDna) {
         const reviewedHtml = committedFinalHtml;
         const reviewDna = buildDna;

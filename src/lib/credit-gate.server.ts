@@ -574,6 +574,16 @@ export async function requirePaidOperation(
           operation,
           message: msg,
         }),
+        // Free user out of today's build: they hold no plan, so offer Pocket
+        // (credits_required alone means "paid user over cap" → plan list).
+        ...{},
+      } as never,
+    };
+  }
+  if (false) {
+    return {
+      kind: "denied", env, requestId, user,
+      denial: creditsRequiredEnvelope({ code: "not_pro", operation }),
       };
     }
     return {
