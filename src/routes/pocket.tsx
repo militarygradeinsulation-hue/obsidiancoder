@@ -231,6 +231,12 @@ function modelLabel(id: string): { label: string; icon: React.ReactNode } {
 function ModelPill({ value, onChange }: { value: string; onChange: (id: string) => void }) {
   const [open, setOpen] = React.useState(false);
   const current = modelLabel(value);
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
   return (
     <div className="relative">
       <button
@@ -287,6 +293,12 @@ function ModelPill({ value, onChange }: { value: string; onChange: (id: string) 
 // "+" menu in the composer — shortcuts to actions that already exist.
 function PlusMenu({ items }: { items: Array<{ icon: React.ReactNode; label: string; onClick: () => void }> }) {
   const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
   return (
     <div className="relative">
       <button
@@ -2133,8 +2145,10 @@ function ForgePage() {
         )}
 
         <main className="min-w-0 flex-1 p-3">
-          {/* Hero — Bolt-style headline, shown until there is a build on the canvas */}
-          {!hasCanvasBuild && (
+          {/* Hero — Bolt-style headline, shown until there is a build on the canvas.
+              Skipped in ?embed=1 (the login-page sandbox), where paneHeight is
+              deliberately compact so the workspace fits without page scrolling. */}
+          {!hasCanvasBuild && !embed && (
             <div className="flex flex-col items-center px-2 pb-6 pt-4 text-center sm:pt-[9vh]">
               <button
                 type="button"
@@ -2195,6 +2209,11 @@ function ForgePage() {
                 onChange={(e) => setPrompt(e.target.value)}
                 onKeyDown={(e) => {
                   if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing) {
+                    // Touch keyboards fire a plain "Enter" keydown for their own newline
+                    // key too, so on a coarse pointer let it insert a newline instead of
+                    // spending a build credit.
+                    const coarse = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+                    if (coarse) return;
                     e.preventDefault();
                     if (!busy && prompt.trim()) void generate();
                   }
