@@ -6,7 +6,7 @@
 import * as React from "react";
 import { createFileRoute, ClientOnly, useNavigate, Link } from "@tanstack/react-router";
 
-import { PocketRayBackground } from "@/components/PocketRayBackground";
+import { PocketBackground } from "@/components/PocketBackground";
 import pocketLogo from "@/assets/aetheris-logo.png.asset.json";
 
 import { AetherisInstructor } from "@/components/AetherisInstructor";
@@ -1898,8 +1898,8 @@ function ForgePage() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#08090b] text-[#E8E6E1]">
-      {/* Amber horizon ray (Bolt-style) */}
-      <PocketRayBackground />
+      {/* Holographic hieroglyph wall + interactive dot-grid background */}
+      <PocketBackground />
 
 
       <div className="relative z-10">
@@ -1922,7 +1922,7 @@ function ForgePage() {
               className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#F4A125]/40"
             />
 
-            <ObsidianModeNav className="hidden lg:inline-flex" />
+            <ObsidianModeNav className="hidden lg:inline-flex" modes={[]} />
             <div className="hidden min-w-0 sm:block">
               <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket — Fast One-Prompt Prototyping</h1>
               <p className="truncate text-[10px] uppercase tracking-widest text-[#6b7180]">
