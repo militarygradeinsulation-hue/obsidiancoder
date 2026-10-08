@@ -6,7 +6,7 @@
 import * as React from "react";
 import { createFileRoute, ClientOnly, useNavigate, Link } from "@tanstack/react-router";
 
-import { PocketGlowBackground } from "@/components/PocketGlowBackground";
+import { PocketNexusBackground } from "@/components/PocketNexusBackground";
 import pocketLogo from "@/assets/aetheris-logo.png.asset.json";
 
 import { AetherisInstructor } from "@/components/AetherisInstructor";
@@ -197,24 +197,24 @@ const POCKET_IDEA_CATEGORIES: Array<{ id: string; label: string }> = [
 
 const EMPTY_DOC = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New project</title></head>
-<body style="margin:0;display:grid;place-items:center;height:100vh;background:#0c0a09;color:#a8a29e;font-family:Inter,system-ui;font-size:14px">Describe what to build, then press Generate.</body></html>`;
+<body style="margin:0;display:grid;place-items:center;height:100vh;background:#04040a;color:#c4c4d8;font-family:Inter,system-ui;font-size:14px">Describe what to build, then press Generate.</body></html>`;
 
 const btn =
-  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#a8a29e] transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#c4c4d8] transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 disabled:cursor-not-allowed disabled:opacity-40";
 const primaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-full bg-[#ea580c] px-4 py-2 text-sm font-semibold text-[#fafaf9] shadow-[0_0_20px_rgba(234,88,12,0.35)] transition-all duration-200 hover:bg-[#f97316] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/70 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none";
+  "inline-flex items-center justify-center gap-2 rounded-full bg-[#e8ff47] px-4 py-2 text-sm font-semibold text-[#04040a] shadow-[0_0_20px_rgba(232,255,71,0.35)] transition-all duration-200 hover:bg-[#b8cc38] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/70 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none";
 // Glass surface shared by every workspace panel (Bolt-style card on amber/black).
 const panel =
-  "rounded-2xl bg-[#161412]/85 ring-1 ring-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_2px_20px_rgba(0,0,0,0.4)] backdrop-blur-xl";
+  "rounded-2xl bg-[#080812]/85 ring-1 ring-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_2px_20px_rgba(0,0,0,0.4)] backdrop-blur-xl";
 const pillSelect =
-  "rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#a8a29e] transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60 [&_option]:bg-[#1c1917] [&_optgroup]:bg-[#1c1917]";
+  "rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#c4c4d8] transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 [&_option]:bg-[#0d0d1f] [&_optgroup]:bg-[#0d0d1f]";
 const menuShell =
-  "absolute z-50 overflow-hidden rounded-xl border border-white/10 bg-[#1c1917]/95 shadow-2xl shadow-black/50 backdrop-blur-xl";
+  "absolute z-50 overflow-hidden rounded-xl border border-white/10 bg-[#0d0d1f]/95 shadow-2xl shadow-black/50 backdrop-blur-xl";
 
 // Model picker pill — same `model` state the Advanced drawer edits, just
 // surfaced in the composer the way Bolt does it. Nothing removed.
 const MODEL_GROUPS: Array<{ label: string; icon: React.ReactNode; items: Array<{ id: string; label: string }> }> = [
-  { label: "Smart modes", icon: <Zap className="size-4 text-[#ea580c]" />, items: MODEL_PICKER_OPTIONS.filter((m) => isModeId(m.id)) },
+  { label: "Smart modes", icon: <Zap className="size-4 text-[#e8ff47]" />, items: MODEL_PICKER_OPTIONS.filter((m) => isModeId(m.id)) },
   { label: "Obsidian gateway", icon: <Brain className="size-4 text-amber-300" />, items: [...MODEL_REGISTRY] },
   { label: "Anthropic", icon: <Sparkles className="size-4 text-orange-300" />, items: [...ANTHROPIC_MODELS] },
   { label: "RouteLLM", icon: <Brain className="size-4 text-yellow-200" />, items: [...ROUTELLM_MODELS] },
@@ -225,7 +225,7 @@ function modelLabel(id: string): { label: string; icon: React.ReactNode } {
     const hit = g.items.find((m) => m.id === id);
     if (hit) return { label: hit.label, icon: g.icon };
   }
-  return { label: id, icon: <Zap className="size-4 text-[#ea580c]" /> };
+  return { label: id, icon: <Zap className="size-4 text-[#e8ff47]" /> };
 }
 
 function ModelPill({ value, onChange }: { value: string; onChange: (id: string) => void }) {
@@ -245,7 +245,7 @@ function ModelPill({ value, onChange }: { value: string; onChange: (id: string) 
         aria-haspopup="listbox"
         aria-expanded={open}
         title="Model"
-        className="flex max-w-[190px] items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-[#a8a29e] transition-all duration-200 hover:bg-white/5 hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+        className="flex max-w-[190px] items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-[#c4c4d8] transition-all duration-200 hover:bg-white/5 hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
       >
         <span className="shrink-0">{current.icon}</span>
         <span className="truncate">{current.label}</span>
@@ -258,7 +258,7 @@ function ModelPill({ value, onChange }: { value: string; onChange: (id: string) 
             <div className="p-1.5">
               {MODEL_GROUPS.map((g) => (
                 <div key={g.label}>
-                  <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[#78716c]">
+                  <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[#9898b8]">
                     {g.label}
                   </div>
                   {g.items.map((m) => {
@@ -271,12 +271,12 @@ function ModelPill({ value, onChange }: { value: string; onChange: (id: string) 
                         aria-selected={active}
                         onClick={() => { onChange(m.id); setOpen(false); }}
                         className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-150 ${
-                          active ? "bg-white/10 text-white" : "text-[#a8a29e] hover:bg-white/5 hover:text-white"
+                          active ? "bg-white/10 text-white" : "text-[#c4c4d8] hover:bg-white/5 hover:text-white"
                         }`}
                       >
                         <span className="shrink-0">{g.icon}</span>
                         <span className="min-w-0 flex-1 truncate">{m.label}</span>
-                        {active && <Check className="size-4 shrink-0 text-[#ea580c]" />}
+                        {active && <Check className="size-4 shrink-0 text-[#e8ff47]" />}
                       </button>
                     );
                   })}
@@ -306,7 +306,7 @@ function PlusMenu({ items }: { items: Array<{ icon: React.ReactNode; label: stri
         onClick={() => setOpen((v) => !v)}
         aria-label="More actions"
         aria-expanded={open}
-        className="flex size-8 items-center justify-center rounded-full bg-white/[0.08] text-[#a8a29e] transition-all duration-200 hover:bg-white/[0.12] hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+        className="flex size-8 items-center justify-center rounded-full bg-white/[0.08] text-[#c4c4d8] transition-all duration-200 hover:bg-white/[0.12] hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
       >
         <Plus className={`size-4 transition-transform duration-200 ${open ? "rotate-45" : ""}`} />
       </button>
@@ -320,7 +320,7 @@ function PlusMenu({ items }: { items: Array<{ icon: React.ReactNode; label: stri
                   key={it.label}
                   type="button"
                   onClick={() => { setOpen(false); it.onClick(); }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[#a8a29e] transition-all duration-150 hover:bg-white/5 hover:text-white"
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[#c4c4d8] transition-all duration-150 hover:bg-white/5 hover:text-white"
                 >
                   {it.icon}
                   <span className="text-sm">{it.label}</span>
@@ -1608,7 +1608,7 @@ function ForgePage() {
       if (win) {
         win.opener = null;
         win.document.write(
-          '<title>Publishing…</title><body style="background:#0c0a09;color:#ea580c;font-family:system-ui;display:grid;place-items:center;height:100vh">Publishing your build…</body>',
+          '<title>Publishing…</title><body style="background:#04040a;color:#e8ff47;font-family:system-ui;display:grid;place-items:center;height:100vh">Publishing your build…</body>',
         );
       }
     } catch { win = null; }
@@ -1897,14 +1897,14 @@ function ForgePage() {
   const paneHeight = embed ? "h-[42vh]" : "h-[72vh]";
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#0c0a09] text-[#fafaf9]">
-      {/* Flat background + soft orange glow, shadcn SaaS-landing style */}
-      <PocketGlowBackground />
+    <div className="relative min-h-screen overflow-x-hidden bg-[#04040a] text-[#f0f0f8]">
+      {/* Ink base + lime glow, grid lines, and film grain — nexus-studio style */}
+      <PocketNexusBackground />
 
 
       <div className="relative z-10">
       {/* Sticky compact header */}
-      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#0c0a09]/55 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#04040a]/55 backdrop-blur-xl">
         <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:flex-nowrap sm:gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <button
@@ -1919,13 +1919,13 @@ function ForgePage() {
             <img
               src={pocketLogo.url}
               alt="Aetheris Obsidian Logo"
-              className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#ea580c]/40"
+              className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#e8ff47]/40"
             />
 
             <ObsidianModeNav className="hidden lg:inline-flex" modes={[]} />
             <div className="hidden min-w-0 sm:block">
               <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket — Fast One-Prompt Prototyping</h1>
-              <p className="truncate text-[10px] uppercase tracking-widest text-[#78716c]">
+              <p className="truncate text-[10px] uppercase tracking-widest text-[#9898b8]">
                 Pocket workspace
               </p>
             </div>
@@ -1950,7 +1950,7 @@ function ForgePage() {
             </Link>
 
             <label className="hidden items-center gap-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
-              <span className="text-[10px] uppercase tracking-widest text-[#78716c]">Code</span>
+              <span className="text-[10px] uppercase tracking-widest text-[#9898b8]">Code</span>
               <input
                 value={libraryCode}
                 onChange={(e) => { setLibraryCode(e.target.value); setCodeError(null); }}
@@ -1959,7 +1959,7 @@ function ForgePage() {
                 aria-label="Account / library code"
                 title={codeError ?? "Enter your code and press Enter, or the button, to sign in"}
                 disabled={submittingCode}
-                className="w-[70px] bg-transparent text-xs text-[#fafaf9] placeholder:text-[#78716c] focus-visible:outline-none"
+                className="w-[70px] bg-transparent text-xs text-[#f0f0f8] placeholder:text-[#9898b8] focus-visible:outline-none"
               />
               <button
                 type="button"
@@ -1967,12 +1967,12 @@ function ForgePage() {
                 disabled={submittingCode || !libraryCode.trim()}
                 aria-label="Sign in with this code"
                 title="Sign in with this code"
-                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[#78716c] hover:text-[#ea580c] disabled:opacity-40"
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[#9898b8] hover:text-[#e8ff47] disabled:opacity-40"
               >
                 {submittingCode ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               </button>
               <span
-                className={`h-1.5 w-1.5 rounded-full ${libraryCode.trim() ? "bg-emerald-400" : "bg-[#78716c]"}`}
+                className={`h-1.5 w-1.5 rounded-full ${libraryCode.trim() ? "bg-emerald-400" : "bg-[#9898b8]"}`}
                 title={libraryCode.trim() ? "Signed in — projects auto-save" : "No code — projects are not saved"}
               />
             </label>
@@ -1982,7 +1982,7 @@ function ForgePage() {
 
             {buildsLeft ? (
               <span
-                className="hidden rounded-md border border-[#ea580c]/30 bg-[#ea580c]/10 px-2 py-1 text-[11px] text-[#ea580c] md:inline"
+                className="hidden rounded-md border border-[#e8ff47]/30 bg-[#e8ff47]/10 px-2 py-1 text-[11px] text-[#e8ff47] md:inline"
                 title={`Pocket plan: ${buildsLeft.used} of ${buildsLeft.cap} credits used this month (a build uses about 10–60)`}
               >
                 {buildsLeft.remaining}/{buildsLeft.cap} credits left
@@ -2009,7 +2009,7 @@ function ForgePage() {
             </button>
             <span
               aria-live="polite"
-              className="hidden max-w-[220px] truncate text-xs text-[#a8a29e] sm:inline"
+              className="hidden max-w-[220px] truncate text-xs text-[#c4c4d8] sm:inline"
             >
               {cloudProjects.saveStatus === "saving" ? "☁ Saving…"
                : cloudProjects.saveStatus === "saved" ? "☁ Saved"
@@ -2029,7 +2029,7 @@ function ForgePage() {
                       : "◌ Live URL turned off");
                   });
                 }}
-                style={liveSync.live ? { color: "#ea580c" } : undefined}
+                style={liveSync.live ? { color: "#e8ff47" } : undefined}
                 aria-label={liveSync.live ? "Turn off the public live URL" : "Turn on a public live URL"}
                 title={liveSync.live
                   ? "Live: public URL always serves your latest save"
@@ -2074,7 +2074,7 @@ function ForgePage() {
         {/* Sidebar */}
         {sidebarOpen && (
           <aside
-            className="hidden w-60 shrink-0 border-r border-white/[0.06] bg-[#0c0a09]/70 p-3 backdrop-blur-xl md:block"
+            className="hidden w-60 shrink-0 border-r border-white/[0.06] bg-[#04040a]/70 p-3 backdrop-blur-xl md:block"
             aria-label="Projects"
           >
             <button
@@ -2085,7 +2085,7 @@ function ForgePage() {
               New project
             </button>
             <label
-              className="mt-4 block text-[10px] uppercase tracking-widest text-[#78716c]"
+              className="mt-4 block text-[10px] uppercase tracking-widest text-[#9898b8]"
               htmlFor="forge-lib"
             >
               Library code
@@ -2097,29 +2097,29 @@ function ForgePage() {
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submitLibraryCode(); } }}
               placeholder="e.g. 9822"
               disabled={submittingCode}
-              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#fafaf9] placeholder:text-[#78716c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#f0f0f8] placeholder:text-[#9898b8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
             />
             <button
               type="button"
               onClick={() => void submitLibraryCode()}
               disabled={submittingCode || !libraryCode.trim()}
-              className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#ea580c]/30 bg-[#ea580c]/10 px-2 py-1.5 text-[11px] font-medium text-[#ea580c] disabled:opacity-40"
+              className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#e8ff47]/30 bg-[#e8ff47]/10 px-2 py-1.5 text-[11px] font-medium text-[#e8ff47] disabled:opacity-40"
             >
               {submittingCode ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               Sign in
             </button>
             {codeError && <p className="mt-1 text-[10px] text-rose-300">{codeError}</p>}
-            <h2 className="mt-4 text-[10px] uppercase tracking-widest text-[#78716c]">Projects</h2>
+            <h2 className="mt-4 text-[10px] uppercase tracking-widest text-[#9898b8]">Projects</h2>
             <ul className="mt-2 space-y-1">
               {library.length === 0 && (
-                <li className="text-xs text-[#78716c]">No saved projects yet.</li>
+                <li className="text-xs text-[#9898b8]">No saved projects yet.</li>
               )}
               {library.map((b) => (
                 <li key={b.id} className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => void openLibraryBuild(b.id)}
-                    className="min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-xs text-[#a8a29e] transition hover:bg-white/5 hover:text-[#ea580c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+                    className="min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-xs text-[#c4c4d8] transition hover:bg-white/5 hover:text-[#e8ff47] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                   >
                     {b.title || "Untitled"}
                   </button>
@@ -2128,7 +2128,7 @@ function ForgePage() {
                     onClick={() => void renameLibraryBuild(b.id, b.title || "Untitled")}
                     aria-label={`Rename ${b.title || "Untitled"}`}
                     title="Rename project"
-                    className="shrink-0 rounded-md p-1 text-[#78716c] transition hover:bg-white/5 hover:text-[#ea580c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+                    className="shrink-0 rounded-md p-1 text-[#9898b8] transition hover:bg-white/5 hover:text-[#e8ff47] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                   >
                     <Pencil size={11} />
                   </button>
@@ -2137,7 +2137,7 @@ function ForgePage() {
             </ul>
             <Link
               to="/archive"
-              className="mt-2 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-[#78716c] transition hover:text-[#ea580c]"
+              className="mt-2 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-[#9898b8] transition hover:text-[#e8ff47]"
             >
               <Archive size={12} /> Full build archive
             </Link>
@@ -2163,9 +2163,9 @@ function ForgePage() {
               >
                 <span
                   className="pointer-events-none absolute -top-px left-1/2 h-[2px] w-[100px] -translate-x-1/2 opacity-70"
-                  style={{ background: "linear-gradient(90deg, transparent 0%, rgba(234,88,12,0.9) 30%, rgba(251,146,60,0.9) 50%, rgba(234,88,12,0.9) 70%, transparent 100%)", filter: "blur(0.5px)" }}
+                  style={{ background: "linear-gradient(90deg, transparent 0%, rgba(232,255,71,0.9) 30%, rgba(240,240,248,0.9) 50%, rgba(232,255,71,0.9) 70%, transparent 100%)", filter: "blur(0.5px)" }}
                 />
-                <Bolt className="relative z-10 size-4 text-[#ea580c]" />
+                <Bolt className="relative z-10 size-4 text-[#e8ff47]" />
                 <span className="relative z-10 font-medium text-white">
                   {buildsLeft
                     ? `Obsidian Pocket · ${buildsLeft.remaining}/${buildsLeft.cap} credits left`
@@ -2176,12 +2176,12 @@ function ForgePage() {
               </button>
               <h2 className="mb-1 text-4xl font-bold tracking-tight text-white sm:text-5xl">
                 What will you{" "}
-                <span className="bg-gradient-to-b from-[#fb923c] via-[#ea580c] to-white bg-clip-text italic text-transparent">
+                <span className="bg-gradient-to-b from-[#e8ff47] via-[#e8ff47] to-white bg-clip-text italic text-transparent">
                   build
                 </span>{" "}
                 today?
               </h2>
-              <p className="text-base font-semibold text-[#a8a29e] sm:text-lg">
+              <p className="text-base font-semibold text-[#c4c4d8] sm:text-lg">
                 Prototype apps and sites from one prompt.
               </p>
             </div>
@@ -2189,7 +2189,7 @@ function ForgePage() {
 
           {/* Demo banner */}
           {!paid && (
-            <div className="mx-auto mb-3 w-full max-w-[760px] rounded-full border border-[#ea580c]/25 bg-[#ea580c]/[0.08] px-4 py-2 text-center text-xs text-[#fafaf9] backdrop-blur-sm">
+            <div className="mx-auto mb-3 w-full max-w-[760px] rounded-full border border-[#e8ff47]/25 bg-[#e8ff47]/[0.08] px-4 py-2 text-center text-xs text-[#f0f0f8] backdrop-blur-sm">
               Fast builds are free to try. Saving, export, publishing and the Studio/Cinematic
               profiles need an Obsidian Pocket account — $10/month for {POCKET_MONTHLY_CREDITS} AI credits.
             </div>
@@ -2198,7 +2198,7 @@ function ForgePage() {
           {/* Prompt composer — Bolt-style glass card */}
           <section className="relative mx-auto w-full max-w-[760px]">
             <div className="pointer-events-none absolute -inset-[1px] rounded-2xl bg-gradient-to-b from-white/[0.08] to-transparent" />
-            <div className="relative rounded-2xl bg-[#1c1917] shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_2px_20px_rgba(0,0,0,0.4)] ring-1 ring-white/[0.08]">
+            <div className="relative rounded-2xl bg-[#0d0d1f] shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_2px_20px_rgba(0,0,0,0.4)] ring-1 ring-white/[0.08]">
               <label htmlFor="forge-prompt" className="sr-only">
                 What should I build or change?
               </label>
@@ -2219,10 +2219,10 @@ function ForgePage() {
                   }
                 }}
                 placeholder="What do you want to build? e.g. a pricing page for an HVAC dispatch tool…"
-                className="block max-h-[240px] min-h-[96px] w-full resize-none bg-transparent px-5 pb-3 pt-5 text-[15px] text-white placeholder-[#78716c] focus:outline-none"
+                className="block max-h-[240px] min-h-[96px] w-full resize-none bg-transparent px-5 pb-3 pt-5 text-[15px] text-white placeholder-[#9898b8] focus:outline-none"
               />
             {(voice.listening || voice.processing || voice.error) && (
-              <p className="px-5 pb-1 text-xs text-[#ea580c]" role="status" aria-live="polite">
+              <p className="px-5 pb-1 text-xs text-[#e8ff47]" role="status" aria-live="polite">
                 {voice.error || voice.interim || (voice.processing ? "Transcribing…" : "Listening… say “send” to build")}
               </p>
             )}
@@ -2242,10 +2242,10 @@ function ForgePage() {
                       }}
                       aria-pressed={active}
                       title={`${pf.blurb}${locked ? " Requires an Obsidian Pocket account." : ""}`}
-                      className={`rounded-full border px-2.5 py-1 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60 ${
+                      className={`rounded-full border px-2.5 py-1 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${
                         active
-                          ? "border-[#ea580c]/70 bg-[#ea580c]/15 text-[#ea580c]"
-                          : "border-white/10 text-[#a8a29e] hover:text-[#fafaf9]"
+                          ? "border-[#e8ff47]/70 bg-[#e8ff47]/15 text-[#e8ff47]"
+                          : "border-white/10 text-[#c4c4d8] hover:text-[#f0f0f8]"
                       } ${locked ? "opacity-60" : ""}`}
                     >
                       {pf.label}
@@ -2268,7 +2268,7 @@ function ForgePage() {
                 ))}
               </select>
               <span
-                className="text-[11px] text-[#a8a29e]"
+                className="text-[11px] text-[#c4c4d8]"
                 title="Model availability depends on the configured AI gateway."
               >
                 {profile === "fast" ? modelChoice.entryLabel : modelChoice.statusLabel} ·{" "}
@@ -2278,14 +2278,14 @@ function ForgePage() {
 
             {/* Design DNA summary + alternative directions */}
             {dna && (
-              <p className="truncate px-4 pt-1 text-[11px] text-[#a8a29e]" title={dnaSummaryLine(dna)}>
+              <p className="truncate px-4 pt-1 text-[11px] text-[#c4c4d8]" title={dnaSummaryLine(dna)}>
                 Design DNA · {dnaSummaryLine(dna)}
                 {lastCritiqueRan ? " · polished" : ""}
               </p>
             )}
             {conceptPlan && profile !== "fast" && (
               <div className="flex flex-wrap items-center gap-1 px-4 pt-1" aria-label="Creative directions">
-                <span className="text-[11px] text-[#78716c]">Directions:</span>
+                <span className="text-[11px] text-[#9898b8]">Directions:</span>
                 {conceptPlan.concepts.map((c) => (
                   <button
                     key={c.id}
@@ -2296,10 +2296,10 @@ function ForgePage() {
                     }}
                     aria-pressed={conceptPlan.selectedId === c.id}
                     title={c.concept}
-                    className={`rounded-full border px-2 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60 ${
+                    className={`rounded-full border px-2 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${
                       conceptPlan.selectedId === c.id
-                        ? "border-[#ea580c]/70 text-[#ea580c]"
-                        : "border-white/10 text-[#a8a29e] hover:text-[#fafaf9]"
+                        ? "border-[#e8ff47]/70 text-[#e8ff47]"
+                        : "border-white/10 text-[#c4c4d8] hover:text-[#f0f0f8]"
                     }`}
                   >
                     {c.name}
@@ -2361,7 +2361,7 @@ function ForgePage() {
                       aria-pressed={voice.listening}
                       aria-label={voice.listening ? "Voice assist on — click to stop" : "Voice assist — dictate, say 'send' to build"}
                       title={voice.listening ? "Listening — say 'send' to build, 'enhance' to polish, 'clear' to reset" : "Voice assist"}
-                      style={voice.listening ? { color: "#ea580c", borderColor: "rgba(234,88,12,0.55)", background: "rgba(234,88,12,0.14)" } : undefined}
+                      style={voice.listening ? { color: "#e8ff47", borderColor: "rgba(232,255,71,0.55)", background: "rgba(232,255,71,0.14)" } : undefined}
                     >
                       {voice.listening ? <Mic size={13} /> : <MicOff size={13} />}
                       <span className="hidden sm:inline">{voice.listening ? "Listening" : "Voice"}</span>
@@ -2416,10 +2416,10 @@ function ForgePage() {
                         setAiIdeas([]);
                         void loadCategoryIdeas(c.id);
                       }}
-                      className={`rounded-full border px-2 py-[3px] text-[10px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60 ${
+                      className={`rounded-full border px-2 py-[3px] text-[10px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${
                         active
-                          ? "border-[#ea580c]/65 bg-[#ea580c]/15 text-[#ea580c]"
-                          : "border-white/10 bg-white/[0.03] text-[#a8a29e] hover:text-[#fafaf9]"
+                          ? "border-[#e8ff47]/65 bg-[#e8ff47]/15 text-[#e8ff47]"
+                          : "border-white/10 bg-white/[0.03] text-[#c4c4d8] hover:text-[#f0f0f8]"
                       }`}
                     >
                       {c.label}
@@ -2431,7 +2431,7 @@ function ForgePage() {
             {/* Idea chips — click to append, then Enhance to expand */}
             <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
               {aiIdeasLoading && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#a8a29e]">
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#c4c4d8]">
                   <Loader2 size={12} className="animate-spin" /> Finding fresh ideas…
                 </span>
               )}
@@ -2444,7 +2444,7 @@ function ForgePage() {
                     setPrompt((p) => (p.trim() ? `${p.trim()} ${a.snippet}` : a.snippet));
                     requestAnimationFrame(() => promptRef.current?.focus());
                   }}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-[#a8a29e] transition hover:border-[#ea580c]/50 hover:text-[#ea580c] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-[#c4c4d8] transition hover:border-[#e8ff47]/50 hover:text-[#e8ff47] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                 >
                   {a.label}
                 </button>
@@ -2455,7 +2455,7 @@ function ForgePage() {
                   setIdeaOffset((o) => o + 4);
                   if (!prompt.trim()) void loadCategoryIdeas(ideaCategory);
                 }}
-                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[#a8a29e] transition hover:text-[#fafaf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[#c4c4d8] transition hover:text-[#f0f0f8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
               >
                 More ideas
 
@@ -2463,11 +2463,11 @@ function ForgePage() {
             </div>
 
             <div className="mt-4 flex items-center justify-center gap-3">
-              <span className="text-sm text-[#78716c]">or import from</span>
+              <span className="text-sm text-[#9898b8]">or import from</span>
               <button
                 type="button"
                 onClick={() => void openGithub()}
-                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-[#0c0a09] px-3 py-1.5 text-xs font-medium text-[#a8a29e] transition-all duration-200 hover:bg-[#1c1917] hover:text-white active:scale-95"
+                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-[#04040a] px-3 py-1.5 text-xs font-medium text-[#c4c4d8] transition-all duration-200 hover:bg-[#0d0d1f] hover:text-white active:scale-95"
               >
                 <Github className="size-4" />
                 <span>GitHub</span>
@@ -2496,7 +2496,7 @@ function ForgePage() {
                 id={`forge-tab-${id}`}
                 aria-controls={`forge-panel-${id}`}
                 onClick={() => setTab(id)}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60 ${tab === id ? "bg-white/10 text-white ring-1 ring-[#ea580c]/40" : "text-[#a8a29e] hover:bg-white/5 hover:text-white"}`}
+                className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${tab === id ? "bg-white/10 text-white ring-1 ring-[#e8ff47]/40" : "text-[#c4c4d8] hover:bg-white/5 hover:text-white"}`}
               >
                 {label}
               </button>
@@ -2544,7 +2544,7 @@ function ForgePage() {
                 className={`${pane === "code" ? "block" : "hidden"} lg:block ${panel}`}
               >
                 <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2">
-                  <Code2 size={13} className="shrink-0 text-[#ea580c]" />
+                  <Code2 size={13} className="shrink-0 text-[#e8ff47]" />
                   <label className="sr-only" htmlFor="forge-file">
                     File
                   </label>
@@ -2552,7 +2552,7 @@ function ForgePage() {
                     id="forge-file"
                     value={activeFile?.id ?? ""}
                     onChange={(e) => setActiveFileId(e.target.value)}
-                    className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-xs text-[#a8a29e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+                    className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-xs text-[#c4c4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                   >
                     {project.files.map((f) => (
                       <option key={f.id} value={f.id}>
@@ -2599,7 +2599,7 @@ function ForgePage() {
                   onChange={(e) =>
                     activeFile && setProject((p) => updateContent(p, activeFile.id, e.target.value))
                   }
-                  className={`${paneHeight} w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#a8a29e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#ea580c]/60`}
+                  className={`${paneHeight} w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#c4c4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e8ff47]/60`}
                 />
               </div>
 
@@ -2618,7 +2618,7 @@ function ForgePage() {
                     onFocus={(e) => e.currentTarget.select()}
                     placeholder="Untitled build"
                     title="Rename this build — used when you save or publish it"
-                    className="mr-auto min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-[#a8a29e] transition hover:border-white/10 focus:border-[#ea580c]/40 focus:text-[#fafaf9] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+                    className="mr-auto min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-[#c4c4d8] transition hover:border-white/10 focus:border-[#e8ff47]/40 focus:text-[#f0f0f8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                   />
                   {FORGE_DEVICES.map((d) => (
                     <button
@@ -2627,7 +2627,7 @@ function ForgePage() {
                       aria-pressed={device === d.id}
                       aria-label={`${d.label} preview`}
                       onClick={() => setDevice(d.id)}
-                      className={`rounded-md p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60 ${device === d.id ? "bg-[#ea580c]/15 text-[#ea580c]" : "text-[#a8a29e] hover:bg-white/5"}`}
+                      className={`rounded-md p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${device === d.id ? "bg-[#e8ff47]/15 text-[#e8ff47]" : "text-[#c4c4d8] hover:bg-white/5"}`}
                     >
                       {d.id === "desktop" ? (
                         <Monitor size={14} />
@@ -2639,7 +2639,7 @@ function ForgePage() {
                     </button>
                   ))}
                 </div>
-                <div className={`relative flex ${paneHeight} justify-center overflow-hidden bg-[#0a0807] p-2`}>
+                <div className={`relative flex ${paneHeight} justify-center overflow-hidden bg-[#04040a] p-2`}>
                   <PocketPreviewFrame
                     key={`preview-${previewNonce}`}
                     title="Obsidian Pocket preview"
@@ -2683,10 +2683,10 @@ function ForgePage() {
               className={`mt-3 ${panel} p-3`}
             >
               <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <History size={14} className="text-[#ea580c]" /> Versions
+                <History size={14} className="text-[#e8ff47]" /> Versions
               </h2>
               {versions.length === 0 ? (
-                <p className="mt-2 text-xs text-[#78716c]">
+                <p className="mt-2 text-xs text-[#9898b8]">
                   No versions yet — each successful generation records one.
                 </p>
               ) : (
@@ -2697,8 +2697,8 @@ function ForgePage() {
                       className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-xs text-[#fafaf9]">{v.label}</p>
-                        <p className="text-[10px] text-[#78716c]">
+                        <p className="truncate text-xs text-[#f0f0f8]">{v.label}</p>
+                        <p className="text-[10px] text-[#9898b8]">
                           {new Date(v.at).toLocaleString()} · {v.html.length.toLocaleString()} chars
                         </p>
                       </div>
@@ -2721,25 +2721,25 @@ function ForgePage() {
               className={`mt-3 space-y-3 ${panel} p-3`}
             >
               <div>
-                <label htmlFor="forge-title" className="text-xs text-[#a8a29e]">
+                <label htmlFor="forge-title" className="text-xs text-[#c4c4d8]">
                   Project title
                 </label>
                 <input
                   id="forge-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+                  className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                 />
               </div>
-              <p className="text-xs text-[#78716c]">
-                Account mode: <span className="text-[#a8a29e]">{snap.mode}</span> · credits
-                remaining: <span className="text-[#a8a29e]">{snap.remaining}</span>
+              <p className="text-xs text-[#9898b8]">
+                Account mode: <span className="text-[#c4c4d8]">{snap.mode}</span> · credits
+                remaining: <span className="text-[#c4c4d8]">{snap.remaining}</span>
               </p>
               {shareUrl && (
-                <p className="text-xs text-[#a8a29e]">
+                <p className="text-xs text-[#c4c4d8]">
                   Live URL:{" "}
                   <a
-                    className="text-[#ea580c] underline underline-offset-2"
+                    className="text-[#e8ff47] underline underline-offset-2"
                     href={shareUrl}
                     target="_blank"
                     rel="noreferrer"
@@ -2748,12 +2748,12 @@ function ForgePage() {
                   </a>
                 </p>
               )}
-              <p className="text-xs text-[#78716c]">
+              <p className="text-xs text-[#9898b8]">
                 Shortcuts: ⌘/Ctrl+Enter generate · ⌘/Ctrl+S save · ⌘/Ctrl+K advanced · ⌘/Ctrl+/
                 focus prompt
               </p>
               <div className="border-t border-white/10 pt-3">
-                <p className="mb-2 text-xs text-[#a8a29e]">Cloud Memory (advanced)</p>
+                <p className="mb-2 text-xs text-[#c4c4d8]">Cloud Memory (advanced)</p>
                 <CloudMemoryButton
                   canUse
                   buildIgnoresMemory={liveSync.cloudMemory && !memoryHost.usesMemory}
@@ -2814,9 +2814,9 @@ function ForgePage() {
           aria-modal="true"
           aria-label="Build published"
         >
-          <div className="w-full max-w-lg rounded-2xl border border-[#ea580c]/30 bg-black/60 p-5 shadow-2xl backdrop-blur-xl">
-            <h2 className="text-lg font-semibold text-[#ea580c]">Your build is live</h2>
-            <p className="mt-1 text-sm text-[#a8a29e]">
+          <div className="w-full max-w-lg rounded-2xl border border-[#e8ff47]/30 bg-black/60 p-5 shadow-2xl backdrop-blur-xl">
+            <h2 className="text-lg font-semibold text-[#e8ff47]">Your build is live</h2>
+            <p className="mt-1 text-sm text-[#c4c4d8]">
               Open it in a new tab — your workspace stays exactly as it is.
             </p>
             <div className="mt-3 overflow-hidden rounded-lg border border-white/10">
@@ -2828,7 +2828,7 @@ function ForgePage() {
               />
             </div>
             <a
-              className="mt-3 block break-all text-xs text-[#ea580c] underline underline-offset-2"
+              className="mt-3 block break-all text-xs text-[#e8ff47] underline underline-offset-2"
               href={publishedUrl}
               target="_blank"
               rel="noreferrer"
@@ -2837,7 +2837,7 @@ function ForgePage() {
             </a>
             <div className="mt-4 flex flex-wrap gap-2">
               <a
-                className="rounded-lg bg-[#ea580c] px-3 py-1.5 text-sm font-semibold text-black"
+                className="rounded-lg bg-[#e8ff47] px-3 py-1.5 text-sm font-semibold text-black"
                 href={publishedUrl}
                 target="_blank"
                 rel="noreferrer"
@@ -2846,14 +2846,14 @@ function ForgePage() {
               </a>
               <button
                 type="button"
-                className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#a8a29e]"
+                className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#c4c4d8]"
                 onClick={() => { void navigator.clipboard?.writeText(publishedUrl); setStatus("Link copied"); }}
               >
                 Copy link
               </button>
               <button
                 type="button"
-                className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#a8a29e]"
+                className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#c4c4d8]"
                 onClick={() => setPublishedUrl(null)}
               >
                 Back to workspace
@@ -2875,7 +2875,7 @@ function ForgePage() {
             if (e.target === e.currentTarget) setAdvancedOpen(false);
           }}
         >
-          <div className="h-full w-full max-w-sm overflow-y-auto border-l border-white/[0.08] bg-[#161412]/90 p-4 backdrop-blur-xl">
+          <div className="h-full w-full max-w-sm overflow-y-auto border-l border-white/[0.08] bg-[#080812]/90 p-4 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Advanced</h2>
               <button
@@ -2890,7 +2890,7 @@ function ForgePage() {
 
             <label
               htmlFor="forge-model"
-              className="mt-4 block text-[10px] uppercase tracking-widest text-[#78716c]"
+              className="mt-4 block text-[10px] uppercase tracking-widest text-[#9898b8]"
             >
               Model
             </label>
@@ -2898,7 +2898,7 @@ function ForgePage() {
               id="forge-model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-[#1c1917] px-2 py-1.5 text-xs text-[#a8a29e] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#ea580c]/60"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-[#0d0d1f] px-2 py-1.5 text-xs text-[#c4c4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
             >
               <optgroup label="Smart modes">
                 {MODEL_PICKER_OPTIONS.filter((m) => isModeId(m.id)).map((m) => (
@@ -2963,8 +2963,8 @@ function ForgePage() {
               )}
             </div>
 
-            <h3 className="mt-5 text-[10px] uppercase tracking-widest text-[#78716c]">Logs</h3>
-            <pre className="mt-1 max-h-64 overflow-auto rounded-md border border-white/10 bg-black/50 p-2 font-mono text-[11px] leading-relaxed text-[#a8a29e]">
+            <h3 className="mt-5 text-[10px] uppercase tracking-widest text-[#9898b8]">Logs</h3>
+            <pre className="mt-1 max-h-64 overflow-auto rounded-md border border-white/10 bg-black/50 p-2 font-mono text-[11px] leading-relaxed text-[#c4c4d8]">
               {logs.length ? logs.join("\n") : "No activity yet."}
             </pre>
           </div>
