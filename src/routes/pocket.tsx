@@ -6,7 +6,7 @@
 import * as React from "react";
 import { createFileRoute, ClientOnly, useNavigate, Link } from "@tanstack/react-router";
 
-import { PocketNexusBackground } from "@/components/PocketNexusBackground";
+import { PocketBackground } from "@/components/PocketBackground";
 import pocketLogo from "@/assets/aetheris-logo.png.asset.json";
 
 import { AetherisInstructor } from "@/components/AetherisInstructor";
@@ -1898,8 +1898,8 @@ function ForgePage() {
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-[#04040a] text-[#f0f0f8]">
-      {/* Ink base + lime glow, grid lines, and film grain — nexus-studio style */}
-      <PocketNexusBackground />
+      {/* Holographic hieroglyph wall + interactive dot-grid background */}
+      <PocketBackground />
 
 
       <div className="relative z-10">
@@ -2652,8 +2652,9 @@ function ForgePage() {
 
               </div>
 
-              {/* Mobile pane switch */}
-              <div className="flex gap-1 lg:hidden">
+              {/* Mobile pane switch — mb-20 keeps it clear of the fixed
+                  Aetheris Instructor button pinned to the bottom-right corner. */}
+              <div className="mb-20 flex gap-1 lg:hidden lg:mb-0">
                 <button
                   type="button"
                   className={`${btn} flex-1 justify-center`}
