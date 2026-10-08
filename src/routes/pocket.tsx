@@ -36,6 +36,13 @@ import {
   MicOff,
   X,
   History,
+  Plus,
+  ChevronDown,
+  SendHorizontal,
+  Zap,
+  Bolt,
+  Brain,
+  Lightbulb,
 } from "lucide-react";
 
 import { authFetch } from "@/lib/auth-fetch";
@@ -190,12 +197,142 @@ const POCKET_IDEA_CATEGORIES: Array<{ id: string; label: string }> = [
 
 const EMPTY_DOC = `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New project</title></head>
-<body style="margin:0;display:grid;place-items:center;height:100vh;background:#0b0c0f;color:#8b8f98;font-family:Inter,system-ui;font-size:14px">Describe what to build, then press Generate.</body></html>`;
+<body style="margin:0;display:grid;place-items:center;height:100vh;background:#04040a;color:#c4c4d8;font-family:Inter,system-ui;font-size:14px">Describe what to build, then press Generate.</body></html>`;
 
 const btn =
-  "inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-[#B6BCC8] transition hover:border-[#F4A125]/40 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#c4c4d8] transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 disabled:cursor-not-allowed disabled:opacity-40";
 const primaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-b from-[#F4A125] to-[#DD9324] px-4 py-2 text-sm font-semibold text-[#111317] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/70 disabled:cursor-not-allowed disabled:opacity-50";
+  "inline-flex items-center justify-center gap-2 rounded-full bg-[#e8ff47] px-4 py-2 text-sm font-semibold text-[#04040a] shadow-[0_0_20px_rgba(232,255,71,0.35)] transition-all duration-200 hover:bg-[#b8cc38] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/70 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none";
+// Glass surface shared by every workspace panel (Bolt-style card on amber/black).
+const panel =
+  "rounded-2xl bg-[#080812]/85 ring-1 ring-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_2px_20px_rgba(0,0,0,0.4)] backdrop-blur-xl";
+const pillSelect =
+  "rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#c4c4d8] transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 [&_option]:bg-[#0d0d1f] [&_optgroup]:bg-[#0d0d1f]";
+const menuShell =
+  "absolute z-50 overflow-hidden rounded-xl border border-white/10 bg-[#0d0d1f]/95 shadow-2xl shadow-black/50 backdrop-blur-xl";
+
+// Model picker pill — same `model` state the Advanced drawer edits, just
+// surfaced in the composer the way Bolt does it. Nothing removed.
+const MODEL_GROUPS: Array<{ label: string; icon: React.ReactNode; items: Array<{ id: string; label: string }> }> = [
+  { label: "Smart modes", icon: <Zap className="size-4 text-[#e8ff47]" />, items: MODEL_PICKER_OPTIONS.filter((m) => isModeId(m.id)) },
+  { label: "Obsidian gateway", icon: <Brain className="size-4 text-amber-300" />, items: [...MODEL_REGISTRY] },
+  { label: "Anthropic", icon: <Sparkles className="size-4 text-orange-300" />, items: [...ANTHROPIC_MODELS] },
+  { label: "RouteLLM", icon: <Brain className="size-4 text-yellow-200" />, items: [...ROUTELLM_MODELS] },
+];
+
+function modelLabel(id: string): { label: string; icon: React.ReactNode } {
+  for (const g of MODEL_GROUPS) {
+    const hit = g.items.find((m) => m.id === id);
+    if (hit) return { label: hit.label, icon: g.icon };
+  }
+  return { label: id, icon: <Zap className="size-4 text-[#e8ff47]" /> };
+}
+
+function ModelPill({ value, onChange }: { value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = React.useState(false);
+  const current = modelLabel(value);
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        title="Model"
+        className="flex max-w-[190px] items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-[#c4c4d8] transition-all duration-200 hover:bg-white/5 hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
+      >
+        <span className="shrink-0">{current.icon}</span>
+        <span className="truncate">{current.label}</span>
+        <ChevronDown className={`size-3.5 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div role="listbox" className={`${menuShell} left-0 top-full mt-2 max-h-80 min-w-[260px] overflow-y-auto`}>
+            <div className="p-1.5">
+              {MODEL_GROUPS.map((g) => (
+                <div key={g.label}>
+                  <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[#9898b8]">
+                    {g.label}
+                  </div>
+                  {g.items.map((m) => {
+                    const active = m.id === value;
+                    return (
+                      <button
+                        key={m.id}
+                        type="button"
+                        role="option"
+                        aria-selected={active}
+                        onClick={() => { onChange(m.id); setOpen(false); }}
+                        className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-150 ${
+                          active ? "bg-white/10 text-white" : "text-[#c4c4d8] hover:bg-white/5 hover:text-white"
+                        }`}
+                      >
+                        <span className="shrink-0">{g.icon}</span>
+                        <span className="min-w-0 flex-1 truncate">{m.label}</span>
+                        {active && <Check className="size-4 shrink-0 text-[#e8ff47]" />}
+                      </button>
+                    );
+                  })}
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+// "+" menu in the composer — shortcuts to actions that already exist.
+function PlusMenu({ items }: { items: Array<{ icon: React.ReactNode; label: string; onClick: () => void }> }) {
+  const [open, setOpen] = React.useState(false);
+  React.useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="More actions"
+        aria-expanded={open}
+        className="flex size-8 items-center justify-center rounded-full bg-white/[0.08] text-[#c4c4d8] transition-all duration-200 hover:bg-white/[0.12] hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
+      >
+        <Plus className={`size-4 transition-transform duration-200 ${open ? "rotate-45" : ""}`} />
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
+          <div className={`${menuShell} left-0 top-full mt-2 min-w-[200px]`}>
+            <div className="p-1.5">
+              {items.map((it) => (
+                <button
+                  key={it.label}
+                  type="button"
+                  onClick={() => { setOpen(false); it.onClick(); }}
+                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[#c4c4d8] transition-all duration-150 hover:bg-white/5 hover:text-white"
+                >
+                  {it.icon}
+                  <span className="text-sm">{it.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
 
 function ForgePage() {
   const navigate = useNavigate();
@@ -393,6 +530,7 @@ function ForgePage() {
   const runCritique = useServerFn(critiquePocketBuild);
 
   const html = entryHtml(project);
+  const hasCanvasBuild = !(html === EMPTY_DOC || html.length < 40);
   // Always-current html, readable from async work that outlives a render
   // (post-generation image fill must not overwrite a newer build).
   const htmlRef = React.useRef(html);
@@ -1470,7 +1608,7 @@ function ForgePage() {
       if (win) {
         win.opener = null;
         win.document.write(
-          '<title>Publishing…</title><body style="background:#08090b;color:#F4A125;font-family:system-ui;display:grid;place-items:center;height:100vh">Publishing your build…</body>',
+          '<title>Publishing…</title><body style="background:#04040a;color:#e8ff47;font-family:system-ui;display:grid;place-items:center;height:100vh">Publishing your build…</body>',
         );
       }
     } catch { win = null; }
@@ -1730,6 +1868,14 @@ function ForgePage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [generate, save]);
 
+  // Composer grows with the prompt (Bolt-style), capped so it never shoves the workspace off-screen.
+  React.useEffect(() => {
+    const ta = promptRef.current;
+    if (!ta) return;
+    ta.style.height = "auto";
+    ta.style.height = `${Math.min(Math.max(ta.scrollHeight, 96), 240)}px`;
+  }, [prompt]);
+
   const srcDoc = React.useMemo(
     () =>
       buildArtifact({
@@ -1751,15 +1897,15 @@ function ForgePage() {
   const paneHeight = embed ? "h-[42vh]" : "h-[72vh]";
 
   return (
-    <div className="relative min-h-screen bg-[#08090b] text-[#E8E6E1]">
+    <div className="relative min-h-screen overflow-x-hidden bg-[#04040a] text-[#f0f0f8]">
       {/* Holographic hieroglyph wall + interactive dot-grid background */}
       <PocketBackground />
 
 
       <div className="relative z-10">
       {/* Sticky compact header */}
-      <header className="sticky top-0 z-30 border-b border-white/10 bg-black/40 backdrop-blur">
-        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 sm:flex sm:justify-between">
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#04040a]/55 backdrop-blur-xl">
+        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:flex-nowrap sm:gap-3">
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
@@ -1773,18 +1919,18 @@ function ForgePage() {
             <img
               src={pocketLogo.url}
               alt="Aetheris Obsidian Logo"
-              className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#F4A125]/40"
+              className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#e8ff47]/40"
             />
 
-            <ObsidianModeNav className="hidden lg:inline-flex" />
-            <div className="min-w-0">
+            <ObsidianModeNav className="hidden lg:inline-flex" modes={[]} />
+            <div className="hidden min-w-0 sm:block">
               <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket — Fast One-Prompt Prototyping</h1>
-              <p className="truncate text-[10px] uppercase tracking-widest text-[#6b7180]">
+              <p className="truncate text-[10px] uppercase tracking-widest text-[#9898b8]">
                 Pocket workspace
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex w-full min-w-0 items-center gap-2 overflow-x-auto [scrollbar-width:none] sm:w-auto [&::-webkit-scrollbar]:hidden">
             <Link
               to="/"
               className={btn}
@@ -1804,7 +1950,7 @@ function ForgePage() {
             </Link>
 
             <label className="hidden items-center gap-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 sm:flex">
-              <span className="text-[10px] uppercase tracking-widest text-[#6b7180]">Code</span>
+              <span className="text-[10px] uppercase tracking-widest text-[#9898b8]">Code</span>
               <input
                 value={libraryCode}
                 onChange={(e) => { setLibraryCode(e.target.value); setCodeError(null); }}
@@ -1813,7 +1959,7 @@ function ForgePage() {
                 aria-label="Account / library code"
                 title={codeError ?? "Enter your code and press Enter, or the button, to sign in"}
                 disabled={submittingCode}
-                className="w-[70px] bg-transparent text-xs text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none"
+                className="w-[70px] bg-transparent text-xs text-[#f0f0f8] placeholder:text-[#9898b8] focus-visible:outline-none"
               />
               <button
                 type="button"
@@ -1821,12 +1967,12 @@ function ForgePage() {
                 disabled={submittingCode || !libraryCode.trim()}
                 aria-label="Sign in with this code"
                 title="Sign in with this code"
-                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[#6b7180] hover:text-[#F4A125] disabled:opacity-40"
+                className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full text-[#9898b8] hover:text-[#e8ff47] disabled:opacity-40"
               >
                 {submittingCode ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               </button>
               <span
-                className={`h-1.5 w-1.5 rounded-full ${libraryCode.trim() ? "bg-emerald-400" : "bg-[#4b5060]"}`}
+                className={`h-1.5 w-1.5 rounded-full ${libraryCode.trim() ? "bg-emerald-400" : "bg-[#9898b8]"}`}
                 title={libraryCode.trim() ? "Signed in — projects auto-save" : "No code — projects are not saved"}
               />
             </label>
@@ -1836,7 +1982,7 @@ function ForgePage() {
 
             {buildsLeft ? (
               <span
-                className="hidden rounded-md border border-[#F4A125]/30 bg-[#F4A125]/10 px-2 py-1 text-[11px] text-[#F4A125] md:inline"
+                className="hidden rounded-md border border-[#e8ff47]/30 bg-[#e8ff47]/10 px-2 py-1 text-[11px] text-[#e8ff47] md:inline"
                 title={`Pocket plan: ${buildsLeft.used} of ${buildsLeft.cap} credits used this month (a build uses about 10–60)`}
               >
                 {buildsLeft.remaining}/{buildsLeft.cap} credits left
@@ -1863,7 +2009,7 @@ function ForgePage() {
             </button>
             <span
               aria-live="polite"
-              className="hidden max-w-[220px] truncate text-xs text-[#B6BCC8] sm:inline"
+              className="hidden max-w-[220px] truncate text-xs text-[#c4c4d8] sm:inline"
             >
               {cloudProjects.saveStatus === "saving" ? "☁ Saving…"
                : cloudProjects.saveStatus === "saved" ? "☁ Saved"
@@ -1883,7 +2029,7 @@ function ForgePage() {
                       : "◌ Live URL turned off");
                   });
                 }}
-                style={liveSync.live ? { color: "#F4A125" } : undefined}
+                style={liveSync.live ? { color: "#e8ff47" } : undefined}
                 aria-label={liveSync.live ? "Turn off the public live URL" : "Turn on a public live URL"}
                 title={liveSync.live
                   ? "Live: public URL always serves your latest save"
@@ -1928,7 +2074,7 @@ function ForgePage() {
         {/* Sidebar */}
         {sidebarOpen && (
           <aside
-            className="hidden w-60 shrink-0 border-r border-white/10 bg-black/30 p-3 backdrop-blur-md md:block"
+            className="hidden w-60 shrink-0 border-r border-white/[0.06] bg-[#04040a]/70 p-3 backdrop-blur-xl md:block"
             aria-label="Projects"
           >
             <button
@@ -1939,7 +2085,7 @@ function ForgePage() {
               New project
             </button>
             <label
-              className="mt-4 block text-[10px] uppercase tracking-widest text-[#6b7180]"
+              className="mt-4 block text-[10px] uppercase tracking-widest text-[#9898b8]"
               htmlFor="forge-lib"
             >
               Library code
@@ -1951,29 +2097,29 @@ function ForgePage() {
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void submitLibraryCode(); } }}
               placeholder="e.g. 9822"
               disabled={submittingCode}
-              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#f0f0f8] placeholder:text-[#9898b8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
             />
             <button
               type="button"
               onClick={() => void submitLibraryCode()}
               disabled={submittingCode || !libraryCode.trim()}
-              className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#F4A125]/30 bg-[#F4A125]/10 px-2 py-1.5 text-[11px] font-medium text-[#F4A125] disabled:opacity-40"
+              className="mt-1.5 flex w-full items-center justify-center gap-1.5 rounded-md border border-[#e8ff47]/30 bg-[#e8ff47]/10 px-2 py-1.5 text-[11px] font-medium text-[#e8ff47] disabled:opacity-40"
             >
               {submittingCode ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
               Sign in
             </button>
             {codeError && <p className="mt-1 text-[10px] text-rose-300">{codeError}</p>}
-            <h2 className="mt-4 text-[10px] uppercase tracking-widest text-[#6b7180]">Projects</h2>
+            <h2 className="mt-4 text-[10px] uppercase tracking-widest text-[#9898b8]">Projects</h2>
             <ul className="mt-2 space-y-1">
               {library.length === 0 && (
-                <li className="text-xs text-[#5d626e]">No saved projects yet.</li>
+                <li className="text-xs text-[#9898b8]">No saved projects yet.</li>
               )}
               {library.map((b) => (
                 <li key={b.id} className="flex items-center gap-1">
                   <button
                     type="button"
                     onClick={() => void openLibraryBuild(b.id)}
-                    className="min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-xs text-[#B6BCC8] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                    className="min-w-0 flex-1 truncate rounded-md px-2 py-1.5 text-left text-xs text-[#c4c4d8] transition hover:bg-white/5 hover:text-[#e8ff47] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                   >
                     {b.title || "Untitled"}
                   </button>
@@ -1982,7 +2128,7 @@ function ForgePage() {
                     onClick={() => void renameLibraryBuild(b.id, b.title || "Untitled")}
                     aria-label={`Rename ${b.title || "Untitled"}`}
                     title="Rename project"
-                    className="shrink-0 rounded-md p-1 text-[#5d626e] transition hover:bg-white/5 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                    className="shrink-0 rounded-md p-1 text-[#9898b8] transition hover:bg-white/5 hover:text-[#e8ff47] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                   >
                     <Pencil size={11} />
                   </button>
@@ -1991,7 +2137,7 @@ function ForgePage() {
             </ul>
             <Link
               to="/archive"
-              className="mt-2 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-[#6b7180] transition hover:text-[#F4A125]"
+              className="mt-2 flex items-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] text-[#9898b8] transition hover:text-[#e8ff47]"
             >
               <Archive size={12} /> Full build archive
             </Link>
@@ -1999,100 +2145,89 @@ function ForgePage() {
         )}
 
         <main className="min-w-0 flex-1 p-3">
+          {/* Hero — Bolt-style headline, shown until there is a build on the canvas.
+              Skipped in ?embed=1 (the login-page sandbox), where paneHeight is
+              deliberately compact so the workspace fits without page scrolling. */}
+          {!hasCanvasBuild && !embed && (
+            <div className="flex flex-col items-center px-2 pb-6 pt-4 text-center sm:pt-[9vh]">
+              <button
+                type="button"
+                onClick={() => { if (!paidAccess) setPricingOpen(true); }}
+                className="relative mb-[104px] inline-flex sm:mb-8 min-h-[40px] max-w-full items-center gap-2 overflow-hidden rounded-full px-4 py-2 text-xs transition-all sm:px-5 sm:text-sm duration-300 hover:scale-[1.02] active:scale-[0.98]"
+                style={{
+                  background: "linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05))",
+                  backdropFilter: "blur(20px) saturate(140%)",
+                  boxShadow:
+                    "inset 0 1px rgba(255,255,255,0.2), inset 0 -1px rgba(0,0,0,0.1), 0 8px 32px -8px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.08)",
+                }}
+              >
+                <span
+                  className="pointer-events-none absolute -top-px left-1/2 h-[2px] w-[100px] -translate-x-1/2 opacity-70"
+                  style={{ background: "linear-gradient(90deg, transparent 0%, rgba(232,255,71,0.9) 30%, rgba(240,240,248,0.9) 50%, rgba(232,255,71,0.9) 70%, transparent 100%)", filter: "blur(0.5px)" }}
+                />
+                <Bolt className="relative z-10 size-4 text-[#e8ff47]" />
+                <span className="relative z-10 font-medium text-white">
+                  {buildsLeft
+                    ? `Obsidian Pocket · ${buildsLeft.remaining}/${buildsLeft.cap} credits left`
+                    : paidAccess
+                      ? "Obsidian Pocket · live preview while it builds"
+                      : `Obsidian Pocket · $10/mo for ${POCKET_MONTHLY_CREDITS} AI credits`}
+                </span>
+              </button>
+              <h2 className="mb-1 text-4xl font-bold tracking-tight text-white sm:text-5xl">
+                What will you{" "}
+                <span className="bg-gradient-to-b from-[#e8ff47] via-[#e8ff47] to-white bg-clip-text italic text-transparent">
+                  build
+                </span>{" "}
+                today?
+              </h2>
+              <p className="text-base font-semibold text-[#c4c4d8] sm:text-lg">
+                Prototype apps and sites from one prompt.
+              </p>
+            </div>
+          )}
+
           {/* Demo banner */}
           {!paid && (
-            <div className="mb-3 rounded-lg border border-[#F4A125]/30 bg-[#F4A125]/10 px-3 py-2 text-xs text-[#E8E6E1] backdrop-blur-sm">
+            <div className="mx-auto mb-3 w-full max-w-[760px] rounded-full border border-[#e8ff47]/25 bg-[#e8ff47]/[0.08] px-4 py-2 text-center text-xs text-[#f0f0f8] backdrop-blur-sm">
               Fast builds are free to try. Saving, export, publishing and the Studio/Cinematic
               profiles need an Obsidian Pocket account — $10/month for {POCKET_MONTHLY_CREDITS} AI credits.
             </div>
           )}
 
-
-          {/* Prompt composer */}
-
-          <section className="rounded-xl border border-white/10 bg-black/30 p-3 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset] backdrop-blur-md">
-            <label htmlFor="forge-prompt" className="text-sm font-semibold">
-              What should I build or change?
-            </label>
-            <textarea
-              id="forge-prompt"
-              ref={promptRef}
-              rows={3}
-              value={prompt}
-              onChange={(e) => setPrompt(e.target.value)}
-              placeholder="A pricing page for an HVAC dispatch tool with three tiers and a comparison table…"
-              className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-black/40 p-3 text-sm text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
-            />
+          {/* Prompt composer — Bolt-style glass card */}
+          <section className="relative mx-auto w-full max-w-[760px]">
+            <div className="pointer-events-none absolute -inset-[1px] rounded-2xl bg-gradient-to-b from-white/[0.08] to-transparent" />
+            <div className="relative rounded-2xl bg-[#0d0d1f] shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_2px_20px_rgba(0,0,0,0.4)] ring-1 ring-white/[0.08]">
+              <label htmlFor="forge-prompt" className="sr-only">
+                What should I build or change?
+              </label>
+              <textarea
+                id="forge-prompt"
+                ref={promptRef}
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing) {
+                    // Touch keyboards fire a plain "Enter" keydown for their own newline
+                    // key too, so on a coarse pointer let it insert a newline instead of
+                    // spending a build credit.
+                    const coarse = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
+                    if (coarse) return;
+                    e.preventDefault();
+                    if (!busy && prompt.trim()) void generate();
+                  }
+                }}
+                placeholder="What do you want to build? e.g. a pricing page for an HVAC dispatch tool…"
+                className="block max-h-[240px] min-h-[96px] w-full resize-none bg-transparent px-5 pb-3 pt-5 text-[15px] text-white placeholder-[#9898b8] focus:outline-none"
+              />
             {(voice.listening || voice.processing || voice.error) && (
-              <p className="mt-2 text-xs text-[#F4A125]" role="status" aria-live="polite">
+              <p className="px-5 pb-1 text-xs text-[#e8ff47]" role="status" aria-live="polite">
                 {voice.error || voice.interim || (voice.processing ? "Transcribing…" : "Listening… say “send” to build")}
               </p>
             )}
-            {/* Idea categories */}
-            {!prompt.trim() && (
-              <div className="mt-2 flex flex-wrap gap-1" role="tablist" aria-label="Idea categories">
-                {POCKET_IDEA_CATEGORIES.map((c) => {
-                  const active = ideaCategory === c.id;
-                  return (
-                    <button
-                      key={c.id}
-                      type="button"
-                      role="tab"
-                      aria-selected={active}
-                      disabled={aiIdeasLoading && active}
-                      onClick={() => {
-                        setIdeaCategory(c.id);
-                        setAiIdeas([]);
-                        void loadCategoryIdeas(c.id);
-                      }}
-                      className={`rounded-full border px-2 py-[3px] text-[10px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
-                        active
-                          ? "border-[#F4A125]/65 bg-[#F4A125]/15 text-[#F4A125]"
-                          : "border-white/10 bg-white/[0.03] text-[#B6BCC8] hover:text-[#E8E6E1]"
-                      }`}
-                    >
-                      {c.label}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-            {/* Idea chips — click to append, then Enhance to expand */}
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {aiIdeasLoading && (
-                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#7d8494]">
-                  <Loader2 size={12} className="animate-spin" /> Finding fresh ideas…
-                </span>
-              )}
-              {ideaChips.map((a) => (
-                <button
-                  key={a.id}
-                  type="button"
-                  title={a.reason || a.snippet}
-                  onClick={() => {
-                    setPrompt((p) => (p.trim() ? `${p.trim()} ${a.snippet}` : a.snippet));
-                    requestAnimationFrame(() => promptRef.current?.focus());
-                  }}
-                  className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-[#B6BCC8] transition hover:border-[#F4A125]/50 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
-                >
-                  {a.label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={() => {
-                  setIdeaOffset((o) => o + 4);
-                  if (!prompt.trim()) void loadCategoryIdeas(ideaCategory);
-                }}
-                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[#7d8494] transition hover:text-[#E8E6E1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
-              >
-                More ideas
-
-              </button>
-            </div>
-
             {/* Creative profile + style family */}
-            <div className="mt-2 flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 px-4 pb-1">
               <div className="flex items-center gap-1" role="group" aria-label="Build profile">
                 {POCKET_PROFILES.map((pf) => {
                   const active = profile === pf.id;
@@ -2107,10 +2242,10 @@ function ForgePage() {
                       }}
                       aria-pressed={active}
                       title={`${pf.blurb}${locked ? " Requires an Obsidian Pocket account." : ""}`}
-                      className={`rounded-full border px-2.5 py-1 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
+                      className={`rounded-full border px-2.5 py-1 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${
                         active
-                          ? "border-[#F4A125]/70 bg-[#F4A125]/15 text-[#F4A125]"
-                          : "border-white/10 text-[#7d8494] hover:text-[#E8E6E1]"
+                          ? "border-[#e8ff47]/70 bg-[#e8ff47]/15 text-[#e8ff47]"
+                          : "border-white/10 text-[#c4c4d8] hover:text-[#f0f0f8]"
                       } ${locked ? "opacity-60" : ""}`}
                     >
                       {pf.label}
@@ -2124,7 +2259,7 @@ function ForgePage() {
                 id="pocket-style"
                 value={styleFamily}
                 onChange={(e) => changeStyleFamily(e.target.value as PocketStyleFamily)}
-                className="rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                className={pillSelect}
               >
                 {POCKET_STYLE_FAMILIES.map((f) => (
                   <option key={f} value={f}>
@@ -2133,7 +2268,7 @@ function ForgePage() {
                 ))}
               </select>
               <span
-                className="text-[11px] text-[#7d8494]"
+                className="text-[11px] text-[#c4c4d8]"
                 title="Model availability depends on the configured AI gateway."
               >
                 {profile === "fast" ? modelChoice.entryLabel : modelChoice.statusLabel} ·{" "}
@@ -2143,14 +2278,14 @@ function ForgePage() {
 
             {/* Design DNA summary + alternative directions */}
             {dna && (
-              <p className="mt-1.5 truncate text-[11px] text-[#7d8494]" title={dnaSummaryLine(dna)}>
+              <p className="truncate px-4 pt-1 text-[11px] text-[#c4c4d8]" title={dnaSummaryLine(dna)}>
                 Design DNA · {dnaSummaryLine(dna)}
                 {lastCritiqueRan ? " · polished" : ""}
               </p>
             )}
             {conceptPlan && profile !== "fast" && (
-              <div className="mt-1 flex flex-wrap items-center gap-1" aria-label="Creative directions">
-                <span className="text-[11px] text-[#4b5060]">Directions:</span>
+              <div className="flex flex-wrap items-center gap-1 px-4 pt-1" aria-label="Creative directions">
+                <span className="text-[11px] text-[#9898b8]">Directions:</span>
                 {conceptPlan.concepts.map((c) => (
                   <button
                     key={c.id}
@@ -2161,10 +2296,10 @@ function ForgePage() {
                     }}
                     aria-pressed={conceptPlan.selectedId === c.id}
                     title={c.concept}
-                    className={`rounded-full border px-2 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
+                    className={`rounded-full border px-2 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${
                       conceptPlan.selectedId === c.id
-                        ? "border-[#F4A125]/70 text-[#F4A125]"
-                        : "border-white/10 text-[#7d8494] hover:text-[#E8E6E1]"
+                        ? "border-[#e8ff47]/70 text-[#e8ff47]"
+                        : "border-white/10 text-[#c4c4d8] hover:text-[#f0f0f8]"
                     }`}
                   >
                     {c.name}
@@ -2173,89 +2308,178 @@ function ForgePage() {
               </div>
             )}
 
-            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:justify-between">
-              <div className="flex min-w-0 items-center gap-2">
-                <label className="sr-only" htmlFor="forge-mode">
-                  Build mode
-                </label>
-                <select
-                  id="forge-mode"
-                  value={mode}
-                  onChange={(e) => setMode(e.target.value as BuildMode)}
-                  className="rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
-                >
-                  <option value="build">Build new</option>
-                  <option value="refine">Refine current</option>
-                </select>
-                <button
-                  type="button"
-                  className={btn}
-                  onClick={() => void runEnhance()}
-                  disabled={!!busy || !prompt.trim()}
-                >
-                  <Wand2 size={13} /> Enhance
-                </button>
-                <button
-                  type="button"
-                  className={btn}
-                  onClick={() => void runExtendIdeas()}
-                  disabled={!!busy || !prompt.trim()}
-                  title="Reads what you wrote and adds more ideas on top — your words are kept"
-                >
-                  <Sparkles size={13} /> Extend ideas
-                </button>
 
-                {voice.supported && (
+              <div className="flex flex-wrap items-center gap-2 px-3 pb-3 pt-2">
+                <div className="flex min-w-0 flex-wrap items-center gap-1">
+                  <PlusMenu
+                    items={[
+                      { icon: <Github className="size-4" />, label: "Import from GitHub", onClick: () => void openGithub() },
+                      { icon: <Download className="size-4" />, label: "Export project", onClick: () => void exportProject() },
+                      { icon: <Plus className="size-4" />, label: "New project", onClick: newProject },
+                      { icon: <Settings2 className="size-4" />, label: "Advanced", onClick: () => setAdvancedOpen(true) },
+                    ]}
+                  />
+                  <label className="sr-only" htmlFor="forge-mode">
+                    Build mode
+                  </label>
+                  <select
+                    id="forge-mode"
+                    value={mode}
+                    onChange={(e) => setMode(e.target.value as BuildMode)}
+                    className={pillSelect}
+                  >
+                    <option value="build">Build new</option>
+                    <option value="refine">Refine current</option>
+                  </select>
+                  <ModelPill value={model} onChange={setModel} />
+                </div>
+
+                <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
                   <button
                     type="button"
                     className={btn}
-                    onClick={voice.toggle}
-                    aria-pressed={voice.listening}
-                    aria-label={voice.listening ? "Voice assist on — click to stop" : "Voice assist — dictate, say 'send' to build"}
-                    title={voice.listening ? "Listening — say 'send' to build, 'enhance' to polish, 'clear' to reset" : "Voice assist"}
-                    style={voice.listening ? { color: "#F4A125", borderColor: "rgba(244,161,37,0.55)", background: "rgba(244,161,37,0.14)" } : undefined}
+                    onClick={() => void runEnhance()}
+                    disabled={!!busy || !prompt.trim()}
+                    title="Rewrite the prompt into a fuller spec"
                   >
-                    {voice.listening ? <Mic size={13} /> : <MicOff size={13} />}
-                    {voice.listening ? "Listening" : "Voice"}
+                    <Wand2 size={13} /> <span className="hidden sm:inline">Enhance</span>
                   </button>
-                )}
-              </div>
-              <div className="flex items-center gap-2">
-                {busy === "generating" ? (
-                  <button type="button" className={btn} onClick={stop}>
-                    Stop
+                  <button
+                    type="button"
+                    className={btn}
+                    onClick={() => void runExtendIdeas()}
+                    disabled={!!busy || !prompt.trim()}
+                    title="Reads what you wrote and adds more ideas on top — your words are kept"
+                  >
+                    <Lightbulb size={13} /> <span className="hidden sm:inline">Extend ideas</span>
                   </button>
-                ) : null}
-                <button
-                  type="button"
-                  className={primaryBtn}
-                  onClick={() => void generate()}
-                  disabled={!!busy || !prompt.trim()}
-                >
-                  {busy === "generating" ? (
-                    <Loader2 size={15} className="animate-spin" />
-                  ) : (
-                    <Sparkles size={15} />
+                  {voice.supported && (
+                    <button
+                      type="button"
+                      className={btn}
+                      onClick={voice.toggle}
+                      aria-pressed={voice.listening}
+                      aria-label={voice.listening ? "Voice assist on — click to stop" : "Voice assist — dictate, say 'send' to build"}
+                      title={voice.listening ? "Listening — say 'send' to build, 'enhance' to polish, 'clear' to reset" : "Voice assist"}
+                      style={voice.listening ? { color: "#e8ff47", borderColor: "rgba(232,255,71,0.55)", background: "rgba(232,255,71,0.14)" } : undefined}
+                    >
+                      {voice.listening ? <Mic size={13} /> : <MicOff size={13} />}
+                      <span className="hidden sm:inline">{voice.listening ? "Listening" : "Voice"}</span>
+                    </button>
                   )}
-                  {busy === "generating" ? "Generating" : "Generate"}
-                </button>
+                  {busy === "generating" ? (
+                    <button type="button" className={btn} onClick={stop}>
+                      Stop
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    className={primaryBtn}
+                    onClick={() => void generate()}
+                    disabled={!!busy || !prompt.trim()}
+                  >
+                    {busy === "generating" ? (
+                      <Loader2 size={15} className="animate-spin" />
+                    ) : null}
+                    <span>{busy === "generating" ? "Building" : mode === "refine" ? "Refine now" : "Build now"}</span>
+                    {busy === "generating" ? null : <SendHorizontal size={15} />}
+                  </button>
+                </div>
               </div>
-            </div>
             {error && (
               <p
                 role="alert"
-                className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-300"
+                className="mx-3 mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-300"
               >
                 {error}
               </p>
             )}
+            </div>
           </section>
+
+          {/* Ideas + import row (under the composer, Bolt-style) */}
+          <div className="mx-auto mt-4 w-full max-w-[760px]">
+            {/* Idea categories */}
+            {!prompt.trim() && (
+              <div className="flex flex-wrap justify-center gap-1" role="tablist" aria-label="Idea categories">
+                {POCKET_IDEA_CATEGORIES.map((c) => {
+                  const active = ideaCategory === c.id;
+                  return (
+                    <button
+                      key={c.id}
+                      type="button"
+                      role="tab"
+                      aria-selected={active}
+                      disabled={aiIdeasLoading && active}
+                      onClick={() => {
+                        setIdeaCategory(c.id);
+                        setAiIdeas([]);
+                        void loadCategoryIdeas(c.id);
+                      }}
+                      className={`rounded-full border px-2 py-[3px] text-[10px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${
+                        active
+                          ? "border-[#e8ff47]/65 bg-[#e8ff47]/15 text-[#e8ff47]"
+                          : "border-white/10 bg-white/[0.03] text-[#c4c4d8] hover:text-[#f0f0f8]"
+                      }`}
+                    >
+                      {c.label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            {/* Idea chips — click to append, then Enhance to expand */}
+            <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+              {aiIdeasLoading && (
+                <span className="inline-flex items-center gap-1.5 text-[11px] text-[#c4c4d8]">
+                  <Loader2 size={12} className="animate-spin" /> Finding fresh ideas…
+                </span>
+              )}
+              {ideaChips.map((a) => (
+                <button
+                  key={a.id}
+                  type="button"
+                  title={a.reason || a.snippet}
+                  onClick={() => {
+                    setPrompt((p) => (p.trim() ? `${p.trim()} ${a.snippet}` : a.snippet));
+                    requestAnimationFrame(() => promptRef.current?.focus());
+                  }}
+                  className="rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-[11px] text-[#c4c4d8] transition hover:border-[#e8ff47]/50 hover:text-[#e8ff47] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
+                >
+                  {a.label}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setIdeaOffset((o) => o + 4);
+                  if (!prompt.trim()) void loadCategoryIdeas(ideaCategory);
+                }}
+                className="rounded-full border border-white/10 px-2.5 py-1 text-[11px] text-[#c4c4d8] transition hover:text-[#f0f0f8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
+              >
+                More ideas
+
+              </button>
+            </div>
+
+            <div className="mt-4 flex items-center justify-center gap-3">
+              <span className="text-sm text-[#9898b8]">or import from</span>
+              <button
+                type="button"
+                onClick={() => void openGithub()}
+                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-[#04040a] px-3 py-1.5 text-xs font-medium text-[#c4c4d8] transition-all duration-200 hover:bg-[#0d0d1f] hover:text-white active:scale-95"
+              >
+                <Github className="size-4" />
+                <span>GitHub</span>
+              </button>
+            </div>
+          </div>
 
           {/* Tabs */}
           <div
             role="tablist"
             aria-label="Workspace sections"
-            className="mt-3 flex items-center gap-1"
+            className="mt-8 flex flex-wrap items-center gap-1"
           >
             {(
               [
@@ -2272,7 +2496,7 @@ function ForgePage() {
                 id={`forge-tab-${id}`}
                 aria-controls={`forge-panel-${id}`}
                 onClick={() => setTab(id)}
-                className={`rounded-md px-3 py-1.5 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${tab === id ? "bg-[#F4A125]/15 text-[#F4A125]" : "text-[#B6BCC8] hover:bg-white/5"}`}
+                className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${tab === id ? "bg-white/10 text-white ring-1 ring-[#e8ff47]/40" : "text-[#c4c4d8] hover:bg-white/5 hover:text-white"}`}
               >
                 {label}
               </button>
@@ -2317,10 +2541,10 @@ function ForgePage() {
             >
               {/* Code side */}
               <div
-                className={`${pane === "code" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-black/30 backdrop-blur-md`}
+                className={`${pane === "code" ? "block" : "hidden"} lg:block ${panel}`}
               >
-                <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
-                  <Code2 size={13} className="shrink-0 text-[#F4A125]" />
+                <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2">
+                  <Code2 size={13} className="shrink-0 text-[#e8ff47]" />
                   <label className="sr-only" htmlFor="forge-file">
                     File
                   </label>
@@ -2328,7 +2552,7 @@ function ForgePage() {
                     id="forge-file"
                     value={activeFile?.id ?? ""}
                     onChange={(e) => setActiveFileId(e.target.value)}
-                    className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                    className="min-w-0 flex-1 rounded-md border border-white/10 bg-black/40 px-2 py-1 text-xs text-[#c4c4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                   >
                     {project.files.map((f) => (
                       <option key={f.id} value={f.id}>
@@ -2375,15 +2599,15 @@ function ForgePage() {
                   onChange={(e) =>
                     activeFile && setProject((p) => updateContent(p, activeFile.id, e.target.value))
                   }
-                  className={`${paneHeight} w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#cfd3db] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#F4A125]/60`}
+                  className={`${paneHeight} w-full resize-none rounded-b-xl bg-black/40 p-3 font-mono text-[12px] leading-relaxed text-[#c4c4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#e8ff47]/60`}
                 />
               </div>
 
               {/* Preview side */}
               <div
-                className={`${pane === "preview" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-black/30 backdrop-blur-md`}
+                className={`${pane === "preview" ? "block" : "hidden"} lg:block ${panel}`}
               >
-                <div className="flex items-center gap-1 border-b border-white/10 px-3 py-2">
+                <div className="flex items-center gap-1 border-b border-white/[0.06] px-3 py-2">
                   <label className="sr-only" htmlFor="forge-title-inline">
                     Build title
                   </label>
@@ -2394,7 +2618,7 @@ function ForgePage() {
                     onFocus={(e) => e.currentTarget.select()}
                     placeholder="Untitled build"
                     title="Rename this build — used when you save or publish it"
-                    className="mr-auto min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-[#B6BCC8] transition hover:border-white/10 focus:border-[#F4A125]/40 focus:text-[#E8E6E1] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                    className="mr-auto min-w-0 flex-1 truncate rounded-md border border-transparent bg-transparent px-1.5 py-0.5 text-xs text-[#c4c4d8] transition hover:border-white/10 focus:border-[#e8ff47]/40 focus:text-[#f0f0f8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                   />
                   {FORGE_DEVICES.map((d) => (
                     <button
@@ -2403,7 +2627,7 @@ function ForgePage() {
                       aria-pressed={device === d.id}
                       aria-label={`${d.label} preview`}
                       onClick={() => setDevice(d.id)}
-                      className={`rounded-md p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${device === d.id ? "bg-[#F4A125]/15 text-[#F4A125]" : "text-[#B6BCC8] hover:bg-white/5"}`}
+                      className={`rounded-md p-1.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60 ${device === d.id ? "bg-[#e8ff47]/15 text-[#e8ff47]" : "text-[#c4c4d8] hover:bg-white/5"}`}
                     >
                       {d.id === "desktop" ? (
                         <Monitor size={14} />
@@ -2415,7 +2639,7 @@ function ForgePage() {
                     </button>
                   ))}
                 </div>
-                <div className={`relative flex ${paneHeight} justify-center overflow-hidden bg-[#050608] p-2`}>
+                <div className={`relative flex ${paneHeight} justify-center overflow-hidden bg-[#04040a] p-2`}>
                   <PocketPreviewFrame
                     key={`preview-${previewNonce}`}
                     title="Obsidian Pocket preview"
@@ -2428,8 +2652,9 @@ function ForgePage() {
 
               </div>
 
-              {/* Mobile pane switch */}
-              <div className="flex gap-1 lg:hidden">
+              {/* Mobile pane switch — mb-20 keeps it clear of the fixed
+                  Aetheris Instructor button pinned to the bottom-right corner. */}
+              <div className="mb-20 flex gap-1 lg:hidden lg:mb-0">
                 <button
                   type="button"
                   className={`${btn} flex-1 justify-center`}
@@ -2456,13 +2681,13 @@ function ForgePage() {
               id="forge-panel-versions"
               role="tabpanel"
               aria-labelledby="forge-tab-versions"
-              className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 backdrop-blur-md"
+              className={`mt-3 ${panel} p-3`}
             >
               <h2 className="flex items-center gap-2 text-sm font-semibold">
-                <History size={14} className="text-[#F4A125]" /> Versions
+                <History size={14} className="text-[#e8ff47]" /> Versions
               </h2>
               {versions.length === 0 ? (
-                <p className="mt-2 text-xs text-[#5d626e]">
+                <p className="mt-2 text-xs text-[#9898b8]">
                   No versions yet — each successful generation records one.
                 </p>
               ) : (
@@ -2473,8 +2698,8 @@ function ForgePage() {
                       className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 py-2"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-xs text-[#E8E6E1]">{v.label}</p>
-                        <p className="text-[10px] text-[#5d626e]">
+                        <p className="truncate text-xs text-[#f0f0f8]">{v.label}</p>
+                        <p className="text-[10px] text-[#9898b8]">
                           {new Date(v.at).toLocaleString()} · {v.html.length.toLocaleString()} chars
                         </p>
                       </div>
@@ -2494,28 +2719,28 @@ function ForgePage() {
               id="forge-panel-settings"
               role="tabpanel"
               aria-labelledby="forge-tab-settings"
-              className="mt-3 space-y-3 rounded-xl border border-white/10 bg-black/30 p-3 backdrop-blur-md"
+              className={`mt-3 space-y-3 ${panel} p-3`}
             >
               <div>
-                <label htmlFor="forge-title" className="text-xs text-[#B6BCC8]">
+                <label htmlFor="forge-title" className="text-xs text-[#c4c4d8]">
                   Project title
                 </label>
                 <input
                   id="forge-title"
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                  className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
                 />
               </div>
-              <p className="text-xs text-[#5d626e]">
-                Account mode: <span className="text-[#B6BCC8]">{snap.mode}</span> · credits
-                remaining: <span className="text-[#B6BCC8]">{snap.remaining}</span>
+              <p className="text-xs text-[#9898b8]">
+                Account mode: <span className="text-[#c4c4d8]">{snap.mode}</span> · credits
+                remaining: <span className="text-[#c4c4d8]">{snap.remaining}</span>
               </p>
               {shareUrl && (
-                <p className="text-xs text-[#B6BCC8]">
+                <p className="text-xs text-[#c4c4d8]">
                   Live URL:{" "}
                   <a
-                    className="text-[#F4A125] underline underline-offset-2"
+                    className="text-[#e8ff47] underline underline-offset-2"
                     href={shareUrl}
                     target="_blank"
                     rel="noreferrer"
@@ -2524,12 +2749,12 @@ function ForgePage() {
                   </a>
                 </p>
               )}
-              <p className="text-xs text-[#5d626e]">
+              <p className="text-xs text-[#9898b8]">
                 Shortcuts: ⌘/Ctrl+Enter generate · ⌘/Ctrl+S save · ⌘/Ctrl+K advanced · ⌘/Ctrl+/
                 focus prompt
               </p>
               <div className="border-t border-white/10 pt-3">
-                <p className="mb-2 text-xs text-[#B6BCC8]">Cloud Memory (advanced)</p>
+                <p className="mb-2 text-xs text-[#c4c4d8]">Cloud Memory (advanced)</p>
                 <CloudMemoryButton
                   canUse
                   buildIgnoresMemory={liveSync.cloudMemory && !memoryHost.usesMemory}
@@ -2590,9 +2815,9 @@ function ForgePage() {
           aria-modal="true"
           aria-label="Build published"
         >
-          <div className="w-full max-w-lg rounded-2xl border border-[#F4A125]/30 bg-black/60 p-5 shadow-2xl backdrop-blur-xl">
-            <h2 className="text-lg font-semibold text-[#F4A125]">Your build is live</h2>
-            <p className="mt-1 text-sm text-[#B6BCC8]">
+          <div className="w-full max-w-lg rounded-2xl border border-[#e8ff47]/30 bg-black/60 p-5 shadow-2xl backdrop-blur-xl">
+            <h2 className="text-lg font-semibold text-[#e8ff47]">Your build is live</h2>
+            <p className="mt-1 text-sm text-[#c4c4d8]">
               Open it in a new tab — your workspace stays exactly as it is.
             </p>
             <div className="mt-3 overflow-hidden rounded-lg border border-white/10">
@@ -2604,7 +2829,7 @@ function ForgePage() {
               />
             </div>
             <a
-              className="mt-3 block break-all text-xs text-[#F4A125] underline underline-offset-2"
+              className="mt-3 block break-all text-xs text-[#e8ff47] underline underline-offset-2"
               href={publishedUrl}
               target="_blank"
               rel="noreferrer"
@@ -2613,7 +2838,7 @@ function ForgePage() {
             </a>
             <div className="mt-4 flex flex-wrap gap-2">
               <a
-                className="rounded-lg bg-[#F4A125] px-3 py-1.5 text-sm font-semibold text-black"
+                className="rounded-lg bg-[#e8ff47] px-3 py-1.5 text-sm font-semibold text-black"
                 href={publishedUrl}
                 target="_blank"
                 rel="noreferrer"
@@ -2622,14 +2847,14 @@ function ForgePage() {
               </a>
               <button
                 type="button"
-                className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#B6BCC8]"
+                className="rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#c4c4d8]"
                 onClick={() => { void navigator.clipboard?.writeText(publishedUrl); setStatus("Link copied"); }}
               >
                 Copy link
               </button>
               <button
                 type="button"
-                className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#B6BCC8]"
+                className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#c4c4d8]"
                 onClick={() => setPublishedUrl(null)}
               >
                 Back to workspace
@@ -2651,7 +2876,7 @@ function ForgePage() {
             if (e.target === e.currentTarget) setAdvancedOpen(false);
           }}
         >
-          <div className="h-full w-full max-w-sm overflow-y-auto border-l border-white/10 bg-black/40 p-4 backdrop-blur-xl">
+          <div className="h-full w-full max-w-sm overflow-y-auto border-l border-white/[0.08] bg-[#080812]/90 p-4 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Advanced</h2>
               <button
@@ -2666,7 +2891,7 @@ function ForgePage() {
 
             <label
               htmlFor="forge-model"
-              className="mt-4 block text-[10px] uppercase tracking-widest text-[#6b7180]"
+              className="mt-4 block text-[10px] uppercase tracking-widest text-[#9898b8]"
             >
               Model
             </label>
@@ -2674,7 +2899,7 @@ function ForgePage() {
               id="forge-model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+              className="mt-1 w-full rounded-lg border border-white/10 bg-[#0d0d1f] px-2 py-1.5 text-xs text-[#c4c4d8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#e8ff47]/60"
             >
               <optgroup label="Smart modes">
                 {MODEL_PICKER_OPTIONS.filter((m) => isModeId(m.id)).map((m) => (
@@ -2739,8 +2964,8 @@ function ForgePage() {
               )}
             </div>
 
-            <h3 className="mt-5 text-[10px] uppercase tracking-widest text-[#6b7180]">Logs</h3>
-            <pre className="mt-1 max-h-64 overflow-auto rounded-md border border-white/10 bg-black/50 p-2 font-mono text-[11px] leading-relaxed text-[#8b90a0]">
+            <h3 className="mt-5 text-[10px] uppercase tracking-widest text-[#9898b8]">Logs</h3>
+            <pre className="mt-1 max-h-64 overflow-auto rounded-md border border-white/10 bg-black/50 p-2 font-mono text-[11px] leading-relaxed text-[#c4c4d8]">
               {logs.length ? logs.join("\n") : "No activity yet."}
             </pre>
           </div>
