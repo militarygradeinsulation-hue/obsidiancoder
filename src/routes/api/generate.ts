@@ -108,6 +108,9 @@ const inputSchema = z.object({
   // ---- Obsidian Pocket premium creative fields (bounded, Pocket-only) ----
   // Every field is optional; non-Pocket callers are completely unaffected.
   surface: z.enum(["default", "pocket", "vibe"]).optional().default("default"),
+  // True when Pocket is rebuilding from a scanned URL/screenshot. Reference
+  // fidelity outranks Obsidian's normal creative archetype/Brain styling.
+  referenceRebuild: z.boolean().optional().default(false),
   pocketProfile: z.enum(["fast", "studio", "cinematic"]).optional(),
   pocketStyleFamily: z.enum(POCKET_STYLE_FAMILIES as unknown as [string, ...string[]]).optional(),
   pocketDesignDNA: pocketDnaSchema.optional(),
@@ -911,8 +914,16 @@ export async function handleGenerate(request: Request): Promise<Response> {
           // the pre-stream image/component round-trips unless the user asked
           // for imagery outright.
           const fastProfile = (data.pocketProfile ?? "fast") === "fast";
-          const wantImages = !data.advisory && (data.wantImages || (!fastProfile && VISUAL_KEYWORDS.test(data.prompt)));
-          const wantComponents = !data.advisory && !fastProfile && !!apiKey && !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
+          const wantImages =
+            !data.advisory &&
+            !data.referenceRebuild &&
+            (data.wantImages || (!fastProfile && VISUAL_KEYWORDS.test(data.prompt)));
+          const wantComponents =
+            !data.advisory &&
+            !data.referenceRebuild &&
+            !fastProfile &&
+            !!apiKey &&
+            !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
           const emptyImagePhase: ImagePhaseResult = { images: [], usages: [], planUsage: null };
           const emptyComponentPhase: ComponentPhaseResult = { components: [], planUsage: null };
           const enrichmentBudget = Math.max(
@@ -983,7 +994,7 @@ ${memBlock}`,
 
           // Inject the style archetype library only for FRESH builds (no
           // existing HTML). On edits we preserve the archetype already chosen.
-          if (!data.advisory && !contextHtml) {
+          if (!data.advisory && !data.referenceRebuild && !contextHtml) {
             const { STYLE_LIBRARY } = await import("@/lib/style-library");
             messages.push({ role: "system", content: STYLE_LIBRARY });
             // Deterministic archetype variety: the director makes the pick so
@@ -998,7 +1009,7 @@ ${memBlock}`,
           }
           // Spec extractor — for fresh full-generation builds with complex prompts,
           // inject a structured spec block so the model doesn't omit sections.
-          if (!data.advisory && !contextHtml) {
+          if (!data.advisory && !data.referenceRebuild && !contextHtml) {
             try {
               const { extractSpec, specToSystemBlock } = await import("@/lib/spec-extractor");
               const spec = extractSpec(data.prompt);
@@ -1015,6 +1026,7 @@ ${memBlock}`,
           // instead of competing with generic reference markup.
           const premiumDirection =
             !data.advisory &&
+            !data.referenceRebuild &&
             (data.surface === "pocket" || data.surface === "vibe") &&
             !!data.pocketDesignDNA;
           const premiumMessages: Array<{ role: string; content: string }> = [];
@@ -1044,7 +1056,7 @@ ${memBlock}`,
           // Reusable components from the client registry — injected for fresh
           // builds, but never on a premium art-directed build: pasting past
           // markup is the single biggest source of generic-looking output.
-          if (!data.advisory && !contextHtml && !premiumDirection && data.reusableComponents?.length) {
+          if (!data.advisory && !data.referenceRebuild && !contextHtml && !premiumDirection && data.reusableComponents?.length) {
             const compLines = [
               "REUSABLE PATTERNS FROM YOUR BUILD HISTORY:",
               "These are components you've built before. Reuse their structure where relevant.",
@@ -1061,7 +1073,7 @@ ${memBlock}`,
 
           // Design Contract injection — applies to both fresh builds and edits
           // so follow-up prompts preserve the chosen direction.
-          if (!data.advisory && data.designContract && typeof data.designContract === "object") {
+          if (!data.advisory && !data.referenceRebuild && data.designContract && typeof data.designContract === "object") {
             try {
               const { contractToSystemPrompt } = await import("@/lib/design-library");
               const dc = data.designContract as Parameters<typeof contractToSystemPrompt>[0];
@@ -1072,7 +1084,7 @@ ${memBlock}`,
           }
           // Active ThemeBlueprint injection — locks the 9-axis theme so AI
           // preserves it on every generation/edit.
-          if (!data.advisory && data.themeBlueprintId) {
+          if (!data.advisory && !data.referenceRebuild && data.themeBlueprintId) {
             try {
               const { getBuiltIn, blueprintToSystemPrompt } = await import("@/lib/theme-blueprints");
               const bp = getBuiltIn(data.themeBlueprintId);
@@ -1095,6 +1107,17 @@ ${memBlock}`,
               content: `For reference only — the user's current build (do NOT rewrite it, just advise):\n\n${contextHtml.slice(0, 8000)}`,
             });
           }
+          if (!data.advisory && data.referenceRebuild) {
+            messages.push({
+              role: "system",
+              content:
+                "REFERENCE REBUILD OVERRIDE — the user's prompt is a scanner-produced visual blueprint. " +
+                "Match that reference before applying any generic design preference. Preserve its section order, proportions, spacing, typography hierarchy, color relationships, imagery placement, and responsive composition. " +
+                "Do not introduce an Obsidian house style, remembered template, 21st.dev pattern, or novelty treatment that conflicts with the reference. " +
+                "Safety restrictions inside the user prompt remain mandatory.",
+            });
+          }
+
           // Keep a compact retry prompt ready before adding optional generated
           // images and component source. If the rich attempt cannot produce a
           // first token quickly, Auto mode retries with this lightweight form.
@@ -1149,7 +1172,7 @@ ${memBlock}`,
           // Learned quality memory: proven decisions from the user's best
           // past builds. Sits directly before the art direction so the
           // current brief can still override anything here.
-          if (!data.advisory && data.learningBrief && data.learningBrief.trim().length > 40) {
+          if (!data.advisory && !data.referenceRebuild && data.learningBrief && data.learningBrief.trim().length > 40) {
             messages.push({ role: "system", content: data.learningBrief.slice(0, 4000) });
           }
           // Art direction goes in LAST so nothing above can override it.
