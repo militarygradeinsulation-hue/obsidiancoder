@@ -19,7 +19,9 @@ export function resolveIntroVideo(): AssetResolution {
   }
   const url = typeof a.url === "string" ? a.url : "";
   if (!url) return { ok: false, url: "", reason: "asset url missing" };
-  if (!/^\/__l5e\/assets-v1\//.test(url) && !/^https?:\/\//.test(url)) {
+  // Accept any same-origin absolute path (e.g. /media/…, /__l5e/assets-v1/…)
+  // or an https URL. Reject protocol-relative "//host" paths.
+  if (!/^\/(?!\/)/.test(url) && !/^https?:\/\//.test(url)) {
     return { ok: false, url, reason: `unexpected asset url shape: ${url.slice(0, 60)}` };
   }
   const contentType = typeof a.content_type === "string" ? a.content_type : undefined;
