@@ -73,6 +73,10 @@ import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.funct
 import { GithubModal } from "@/components/GithubModal";
 import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
 import { PocketBuildOrb } from "@/components/PocketBuildOrb";
+import {
+  ReferenceRebuildPanel,
+  type ReferenceRebuildReady,
+} from "@/components/ReferenceRebuildPanel";
 
 import { PricingModal } from "@/components/PricingModal";
 import { UpgradeNudge, type NudgeReason } from "@/components/UpgradeNudge";
@@ -256,6 +260,7 @@ function ForgePage() {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [ghOpen, setGhOpen] = React.useState(false);
+  const [referenceOpen, setReferenceOpen] = React.useState(false);
   const [pricingOpen, setPricingOpen] = React.useState(false);
   const [nudge, setNudge] = React.useState<{ reason: NudgeReason; envelope?: CreditsRequiredEnvelope } | null>(null);
   const [status, setStatus] = React.useState<string>("Ready");
@@ -848,8 +853,8 @@ function ForgePage() {
   }, []);
 
   // ---- Real generation (streaming /api/generate) --------------------------
-  const generate = React.useCallback(async () => {
-    const p = prompt.trim();
+  const generate = React.useCallback(async (promptOverride?: string) => {
+    const p = (promptOverride ?? prompt).trim();
     if (!p || busy) return;
     if (!isProfileAllowed(profile, paidAccess)) {
       requireAccount(`${getProfile(profile).label} builds`);
@@ -1340,6 +1345,26 @@ function ForgePage() {
     planConcepts,
     runCritique,
   ]);
+
+  const handleReferenceReady = React.useCallback(
+    async (result: ReferenceRebuildReady) => {
+      setMode("build");
+      changeStyleFamily("auto");
+      setPrompt(result.prompt);
+      setStatus(
+        result.mode === "exact"
+          ? "Reference scanned — building a high-fidelity reconstruction…"
+          : "Reference scanned — building an original adaptation…",
+      );
+      log(
+        `🔎 Reference scan · ${result.sourceKind} · ${result.mode} · confidence ${result.confidence}/100 · ${result.summary}`,
+      );
+      for (const warning of result.warnings) log(`Reference note · ${warning}`);
+      setReferenceOpen(false);
+      await generate(result.prompt);
+    },
+    [changeStyleFamily, generate, log],
+  );
 
   const stop = React.useCallback(() => {
     abortRef.current?.abort();
@@ -2028,6 +2053,12 @@ function ForgePage() {
                 {voice.error || voice.interim || (voice.processing ? "Transcribing…" : "Listening… say “send” to build")}
               </p>
             )}
+            <ReferenceRebuildPanel
+              open={referenceOpen}
+              disabled={!!busy}
+              onClose={() => setReferenceOpen(false)}
+              onReady={handleReferenceReady}
+            />
             {/* Idea categories */}
             {!prompt.trim() && (
               <div className="mt-2 flex flex-wrap gap-1" role="tablist" aria-label="Idea categories">
@@ -2187,6 +2218,16 @@ function ForgePage() {
                   <option value="build">Build new</option>
                   <option value="refine">Refine current</option>
                 </select>
+                <button
+                  type="button"
+                  className={btn}
+                  onClick={() => setReferenceOpen((open) => !open)}
+                  disabled={!!busy}
+                  aria-pressed={referenceOpen}
+                  title="Paste a website or upload a screenshot and rebuild it in Pocket"
+                >
+                  <Copy size={13} /> Copy website
+                </button>
                 <button
                   type="button"
                   className={btn}
