@@ -47,7 +47,7 @@ export type ReferenceScanResult =
       error: string;
     };
 
-type VisualScan = {
+export type VisualScan = {
   sensitivePage?: boolean;
   sensitiveReason?: string;
   pageType?: string;
