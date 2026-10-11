@@ -76,7 +76,7 @@ type VisualScan = {
 const SENSITIVE_PATTERNS = [
   /\b(sign[ -]?in|log[ -]?in|password|passcode|one[- ]time code|2fa|two[- ]factor|otp)\b/i,
   /\b(bank|banking|wire transfer|routing number|account number|credit card|card number|cvv|cvc)\b/i,
-  /\b(checkout|payment|billing address|pay now|purchase|crypto wallet|seed phrase|recovery phrase)\b/i,
+  /\b(checkout|payment|billing address|pay now|crypto wallet|seed phrase|recovery phrase)\b/i,
   /\b(identity verification|verify your identity|social security|ssn|account recovery|reset password)\b/i,
 ];
 
@@ -135,9 +135,7 @@ export function normalizeReferenceUrl(raw: string):
     host.endsWith(".localhost") ||
     host.endsWith(".local") ||
     host === "::1" ||
-    host.startsWith("fc") ||
-    host.startsWith("fd") ||
-    host.startsWith("fe80:") ||
+    (host.includes(":") && /^(?:fc|fd|fe80:)/i.test(host)) ||
     isPrivateIpv4(host);
   if (blocked) {
     return { ok: false, code: "private_url", error: "Private, local, and internal network URLs cannot be scanned." };
