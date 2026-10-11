@@ -36,13 +36,6 @@ import {
   MicOff,
   X,
   History,
-  Plus,
-  ChevronDown,
-  SendHorizontal,
-  Zap,
-  Bolt,
-  Brain,
-  Lightbulb,
 } from "lucide-react";
 
 import { authFetch } from "@/lib/auth-fetch";
@@ -80,6 +73,10 @@ import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.funct
 import { GithubModal } from "@/components/GithubModal";
 import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
 import { PocketBuildOrb } from "@/components/PocketBuildOrb";
+import {
+  ReferenceRebuildPanel,
+  type ReferenceRebuildReady,
+} from "@/components/ReferenceRebuildPanel";
 
 import { PricingModal } from "@/components/PricingModal";
 import { UpgradeNudge, type NudgeReason } from "@/components/UpgradeNudge";
@@ -200,139 +197,9 @@ const EMPTY_DOC = `<!doctype html>
 <body style="margin:0;display:grid;place-items:center;height:100vh;background:#0b0c0f;color:#8b8f98;font-family:Inter,system-ui;font-size:14px">Describe what to build, then press Generate.</body></html>`;
 
 const btn =
-  "inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#8a8a8f] transition-all duration-200 hover:bg-white/[0.08] hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 disabled:cursor-not-allowed disabled:opacity-40";
+  "inline-flex items-center gap-1.5 rounded-md border border-white/10 bg-white/[0.03] px-2.5 py-1.5 text-xs text-[#B6BCC8] transition hover:border-[#F4A125]/40 hover:text-[#F4A125] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 disabled:cursor-not-allowed disabled:opacity-40";
 const primaryBtn =
-  "inline-flex items-center justify-center gap-2 rounded-full bg-[#F4A125] px-4 py-2 text-sm font-semibold text-[#111317] shadow-[0_0_20px_rgba(244,161,37,0.35)] transition-all duration-200 hover:bg-[#ffb13d] active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/70 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none";
-// Glass surface shared by every workspace panel (Bolt-style card on amber/black).
-const panel =
-  "rounded-2xl bg-[#141417]/85 ring-1 ring-white/[0.08] shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_2px_20px_rgba(0,0,0,0.4)] backdrop-blur-xl";
-const pillSelect =
-  "rounded-full border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-xs font-medium text-[#8a8a8f] transition hover:bg-white/[0.08] hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 [&_option]:bg-[#1a1a1e] [&_optgroup]:bg-[#1a1a1e]";
-const menuShell =
-  "absolute z-50 overflow-hidden rounded-xl border border-white/10 bg-[#1a1a1e]/95 shadow-2xl shadow-black/50 backdrop-blur-xl";
-
-// Model picker pill — same `model` state the Advanced drawer edits, just
-// surfaced in the composer the way Bolt does it. Nothing removed.
-const MODEL_GROUPS: Array<{ label: string; icon: React.ReactNode; items: Array<{ id: string; label: string }> }> = [
-  { label: "Smart modes", icon: <Zap className="size-4 text-[#F4A125]" />, items: MODEL_PICKER_OPTIONS.filter((m) => isModeId(m.id)) },
-  { label: "Obsidian gateway", icon: <Brain className="size-4 text-amber-300" />, items: [...MODEL_REGISTRY] },
-  { label: "Anthropic", icon: <Sparkles className="size-4 text-orange-300" />, items: [...ANTHROPIC_MODELS] },
-  { label: "RouteLLM", icon: <Brain className="size-4 text-yellow-200" />, items: [...ROUTELLM_MODELS] },
-];
-
-function modelLabel(id: string): { label: string; icon: React.ReactNode } {
-  for (const g of MODEL_GROUPS) {
-    const hit = g.items.find((m) => m.id === id);
-    if (hit) return { label: hit.label, icon: g.icon };
-  }
-  return { label: id, icon: <Zap className="size-4 text-[#F4A125]" /> };
-}
-
-function ModelPill({ value, onChange }: { value: string; onChange: (id: string) => void }) {
-  const [open, setOpen] = React.useState(false);
-  const current = modelLabel(value);
-  React.useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-haspopup="listbox"
-        aria-expanded={open}
-        title="Model"
-        className="flex max-w-[190px] items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs font-medium text-[#8a8a8f] transition-all duration-200 hover:bg-white/5 hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
-      >
-        <span className="shrink-0">{current.icon}</span>
-        <span className="truncate">{current.label}</span>
-        <ChevronDown className={`size-3.5 shrink-0 transition-transform duration-200 ${open ? "rotate-180" : ""}`} />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div role="listbox" className={`${menuShell} left-0 top-full mt-2 max-h-80 min-w-[260px] overflow-y-auto`}>
-            <div className="p-1.5">
-              {MODEL_GROUPS.map((g) => (
-                <div key={g.label}>
-                  <div className="px-2.5 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-[#5a5a5f]">
-                    {g.label}
-                  </div>
-                  {g.items.map((m) => {
-                    const active = m.id === value;
-                    return (
-                      <button
-                        key={m.id}
-                        type="button"
-                        role="option"
-                        aria-selected={active}
-                        onClick={() => { onChange(m.id); setOpen(false); }}
-                        className={`flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left text-sm transition-all duration-150 ${
-                          active ? "bg-white/10 text-white" : "text-[#a0a0a5] hover:bg-white/5 hover:text-white"
-                        }`}
-                      >
-                        <span className="shrink-0">{g.icon}</span>
-                        <span className="min-w-0 flex-1 truncate">{m.label}</span>
-                        {active && <Check className="size-4 shrink-0 text-[#F4A125]" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
-
-// "+" menu in the composer — shortcuts to actions that already exist.
-function PlusMenu({ items }: { items: Array<{ icon: React.ReactNode; label: string; onClick: () => void }> }) {
-  const [open, setOpen] = React.useState(false);
-  React.useEffect(() => {
-    if (!open) return;
-    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") setOpen(false); };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open]);
-  return (
-    <div className="relative">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-label="More actions"
-        aria-expanded={open}
-        className="flex size-8 items-center justify-center rounded-full bg-white/[0.08] text-[#8a8a8f] transition-all duration-200 hover:bg-white/[0.12] hover:text-white active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
-      >
-        <Plus className={`size-4 transition-transform duration-200 ${open ? "rotate-45" : ""}`} />
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className={`${menuShell} left-0 top-full mt-2 min-w-[200px]`}>
-            <div className="p-1.5">
-              {items.map((it) => (
-                <button
-                  key={it.label}
-                  type="button"
-                  onClick={() => { setOpen(false); it.onClick(); }}
-                  className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[#a0a0a5] transition-all duration-150 hover:bg-white/5 hover:text-white"
-                >
-                  {it.icon}
-                  <span className="text-sm">{it.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    </div>
-  );
-}
+  "inline-flex items-center justify-center gap-2 rounded-md bg-gradient-to-b from-[#F4A125] to-[#DD9324] px-4 py-2 text-sm font-semibold text-[#111317] transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/70 disabled:cursor-not-allowed disabled:opacity-50";
 
 function ForgePage() {
   const navigate = useNavigate();
@@ -393,6 +260,7 @@ function ForgePage() {
   const [sidebarOpen, setSidebarOpen] = React.useState(false);
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [ghOpen, setGhOpen] = React.useState(false);
+  const [referenceOpen, setReferenceOpen] = React.useState(false);
   const [pricingOpen, setPricingOpen] = React.useState(false);
   const [nudge, setNudge] = React.useState<{ reason: NudgeReason; envelope?: CreditsRequiredEnvelope } | null>(null);
   const [status, setStatus] = React.useState<string>("Ready");
@@ -530,7 +398,6 @@ function ForgePage() {
   const runCritique = useServerFn(critiquePocketBuild);
 
   const html = entryHtml(project);
-  const hasCanvasBuild = !(html === EMPTY_DOC || html.length < 40);
   // Always-current html, readable from async work that outlives a render
   // (post-generation image fill must not overwrite a newer build).
   const htmlRef = React.useRef(html);
@@ -754,7 +621,7 @@ function ForgePage() {
         conceptNames: conceptPlan?.concepts.map((c) => c.name).slice(0, 3),
         conceptPlan,
         conceptPlanKey: planKey,
-        mode,
+        mode: isReferenceBuild ? "build" : mode,
         model,
       } satisfies PocketSession);
     }, 600);
@@ -986,8 +853,13 @@ function ForgePage() {
   }, []);
 
   // ---- Real generation (streaming /api/generate) --------------------------
-  const generate = React.useCallback(async () => {
-    const p = prompt.trim();
+  const generate = React.useCallback(async (
+    promptOverride?: string,
+    styleOverride?: PocketStyleFamily,
+  ) => {
+    const p = (promptOverride ?? prompt).trim();
+    const isReferenceBuild = p.startsWith("[OBSIDIAN REBUILD FROM REFERENCE]");
+    const effectiveStyleFamily = isReferenceBuild ? "auto" : (styleOverride ?? styleFamily);
     if (!p || busy) return;
     if (!isProfileAllowed(profile, paidAccess)) {
       requireAccount(`${getProfile(profile).label} builds`);
@@ -999,7 +871,7 @@ function ForgePage() {
     const controller = new AbortController();
     abortRef.current = controller;
     const previous = html;
-    const isRefine = mode === "refine";
+    const isRefine = !isReferenceBuild && mode === "refine";
     // Auto-extract project facts from this prompt and merge into session memory.
     // Only fills blank fields; never overwrites anything the user or a prior
     // extraction already set.
@@ -1027,14 +899,21 @@ function ForgePage() {
       const recentDigest = compactRecentSignatures(recent);
       const nextPlanKey = conceptPlanKey({
         prompt: p,
-        family: styleFamily,
+        family: effectiveStyleFamily,
         profile,
         recentDigest,
       });
       let plan: PocketConceptPlan | null = conceptPlan;
       let activePlanKey = planKey;
       let buildDna: PocketDesignDNA;
-      if (isRefine && dna) {
+      if (isReferenceBuild) {
+        // Reference rebuilds already have a visual blueprint from the scanner.
+        // Do not spend a planner call or let learned style DNA fight the source.
+        plan = deterministicConceptPlan({ prompt: p, family: "auto", recent: [] });
+        activePlanKey = nextPlanKey;
+        buildDna = selectedConcept(plan).dna;
+        log("🔎 Reference mode · creative planner and Brain style reuse skipped");
+      } else if (isRefine && dna) {
         // Refine preserves the current build's DNA — no planning call.
         buildDna = dna;
       } else if (plan && activePlanKey === nextPlanKey) {
@@ -1043,12 +922,12 @@ function ForgePage() {
         buildDna = selectedConcept(plan).dna;
         log(`Reusing selected direction: ${selectedConcept(plan).name}`);
       } else {
-        const base = deterministicConceptPlan({ prompt: p, family: styleFamily, recent });
+        const base = deterministicConceptPlan({ prompt: p, family: effectiveStyleFamily, recent });
         plan = base;
         activePlanKey = nextPlanKey;
         // Obsidian Brain: local lookup (no provider call). A strong proven
         // direction replaces the concept-planning call.
-        brain = queryBrain({ prompt: p, family: styleFamily, surface: "pocket", libraryCode });
+        brain = queryBrain({ prompt: p, family: effectiveStyleFamily, surface: "pocket", libraryCode });
         log(`🧠 ${brainMatchLabel(brain.match)} · ${brain.lookupMs}ms · ${brain.reasons.join(" · ")}`);
         if (brain.provenDna) {
           log(`⚡ Reused a proven direction (scored ${brain.proven?.score}/100) — planner call skipped`);
@@ -1060,7 +939,7 @@ function ForgePage() {
                 model: planner.model,
                 plannerPrompt: conceptPlannerPrompt({
                   prompt: p,
-                  family: styleFamily,
+                  family: effectiveStyleFamily,
                   recentSummaries: recentDigest,
                 }),
               },
@@ -1098,9 +977,10 @@ function ForgePage() {
         pickerModel: hasRawPinnedModel ? model : pickerModel,
         advisory: false,
         surface: "pocket",
+        referenceRebuild: isReferenceBuild,
         projectMemory: effectiveMemory,
         pocketProfile: profile,
-        pocketStyleFamily: styleFamily,
+        pocketStyleFamily: effectiveStyleFamily,
         pocketDesignDNA: buildDna,
         pocketConcept: chosen
           ? {
@@ -1113,14 +993,16 @@ function ForgePage() {
         // Proven decisions + proven structure from this user's best past builds.
         // Fresh builds use the Brain brief (proven decisions + structure, capped);
         // reused-plan builds fall back to the same underlying sources.
-        ...(brain && brain.components.length
+        ...(!isReferenceBuild && brain && brain.components.length
           ? { reusableComponents: brain.components.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) }
           : {}),
-        learningBrief: [
-          brain ? brain.brief : buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
-          brain ? "" : provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
-          qualityContractFragment(),
-        ].filter(Boolean).join("\n\n"),
+        learningBrief: isReferenceBuild
+          ? undefined
+          : [
+              brain ? brain.brief : buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
+              brain ? "" : provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
+              qualityContractFragment(),
+            ].filter(Boolean).join("\n\n"),
       };
       // Create a durable job record before the live call starts. This is
       // what makes the build recoverable if the connection drops mid-way
@@ -1279,8 +1161,8 @@ function ForgePage() {
 
       // ---- 4. Originality + polish (Cinematic only) -----------------------
       let critiqueScores: Record<string, number> | null = null;
-      setStatus("Checking originality…");
-      if (profile === "cinematic" && paidAccess) {
+      setStatus(isReferenceBuild ? "Finalizing reference match…" : "Checking originality…");
+      if (!isReferenceBuild && profile === "cinematic" && paidAccess) {
         setStatus("Polishing…");
         try {
           const cres = await runCritique({
@@ -1342,20 +1224,25 @@ function ForgePage() {
       const newVersions = pushVersion(versions, makeForgeVersion(finalHtml, label));
       setVersions(() => newVersions);
       setLastCritiqueRan(critiqueRan);
-      rememberSignature(dnaSignature(buildDna), libraryCode);
-      // Quality memory: grade this build so the next one starts smarter.
-      try {
-        recordBuildOutcome({
-          surface: "pocket",
-          profile,
-          dna: buildDna,
-          model: servedModel,
-          critique: critiqueScores,
-          validationStatus: "passed",
-          latencyMs: 0,
-          outcome: "kept",
-        }, libraryCode);
-      } catch { /* learning is best-effort */ }
+      // Reference rebuilds are intentionally excluded from the adaptive
+      // design memory: copied/authorized source aesthetics should not become
+      // "Obsidian DNA" that leaks into unrelated future projects.
+      if (!isReferenceBuild) {
+        rememberSignature(dnaSignature(buildDna), libraryCode);
+        // Quality memory: grade this build so the next one starts smarter.
+        try {
+          recordBuildOutcome({
+            surface: "pocket",
+            profile,
+            dna: buildDna,
+            model: servedModel,
+            critique: critiqueScores,
+            validationStatus: "passed",
+            latencyMs: 0,
+            outcome: "kept",
+          }, libraryCode);
+        } catch { /* learning is best-effort */ }
+      }
       const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
       if (title === "Untitled build") setTitle(buildTitle);
 
@@ -1380,7 +1267,7 @@ function ForgePage() {
         versions: newVersions.slice(0, 10),
         at: Date.now(),
         profile,
-        styleFamily,
+        styleFamily: effectiveStyleFamily,
         dna: buildDna,
         conceptNames: plan?.concepts.map((c) => c.name).slice(0, 3),
         conceptPlan: plan,
@@ -1478,6 +1365,26 @@ function ForgePage() {
     planConcepts,
     runCritique,
   ]);
+
+  const handleReferenceReady = React.useCallback(
+    async (result: ReferenceRebuildReady) => {
+      setMode("build");
+      changeStyleFamily("auto");
+      setPrompt(result.prompt);
+      setStatus(
+        result.mode === "exact"
+          ? "Reference scanned — building a high-fidelity reconstruction…"
+          : "Reference scanned — building an original adaptation…",
+      );
+      log(
+        `🔎 Reference scan · ${result.sourceKind} · ${result.mode} · confidence ${result.confidence}/100 · ${result.summary}`,
+      );
+      for (const warning of result.warnings) log(`Reference note · ${warning}`);
+      setReferenceOpen(false);
+      await generate(result.prompt, "auto");
+    },
+    [changeStyleFamily, generate, log],
+  );
 
   const stop = React.useCallback(() => {
     abortRef.current?.abort();
@@ -1868,14 +1775,6 @@ function ForgePage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [generate, save]);
 
-  // Composer grows with the prompt (Bolt-style), capped so it never shoves the workspace off-screen.
-  React.useEffect(() => {
-    const ta = promptRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = `${Math.min(Math.max(ta.scrollHeight, 96), 240)}px`;
-  }, [prompt]);
-
   const srcDoc = React.useMemo(
     () =>
       buildArtifact({
@@ -1897,15 +1796,15 @@ function ForgePage() {
   const paneHeight = embed ? "h-[42vh]" : "h-[72vh]";
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#08090b] text-[#E8E6E1]">
+    <div className="relative min-h-screen bg-[#08090b] text-[#E8E6E1]">
       {/* Holographic hieroglyph wall + interactive dot-grid background */}
       <PocketBackground />
 
 
       <div className="relative z-10">
       {/* Sticky compact header */}
-      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#08090b]/55 backdrop-blur-xl">
-        <div className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 sm:flex-nowrap sm:gap-3">
+      <header className="sticky top-0 z-30 border-b border-white/10 bg-black/40 backdrop-blur">
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 px-3 py-2 sm:flex sm:justify-between">
           <div className="flex min-w-0 items-center gap-2">
             <button
               type="button"
@@ -1922,15 +1821,15 @@ function ForgePage() {
               className="h-7 w-7 shrink-0 rounded-full object-cover ring-1 ring-[#F4A125]/40"
             />
 
-            <ObsidianModeNav className="hidden lg:inline-flex" modes={[]} />
-            <div className="hidden min-w-0 sm:block">
+            <ObsidianModeNav className="hidden lg:inline-flex" />
+            <div className="min-w-0">
               <h1 className="truncate text-sm font-semibold tracking-tight">Obsidian Pocket — Fast One-Prompt Prototyping</h1>
               <p className="truncate text-[10px] uppercase tracking-widest text-[#6b7180]">
                 Pocket workspace
               </p>
             </div>
           </div>
-          <div className="flex w-full min-w-0 items-center gap-2 overflow-x-auto [scrollbar-width:none] sm:w-auto [&::-webkit-scrollbar]:hidden">
+          <div className="flex items-center gap-2">
             <Link
               to="/"
               className={btn}
@@ -2074,7 +1973,7 @@ function ForgePage() {
         {/* Sidebar */}
         {sidebarOpen && (
           <aside
-            className="hidden w-60 shrink-0 border-r border-white/[0.06] bg-[#0c0d10]/70 p-3 backdrop-blur-xl md:block"
+            className="hidden w-60 shrink-0 border-r border-white/10 bg-black/30 p-3 backdrop-blur-md md:block"
             aria-label="Projects"
           >
             <button
@@ -2145,263 +2044,44 @@ function ForgePage() {
         )}
 
         <main className="min-w-0 flex-1 p-3">
-          {/* Hero — Bolt-style headline, shown until there is a build on the canvas.
-              Skipped in ?embed=1 (the login-page sandbox), where paneHeight is
-              deliberately compact so the workspace fits without page scrolling. */}
-          {!hasCanvasBuild && !embed && (
-            <div className="flex flex-col items-center px-2 pb-6 pt-4 text-center sm:pt-[9vh]">
-              <button
-                type="button"
-                onClick={() => { if (!paidAccess) setPricingOpen(true); }}
-                className="relative mb-[104px] inline-flex sm:mb-8 min-h-[40px] max-w-full items-center gap-2 overflow-hidden rounded-full px-4 py-2 text-xs transition-all sm:px-5 sm:text-sm duration-300 hover:scale-[1.02] active:scale-[0.98]"
-                style={{
-                  background: "linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05))",
-                  backdropFilter: "blur(20px) saturate(140%)",
-                  boxShadow:
-                    "inset 0 1px rgba(255,255,255,0.2), inset 0 -1px rgba(0,0,0,0.1), 0 8px 32px -8px rgba(0,0,0,0.1), 0 0 0 1px rgba(255,255,255,0.08)",
-                }}
-              >
-                <span
-                  className="pointer-events-none absolute -top-px left-1/2 h-[2px] w-[100px] -translate-x-1/2 opacity-70"
-                  style={{ background: "linear-gradient(90deg, transparent 0%, rgba(244,161,37,0.9) 30%, rgba(255,214,140,0.9) 50%, rgba(244,161,37,0.9) 70%, transparent 100%)", filter: "blur(0.5px)" }}
-                />
-                <Bolt className="relative z-10 size-4 text-[#F4A125]" />
-                <span className="relative z-10 font-medium text-white">
-                  {buildsLeft
-                    ? `Obsidian Pocket · ${buildsLeft.remaining}/${buildsLeft.cap} credits left`
-                    : paidAccess
-                      ? "Obsidian Pocket · live preview while it builds"
-                      : `Obsidian Pocket · $10/mo for ${POCKET_MONTHLY_CREDITS} AI credits`}
-                </span>
-              </button>
-              <h2 className="mb-1 text-4xl font-bold tracking-tight text-white sm:text-5xl">
-                What will you{" "}
-                <span className="bg-gradient-to-b from-[#ffc76b] via-[#F4A125] to-white bg-clip-text italic text-transparent">
-                  build
-                </span>{" "}
-                today?
-              </h2>
-              <p className="text-base font-semibold text-[#8a8a8f] sm:text-lg">
-                Prototype apps and sites from one prompt.
-              </p>
-            </div>
-          )}
-
           {/* Demo banner */}
           {!paid && (
-            <div className="mx-auto mb-3 w-full max-w-[760px] rounded-full border border-[#F4A125]/25 bg-[#F4A125]/[0.08] px-4 py-2 text-center text-xs text-[#E8E6E1] backdrop-blur-sm">
+            <div className="mb-3 rounded-lg border border-[#F4A125]/30 bg-[#F4A125]/10 px-3 py-2 text-xs text-[#E8E6E1] backdrop-blur-sm">
               Fast builds are free to try. Saving, export, publishing and the Studio/Cinematic
               profiles need an Obsidian Pocket account — $10/month for {POCKET_MONTHLY_CREDITS} AI credits.
             </div>
           )}
 
-          {/* Prompt composer — Bolt-style glass card */}
-          <section className="relative mx-auto w-full max-w-[760px]">
-            <div className="pointer-events-none absolute -inset-[1px] rounded-2xl bg-gradient-to-b from-white/[0.08] to-transparent" />
-            <div className="relative rounded-2xl bg-[#17171a] shadow-[0_0_0_1px_rgba(255,255,255,0.05),0_2px_20px_rgba(0,0,0,0.4)] ring-1 ring-white/[0.08]">
-              <label htmlFor="forge-prompt" className="sr-only">
-                What should I build or change?
-              </label>
-              <textarea
-                id="forge-prompt"
-                ref={promptRef}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && !e.metaKey && !e.ctrlKey && !e.nativeEvent.isComposing) {
-                    // Touch keyboards fire a plain "Enter" keydown for their own newline
-                    // key too, so on a coarse pointer let it insert a newline instead of
-                    // spending a build credit.
-                    const coarse = typeof window !== "undefined" && window.matchMedia?.("(pointer: coarse)").matches;
-                    if (coarse) return;
-                    e.preventDefault();
-                    if (!busy && prompt.trim()) void generate();
-                  }
-                }}
-                placeholder="What do you want to build? e.g. a pricing page for an HVAC dispatch tool…"
-                className="block max-h-[240px] min-h-[96px] w-full resize-none bg-transparent px-5 pb-3 pt-5 text-[15px] text-white placeholder-[#5a5a5f] focus:outline-none"
-              />
+
+          {/* Prompt composer */}
+
+          <section className="rounded-xl border border-white/10 bg-black/30 p-3 shadow-[0_1px_0_rgba(255,255,255,0.05)_inset] backdrop-blur-md">
+            <label htmlFor="forge-prompt" className="text-sm font-semibold">
+              What should I build or change?
+            </label>
+            <textarea
+              id="forge-prompt"
+              ref={promptRef}
+              rows={3}
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              placeholder="A pricing page for an HVAC dispatch tool with three tiers and a comparison table…"
+              className="mt-2 w-full resize-y rounded-lg border border-white/10 bg-black/40 p-3 text-sm text-[#E8E6E1] placeholder:text-[#4b5060] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+            />
             {(voice.listening || voice.processing || voice.error) && (
-              <p className="px-5 pb-1 text-xs text-[#F4A125]" role="status" aria-live="polite">
+              <p className="mt-2 text-xs text-[#F4A125]" role="status" aria-live="polite">
                 {voice.error || voice.interim || (voice.processing ? "Transcribing…" : "Listening… say “send” to build")}
               </p>
             )}
-            {/* Creative profile + style family */}
-            <div className="flex flex-wrap items-center gap-2 px-4 pb-1">
-              <div className="flex items-center gap-1" role="group" aria-label="Build profile">
-                {POCKET_PROFILES.map((pf) => {
-                  const active = profile === pf.id;
-                  const locked = pf.paidOnly && !paidAccess;
-                  return (
-                    <button
-                      key={pf.id}
-                      type="button"
-                      onClick={() => {
-                        if (locked) { requireAccount(`${pf.label} builds`); return; }
-                        setProfile(pf.id);
-                      }}
-                      aria-pressed={active}
-                      title={`${pf.blurb}${locked ? " Requires an Obsidian Pocket account." : ""}`}
-                      className={`rounded-full border px-2.5 py-1 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
-                        active
-                          ? "border-[#F4A125]/70 bg-[#F4A125]/15 text-[#F4A125]"
-                          : "border-white/10 text-[#7d8494] hover:text-[#E8E6E1]"
-                      } ${locked ? "opacity-60" : ""}`}
-                    >
-                      {pf.label}
-                      {locked ? " · $" : ""}
-                    </button>
-                  );
-                })}
-              </div>
-              <label className="sr-only" htmlFor="pocket-style">Style family</label>
-              <select
-                id="pocket-style"
-                value={styleFamily}
-                onChange={(e) => changeStyleFamily(e.target.value as PocketStyleFamily)}
-                className={pillSelect}
-              >
-                {POCKET_STYLE_FAMILIES.map((f) => (
-                  <option key={f} value={f}>
-                    {f === "auto" ? "Auto style" : getFamily(f).label}
-                  </option>
-                ))}
-              </select>
-              <span
-                className="text-[11px] text-[#7d8494]"
-                title="Model availability depends on the configured AI gateway."
-              >
-                {profile === "fast" ? modelChoice.entryLabel : modelChoice.statusLabel} ·{" "}
-                {callEstimate} call{callEstimate === 1 ? "" : "s"}
-              </span>
-            </div>
-
-            {/* Design DNA summary + alternative directions */}
-            {dna && (
-              <p className="truncate px-4 pt-1 text-[11px] text-[#7d8494]" title={dnaSummaryLine(dna)}>
-                Design DNA · {dnaSummaryLine(dna)}
-                {lastCritiqueRan ? " · polished" : ""}
-              </p>
-            )}
-            {conceptPlan && profile !== "fast" && (
-              <div className="flex flex-wrap items-center gap-1 px-4 pt-1" aria-label="Creative directions">
-                <span className="text-[11px] text-[#4b5060]">Directions:</span>
-                {conceptPlan.concepts.map((c) => (
-                  <button
-                    key={c.id}
-                    type="button"
-                    onClick={() => {
-                      setConceptPlan({ ...conceptPlan, selectedId: c.id });
-                      setDna(c.dna);
-                    }}
-                    aria-pressed={conceptPlan.selectedId === c.id}
-                    title={c.concept}
-                    className={`rounded-full border px-2 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
-                      conceptPlan.selectedId === c.id
-                        ? "border-[#F4A125]/70 text-[#F4A125]"
-                        : "border-white/10 text-[#7d8494] hover:text-[#E8E6E1]"
-                    }`}
-                  >
-                    {c.name}
-                  </button>
-                ))}
-              </div>
-            )}
-
-
-              <div className="flex flex-wrap items-center gap-2 px-3 pb-3 pt-2">
-                <div className="flex min-w-0 flex-wrap items-center gap-1">
-                  <PlusMenu
-                    items={[
-                      { icon: <Github className="size-4" />, label: "Import from GitHub", onClick: () => void openGithub() },
-                      { icon: <Download className="size-4" />, label: "Export project", onClick: () => void exportProject() },
-                      { icon: <Plus className="size-4" />, label: "New project", onClick: newProject },
-                      { icon: <Settings2 className="size-4" />, label: "Advanced", onClick: () => setAdvancedOpen(true) },
-                    ]}
-                  />
-                  <label className="sr-only" htmlFor="forge-mode">
-                    Build mode
-                  </label>
-                  <select
-                    id="forge-mode"
-                    value={mode}
-                    onChange={(e) => setMode(e.target.value as BuildMode)}
-                    className={pillSelect}
-                  >
-                    <option value="build">Build new</option>
-                    <option value="refine">Refine current</option>
-                  </select>
-                  <ModelPill value={model} onChange={setModel} />
-                </div>
-
-                <div className="ml-auto flex flex-wrap items-center justify-end gap-1.5">
-                  <button
-                    type="button"
-                    className={btn}
-                    onClick={() => void runEnhance()}
-                    disabled={!!busy || !prompt.trim()}
-                    title="Rewrite the prompt into a fuller spec"
-                  >
-                    <Wand2 size={13} /> <span className="hidden sm:inline">Enhance</span>
-                  </button>
-                  <button
-                    type="button"
-                    className={btn}
-                    onClick={() => void runExtendIdeas()}
-                    disabled={!!busy || !prompt.trim()}
-                    title="Reads what you wrote and adds more ideas on top — your words are kept"
-                  >
-                    <Lightbulb size={13} /> <span className="hidden sm:inline">Extend ideas</span>
-                  </button>
-                  {voice.supported && (
-                    <button
-                      type="button"
-                      className={btn}
-                      onClick={voice.toggle}
-                      aria-pressed={voice.listening}
-                      aria-label={voice.listening ? "Voice assist on — click to stop" : "Voice assist — dictate, say 'send' to build"}
-                      title={voice.listening ? "Listening — say 'send' to build, 'enhance' to polish, 'clear' to reset" : "Voice assist"}
-                      style={voice.listening ? { color: "#F4A125", borderColor: "rgba(244,161,37,0.55)", background: "rgba(244,161,37,0.14)" } : undefined}
-                    >
-                      {voice.listening ? <Mic size={13} /> : <MicOff size={13} />}
-                      <span className="hidden sm:inline">{voice.listening ? "Listening" : "Voice"}</span>
-                    </button>
-                  )}
-                  {busy === "generating" ? (
-                    <button type="button" className={btn} onClick={stop}>
-                      Stop
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className={primaryBtn}
-                    onClick={() => void generate()}
-                    disabled={!!busy || !prompt.trim()}
-                  >
-                    {busy === "generating" ? (
-                      <Loader2 size={15} className="animate-spin" />
-                    ) : null}
-                    <span>{busy === "generating" ? "Building" : mode === "refine" ? "Refine now" : "Build now"}</span>
-                    {busy === "generating" ? null : <SendHorizontal size={15} />}
-                  </button>
-                </div>
-              </div>
-            {error && (
-              <p
-                role="alert"
-                className="mx-3 mb-3 rounded-lg border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-300"
-              >
-                {error}
-              </p>
-            )}
-            </div>
-          </section>
-
-          {/* Ideas + import row (under the composer, Bolt-style) */}
-          <div className="mx-auto mt-4 w-full max-w-[760px]">
+            <ReferenceRebuildPanel
+              open={referenceOpen}
+              disabled={!!busy}
+              onClose={() => setReferenceOpen(false)}
+              onReady={handleReferenceReady}
+            />
             {/* Idea categories */}
             {!prompt.trim() && (
-              <div className="flex flex-wrap justify-center gap-1" role="tablist" aria-label="Idea categories">
+              <div className="mt-2 flex flex-wrap gap-1" role="tablist" aria-label="Idea categories">
                 {POCKET_IDEA_CATEGORIES.map((c) => {
                   const active = ideaCategory === c.id;
                   return (
@@ -2429,7 +2109,7 @@ function ForgePage() {
               </div>
             )}
             {/* Idea chips — click to append, then Enhance to expand */}
-            <div className="mt-2 flex flex-wrap items-center justify-center gap-1.5">
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
               {aiIdeasLoading && (
                 <span className="inline-flex items-center gap-1.5 text-[11px] text-[#7d8494]">
                   <Loader2 size={12} className="animate-spin" /> Finding fresh ideas…
@@ -2462,24 +2142,181 @@ function ForgePage() {
               </button>
             </div>
 
-            <div className="mt-4 flex items-center justify-center gap-3">
-              <span className="text-sm text-[#6a6a6f]">or import from</span>
-              <button
-                type="button"
-                onClick={() => void openGithub()}
-                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-[#08090b] px-3 py-1.5 text-xs font-medium text-[#8a8a8f] transition-all duration-200 hover:bg-[#1a1a1e] hover:text-white active:scale-95"
+            {/* Creative profile + style family */}
+            <div className="mt-2 flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1" role="group" aria-label="Build profile">
+                {POCKET_PROFILES.map((pf) => {
+                  const active = profile === pf.id;
+                  const locked = pf.paidOnly && !paidAccess;
+                  return (
+                    <button
+                      key={pf.id}
+                      type="button"
+                      onClick={() => {
+                        if (locked) { requireAccount(`${pf.label} builds`); return; }
+                        setProfile(pf.id);
+                      }}
+                      aria-pressed={active}
+                      title={`${pf.blurb}${locked ? " Requires an Obsidian Pocket account." : ""}`}
+                      className={`rounded-full border px-2.5 py-1 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
+                        active
+                          ? "border-[#F4A125]/70 bg-[#F4A125]/15 text-[#F4A125]"
+                          : "border-white/10 text-[#7d8494] hover:text-[#E8E6E1]"
+                      } ${locked ? "opacity-60" : ""}`}
+                    >
+                      {pf.label}
+                      {locked ? " · $" : ""}
+                    </button>
+                  );
+                })}
+              </div>
+              <label className="sr-only" htmlFor="pocket-style">Style family</label>
+              <select
+                id="pocket-style"
+                value={styleFamily}
+                onChange={(e) => changeStyleFamily(e.target.value as PocketStyleFamily)}
+                className="rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
               >
-                <Github className="size-4" />
-                <span>GitHub</span>
-              </button>
+                {POCKET_STYLE_FAMILIES.map((f) => (
+                  <option key={f} value={f}>
+                    {f === "auto" ? "Auto style" : getFamily(f).label}
+                  </option>
+                ))}
+              </select>
+              <span
+                className="text-[11px] text-[#7d8494]"
+                title="Model availability depends on the configured AI gateway."
+              >
+                {profile === "fast" ? modelChoice.entryLabel : modelChoice.statusLabel} ·{" "}
+                {callEstimate} call{callEstimate === 1 ? "" : "s"}
+              </span>
             </div>
-          </div>
+
+            {/* Design DNA summary + alternative directions */}
+            {dna && (
+              <p className="mt-1.5 truncate text-[11px] text-[#7d8494]" title={dnaSummaryLine(dna)}>
+                Design DNA · {dnaSummaryLine(dna)}
+                {lastCritiqueRan ? " · polished" : ""}
+              </p>
+            )}
+            {conceptPlan && profile !== "fast" && (
+              <div className="mt-1 flex flex-wrap items-center gap-1" aria-label="Creative directions">
+                <span className="text-[11px] text-[#4b5060]">Directions:</span>
+                {conceptPlan.concepts.map((c) => (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => {
+                      setConceptPlan({ ...conceptPlan, selectedId: c.id });
+                      setDna(c.dna);
+                    }}
+                    aria-pressed={conceptPlan.selectedId === c.id}
+                    title={c.concept}
+                    className={`rounded-full border px-2 py-0.5 text-[11px] transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${
+                      conceptPlan.selectedId === c.id
+                        ? "border-[#F4A125]/70 text-[#F4A125]"
+                        : "border-white/10 text-[#7d8494] hover:text-[#E8E6E1]"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:justify-between">
+              <div className="flex min-w-0 items-center gap-2">
+                <label className="sr-only" htmlFor="forge-mode">
+                  Build mode
+                </label>
+                <select
+                  id="forge-mode"
+                  value={mode}
+                  onChange={(e) => setMode(e.target.value as BuildMode)}
+                  className="rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+                >
+                  <option value="build">Build new</option>
+                  <option value="refine">Refine current</option>
+                </select>
+                <button
+                  type="button"
+                  className={btn}
+                  onClick={() => setReferenceOpen((open) => !open)}
+                  disabled={!!busy}
+                  aria-pressed={referenceOpen}
+                  title="Paste a website or upload a screenshot and rebuild it in Pocket"
+                >
+                  <Copy size={13} /> Copy website
+                </button>
+                <button
+                  type="button"
+                  className={btn}
+                  onClick={() => void runEnhance()}
+                  disabled={!!busy || !prompt.trim()}
+                >
+                  <Wand2 size={13} /> Enhance
+                </button>
+                <button
+                  type="button"
+                  className={btn}
+                  onClick={() => void runExtendIdeas()}
+                  disabled={!!busy || !prompt.trim()}
+                  title="Reads what you wrote and adds more ideas on top — your words are kept"
+                >
+                  <Sparkles size={13} /> Extend ideas
+                </button>
+
+                {voice.supported && (
+                  <button
+                    type="button"
+                    className={btn}
+                    onClick={voice.toggle}
+                    aria-pressed={voice.listening}
+                    aria-label={voice.listening ? "Voice assist on — click to stop" : "Voice assist — dictate, say 'send' to build"}
+                    title={voice.listening ? "Listening — say 'send' to build, 'enhance' to polish, 'clear' to reset" : "Voice assist"}
+                    style={voice.listening ? { color: "#F4A125", borderColor: "rgba(244,161,37,0.55)", background: "rgba(244,161,37,0.14)" } : undefined}
+                  >
+                    {voice.listening ? <Mic size={13} /> : <MicOff size={13} />}
+                    {voice.listening ? "Listening" : "Voice"}
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                {busy === "generating" ? (
+                  <button type="button" className={btn} onClick={stop}>
+                    Stop
+                  </button>
+                ) : null}
+                <button
+                  type="button"
+                  className={primaryBtn}
+                  onClick={() => void generate()}
+                  disabled={!!busy || !prompt.trim()}
+                >
+                  {busy === "generating" ? (
+                    <Loader2 size={15} className="animate-spin" />
+                  ) : (
+                    <Sparkles size={15} />
+                  )}
+                  {busy === "generating" ? "Generating" : "Generate"}
+                </button>
+              </div>
+            </div>
+            {error && (
+              <p
+                role="alert"
+                className="mt-2 rounded-md border border-red-500/30 bg-red-500/10 px-2 py-1.5 text-xs text-red-300"
+              >
+                {error}
+              </p>
+            )}
+          </section>
 
           {/* Tabs */}
           <div
             role="tablist"
             aria-label="Workspace sections"
-            className="mt-8 flex flex-wrap items-center gap-1"
+            className="mt-3 flex items-center gap-1"
           >
             {(
               [
@@ -2496,7 +2333,7 @@ function ForgePage() {
                 id={`forge-tab-${id}`}
                 aria-controls={`forge-panel-${id}`}
                 onClick={() => setTab(id)}
-                className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${tab === id ? "bg-white/10 text-white ring-1 ring-[#F4A125]/40" : "text-[#8a8a8f] hover:bg-white/5 hover:text-white"}`}
+                className={`rounded-md px-3 py-1.5 text-xs transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60 ${tab === id ? "bg-[#F4A125]/15 text-[#F4A125]" : "text-[#B6BCC8] hover:bg-white/5"}`}
               >
                 {label}
               </button>
@@ -2541,9 +2378,9 @@ function ForgePage() {
             >
               {/* Code side */}
               <div
-                className={`${pane === "code" ? "block" : "hidden"} lg:block ${panel}`}
+                className={`${pane === "code" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-black/30 backdrop-blur-md`}
               >
-                <div className="flex items-center gap-2 border-b border-white/[0.06] px-3 py-2">
+                <div className="flex items-center gap-2 border-b border-white/10 px-3 py-2">
                   <Code2 size={13} className="shrink-0 text-[#F4A125]" />
                   <label className="sr-only" htmlFor="forge-file">
                     File
@@ -2605,9 +2442,9 @@ function ForgePage() {
 
               {/* Preview side */}
               <div
-                className={`${pane === "preview" ? "block" : "hidden"} lg:block ${panel}`}
+                className={`${pane === "preview" ? "block" : "hidden"} lg:block rounded-xl border border-white/10 bg-black/30 backdrop-blur-md`}
               >
-                <div className="flex items-center gap-1 border-b border-white/[0.06] px-3 py-2">
+                <div className="flex items-center gap-1 border-b border-white/10 px-3 py-2">
                   <label className="sr-only" htmlFor="forge-title-inline">
                     Build title
                   </label>
@@ -2680,7 +2517,7 @@ function ForgePage() {
               id="forge-panel-versions"
               role="tabpanel"
               aria-labelledby="forge-tab-versions"
-              className={`mt-3 ${panel} p-3`}
+              className="mt-3 rounded-xl border border-white/10 bg-black/30 p-3 backdrop-blur-md"
             >
               <h2 className="flex items-center gap-2 text-sm font-semibold">
                 <History size={14} className="text-[#F4A125]" /> Versions
@@ -2718,7 +2555,7 @@ function ForgePage() {
               id="forge-panel-settings"
               role="tabpanel"
               aria-labelledby="forge-tab-settings"
-              className={`mt-3 space-y-3 ${panel} p-3`}
+              className="mt-3 space-y-3 rounded-xl border border-white/10 bg-black/30 p-3 backdrop-blur-md"
             >
               <div>
                 <label htmlFor="forge-title" className="text-xs text-[#B6BCC8]">
@@ -2875,7 +2712,7 @@ function ForgePage() {
             if (e.target === e.currentTarget) setAdvancedOpen(false);
           }}
         >
-          <div className="h-full w-full max-w-sm overflow-y-auto border-l border-white/[0.08] bg-[#111114]/90 p-4 backdrop-blur-xl">
+          <div className="h-full w-full max-w-sm overflow-y-auto border-l border-white/10 bg-black/40 p-4 backdrop-blur-xl">
             <div className="flex items-center justify-between">
               <h2 className="text-sm font-semibold">Advanced</h2>
               <button
@@ -2898,7 +2735,7 @@ function ForgePage() {
               id="forge-model"
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-white/10 bg-[#1a1a1e] px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
+              className="mt-1 w-full rounded-md border border-white/10 bg-black/40 px-2 py-1.5 text-xs text-[#B6BCC8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#F4A125]/60"
             >
               <optgroup label="Smart modes">
                 {MODEL_PICKER_OPTIONS.filter((m) => isModeId(m.id)).map((m) => (

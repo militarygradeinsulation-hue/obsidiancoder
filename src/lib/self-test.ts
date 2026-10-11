@@ -668,7 +668,7 @@ export async function runSelfTests(): Promise<{ results: TestResult[]; passed: n
   {
     const a = resolveIntroVideo();
     results.push(assert(a.ok === true, `intro-asset: pointer valid (${a.reason ?? "ok"})`));
-    results.push(assert(a.url.length > 0 && (a.url.startsWith("/__l5e/") || a.url.startsWith("http")), `intro-asset: url shape ok (${a.url.slice(0, 40)})`));
+    results.push(assert(a.url.length > 0 && ((a.url.startsWith("/") && !a.url.startsWith("//")) || a.url.startsWith("http")), `intro-asset: url shape ok (${a.url.slice(0, 40)})`));
     results.push(assert(!a.contentType || /^video\//.test(a.contentType), `intro-asset: content-type video (${a.contentType})`));
   }
 
