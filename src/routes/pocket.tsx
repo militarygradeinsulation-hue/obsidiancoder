@@ -621,7 +621,7 @@ function ForgePage() {
         conceptNames: conceptPlan?.concepts.map((c) => c.name).slice(0, 3),
         conceptPlan,
         conceptPlanKey: planKey,
-        mode: isReferenceBuild ? "build" : mode,
+        mode: prompt.startsWith("[OBSIDIAN REBUILD FROM REFERENCE]") ? "build" : mode,
         model,
       } satisfies PocketSession);
     }, 600);
