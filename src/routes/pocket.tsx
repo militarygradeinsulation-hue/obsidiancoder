@@ -621,7 +621,7 @@ function ForgePage() {
         conceptNames: conceptPlan?.concepts.map((c) => c.name).slice(0, 3),
         conceptPlan,
         conceptPlanKey: planKey,
-        mode,
+        mode: isReferenceBuild ? "build" : mode,
         model,
       } satisfies PocketSession);
     }, 600);
@@ -858,7 +858,8 @@ function ForgePage() {
     styleOverride?: PocketStyleFamily,
   ) => {
     const p = (promptOverride ?? prompt).trim();
-    const effectiveStyleFamily = styleOverride ?? styleFamily;
+    const isReferenceBuild = p.startsWith("[OBSIDIAN REBUILD FROM REFERENCE]");
+    const effectiveStyleFamily = isReferenceBuild ? "auto" : (styleOverride ?? styleFamily);
     if (!p || busy) return;
     if (!isProfileAllowed(profile, paidAccess)) {
       requireAccount(`${getProfile(profile).label} builds`);
@@ -870,7 +871,7 @@ function ForgePage() {
     const controller = new AbortController();
     abortRef.current = controller;
     const previous = html;
-    const isRefine = mode === "refine";
+    const isRefine = !isReferenceBuild && mode === "refine";
     // Auto-extract project facts from this prompt and merge into session memory.
     // Only fills blank fields; never overwrites anything the user or a prior
     // extraction already set.
@@ -905,7 +906,14 @@ function ForgePage() {
       let plan: PocketConceptPlan | null = conceptPlan;
       let activePlanKey = planKey;
       let buildDna: PocketDesignDNA;
-      if (isRefine && dna) {
+      if (isReferenceBuild) {
+        // Reference rebuilds already have a visual blueprint from the scanner.
+        // Do not spend a planner call or let learned style DNA fight the source.
+        plan = deterministicConceptPlan({ prompt: p, family: "auto", recent: [] });
+        activePlanKey = nextPlanKey;
+        buildDna = selectedConcept(plan).dna;
+        log("🔎 Reference mode · creative planner and Brain style reuse skipped");
+      } else if (isRefine && dna) {
         // Refine preserves the current build's DNA — no planning call.
         buildDna = dna;
       } else if (plan && activePlanKey === nextPlanKey) {
@@ -969,6 +977,7 @@ function ForgePage() {
         pickerModel: hasRawPinnedModel ? model : pickerModel,
         advisory: false,
         surface: "pocket",
+        referenceRebuild: isReferenceBuild,
         projectMemory: effectiveMemory,
         pocketProfile: profile,
         pocketStyleFamily: effectiveStyleFamily,
@@ -984,14 +993,16 @@ function ForgePage() {
         // Proven decisions + proven structure from this user's best past builds.
         // Fresh builds use the Brain brief (proven decisions + structure, capped);
         // reused-plan builds fall back to the same underlying sources.
-        ...(brain && brain.components.length
+        ...(!isReferenceBuild && brain && brain.components.length
           ? { reusableComponents: brain.components.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) }
           : {}),
-        learningBrief: [
-          brain ? brain.brief : buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
-          brain ? "" : provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
-          qualityContractFragment(),
-        ].filter(Boolean).join("\n\n"),
+        learningBrief: isReferenceBuild
+          ? undefined
+          : [
+              brain ? brain.brief : buildLearningBrief(readBuildLearning(libraryCode).entries, buildDna.family),
+              brain ? "" : provenTemplateBrief(readBuildLearning(libraryCode).entries, buildDna.family, libraryCode, "pocket"),
+              qualityContractFragment(),
+            ].filter(Boolean).join("\n\n"),
       };
       // Create a durable job record before the live call starts. This is
       // what makes the build recoverable if the connection drops mid-way
