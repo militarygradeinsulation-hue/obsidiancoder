@@ -73,11 +73,40 @@ export type VisualScan = {
   confidence?: number;
 };
 
-const SENSITIVE_PATTERNS = [
-  /\b(sign[ -]?in|log[ -]?in|password|passcode|one[- ]time code|2fa|two[- ]factor|otp)\b/i,
-  /\b(bank|banking|wire transfer|routing number|account number|credit card|card number|cvv|cvc)\b/i,
-  /\b(checkout|payment|billing address|pay now|crypto wallet|seed phrase|recovery phrase)\b/i,
-  /\b(identity verification|verify your identity|social security|ssn|account recovery|reset password)\b/i,
+const AUTH_SIGNALS = [
+  /\bsign[ -]?in\b/i,
+  /\blog[ -]?in\b/i,
+  /\bpassword\b/i,
+  /\bpasscode\b/i,
+  /\bone[- ]time code\b/i,
+  /\b2fa\b/i,
+  /\btwo[- ]factor\b/i,
+  /\botp\b/i,
+  /\baccount recovery\b/i,
+  /\breset password\b/i,
+];
+
+const PAYMENT_SIGNALS = [
+  /\bcheckout\b/i,
+  /\bpayment\b/i,
+  /\bbilling address\b/i,
+  /\bpay now\b/i,
+  /\bcredit card\b/i,
+  /\bcard number\b/i,
+  /\bcvv\b/i,
+  /\bcvc\b/i,
+];
+
+const IDENTITY_OR_WALLET_SIGNALS = [
+  /\bidentity verification\b/i,
+  /\bverify your identity\b/i,
+  /\bsocial security\b/i,
+  /\bssn\b/i,
+  /\bwire transfer\b/i,
+  /\brouting number\b/i,
+  /\bcrypto wallet\b/i,
+  /\bseed phrase\b/i,
+  /\brecovery phrase\b/i,
 ];
 
 function cleanLine(value: unknown, max = 500): string {
@@ -95,7 +124,13 @@ function cleanList(value: unknown, maxItems = 24, maxChars = 500): string[] {
 
 export function isSensitiveReferenceText(text: string): boolean {
   const sample = text.slice(0, 120_000);
-  return SENSITIVE_PATTERNS.some((pattern) => pattern.test(sample));
+  // Strong form signals can stand alone; ordinary marketing pages often have
+  // a harmless "Sign in" nav item, so broad auth/payment vocabulary must
+  // cluster before we classify the whole reference as sensitive.
+  if (/<input\\b[^>]*\\btype\\s*=\\s*["']password["']/i.test(sample)) return true;
+  if (/\\b(seed phrase|recovery phrase|social security|ssn|routing number)\\b/i.test(sample)) return true;
+  const score = (patterns: RegExp[]) => patterns.reduce((n, pattern) => n + (pattern.test(sample) ? 1 : 0), 0);
+  return score(AUTH_SIGNALS) >= 2 || score(PAYMENT_SIGNALS) >= 2 || score(IDENTITY_OR_WALLET_SIGNALS) >= 2;
 }
 
 function isPrivateIpv4(hostname: string): boolean {
