@@ -1161,8 +1161,8 @@ function ForgePage() {
 
       // ---- 4. Originality + polish (Cinematic only) -----------------------
       let critiqueScores: Record<string, number> | null = null;
-      setStatus("Checking originality…");
-      if (profile === "cinematic" && paidAccess) {
+      setStatus(isReferenceBuild ? "Finalizing reference match…" : "Checking originality…");
+      if (!isReferenceBuild && profile === "cinematic" && paidAccess) {
         setStatus("Polishing…");
         try {
           const cres = await runCritique({
@@ -1224,20 +1224,25 @@ function ForgePage() {
       const newVersions = pushVersion(versions, makeForgeVersion(finalHtml, label));
       setVersions(() => newVersions);
       setLastCritiqueRan(critiqueRan);
-      rememberSignature(dnaSignature(buildDna), libraryCode);
-      // Quality memory: grade this build so the next one starts smarter.
-      try {
-        recordBuildOutcome({
-          surface: "pocket",
-          profile,
-          dna: buildDna,
-          model: servedModel,
-          critique: critiqueScores,
-          validationStatus: "passed",
-          latencyMs: 0,
-          outcome: "kept",
-        }, libraryCode);
-      } catch { /* learning is best-effort */ }
+      // Reference rebuilds are intentionally excluded from the adaptive
+      // design memory: copied/authorized source aesthetics should not become
+      // "Obsidian DNA" that leaks into unrelated future projects.
+      if (!isReferenceBuild) {
+        rememberSignature(dnaSignature(buildDna), libraryCode);
+        // Quality memory: grade this build so the next one starts smarter.
+        try {
+          recordBuildOutcome({
+            surface: "pocket",
+            profile,
+            dna: buildDna,
+            model: servedModel,
+            critique: critiqueScores,
+            validationStatus: "passed",
+            latencyMs: 0,
+            outcome: "kept",
+          }, libraryCode);
+        } catch { /* learning is best-effort */ }
+      }
       const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
       if (title === "Untitled build") setTitle(buildTitle);
 
