@@ -80,6 +80,7 @@ import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.funct
 import { GithubModal } from "@/components/GithubModal";
 import { PocketPreviewFrame } from "@/components/PocketPreviewFrame";
 import { PocketBuildOrb } from "@/components/PocketBuildOrb";
+// Reference rebuild is layered onto the restored Bolt-style Pocket UI.
 import {
   ReferenceRebuildPanel,
   type ReferenceRebuildReady,
