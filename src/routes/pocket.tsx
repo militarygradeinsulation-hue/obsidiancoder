@@ -853,8 +853,12 @@ function ForgePage() {
   }, []);
 
   // ---- Real generation (streaming /api/generate) --------------------------
-  const generate = React.useCallback(async (promptOverride?: string) => {
+  const generate = React.useCallback(async (
+    promptOverride?: string,
+    styleOverride?: PocketStyleFamily,
+  ) => {
     const p = (promptOverride ?? prompt).trim();
+    const effectiveStyleFamily = styleOverride ?? styleFamily;
     if (!p || busy) return;
     if (!isProfileAllowed(profile, paidAccess)) {
       requireAccount(`${getProfile(profile).label} builds`);
@@ -894,7 +898,7 @@ function ForgePage() {
       const recentDigest = compactRecentSignatures(recent);
       const nextPlanKey = conceptPlanKey({
         prompt: p,
-        family: styleFamily,
+        family: effectiveStyleFamily,
         profile,
         recentDigest,
       });
@@ -910,12 +914,12 @@ function ForgePage() {
         buildDna = selectedConcept(plan).dna;
         log(`Reusing selected direction: ${selectedConcept(plan).name}`);
       } else {
-        const base = deterministicConceptPlan({ prompt: p, family: styleFamily, recent });
+        const base = deterministicConceptPlan({ prompt: p, family: effectiveStyleFamily, recent });
         plan = base;
         activePlanKey = nextPlanKey;
         // Obsidian Brain: local lookup (no provider call). A strong proven
         // direction replaces the concept-planning call.
-        brain = queryBrain({ prompt: p, family: styleFamily, surface: "pocket", libraryCode });
+        brain = queryBrain({ prompt: p, family: effectiveStyleFamily, surface: "pocket", libraryCode });
         log(`🧠 ${brainMatchLabel(brain.match)} · ${brain.lookupMs}ms · ${brain.reasons.join(" · ")}`);
         if (brain.provenDna) {
           log(`⚡ Reused a proven direction (scored ${brain.proven?.score}/100) — planner call skipped`);
@@ -927,7 +931,7 @@ function ForgePage() {
                 model: planner.model,
                 plannerPrompt: conceptPlannerPrompt({
                   prompt: p,
-                  family: styleFamily,
+                  family: effectiveStyleFamily,
                   recentSummaries: recentDigest,
                 }),
               },
@@ -967,7 +971,7 @@ function ForgePage() {
         surface: "pocket",
         projectMemory: effectiveMemory,
         pocketProfile: profile,
-        pocketStyleFamily: styleFamily,
+        pocketStyleFamily: effectiveStyleFamily,
         pocketDesignDNA: buildDna,
         pocketConcept: chosen
           ? {
@@ -1247,7 +1251,7 @@ function ForgePage() {
         versions: newVersions.slice(0, 10),
         at: Date.now(),
         profile,
-        styleFamily,
+        styleFamily: effectiveStyleFamily,
         dna: buildDna,
         conceptNames: plan?.concepts.map((c) => c.name).slice(0, 3),
         conceptPlan: plan,
@@ -1361,7 +1365,7 @@ function ForgePage() {
       );
       for (const warning of result.warnings) log(`Reference note · ${warning}`);
       setReferenceOpen(false);
-      await generate(result.prompt);
+      await generate(result.prompt, "auto");
     },
     [changeStyleFamily, generate, log],
   );
