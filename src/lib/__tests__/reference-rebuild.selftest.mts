@@ -37,6 +37,28 @@ check("ordinary commerce copy is not automatically sensitive", !isSensitiveRefer
 const scan: VisualScan = {
   pageType: "landing",
   summary: "Editorial product landing page with a split hero and warm neutral palette.",
+  systemType: "multi-view app",
+  sharedDesignLanguage: "Dark shell, amber accent, compact navigation, restrained glass panels",
+  screens: [
+    {
+      label: "Dashboard",
+      purpose: "Primary operational view",
+      layout: "Sidebar plus dense content canvas",
+      sharedComponents: ["top nav", "sidebar"],
+      uniqueComponents: ["metric cards"],
+      interactions: ["filter chips"],
+      responsiveNotes: "Sidebar collapses on mobile",
+    },
+    {
+      label: "Detail",
+      purpose: "Entity detail view",
+      layout: "Shared shell with split detail pane",
+      sharedComponents: ["top nav", "sidebar"],
+      uniqueComponents: ["activity timeline"],
+      interactions: ["tab switcher"],
+      responsiveNotes: "Stacks into one column on mobile",
+    },
+  ],
   layout: ["Asymmetric 60/40 split hero", "Wide editorial sections"],
   colors: ["#101014", "#DB861F", "#F5EFE7"],
   typography: "Condensed display headline with neutral sans-serif body",
@@ -57,6 +79,9 @@ const exact = buildReferencePrompt(scan, "https://example.com", true);
 check("exact mode includes authorization marker", exact.includes("AUTHORIZED EXACT REBUILD MODE"));
 check("exact mode carries visible content", exact.includes("VISIBLE CONTENT TO REPRODUCE"));
 check("exact mode carries assets", exact.includes("ASSETS / IMAGE REFERENCES"));
+check("multi-image prompt carries screen map", exact.includes("SCREEN / VIEW MAP"));
+check("multi-image prompt requires all coordinated views", exact.includes("implement ALL of them as coordinated views"));
+check("multi-image prompt carries shared design language", exact.includes("SHARED DESIGN LANGUAGE"));
 
 const inspired = buildReferencePrompt(scan, "https://example.com", false);
 check("inspired mode includes rights-safe marker", inspired.includes("STYLE/LAYOUT REFERENCE MODE"));
