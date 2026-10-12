@@ -83,6 +83,7 @@ import { PocketBuildOrb } from "@/components/PocketBuildOrb";
 // Reference rebuild is layered onto the restored Bolt-style Pocket UI.
 import {
   ReferenceRebuildPanel,
+  type ReferenceMode,
   type ReferenceRebuildReady,
 } from "@/components/ReferenceRebuildPanel";
 
@@ -399,6 +400,7 @@ function ForgePage() {
   const [advancedOpen, setAdvancedOpen] = React.useState(false);
   const [ghOpen, setGhOpen] = React.useState(false);
   const [referenceOpen, setReferenceOpen] = React.useState(false);
+  const [referenceStartMode, setReferenceStartMode] = React.useState<ReferenceMode>("url");
   const [pricingOpen, setPricingOpen] = React.useState(false);
   const [nudge, setNudge] = React.useState<{ reason: NudgeReason; envelope?: CreditsRequiredEnvelope } | null>(null);
   const [status, setStatus] = React.useState<string>("Ready");
