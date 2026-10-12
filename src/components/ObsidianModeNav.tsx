@@ -6,7 +6,17 @@ import * as React from "react";
 import { Link } from "@tanstack/react-router";
 import { readCurrentProject, type CurrentProject } from "@/lib/current-project";
 
-export function ObsidianModeNav({ showProject = false, className = "" }: { showProject?: boolean; className?: string }) {
+type Mode = "pocket" | "studio" | "brain" | "agent";
+
+export function ObsidianModeNav({
+  showProject = false,
+  className = "",
+  modes = ["pocket", "studio", "brain", "agent"],
+}: {
+  showProject?: boolean;
+  className?: string;
+  modes?: Mode[];
+}) {
   const [project, setProject] = React.useState<CurrentProject | null>(null);
   React.useEffect(() => {
     if (!showProject) return;
@@ -18,11 +28,11 @@ export function ObsidianModeNav({ showProject = false, className = "" }: { showP
 
   return (
     <nav className={`obs-modenav ${className}`} aria-label="Obsidian modes">
-      <Link to="/pocket" title="Pocket — quick chat-to-build">Pocket</Link>
-      <Link to="/" activeOptions={{ exact: true }} title="Studio — precision workspace">Studio</Link>
-      <Link to="/brain" title="Brain — shared memory and learning">Brain</Link>
-      <Link to="/agent" title="Agent — mission control">Agent</Link>
-      <span className="obs-modenav-sep" aria-hidden />
+      {modes.includes("pocket") && <Link to="/pocket" title="Pocket — quick chat-to-build">Pocket</Link>}
+      {modes.includes("studio") && <Link to="/" activeOptions={{ exact: true }} title="Studio — precision workspace">Studio</Link>}
+      {modes.includes("brain") && <Link to="/brain" title="Brain — shared memory and learning">Brain</Link>}
+      {modes.includes("agent") && <Link to="/agent" title="Agent — mission control">Agent</Link>}
+      {modes.length > 0 && <span className="obs-modenav-sep" aria-hidden />}
       <Link to="/archive" className="obs-modenav-secondary" title="Every build — reopen, download, publish">Archive</Link>
       <Link to="/library" className="obs-modenav-secondary obs-modenav-label-long" title="Saved and published builds">Library</Link>
       {showProject && project && (
