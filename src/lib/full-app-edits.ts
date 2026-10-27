@@ -11,10 +11,14 @@ export function isEditableAppPath(path: string): boolean {
   if (!path || path.length > 180 || path.includes("..") || path.includes("\\") ||
       path.startsWith("/") || path.split("/").some((p) => p.startsWith("."))) return false;
   if (path === "src/App.tsx" || path === "src/styles.css") return true;
-  if (path === "src/lib/supabase.ts" || path === "supabase/migrations/001_app_items.sql" || path === "src/generated-design.ts" ||
+  if (path === "src/lib/supabase.ts" || path === "supabase/migrations/001_app_items.sql" ||
+      path === "supabase/migrations/20261027000000_app_items.sql" ||
+      path === "supabase/migrations/20261027000001_private_storage.sql" ||
+      path === "src/generated-design.ts" ||
       path === "src/main.tsx") return false;
   return /^src\/(?:components|lib|pages|hooks|features|services|context|utils)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:ts|tsx|css)$/.test(path) ||
-    /^supabase\/migrations\/[A-Za-z0-9_-]+\.sql$/.test(path);
+    /^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(path) ||
+    /^supabase\/functions\/[a-z0-9-]+\/index\.ts$/.test(path);
 }
 
 export const appEditSchema = z.object({
@@ -98,6 +102,7 @@ export function reconcileFullAppFiles(
     // Always regenerate this protected file from trusted server HTML instead.
     // Old cloud projects can have older scaffold versions. Rebuild trusted
     // protected files rather than rejecting a legitimate older project.
+    if (path === "supabase/migrations/001_app_items.sql") continue; // legacy scaffold migration
     if (Object.hasOwn(base, path) && !isEditableAppPath(path)) continue;
     if (base[path] === content) continue;
     if (!isEditableAppPath(path)) throw new Error("Cannot override protected file: " + path);

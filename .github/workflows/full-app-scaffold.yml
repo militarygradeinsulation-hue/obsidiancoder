@@ -4,6 +4,7 @@ on:
   pull_request:
     paths:
       - "src/lib/full-app-scaffold.ts"
+      - "src/lib/full-app-backend.ts"
       - "src/lib/__tests__/full-app-scaffold.selftest.mts"
       - ".github/workflows/full-app-scaffold.yml"
   workflow_dispatch:

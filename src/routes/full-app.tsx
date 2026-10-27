@@ -139,10 +139,10 @@ function FullAppPage() {
   function createSource() {
     if (!workspace) return;
     const path = newPath.trim();
-    if (!isEditableAppPath(path)) { setStatus("Use a source directory (components, pages, hooks, features, services, lib) or a new SQL migration."); return; }
+    if (!isEditableAppPath(path)) { setStatus("Use src/components, src/pages, src/lib, timestamped supabase/migrations/YYYYMMDDHHMMSS_name.sql, or supabase/functions/name/index.ts."); return; }
     if (files[path] !== undefined) { setStatus("That file already exists."); setSelected(path); return; }
     if (Object.keys(files).length >= 100) { setStatus("100 file limit reached."); return; }
-    replaceFiles({ ...files, [path]: path.endsWith(".sql") ? "-- Proposed schema migration. Review before applying.\n" : "// New app component\n" }, "File created");
+    replaceFiles({ ...files, [path]: path.endsWith(".sql") ? "-- Proposed schema migration. Review before applying.\n" : path.startsWith("supabase/functions/") ? "Deno.serve(() => new Response(\"Not implemented\", { status: 501 }));\n" : "// New app component\n" }, "File created");
     setSelected(path);
     setNewPath("");
   }
