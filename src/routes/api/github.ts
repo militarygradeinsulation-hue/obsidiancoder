@@ -248,9 +248,21 @@ async function managedAppRepo(token: string, login: string, name: string) {
   if (!r.ok) throw new Error("This repository does not contain an Obsidian Full App build workflow.");
   return repo;
 }
+async function managedDefaultHead(token: string, login: string, repo: string) {
+  const r = await gh(token, "/repos/" + login + "/" + repo);
+  if (!r.ok) throw new Error("Unable to inspect application repository.");
+  const info = await ghJson(r) as { default_branch: string };
+  const branch = info.default_branch;
+  if (!branch || !/^[A-Za-z0-9._/-]+$/.test(branch)) throw new Error("Invalid repository default branch.");
+  const headRes = await gh(token, "/repos/" + login + "/" + repo + "/git/ref/heads/" + branch.split("/").map(encodeURIComponent).join("/"));
+  if (!headRes.ok) throw new Error("Unable to inspect current application source revision.");
+  const head = await ghJson(headRes) as { object: { sha: string } };
+  return { branch, sha: head.object.sha };
+}
 async function workflowDispatch(token: string, login: string, repo: string, file: string) {
+  const { branch } = await managedDefaultHead(token, login, repo);
   const r = await gh(token, "/repos/" + login + "/" + repo + "/actions/workflows/" + file + "/dispatches", {
-    method: "POST", body: JSON.stringify({ ref: "main" }),
+    method: "POST", body: JSON.stringify({ ref: branch }),
   });
   if (!r.ok) throw new Error("GitHub could not start " + file + " (" + r.status + "). Check Actions: write permissions and the default branch.");
 }
@@ -352,6 +364,12 @@ export const Route = createFileRoute("/api/github")({
               await setPublicRepoVariable(parsed.token, user.login, appRepo, "VITE_SUPABASE_URL", url.toString().replace(/\/$/, ""));
               await setPublicRepoVariable(parsed.token, user.login, appRepo, "VITE_SUPABASE_PUBLISHABLE_KEY", parsed.publishableKey);
               return Response.json({ ok: true, message: "Public app configuration saved in GitHub repository variables." });
+            }
+            const { sha } = await managedDefaultHead(parsed.token, user.login, appRepo);
+            const recentBuilds = await managedRunStatus(parsed.token, user.login, appRepo, "obsidian-build.yml");
+            const verified = recentBuilds.some(run => run.head_sha === sha && run.conclusion === "success");
+            if (!verified) {
+              throw new Error("Run and pass a production build for the current GitHub revision before publishing.");
             }
             const url = await initializeManagedPages(parsed.token, user.login, appRepo);
             await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-publish.yml");
