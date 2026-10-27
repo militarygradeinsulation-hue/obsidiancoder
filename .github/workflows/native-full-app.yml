@@ -6,6 +6,9 @@ on:
       - "src/routes/full-app.tsx"
       - "src/routes/api/full-app/**"
       - "src/lib/full-app-edits.ts"
+      - "src/lib/react-preview.ts"
+      - "src/components/LiveReactPreview.tsx"
+      - "src/lib/__tests__/react-preview.selftest.mts"
       - "src/lib/__tests__/native-full-app.selftest.mts"
       - "src/routes/api/github.ts"
       - "src/components/GithubModal.tsx"
@@ -29,6 +32,8 @@ jobs:
         run: bun install --frozen-lockfile
       - name: Test native workspace edit protocol
         run: bun src/lib/__tests__/native-full-app.selftest.mts
+      - name: Test isolated React preview compiler
+        run: bun src/lib/__tests__/react-preview.selftest.mts
       - name: Build app and generate TanStack route registry
         run: bun run build
       - name: TypeScript validation
