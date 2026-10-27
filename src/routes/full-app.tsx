@@ -5,7 +5,8 @@ import { ObsidianModeNav } from "@/components/ObsidianModeNav";
 import { GithubModal } from "@/components/GithubModal";
 import { useAuth } from "@/hooks/useSubscription";
 import { authFetch } from "@/lib/auth-fetch";
-import { dualSafeGet } from "@/lib/safe-storage";
+import { dualSafeGet, safeGet } from "@/lib/safe-storage";
+import { getAccountCode } from "@/lib/account-code";
 import { readCurrentProject } from "@/lib/current-project";
 import { buildFullAppFiles, type FullAppFiles } from "@/lib/full-app-scaffold";
 import {
@@ -45,6 +46,13 @@ const SAMPLE_HTML = '<!doctype html><html lang="en"><head><meta charset="utf-8">
 
 function studioSource(): { title: string; html: string; cloudId?: string } | null {
   const pointer = readCurrentProject();
+  if (pointer?.surface === "pocket" && pointer.hasBuild) {
+    const code = (safeGet<string>("forge.libraryCode") || getAccountCode() || "").trim() || "guest";
+    const snapshot = safeGet<{ html?: string; title?: string }>("pocket.session." + code);
+    if (snapshot?.html?.trim()) return {
+      title: snapshot.title || pointer.title || "Pocket App", html: snapshot.html,
+    };
+  }
   const tabs = dualSafeGet<StudioSession[]>("obsidian.vibe.sessions.v1") ?? [];
   const active = dualSafeGet<string>("obsidian.vibe.active.v1");
   const s = tabs.find(item => item.id === pointer?.id || item.cloudId === pointer?.cloudId)
@@ -225,11 +233,11 @@ function FullAppPage() {
   }
   function importStudio() {
     const src = studioSource();
-    if (!src) { setStatus("No Studio HTML found. Generate a design in Studio first."); return; }
+    if (!src) { setStatus("No recent Studio or Pocket HTML found. Generate a design first."); return; }
     if (!confirm("Replace the current Full App workspace with the Studio build?")) return;
     setWorkspace(newWorkspace(src));
     setSelected("src/App.tsx"); setDraft(null);
-    setStatus("Studio build imported as sandboxed design. Editable React source is ready.");
+    setStatus("Build imported as sandboxed design. Editable React source is ready.");
   }
 
   const inputStyle = "w-full rounded-xl border border-white/15 bg-black/30 p-3 text-sm text-white";
@@ -241,7 +249,7 @@ function FullAppPage() {
         <h1 className="obs-display mt-2 text-4xl sm:text-6xl">Build the entire app</h1>
         <p className="mt-3 max-w-3xl text-sm opacity-70">An editable React application workspace with AI-assisted multi-file changes and cloud project storage. Generated designs stay sandboxed until migrated into React. Supabase setup and production builds run in the exported project.</p>
         <div className="mt-5 flex flex-wrap items-center gap-2">
-          <button type="button" className="obs-btn-ghost" onClick={importStudio}><RotateCcw size={14}/> Import Studio build</button>
+          <button type="button" className="obs-btn-ghost" onClick={importStudio}><RotateCcw size={14}/> Import current build</button>
           <button type="button" className="obs-btn-primary" onClick={saveCloud} disabled={!workspace || !userId || busy}><Cloud size={14}/> Save to cloud</button>
           <button type="button" className="obs-btn-ghost" onClick={() => setGithubOpen(true)} disabled={!workspace}><FolderGit2 size={14}/> Publish source to GitHub</button>
           <span className="obs-pill" data-tone={workspace?.cloudId ? "good" : "muted"}>{workspace?.cloudId ? "Cloud-linked" : "Local workspace"}</span>
