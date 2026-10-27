@@ -11,6 +11,7 @@ import { newRequestId } from "@/lib/ai-errors";
 import { buildArtifact } from "@/lib/publish-artifact";
 import { buildFullAppFiles } from "@/lib/full-app-scaffold";
 import { reconcileFullAppFiles } from "@/lib/full-app-edits";
+import { validateAppAddons } from "@/lib/full-app-build";
 
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify"), token: z.string().min(10).max(400) }),
@@ -25,6 +26,16 @@ const bodySchema = z.discriminatedUnion("action", [
     isPrivate: z.boolean().optional().default(false),
     mode: z.enum(["static", "full-app"]).optional().default("static"),
     files: z.record(z.string(), z.string()).optional(),
+    addons: z.array(z.string()).max(4).optional(),
+  }),
+  z.object({ action: z.literal("buildStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({ action: z.literal("triggerBuild"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({ action: z.literal("publishApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({
+    action: z.literal("configureAppBackend"),
+    token: z.string().min(10).max(400), repo: z.string().min(1).max(90),
+    url: z.string().url().max(250),
+    publishableKey: z.string().min(15).max(220),
   }),
   z.object({
     action: z.literal("import"),
@@ -225,6 +236,69 @@ async function importRepo(token: string, owner: string, repo: string) {
   throw new Error("No index.html or README.md found in that repo.");
 }
 
+
+function managedRepoName(name: string): string {
+  if (!/^[a-zA-Z0-9._-]{1,90}$/.test(name) || name === "." || name === "..")
+    throw new Error("Invalid repository name.");
+  return name;
+}
+async function managedAppRepo(token: string, login: string, name: string) {
+  const repo = managedRepoName(name);
+  const r = await gh(token, "/repos/" + login + "/" + repo + "/contents/.github/workflows/obsidian-build.yml");
+  if (!r.ok) throw new Error("This repository does not contain an Obsidian Full App build workflow.");
+  return repo;
+}
+async function managedDefaultHead(token: string, login: string, repo: string) {
+  const r = await gh(token, "/repos/" + login + "/" + repo);
+  if (!r.ok) throw new Error("Unable to inspect application repository.");
+  const info = await ghJson(r) as { default_branch: string };
+  const branch = info.default_branch;
+  if (!branch || !/^[A-Za-z0-9._/-]+$/.test(branch)) throw new Error("Invalid repository default branch.");
+  const headRes = await gh(token, "/repos/" + login + "/" + repo + "/git/ref/heads/" + branch.split("/").map(encodeURIComponent).join("/"));
+  if (!headRes.ok) throw new Error("Unable to inspect current application source revision.");
+  const head = await ghJson(headRes) as { object: { sha: string } };
+  return { branch, sha: head.object.sha };
+}
+async function workflowDispatch(token: string, login: string, repo: string, file: string) {
+  const { branch } = await managedDefaultHead(token, login, repo);
+  const r = await gh(token, "/repos/" + login + "/" + repo + "/actions/workflows/" + file + "/dispatches", {
+    method: "POST", body: JSON.stringify({ ref: branch }),
+  });
+  if (!r.ok) throw new Error("GitHub could not start " + file + " (" + r.status + "). Check Actions: write permissions and the default branch.");
+}
+async function managedRunStatus(token: string, login: string, repo: string, file: string) {
+  const r = await gh(token, "/repos/" + login + "/" + repo + "/actions/workflows/" + file + "/runs?per_page=4");
+  if (!r.ok) throw new Error("Could not read GitHub workflow runs (" + r.status + ").");
+  const j = await ghJson(r) as { workflow_runs?: Array<{
+    id: number; status: string; conclusion: string | null; html_url: string;
+    created_at: string; head_sha: string;
+  }> };
+  return (j.workflow_runs ?? []).map(x => ({
+    id: x.id, status: x.status, conclusion: x.conclusion, url: x.html_url,
+    created_at: x.created_at, head_sha: x.head_sha,
+  }));
+}
+async function setPublicRepoVariable(token: string, login: string, repo: string, name: string, value: string) {
+  const url = "/repos/" + login + "/" + repo + "/actions/variables/" + name;
+  const current = await gh(token, url);
+  const method = current.ok ? "PATCH" : "POST";
+  if (!current.ok && current.status !== 404) throw new Error("Could not check repository variables.");
+  const path = method === "PATCH" ? url : "/repos/" + login + "/" + repo + "/actions/variables";
+  const r = await gh(token, path, { method, body: JSON.stringify({ name, value }) });
+  if (!r.ok) throw new Error("Could not configure GitHub Actions variables (" + r.status + "). Check Variables: write permissions.");
+}
+async function initializeManagedPages(token: string, login: string, repo: string) {
+  const base = "/repos/" + login + "/" + repo + "/pages";
+  const existing = await gh(token, base);
+  const r = await gh(token, base, {
+    method: existing.ok ? "PUT" : "POST",
+    body: JSON.stringify({ build_type: "workflow" }),
+  });
+  if (!r.ok && r.status !== 409)
+    throw new Error("Could not enable GitHub Pages Actions hosting (" + r.status + "). Check Pages permissions and plan.");
+  return "https://" + login.toLowerCase() + ".github.io/" + repo + "/";
+}
+
 export const Route = createFileRoute("/api/github")({
   server: {
     handlers: {
@@ -263,6 +337,44 @@ export const Route = createFileRoute("/api/github")({
             }
           }
 
+          if (parsed.action === "buildStatus" || parsed.action === "triggerBuild" ||
+              parsed.action === "publishApp" || parsed.action === "configureAppBackend") {
+            const user = await getUser(parsed.token);
+            const appRepo = await managedAppRepo(parsed.token, user.login, parsed.repo);
+            if (parsed.action === "buildStatus") {
+              const [builds, publishes] = await Promise.all([
+                managedRunStatus(parsed.token, user.login, appRepo, "obsidian-build.yml"),
+                managedRunStatus(parsed.token, user.login, appRepo, "obsidian-publish.yml"),
+              ]);
+              return Response.json({ ok: true, repo: appRepo, builds, publishes });
+            }
+            if (parsed.action === "triggerBuild") {
+              await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-build.yml");
+              return Response.json({ ok: true, status: "queued", message: "Build requested. Refresh status to see the run." });
+            }
+            if (parsed.action === "configureAppBackend") {
+              const url = new URL(parsed.url);
+              if (url.protocol !== "https:" || !url.hostname.endsWith(".supabase.co") ||
+                  url.username || url.password || url.search || url.hash || url.pathname !== "/") {
+                throw new Error("Use your own HTTPS Supabase project URL, ending in .supabase.co.");
+              }
+              if (!/^sb_publishable_[A-Za-z0-9_-]+$/.test(parsed.publishableKey)) {
+                throw new Error("Use a Supabase publishable key (sb_publishable_), never a secret or service-role key.");
+              }
+              await setPublicRepoVariable(parsed.token, user.login, appRepo, "VITE_SUPABASE_URL", url.toString().replace(/\/$/, ""));
+              await setPublicRepoVariable(parsed.token, user.login, appRepo, "VITE_SUPABASE_PUBLISHABLE_KEY", parsed.publishableKey);
+              return Response.json({ ok: true, message: "Public app configuration saved in GitHub repository variables." });
+            }
+            const { sha } = await managedDefaultHead(parsed.token, user.login, appRepo);
+            const recentBuilds = await managedRunStatus(parsed.token, user.login, appRepo, "obsidian-build.yml");
+            const verified = recentBuilds.some(run => run.head_sha === sha && run.conclusion === "success");
+            if (!verified) {
+              throw new Error("Run and pass a production build for the current GitHub revision before publishing.");
+            }
+            const url = await initializeManagedPages(parsed.token, user.login, appRepo);
+            await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-publish.yml");
+            return Response.json({ ok: true, status: "queued", url, message: "Publication queued. Verify a successful workflow before sharing." });
+          }
           if (parsed.action === "verify") {
             const user = await getUser(parsed.token);
             return Response.json({ ok: true, user });
@@ -296,7 +408,8 @@ export const Route = createFileRoute("/api/github")({
             const artifact = buildArtifact({ html: parsed.html, surface: "publish" });
             if (!artifact.safeToPublish) throw new Error("The generated design did not pass the publish safety gate.");
             await putFullAppFiles(parsed.token, user.login, name, branch,
-              parsed.files ? reconcileFullAppFiles(artifact.html, title, parsed.files) : buildFullAppFiles(artifact.html, title), title);
+              parsed.files ? reconcileFullAppFiles(artifact.html, title, parsed.files, validateAppAddons(parsed.addons))
+                : buildFullAppFiles(artifact.html, title, validateAppAddons(parsed.addons)), title);
           } else {
             await putFile(parsed.token, user.login, name, "index.html", parsed.html, `Deploy: ${title}`, branch);
             await putFile(parsed.token, user.login, name, "README.md", readme, "Add README", branch);

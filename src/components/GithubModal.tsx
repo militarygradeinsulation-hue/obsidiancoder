@@ -26,6 +26,10 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   listRepos: "github_list",
   import:    "github_import",
   deploy:    "github_deploy",
+  buildStatus: "github_list",
+  triggerBuild: "github_deploy",
+  configureAppBackend: "github_deploy",
+  publishApp: "github_deploy",
 };
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
@@ -57,8 +61,9 @@ export function GithubModal(props: {
   onLog: (line: string) => void;
   fullAppFiles?: Record<string, string>;
   defaultDeployMode?: "static" | "full-app";
+  fullAppAddons?: string[];
 }) {
-  const { open, onClose, currentHtml, defaultRepoName, onImport, onLog, fullAppFiles, defaultDeployMode = "static" } = props;
+  const { open, onClose, currentHtml, defaultRepoName, onImport, onLog, fullAppFiles, fullAppAddons, defaultDeployMode = "static" } = props;
   const [token, setToken] = React.useState("");
   const [user, setUser] = React.useState<GhUser | null>(null);
   const [repos, setRepos] = React.useState<Repo[]>([]);
@@ -69,6 +74,12 @@ export function GithubModal(props: {
   const [enablePages, setEnablePages] = React.useState(true);
   const [deployMode, setDeployMode] = React.useState<"static" | "full-app">(defaultDeployMode);
   const [result, setResult] = React.useState<DeployResult | null>(null);
+  const [managedRepo, setManagedRepo] = React.useState("");
+  const [appUrl, setAppUrl] = React.useState("");
+  const [appPublishableKey, setAppPublishableKey] = React.useState("");
+  const [builds, setBuilds] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
+  const [publishes, setPublishes] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
+  const [hostingUrl, setHostingUrl] = React.useState("");
 
   React.useEffect(() => {
     if (!open) return;
@@ -127,8 +138,10 @@ export function GithubModal(props: {
         isPrivate,
         mode: deployMode,
         ...(deployMode === "full-app" && fullAppFiles ? { files: fullAppFiles } : {}),
+        ...(deployMode === "full-app" && fullAppAddons ? { addons: fullAppAddons } : {}),
       });
       setResult(res);
+      if (res.mode === "full-app") setManagedRepo(res.repo.name);
       onLog(`✓ Pushed to ${res.repo.full_name}`);
       if (res.pages) onLog(`  Pages: ${res.pages.html_url}`);
       if (deployMode === "full-app") onLog("✓ Full App starter created: configure Supabase and deploy through a build-capable host.");
@@ -139,6 +152,33 @@ export function GithubModal(props: {
     } finally {
       setLoading(null);
     }
+  }
+
+  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "configureAppBackend") {
+    if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
+    if (action === "publishApp" && !window.confirm(
+      "Publish this application's frontend to GitHub Pages? Ensure its backend is configured and its latest build passes. This will make the site public."
+    )) return;
+    setErr(null); setLoading("app:" + action);
+    try {
+      const result = await ghCall<{
+        ok: boolean; builds?: typeof builds; publishes?: typeof publishes;
+        message?: string; url?: string;
+      }>({
+        action, token, repo: managedRepo.trim(),
+        ...(action === "configureAppBackend" ? { url: appUrl.trim(), publishableKey: appPublishableKey.trim() } : {}),
+      });
+      if (action === "buildStatus") {
+        setBuilds(result.builds ?? []);
+        setPublishes(result.publishes ?? []);
+      }
+      if (action === "configureAppBackend") setAppPublishableKey("");
+      if (result.url) setHostingUrl(result.url);
+      if (result.message) onLog(result.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "GitHub action failed";
+      setErr(message); onLog("GitHub Full App: " + message);
+    } finally { setLoading(null); }
   }
 
   async function importOne(repo: Repo) {
@@ -410,6 +450,54 @@ export function GithubModal(props: {
                   )}
                 </div>
               )}
+            </section>
+
+            <section style={{ borderTop: "1px solid rgba(182,188,200,.2)", paddingTop: 14, marginBottom: 18 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, opacity: .75, marginBottom: 9 }}>
+                Full App · managed build and release
+              </div>
+              <p style={{ color: "#B6BCC8", fontSize: 12, lineHeight: 1.5 }}>
+                GitHub builds your app on isolated runners. Select an exported Full App repository.
+                The token needs Actions: Read/Write and Variables: Read/Write to manage builds and public settings,
+                plus Pages and Administration write permission to publish.
+              </p>
+              <input list="obs-managed-repos" aria-label="Full App GitHub repository" value={managedRepo}
+                onChange={e => setManagedRepo(e.target.value)} placeholder="Your Full App repository name"
+                style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, margin: "8px 0" }} />
+              <datalist id="obs-managed-repos">{repos.map(repo => <option key={repo.full_name} value={repo.name}/>)}</datalist>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("buildStatus")}>Check build status</button>
+                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("triggerBuild")}>Run production build</button>
+              </div>
+              {(builds.length > 0 || publishes.length > 0) && (
+                <div style={{ marginTop: 12, fontSize: 12 }}>
+                  {([["Build", builds], ["Publish", publishes]] as const).map(([label, runs]) => runs.slice(0, 2).map(run => (
+                    <p key={label + run.id} style={{ color: "#B6BCC8", margin: "6px 0" }}>
+                      {label}: {run.conclusion ?? run.status} · <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125" }}>View GitHub run</a>
+                    </p>
+                  )))}
+                </div>
+              )}
+              <div style={{ marginTop: 14 }}>
+                <p style={{ fontSize: 12, color: "#B6BCC8" }}>Your app's public backend configuration:</p>
+                <input value={appUrl} onChange={e => setAppUrl(e.target.value)}
+                  aria-label="App Supabase URL" placeholder="https://project.supabase.co"
+                  style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, marginBottom: 6 }} />
+                <input type="password" value={appPublishableKey} onChange={e => setAppPublishableKey(e.target.value)}
+                  aria-label="App Supabase publishable key" placeholder="sb_publishable_..."
+                  style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, marginBottom: 8 }} />
+                <button type="button" className="obs-chip" disabled={!!loading || !appUrl.trim() || !appPublishableKey.trim()}
+                  onClick={() => void appAction("configureAppBackend")}>Save public app settings</button>
+              </div>
+              <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                <button type="button" className="obs-chip" disabled={!!loading}
+                  onClick={() => void appAction("publishApp")}>Publish to GitHub Pages</button>
+                {hostingUrl && <a href={hostingUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", fontSize: 12 }}>Open hosted site after deployment completes</a>}
+              </div>
+              <p style={{ color: "#B6BCC8", fontSize: 11, marginTop: 10 }}>
+                Publishing is opt-in and makes the frontend public. Database migration, authorization,
+                redirect URLs and successful production workflow must be verified separately.
+              </p>
             </section>
 
             <section>

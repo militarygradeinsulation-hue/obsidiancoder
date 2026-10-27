@@ -86,9 +86,9 @@ export function applyAppEditPlan(files: FullAppFiles, plan: AppEditPlan): FullAp
  * package dependencies, auth client credentials, or generated HTML.
  */
 export function reconcileFullAppFiles(
-  trustedHtml: string, title: string, submitted?: FullAppFiles,
+  trustedHtml: string, title: string, submitted?: FullAppFiles, addons?: unknown,
 ): FullAppFiles {
-  const base = buildFullAppFiles(trustedHtml, title);
+  const base = buildFullAppFiles(trustedHtml, title, addons);
   if (!submitted) return base;
   if (!submitted || typeof submitted !== "object" || Array.isArray(submitted)) throw new Error("Invalid workspace.");
   if (Object.keys(submitted).length > 100) throw new Error("Too many workspace files.");
@@ -96,7 +96,9 @@ export function reconcileFullAppFiles(
   for (const [path, content] of Object.entries(submitted)) {
     // Publish HTML may be repaired/sanitized after it was saved in the browser.
     // Always regenerate this protected file from trusted server HTML instead.
-    if (path === "src/generated-design.ts") continue;
+    // Old cloud projects can have older scaffold versions. Rebuild trusted
+    // protected files rather than rejecting a legitimate older project.
+    if (Object.hasOwn(base, path) && !isEditableAppPath(path)) continue;
     if (base[path] === content) continue;
     if (!isEditableAppPath(path)) throw new Error("Cannot override protected file: " + path);
     if (typeof content !== "string" || content.length > MAX_EDIT_BYTES)
