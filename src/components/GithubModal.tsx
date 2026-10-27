@@ -16,6 +16,7 @@ type Repo = {
 type DeployResult = {
   repo: { html_url: string; full_name: string; name: string };
   pages: { html_url: string; alreadyEnabled: boolean } | null;
+  mode?: "static" | "full-app";
 };
 
 const TOKEN_KEY = "obs.gh.token";
@@ -64,6 +65,7 @@ export function GithubModal(props: {
   const [repoName, setRepoName] = React.useState(defaultRepoName);
   const [isPrivate, setIsPrivate] = React.useState(false);
   const [enablePages, setEnablePages] = React.useState(true);
+  const [deployMode, setDeployMode] = React.useState<"static" | "full-app">("static");
   const [result, setResult] = React.useState<DeployResult | null>(null);
 
   React.useEffect(() => {
@@ -118,12 +120,14 @@ export function GithubModal(props: {
         repo: repoName || defaultRepoName,
         html: currentHtml,
         title: repoName || defaultRepoName,
-        enablePages,
+        enablePages: deployMode === "static" && enablePages,
         isPrivate,
+        mode: deployMode,
       });
       setResult(res);
       onLog(`✓ Pushed to ${res.repo.full_name}`);
       if (res.pages) onLog(`  Pages: ${res.pages.html_url}`);
+      if (deployMode === "full-app") onLog("✓ Full App starter created: configure Supabase and deploy through a build-capable host.");
     } catch (e) {
       const msg = e instanceof Error ? e.message : "deploy failed";
       setErr(msg);
@@ -312,6 +316,24 @@ export function GithubModal(props: {
               <div style={{ fontSize: 11, letterSpacing: 1, opacity: 0.7, marginBottom: 8, textTransform: "uppercase" }}>
                 Push current build
               </div>
+              <div role="radiogroup" aria-label="Repository export type" style={{ display: "flex", flexWrap: "wrap", gap: 12, marginBottom: 12 }}>
+                <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+                  <input type="radio" name="deployMode" checked={deployMode === "static"} onChange={() => setDeployMode("static")} />
+                  Static HTML site
+                </label>
+                <label style={{ display: "flex", gap: 6, alignItems: "center", fontSize: 13 }}>
+                  <input type="radio" name="deployMode" checked={deployMode === "full-app"} onChange={() => setDeployMode("full-app")} />
+                  Full App (React + Supabase)
+                </label>
+              </div>
+              {deployMode === "full-app" && (
+                <p style={{ color: "#B6BCC8", fontSize: 12, lineHeight: 1.5, marginBottom: 12 }}>
+                  Creates a new GitHub repository containing a React app, authentication, owner-protected database migration,
+                  and your original design in a sandboxed preview. Use a fresh repository name; connect your own Supabase project
+                  and deploy the source with Vercel, Netlify, or another build-capable host.
+                  No production database or hosting is provisioned automatically.
+                </p>
+              )}
               <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
                 <input
                   value={repoName}
@@ -331,10 +353,12 @@ export function GithubModal(props: {
                   <input type="checkbox" checked={isPrivate} onChange={(e) => setIsPrivate(e.target.checked)} />
                   Private
                 </label>
-                <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#B6BCC8" }}>
-                  <input type="checkbox" checked={enablePages} onChange={(e) => setEnablePages(e.target.checked)} />
-                  Enable Pages
-                </label>
+                {deployMode === "static" && (
+                  <label style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "#B6BCC8" }}>
+                    <input type="checkbox" checked={enablePages} onChange={(e) => setEnablePages(e.target.checked)} />
+                    Enable Pages
+                  </label>
+                )}
                 <button
                   type="button"
                   className="obs-chip"
@@ -343,7 +367,7 @@ export function GithubModal(props: {
                   style={{ background: "#F4A125", color: "#111317", borderColor: "#F4A125" }}
                 >
                   {loading === "deploy" ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Rocket className="h-3.5 w-3.5" />}
-                  Deploy
+                  {deployMode === "full-app" ? "Create Full App" : "Deploy"}
                 </button>
               </div>
               {result && (
@@ -363,6 +387,12 @@ export function GithubModal(props: {
                       {result.repo.full_name} <ExternalLink className="inline h-3 w-3" />
                     </a>
                   </div>
+                  {result.mode === "full-app" && (
+                    <p style={{ color: "#B6BCC8", margin: "8px 0 0" }}>
+                      Your full application source is on GitHub. Follow README.md to configure authentication,
+                      apply the database migration, test the app, and deploy it to a build-capable host.
+                    </p>
+                  )}
                   {result.pages && (
                     <div style={{ marginTop: 4 }}>
                       <b>Live:</b>{" "}
