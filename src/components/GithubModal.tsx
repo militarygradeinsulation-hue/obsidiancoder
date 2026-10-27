@@ -511,6 +511,57 @@ export function GithubModal(props: {
                 <button type="button" className="obs-chip" disabled={!!loading || !appUrl.trim() || !appPublishableKey.trim()}
                   onClick={() => void appAction("configureAppBackend")}>Save public app settings</button>
               </div>
+              <div style={{ marginTop: 15, padding: 12, border: "1px solid rgba(244,161,37,.22)", borderRadius: 10 }}>
+                <h3 style={{ fontSize: 13, margin: "0 0 6px" }}>Server functions, private files, and database</h3>
+                <p style={{ color: "#B6BCC8", fontSize: 12, lineHeight: 1.5 }}>
+                  Every app uses its own Supabase project. Save its public settings above.
+                  Configure SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as GitHub Actions secrets.
+                  Review the SQL migrations before deploying.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <button type="button" className="obs-chip" disabled={!!loading}
+                    onClick={() => void appAction("backendStatus")}>Check backend readiness</button>
+                  {user && managedRepo && (
+                    <a target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", fontSize: 12, alignSelf: "center" }}
+                      href={"https://github.com/" + user.login + "/" + managedRepo + "/settings/secrets/actions"}>
+                      Configure GitHub Secrets and Variables
+                    </a>
+                  )}
+                </div>
+                {backendReady && (
+                  <div role="status" style={{ marginTop: 10, color: "#B6BCC8", fontSize: 12 }}>
+                    {([
+                      ["Supabase project reference", backendReady.hasProjectRef],
+                      ["Public app URL", backendReady.hasPublicUrl],
+                      ["Public publishable key", backendReady.hasPublicKey],
+                      ["Management access token", backendReady.hasAccessToken],
+                      ["Database password", backendReady.hasDbPassword],
+                    ] as const).map(([name, ready]) => (
+                      <div key={name}>{ready ? "✓" : "○"} {name}</div>
+                    ))}
+                  </div>
+                )}
+                {backendRuns.slice(0, 2).map(run => (
+                  <p key={run.id} style={{ fontSize: 12, marginTop: 7 }}>
+                    Backend: {run.conclusion ?? run.status} ·
+                    <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", marginLeft: 5 }}>View workflow</a>
+                  </p>
+                ))}
+                <label style={{ color: "#B6BCC8", display: "block", fontSize: 12, marginTop: 12 }}>
+                  Backend deployment operation
+                  <select value={backendMode} onChange={e => setBackendMode(e.target.value as typeof backendMode)}
+                    style={{ display: "block", width: "100%", marginTop: 5, background: "#0b0d10", color: "#fff", border: "1px solid #464b56", padding: 8, borderRadius: 8 }}>
+                    <option value="functions-only">Deploy server functions only</option>
+                    <option value="schema-and-functions">Apply reviewed SQL migrations AND functions</option>
+                  </select>
+                </label>
+                <button type="button" className="obs-chip" style={{ marginTop: 9 }} disabled={!!loading}
+                  onClick={() => void appAction("deployBackend")}>Request backend deployment</button>
+                <p style={{ color: "#B6BCC8", fontSize: 11, marginTop: 10 }}>
+                  Explicit typed approval required. GitHub's production-backend environment can require an additional reviewer.
+                  This does not create or purchase a Supabase project automatically.
+                </p>
+              </div>
               <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                 <button type="button" className="obs-chip" disabled={!!loading}
                   onClick={() => void appAction("publishApp")}>Publish to GitHub Pages</button>
