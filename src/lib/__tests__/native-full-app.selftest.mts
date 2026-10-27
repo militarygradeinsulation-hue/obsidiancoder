@@ -9,7 +9,9 @@ const html = '<!doctype html><html><head></head><body><h1>Hello</h1></body></htm
 const initial = buildFullAppFiles(html, "Example");
 const before = workspaceFingerprint(initial);
 assert.ok(isEditableAppPath("src/App.tsx"));
-assert.ok(isEditableAppPath("src/components/Dashboard.tsx"));\nassert.ok(isEditableAppPath("src/pages/Accounts.tsx"));\nassert.ok(isEditableAppPath("src/hooks/useInvoices.ts"));
+assert.ok(isEditableAppPath("src/components/Dashboard.tsx"));
+assert.ok(isEditableAppPath("src/pages/Accounts.tsx"));
+assert.ok(isEditableAppPath("src/hooks/useInvoices.ts"));
 assert.ok(isEditableAppPath("supabase/migrations/002_notes.sql"));
 for (const unsafe of [
   "../.env", "src/../secrets.ts", "src/lib/supabase.ts", "src/generated-design.ts",
