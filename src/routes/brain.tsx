@@ -3,6 +3,8 @@ import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ObsidianModeNav } from "@/components/ObsidianModeNav";
 import { brainSnapshot, resolveBrainLibraryCode, type BrainSnapshot } from "@/lib/obsidian-brain";
 import { getAccountCode } from "@/lib/account-code";
+import { useAuth } from "@/hooks/useSubscription";
+import { cachedBrainRecords, createBrainRecord, queueBrainRecord, removeBrainRecord, syncBrainRecords, validatedCloudLearnings, type BrainRecord } from "@/lib/brain-cloud";
 
 export const Route = createFileRoute("/brain")({
   beforeLoad: async () => {
@@ -28,11 +30,62 @@ function Empty({ children }: { children: React.ReactNode }) {
 }
 
 function BrainPage() {
+  const { userId, loading } = useAuth();
   const [snap, setSnap] = React.useState<BrainSnapshot | null>(null);
-  React.useEffect(() => {
-    setSnap(brainSnapshot(resolveBrainLibraryCode(getAccountCode())));
-  }, []);
+  const [records, setRecords] = React.useState<BrainRecord[]>([]);
+  const [syncState, setSyncState] = React.useState("Local only");
+  const [title, setTitle] = React.useState("");
+  const [body, setBody] = React.useState("");
+  const [kind, setKind] = React.useState<"note" | "fact" | "decision">("note");
+  const [busy, setBusy] = React.useState(false);
+  const libraryCode = React.useMemo(() => typeof window === "undefined" ? "" : resolveBrainLibraryCode(getAccountCode()), []);
+  const projectKey = snap?.project?.cloudId ?? "global";
+  const refresh = React.useCallback((items: BrainRecord[]) => {
+    setRecords(items);
+    setSnap(brainSnapshot(libraryCode, null, validatedCloudLearnings(items)));
+  }, [libraryCode]);
 
+  const sync = React.useCallback(async () => {
+    if (!userId) return;
+    setSyncState("Synchronizing...");
+    try {
+      const merged = await syncBrainRecords(userId, libraryCode);
+      refresh(merged);
+      setSyncState("Synced across devices");
+    } catch {
+      setSyncState("Offline or cloud unavailable. Changes remain on this device.");
+    }
+  }, [userId, libraryCode, refresh]);
+
+  React.useEffect(() => {
+    if (!userId) {
+      setRecords([]);
+      setSnap(brainSnapshot(libraryCode));
+      setSyncState(loading ? "Checking sign-in..." : "Sign in for cross-device sync");
+      return;
+    }
+    refresh(cachedBrainRecords(userId));
+    void sync();
+    const onFocus = () => void sync();
+    window.addEventListener("focus", onFocus);
+    const interval = window.setInterval(() => void sync(), 60000);
+    return () => { window.removeEventListener("focus", onFocus); window.clearInterval(interval); };
+  }, [userId, loading, libraryCode, refresh, sync]);
+
+  function saveRecord() {
+    if (!userId || !title.trim() || !body.trim()) return;
+    const next = queueBrainRecord(userId, createBrainRecord(projectKey, kind, title, body));
+    refresh(next);
+    setTitle(""); setBody("");
+    void sync();
+  }
+  function deleteRecord(record: BrainRecord) {
+    if (!userId) return;
+    refresh(queueBrainRecord(userId, removeBrainRecord(record)));
+    void sync();
+  }
+  const visible = records.filter((r) => r.kind !== "learning" && !r.deleted_at &&
+    (r.project_key === projectKey || r.project_key === "global"));
   return (
     <div className="obs-page">
       <header className="obs-page-top">
@@ -43,13 +96,49 @@ function BrainPage() {
         <p className="obs-kicker">Brain · shared by every mode</p>
         <h1 className="obs-display mt-2 text-5xl sm:text-7xl">The intelligence map</h1>
         <p className="mt-3 max-w-2xl text-sm opacity-70">
-          Everything here comes from your real builds on this device. Nothing is estimated — empty areas mean Obsidian hasn't learned it yet.
+          Brain learns from real builds. Sign in to sync notes, project decisions and scored outcomes across your devices.
+          The existing local memory remains available when offline.
         </p>
-        {!snap ? (
-          <p className="mt-10 obs-empty">Reading memory…</p>
-        ) : (
-          <BrainMap snap={snap} />
-        )}
+        <section className="obs-node mt-6" aria-label="Brain sync and project knowledge">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div><h3>Cloud continuity</h3><p className="mt-1 text-xs opacity-70" role="status">{syncState}</p></div>
+            <button className="obs-btn-ghost" type="button" disabled={!userId || busy} onClick={() => { setBusy(true); void sync().finally(() => setBusy(false)); }}>Sync now</button>
+          </div>
+          {!userId ? (
+            <p className="mt-3 text-sm">Cloud sync needs an authenticated account. Local learning still works.</p>
+          ) : (
+            <>
+              <div className="mt-5 grid gap-3">
+                <label className="text-sm">Knowledge type
+                  <select className="obs-textarea mt-1" value={kind} onChange={(e) => setKind(e.target.value as "note" | "fact" | "decision")}>
+                    <option value="note">Note</option><option value="fact">Project fact</option><option value="decision">Decision</option>
+                  </select>
+                </label>
+                <label className="text-sm">Title
+                  <input className="obs-textarea mt-1" maxLength={120} value={title} onChange={(e) => setTitle(e.target.value)} placeholder="What should Brain remember?" />
+                </label>
+                <label className="text-sm">Context
+                  <textarea className="obs-textarea mt-1" maxLength={4000} rows={3} value={body} onChange={(e) => setBody(e.target.value)} placeholder="Context, rationale and what to keep in mind" />
+                </label>
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-xs opacity-60">Scope: {snap?.project?.cloudId ? snap.project.title : "Account-wide"} · project notes need a saved cloud project.</span>
+                  <button type="button" className="obs-btn-primary" disabled={!title.trim() || !body.trim()} onClick={saveRecord}>Save to Brain</button>
+                </div>
+              </div>
+              <div className="mt-5 space-y-2">
+                <h3>Remembered knowledge ({visible.length})</h3>
+                {visible.length === 0 ? <Empty>Nothing saved yet for this project.</Empty> : visible.slice(0, 40).map((r) => (
+                  <article key={r.record_id} className="rounded-lg border border-white/10 p-3">
+                    <div className="flex items-start justify-between gap-2"><div><strong className="text-sm">{r.title}</strong><span className="ml-2 text-xs opacity-60">{r.kind} · {new Date(r.updated_at).toLocaleDateString()}</span></div>
+                      <button type="button" className="obs-btn-ghost" onClick={() => deleteRecord(r)} aria-label={`Delete ${r.title}`}>Delete</button></div>
+                    <p className="mt-2 whitespace-pre-wrap break-words text-sm opacity-75">{r.body}</p>
+                  </article>
+                ))}
+              </div>
+            </>
+          )}
+        </section>
+        {!snap ? <p className="mt-10 obs-empty">Reading memory…</p> : <BrainMap snap={snap} />}
       </main>
     </div>
   );
