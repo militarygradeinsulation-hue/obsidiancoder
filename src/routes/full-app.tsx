@@ -158,7 +158,7 @@ function FullAppPage() {
       if (!Object.keys(context).length) throw new Error("There are no editable source files to send.");
       const response = await authFetch("/api/full-app/edits", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: instruction, selectedPath: selected, files: context }),
+        body: JSON.stringify({ prompt: instruction, selectedPath: editable ? selected : undefined, files: context }),
       });
       const result = await response.json() as { ok?: boolean; plan?: AppEditPlan; error?: string };
       if (!response.ok || !result.ok || !result.plan) throw new Error(result.error ?? "AI edit failed.");
@@ -215,7 +215,9 @@ function FullAppPage() {
       files: (r.data.projectJson as { type?: string; files?: FullAppFiles } | null)?.type === "obsidian-full-app.v1"
         ? (r.data.projectJson as { files: FullAppFiles }).files
         : buildFullAppFiles(r.data.html, r.data.projectName ?? "Cloud App"),
-      cloudId: r.data.id, updatedAt: Date.now(),
+      // Converting a Studio cloud build must never overwrite that original.
+      cloudId: (r.data.projectJson as { type?: string } | null)?.type === "obsidian-full-app.v1"
+        ? r.data.id : undefined, updatedAt: Date.now(),
     });
     if (incoming) { setWorkspace(incoming); setSelected("src/App.tsx"); setDraft(null); setStatus("Cloud source opened"); }
     else setStatus("This cloud project has an invalid Full App file tree.");
