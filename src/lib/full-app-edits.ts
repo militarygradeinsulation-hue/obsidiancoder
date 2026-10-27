@@ -94,6 +94,9 @@ export function reconcileFullAppFiles(
   if (Object.keys(submitted).length > 100) throw new Error("Too many workspace files.");
   const updates: AppEdit[] = [];
   for (const [path, content] of Object.entries(submitted)) {
+    // Publish HTML may be repaired/sanitized after it was saved in the browser.
+    // Always regenerate this protected file from trusted server HTML instead.
+    if (path === "src/generated-design.ts") continue;
     if (base[path] === content) continue;
     if (!isEditableAppPath(path)) throw new Error("Cannot override protected file: " + path);
     if (typeof content !== "string" || content.length > MAX_EDIT_BYTES)
