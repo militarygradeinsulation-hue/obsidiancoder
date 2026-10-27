@@ -30,7 +30,7 @@ assert.equal(files["supabase/migrations/001_app_items.sql"], undefined);
 assert.equal(isEditableAppPath(APP_ITEMS_MIGRATION), false);
 assert.equal(isEditableAppPath(APP_STORAGE_MIGRATION), false);
 assert.equal(isEditableAppPath("supabase/migrations/20261027000002_custom.sql"), true);
-assert.equal(isEditableAppPath(APP_EDGE_FUNCTION), false); // Until explicit function editor support
+assert.equal(isEditableAppPath(APP_EDGE_FUNCTION), true); // User-reviewed function source
 const old: Record<string, string> = {
   ...files, "supabase/migrations/001_app_items.sql": files[APP_ITEMS_MIGRATION],
   ".github/workflows/obsidian-build.yml": "legacy-workflow",
