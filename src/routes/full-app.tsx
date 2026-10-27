@@ -135,7 +135,7 @@ function FullAppPage() {
   function createSource() {
     if (!workspace) return;
     const path = newPath.trim();
-    if (!isEditableAppPath(path)) { setStatus("Use src/components, src/lib or supabase/migrations. Protected files cannot be added."); return; }
+    if (!isEditableAppPath(path)) { setStatus("Use a source directory (components, pages, hooks, features, services, lib) or a new SQL migration."); return; }
     if (files[path] !== undefined) { setStatus("That file already exists."); setSelected(path); return; }
     if (Object.keys(files).length >= 100) { setStatus("100 file limit reached."); return; }
     replaceFiles({ ...files, [path]: path.endsWith(".sql") ? "-- Proposed schema migration. Review before applying.\n" : "// New app component\n" }, "File created");
