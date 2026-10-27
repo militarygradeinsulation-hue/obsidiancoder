@@ -104,23 +104,19 @@ export function addManagedAppBuild(files: FullAppFiles, rawAddons?: unknown): Fu
   if (!vite || !vite.includes('defineConfig')) throw new Error("Missing Vite config.");
   return {
     ...files,
-    "package.json": JSON.stringify(pkg, null, 2) + "
-",
+    "package.json": JSON.stringify(pkg, null, 2) + "\n",
     "vite.config.ts": vite.replace(
       'export default defineConfig({ plugins: [react()] });',
       'export default defineConfig({ plugins: [react()], base: process.env.GITHUB_PAGES_BASE || "/" });',
     ),
     ".github/workflows/obsidian-build.yml": yaml(BUILD),
     ".github/workflows/obsidian-publish.yml": yaml(DEPLOY),
-    "README.md": (files["README.md"] || "") + "
-## Managed build and GitHub Pages publishing
-" +
+    "README.md": (files["README.md"] || "") + "\n## Managed build and GitHub Pages publishing\n" +
       "The included GitHub Actions build checks source on pushes and on demand. " +
       "Use ObsidianCoder's GitHub integration to inspect runs, trigger a build and explicitly publish after configuring Pages. " +
       "Supply only PUBLIC Supabase URL and publishable key using GitHub repository Actions variables. " +
       "Run the included SQL migration in your own Supabase project; no database is created automatically. " +
       "Check the hosted URL, OAuth redirect URLs and per-user RLS before inviting users. " +
-      "Do not put service-role/secret keys in VITE_ variables.
-",
+      "Do not put service-role/secret keys in VITE_ variables.\n",
   };
 }
