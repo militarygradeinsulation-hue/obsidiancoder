@@ -37,7 +37,7 @@ assert.throws(() => parseAppEditPlan({ summary: "Duplicate", edits: [
   { action: "delete", path: "src/App.tsx" },
 ] }));
 assert.throws(() => applyAppEditPlan(initial, { summary: "Delete required", edits: [{ action: "delete", path: "src/App.tsx" }] }));
-assert.throws(() => reconcileFullAppFiles(html, "Example", { ...initial, "src/generated-design.ts": "evil" }));
+assert.equal(reconcileFullAppFiles(html, "Example", { ...initial, "src/generated-design.ts": "evil" })["src/generated-design.ts"], initial["src/generated-design.ts"], "trusted design is regenerated");
 assert.throws(() => reconcileFullAppFiles(html, "Example", { ...initial, ".env.local": "SECRET=1" }));
 const removed = applyAppEditPlan(next, { summary: "Delete component", edits: [{ action: "delete", path: "src/components/Dashboard.tsx" }] });
 assert.equal(removed["src/components/Dashboard.tsx"], undefined);
