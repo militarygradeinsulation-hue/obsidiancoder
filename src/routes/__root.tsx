@@ -12,6 +12,7 @@ import { useEffect, type ReactNode } from "react";
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import IntroSplash from "../components/IntroSplash";
+import { BrainCloudSync } from "../components/BrainCloudSync";
 
 
 function NotFoundComponent() {
@@ -138,6 +139,7 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       {/* IntroSplash mounts once per session across every route (unlock, index, etc.). */}
       <IntroSplash />
+      <BrainCloudSync />
       {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
       <Outlet />
     </QueryClientProvider>
