@@ -117,7 +117,7 @@ const EXTRACTION_RULES: ExtractionRule[] = [
   },
 ];
 
-const MAX_COMPONENT_SIZE = 4096;    // 4 KB
+const MAX_COMPONENT_SIZE = 1600;    // must fit the /api/generate input schema
 const MAX_STORED = 20;
 const STORAGE_KEY = "obs.component-registry.v1";
 

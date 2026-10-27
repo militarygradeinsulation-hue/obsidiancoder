@@ -135,7 +135,9 @@ const inputSchema = z.object({
   reusableComponents: z.array(z.object({
     label: z.string(),
     kind: z.string(),
-    markup: z.string().max(1600),
+    // Client registry may store up to 4 KB; accept and trim instead of
+    // rejecting the whole request (see error_logs: too_big maximum 1600).
+    markup: z.string().max(8192).transform((s) => s.slice(0, 1600)),
   })).max(4).optional(),
   // Per-build project memory (purpose, audience, brand, constraints, etc.)
   // Sent from both the main IDE and Pocket. Injected as a system message so
