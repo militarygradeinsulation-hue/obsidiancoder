@@ -6,6 +6,9 @@ on:
       - "src/routes/full-app.tsx"
       - "src/routes/api/full-app/**"
       - "src/lib/full-app-edits.ts"
+      - "src/lib/full-app-build.ts"
+      - "src/lib/full-app-scaffold.ts"
+      - "src/lib/__tests__/full-app-managed-build.selftest.mts"
       - "src/lib/react-preview.ts"
       - "src/components/LiveReactPreview.tsx"
       - "src/lib/__tests__/react-preview.selftest.mts"
@@ -34,6 +37,8 @@ jobs:
         run: bun src/lib/__tests__/native-full-app.selftest.mts
       - name: Test isolated React preview compiler
         run: bun src/lib/__tests__/react-preview.selftest.mts
+      - name: Test managed build and deploy scaffolding
+        run: bun src/lib/__tests__/full-app-managed-build.selftest.mts
       - name: Build app and generate TanStack route registry
         run: bun run build
       - name: TypeScript validation
