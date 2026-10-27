@@ -452,6 +452,54 @@ export function GithubModal(props: {
               )}
             </section>
 
+            <section style={{ borderTop: "1px solid rgba(182,188,200,.2)", paddingTop: 14, marginBottom: 18 }}>
+              <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, opacity: .75, marginBottom: 9 }}>
+                Full App · managed build and release
+              </div>
+              <p style={{ color: "#B6BCC8", fontSize: 12, lineHeight: 1.5 }}>
+                GitHub builds your app on isolated runners. Select an exported Full App repository.
+                The token needs Actions: Read/Write and Variables: Read/Write to manage builds and public settings,
+                plus Pages and Administration write permission to publish.
+              </p>
+              <input list="obs-managed-repos" aria-label="Full App GitHub repository" value={managedRepo}
+                onChange={e => setManagedRepo(e.target.value)} placeholder="Your Full App repository name"
+                style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, margin: "8px 0" }} />
+              <datalist id="obs-managed-repos">{repos.map(repo => <option key={repo.full_name} value={repo.name}/>)}</datalist>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("buildStatus")}>Check build status</button>
+                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("triggerBuild")}>Run production build</button>
+              </div>
+              {(builds.length > 0 || publishes.length > 0) && (
+                <div style={{ marginTop: 12, fontSize: 12 }}>
+                  {([["Build", builds], ["Publish", publishes]] as const).map(([label, runs]) => runs.slice(0, 2).map(run => (
+                    <p key={label + run.id} style={{ color: "#B6BCC8", margin: "6px 0" }}>
+                      {label}: {run.conclusion ?? run.status} · <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125" }}>View GitHub run</a>
+                    </p>
+                  )))}
+                </div>
+              )}
+              <div style={{ marginTop: 14 }}>
+                <p style={{ fontSize: 12, color: "#B6BCC8" }}>Your app's public backend configuration:</p>
+                <input value={appUrl} onChange={e => setAppUrl(e.target.value)}
+                  aria-label="App Supabase URL" placeholder="https://project.supabase.co"
+                  style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, marginBottom: 6 }} />
+                <input type="password" value={appPublishableKey} onChange={e => setAppPublishableKey(e.target.value)}
+                  aria-label="App Supabase publishable key" placeholder="sb_publishable_..."
+                  style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, marginBottom: 8 }} />
+                <button type="button" className="obs-chip" disabled={!!loading || !appUrl.trim() || !appPublishableKey.trim()}
+                  onClick={() => void appAction("configureAppBackend")}>Save public app settings</button>
+              </div>
+              <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
+                <button type="button" className="obs-chip" disabled={!!loading}
+                  onClick={() => void appAction("publishApp")}>Publish to GitHub Pages</button>
+                {hostingUrl && <a href={hostingUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", fontSize: 12 }}>Open hosted site after deployment completes</a>}
+              </div>
+              <p style={{ color: "#B6BCC8", fontSize: 11, marginTop: 10 }}>
+                Publishing is opt-in and makes the frontend public. Database migration, authorization,
+                redirect URLs and successful production workflow must be verified separately.
+              </p>
+            </section>
+
             <section>
               <div
                 style={{
