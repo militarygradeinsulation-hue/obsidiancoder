@@ -30,6 +30,8 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   triggerBuild: "github_deploy",
   configureAppBackend: "github_deploy",
   publishApp: "github_deploy",
+  backendStatus: "github_list",
+  deployBackend: "github_deploy",
 };
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
@@ -80,6 +82,12 @@ export function GithubModal(props: {
   const [builds, setBuilds] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
   const [publishes, setPublishes] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
   const [hostingUrl, setHostingUrl] = React.useState("");
+  const [backendMode, setBackendMode] = React.useState<"functions-only" | "schema-and-functions">("functions-only");
+  const [backendReady, setBackendReady] = React.useState<null | {
+    hasAccessToken: boolean; hasDbPassword: boolean; hasProjectRef: boolean;
+    hasPublicUrl: boolean; hasPublicKey: boolean;
+  }>(null);
+  const [backendRuns, setBackendRuns] = React.useState<typeof builds>([]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -154,8 +162,15 @@ export function GithubModal(props: {
     }
   }
 
-  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "configureAppBackend") {
+  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
     if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
+    let backendApproval = "";
+    if (action === "deployBackend") {
+      backendApproval = window.prompt(
+        "Review the migrations and target app Supabase project. Deployment can change live data and incur charges. Type APPROVE_BACKEND_CHANGES to continue."
+      ) || "";
+      if (backendApproval !== "APPROVE_BACKEND_CHANGES") return;
+    }
     if (action === "publishApp" && !window.confirm(
       "Publish this application's frontend to GitHub Pages? Ensure its backend is configured and its latest build passes. This will make the site public."
     )) return;
@@ -164,15 +179,22 @@ export function GithubModal(props: {
       const result = await ghCall<{
         ok: boolean; builds?: typeof builds; publishes?: typeof publishes;
         message?: string; url?: string;
+        readiness?: NonNullable<typeof backendReady>;
+        runs?: typeof backendRuns;
       }>({
         action, token, repo: managedRepo.trim(),
         ...(action === "configureAppBackend" ? { url: appUrl.trim(), publishableKey: appPublishableKey.trim() } : {}),
+        ...(action === "deployBackend" ? { mode: backendMode, approval: backendApproval } : {}),
       });
       if (action === "buildStatus") {
         setBuilds(result.builds ?? []);
         setPublishes(result.publishes ?? []);
       }
-      if (action === "configureAppBackend") setAppPublishableKey("");
+      if (action === "backendStatus") {
+        setBackendReady(result.readiness ?? null);
+        setBackendRuns(result.runs ?? []);
+      }
+      if (action === "configureAppBackend") { setAppPublishableKey(""); setBackendReady(null); }
       if (result.url) setHostingUrl(result.url);
       if (result.message) onLog(result.message);
     } catch (e) {
