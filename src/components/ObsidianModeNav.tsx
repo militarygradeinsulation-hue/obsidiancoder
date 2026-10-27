@@ -6,12 +6,12 @@ import * as React from "react";
 import { Link } from "@tanstack/react-router";
 import { readCurrentProject, type CurrentProject } from "@/lib/current-project";
 
-type Mode = "pocket" | "studio" | "brain" | "agent";
+type Mode = "pocket" | "studio" | "full-app" | "brain" | "agent";
 
 export function ObsidianModeNav({
   showProject = false,
   className = "",
-  modes = ["pocket", "studio", "brain", "agent"],
+  modes = ["pocket", "studio", "full-app", "brain", "agent"],
 }: {
   showProject?: boolean;
   className?: string;
@@ -30,6 +30,7 @@ export function ObsidianModeNav({
     <nav className={`obs-modenav ${className}`} aria-label="Obsidian modes">
       {modes.includes("pocket") && <Link to="/pocket" title="Pocket — quick chat-to-build">Pocket</Link>}
       {modes.includes("studio") && <Link to="/" activeOptions={{ exact: true }} title="Studio — precision workspace">Studio</Link>}
+      {modes.includes("full-app") && <Link to="/full-app" title="Full App — React, cloud data, and GitHub">Full App</Link>}
       {modes.includes("brain") && <Link to="/brain" title="Brain — shared memory and learning">Brain</Link>}
       {modes.includes("agent") && <Link to="/agent" title="Agent — mission control">Agent</Link>}
       {modes.length > 0 && <span className="obs-modenav-sep" aria-hidden />}
