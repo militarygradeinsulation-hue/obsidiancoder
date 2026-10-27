@@ -55,8 +55,9 @@ function studioSource(): { title: string; html: string; cloudId?: string } | nul
 function newWorkspace(source?: { title: string; html: string; cloudId?: string }): FullAppWorkspace {
   const title = (source?.title ?? "New Full App").slice(0, 100);
   const html = source?.html || SAMPLE_HTML;
+  // Never reuse a Studio cloud ID: Full App saves must not overwrite the original build.
   return { type: "obsidian-full-app.v1", title, sourceHtml: html,
-    files: buildFullAppFiles(html, title), cloudId: source?.cloudId, updatedAt: Date.now() };
+    files: buildFullAppFiles(html, title), updatedAt: Date.now() };
 }
 function restoreWorkspace(value: unknown): FullAppWorkspace | null {
   if (!value || typeof value !== "object") return null;
@@ -211,7 +212,7 @@ function FullAppPage() {
     if (!r.ok) { setStatus(r.error); setBusy(false); return; }
     const incoming = restoreWorkspace({
       type: "obsidian-full-app.v1", title: r.data.projectName ?? "Cloud App", sourceHtml: r.data.html,
-      files: (r.data.projectJson as { files?: FullAppFiles } | null)?.type === "obsidian-full-app.v1"
+      files: (r.data.projectJson as { type?: string; files?: FullAppFiles } | null)?.type === "obsidian-full-app.v1"
         ? (r.data.projectJson as { files: FullAppFiles }).files
         : buildFullAppFiles(r.data.html, r.data.projectName ?? "Cloud App"),
       cloudId: r.data.id, updatedAt: Date.now(),
@@ -253,7 +254,11 @@ function FullAppPage() {
               </div>
               <label className="mt-3 block text-xs">Project name
                 <input className={inputStyle + " mt-1"} value={workspace.title} maxLength={100}
-                  onChange={e => setWorkspace(w => w ? { ...w, title: e.target.value, updatedAt: Date.now() } : w)} />
+                  onChange={e => setWorkspace(w => w ? {
+                    ...w, title: e.target.value, updatedAt: Date.now(),
+                    files: { ...w.files, "index.html": buildFullAppFiles(w.sourceHtml, e.target.value)["index.html"],
+                      "README.md": buildFullAppFiles(w.sourceHtml, e.target.value)["README.md"] },
+                  } : w)} />
               </label>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button type="button" className="obs-btn-ghost" disabled={!userId || busy} onClick={() => void refreshCloud()}>List cloud projects</button>
