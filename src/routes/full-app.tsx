@@ -10,6 +10,7 @@ import { dualSafeGet, safeGet } from "@/lib/safe-storage";
 import { getAccountCode } from "@/lib/account-code";
 import { readCurrentProject } from "@/lib/current-project";
 import { buildFullAppFiles, type FullAppFiles } from "@/lib/full-app-scaffold";
+import { APPROVED_APP_ADDONS, APP_ADDON_IDS, validateAppAddons, type AppAddonId } from "@/lib/full-app-build";
 import {
   applyAppEditPlan, isEditableAppPath, parseAppEditPlan, reconcileFullAppFiles,
   workspaceFingerprint, type AppEditPlan, MAX_EDIT_BYTES,
@@ -36,6 +37,7 @@ interface FullAppWorkspace {
   title: string;
   sourceHtml: string;
   files: FullAppFiles;
+  addons: AppAddonId[];
   cloudId?: string;
   updatedAt: number;
 }
@@ -66,7 +68,7 @@ function newWorkspace(source?: { title: string; html: string; cloudId?: string }
   const html = source?.html || SAMPLE_HTML;
   // Never reuse a Studio cloud ID: Full App saves must not overwrite the original build.
   return { type: "obsidian-full-app.v1", title, sourceHtml: html,
-    files: buildFullAppFiles(html, title), updatedAt: Date.now() };
+    files: buildFullAppFiles(html, title), addons: [], updatedAt: Date.now() };
 }
 function restoreWorkspace(value: unknown): FullAppWorkspace | null {
   if (!value || typeof value !== "object") return null;
@@ -75,9 +77,10 @@ function restoreWorkspace(value: unknown): FullAppWorkspace | null {
       w.sourceHtml.length > 4_000_000 || typeof w.title !== "string" ||
       !w.files || typeof w.files !== "object" || Array.isArray(w.files)) return null;
   try {
-    const files = reconcileFullAppFiles(w.sourceHtml, w.title, w.files);
+    const addons = validateAppAddons(w.addons);
+    const files = reconcileFullAppFiles(w.sourceHtml, w.title, w.files, addons);
     return { type: "obsidian-full-app.v1", sourceHtml: w.sourceHtml, title: w.title.slice(0, 100),
-      files, cloudId: typeof w.cloudId === "string" ? w.cloudId : undefined,
+      files, addons, cloudId: typeof w.cloudId === "string" ? w.cloudId : undefined,
       updatedAt: typeof w.updatedAt === "number" ? w.updatedAt : Date.now() };
   } catch { return null; }
 }
@@ -195,10 +198,10 @@ function FullAppPage() {
     setBusy(true); setStatus("Saving source to cloud...");
     try {
       // Validate source before consuming a cloud-save credit.
-      reconcileFullAppFiles(workspace.sourceHtml, workspace.title, files);
+      reconcileFullAppFiles(workspace.sourceHtml, workspace.title, files, workspace.addons);
       const id = workspace.cloudId ?? newCloudProjectId();
       const r = await saveCloudProject({ id, name: workspace.title, html: workspace.sourceHtml,
-        prompt: "Obsidian Full App native workspace", projectJson: { type: workspace.type, files },
+        prompt: "Obsidian Full App native workspace", projectJson: { type: workspace.type, files, addons: workspace.addons },
         model: "full-app", surface: "coder" });
       if (!r.ok) throw new Error(r.error);
       setWorkspace(w => w ? { ...w, cloudId: id } : w);
@@ -225,6 +228,7 @@ function FullAppPage() {
         ? (r.data.projectJson as { files: FullAppFiles }).files
         : buildFullAppFiles(r.data.html, r.data.projectName ?? "Cloud App"),
       // Converting a Studio cloud build must never overwrite that original.
+      addons: (r.data.projectJson as { addons?: AppAddonId[] } | null)?.addons ?? [],
       cloudId: (r.data.projectJson as { type?: string } | null)?.type === "obsidian-full-app.v1"
         ? r.data.id : undefined, updatedAt: Date.now(),
     });
@@ -278,6 +282,27 @@ function FullAppPage() {
                   {cloudList.map(p => <option value={p.id} key={p.id}>{p.projectName ?? "Untitled"} ({new Date(p.updatedAt).toLocaleDateString()})</option>)}
                 </select>
                 <button type="button" className="obs-btn-ghost" disabled={!cloudChoice || busy} onClick={() => void openCloud()}>Open cloud project</button>
+              </div>
+            </section>
+            <section className="obs-node mt-5">
+              <h2 className="text-lg font-semibold">Production dependencies</h2>
+              <p className="mt-1 text-sm opacity-65">Choose reviewed packages for your exported app. GitHub Actions installs them on an isolated runner. No package scripts run inside ObsidianCoder.</p>
+              <div className="mt-3 flex flex-wrap gap-4">
+                {APP_ADDON_IDS.map(id => (
+                  <label key={id} className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" checked={workspace.addons.includes(id)} onChange={event => {
+                      const addons = event.target.checked
+                        ? [...workspace.addons, id]
+                        : workspace.addons.filter(x => x !== id);
+                      try {
+                        const updated = reconcileFullAppFiles(workspace.sourceHtml, workspace.title, files, addons);
+                        setWorkspace(w => w ? { ...w, addons, files: updated, updatedAt: Date.now() } : w);
+                        setDraft(null); setStatus("Updated selected production packages");
+                      } catch (err) { setStatus(err instanceof Error ? err.message : "Dependency change rejected."); }
+                    }} />
+                    {APPROVED_APP_ADDONS[id].name} <span className="opacity-60">({APPROVED_APP_ADDONS[id].version})</span>
+                  </label>
+                ))}
               </div>
             </section>
             <div className="mt-5 grid gap-4 lg:grid-cols-[230px_minmax(0,1fr)]">
@@ -343,7 +368,7 @@ function FullAppPage() {
       </main>
       {workspace && <GithubModal open={githubOpen} onClose={() => setGithubOpen(false)}
         currentHtml={workspace.sourceHtml} defaultRepoName={workspace.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-app"}
-        fullAppFiles={workspace.files} defaultDeployMode="full-app"
+        fullAppFiles={workspace.files} fullAppAddons={workspace.addons} defaultDeployMode="full-app"
         onImport={html => { if (confirm("Import this HTML as a new Full App design?")) { setWorkspace(newWorkspace({ title: workspace.title, html })); setSelected("src/App.tsx"); } }}
         onLog={line => setStatus(line)}/>}
     </div>
