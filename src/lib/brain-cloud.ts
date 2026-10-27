@@ -106,3 +106,13 @@ export async function syncBrainRecords(uid: string, libraryCode?: string): Promi
   writeCache(uid, merged);
   return merged;
 }
+
+/** Merge cloud-scored outcomes into a build query only for the active signed-in user.
+ * The caller must obtain the user ID from useAuth, never from a library code.
+ */
+export function brainLearningForUser(uid: string, libraryCode?: string): BuildLearningEntry[] {
+  const local = readBuildLearning(libraryCode).entries;
+  const cloud = validatedCloudLearnings(readCache(uid));
+  return [...new Map([...cloud, ...local].map((e) => [e.id, e])).values()]
+    .sort((a, b) => b.at - a.at).slice(0, 60);
+}
