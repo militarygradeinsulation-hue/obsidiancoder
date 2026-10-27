@@ -1,3 +1,4 @@
+import { brainLearningForUser } from "@/lib/brain-cloud";
 // Obsidian Pocket — experimental, additive prompt-to-code workspace.
 // Route: /forge. It does NOT replace the main Obsidian IDE at "/". Every
 // capability here calls the real Obsidian pipeline (streaming /api/generate,
@@ -927,7 +928,7 @@ function ForgePage() {
         activePlanKey = nextPlanKey;
         // Obsidian Brain: local lookup (no provider call). A strong proven
         // direction replaces the concept-planning call.
-        brain = queryBrain({ prompt: p, family: effectiveStyleFamily, surface: "pocket", libraryCode });
+        brain = queryBrain({ prompt: p, family: effectiveStyleFamily, surface: "pocket", libraryCode, ...(authUserId ? { entries: brainLearningForUser(authUserId, libraryCode) } : {}) });
         log(`🧠 ${brainMatchLabel(brain.match)} · ${brain.lookupMs}ms · ${brain.reasons.join(" · ")}`);
         if (brain.provenDna) {
           log(`⚡ Reused a proven direction (scored ${brain.proven?.score}/100) — planner call skipped`);
