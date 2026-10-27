@@ -31,6 +31,13 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("buildStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("triggerBuild"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("publishApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({ action: z.literal("backendStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({
+    action: z.literal("deployBackend"), token: z.string().min(10).max(400),
+    repo: z.string().min(1).max(90),
+    mode: z.enum(["functions-only", "schema-and-functions"]),
+    approval: z.literal("APPROVE_BACKEND_CHANGES"),
+  }),
   z.object({
     action: z.literal("configureAppBackend"),
     token: z.string().min(10).max(400), repo: z.string().min(1).max(90),
@@ -259,10 +266,10 @@ async function managedDefaultHead(token: string, login: string, repo: string) {
   const head = await ghJson(headRes) as { object: { sha: string } };
   return { branch, sha: head.object.sha };
 }
-async function workflowDispatch(token: string, login: string, repo: string, file: string) {
+async function workflowDispatch(token: string, login: string, repo: string, file: string, inputs?: Record<string, string>) {
   const { branch } = await managedDefaultHead(token, login, repo);
   const r = await gh(token, "/repos/" + login + "/" + repo + "/actions/workflows/" + file + "/dispatches", {
-    method: "POST", body: JSON.stringify({ ref: branch }),
+    method: "POST", body: JSON.stringify({ ref: branch, ...(inputs ? { inputs } : {}) }),
   });
   if (!r.ok) throw new Error("GitHub could not start " + file + " (" + r.status + "). Check Actions: write permissions and the default branch.");
 }
@@ -287,6 +294,30 @@ async function setPublicRepoVariable(token: string, login: string, repo: string,
   const r = await gh(token, path, { method, body: JSON.stringify({ name, value }) });
   if (!r.ok) throw new Error("Could not configure GitHub Actions variables (" + r.status + "). Check Variables: write permissions.");
 }
+
+async function backendReadiness(token: string, login: string, repo: string) {
+  const workflow = await gh(token, "/repos/" + login + "/" + repo +
+    "/contents/.github/workflows/obsidian-backend.yml");
+  if (!workflow.ok) throw new Error("This app does not contain the backend deployment workflow. Export a new Full App.");
+  const [secretsRes, varsRes] = await Promise.all([
+    gh(token, "/repos/" + login + "/" + repo + "/actions/secrets?per_page=100"),
+    gh(token, "/repos/" + login + "/" + repo + "/actions/variables?per_page=100"),
+  ]);
+  if (!secretsRes.ok || !varsRes.ok)
+    throw new Error("GitHub token requires Actions secrets and variables read permissions to inspect backend readiness.");
+  const secrets = await ghJson(secretsRes) as { secrets?: Array<{ name: string }> };
+  const vars = await ghJson(varsRes) as { variables?: Array<{ name: string }> };
+  const secretNames = new Set((secrets.secrets ?? []).map(s => s.name));
+  const variableNames = new Set((vars.variables ?? []).map(s => s.name));
+  return {
+    hasAccessToken: secretNames.has("SUPABASE_ACCESS_TOKEN"),
+    hasDbPassword: secretNames.has("SUPABASE_DB_PASSWORD"),
+    hasProjectRef: variableNames.has("SUPABASE_PROJECT_REF"),
+    hasPublicUrl: variableNames.has("VITE_SUPABASE_URL"),
+    hasPublicKey: variableNames.has("VITE_SUPABASE_PUBLISHABLE_KEY"),
+  };
+}
+
 async function initializeManagedPages(token: string, login: string, repo: string) {
   const base = "/repos/" + login + "/" + repo + "/pages";
   const existing = await gh(token, base);
@@ -338,9 +369,28 @@ export const Route = createFileRoute("/api/github")({
           }
 
           if (parsed.action === "buildStatus" || parsed.action === "triggerBuild" ||
-              parsed.action === "publishApp" || parsed.action === "configureAppBackend") {
+              parsed.action === "publishApp" || parsed.action === "configureAppBackend" ||
+              parsed.action === "backendStatus" || parsed.action === "deployBackend") {
             const user = await getUser(parsed.token);
             const appRepo = await managedAppRepo(parsed.token, user.login, parsed.repo);
+            if (parsed.action === "backendStatus" || parsed.action === "deployBackend") {
+              const readiness = await backendReadiness(parsed.token, user.login, appRepo);
+              if (parsed.action === "backendStatus") {
+                const runs = await managedRunStatus(parsed.token, user.login, appRepo, "obsidian-backend.yml");
+                return Response.json({ ok: true, readiness, runs });
+              }
+              if (!readiness.hasAccessToken || !readiness.hasProjectRef ||
+                  (parsed.mode === "schema-and-functions" && !readiness.hasDbPassword)) {
+                throw new Error("Configure this app's separate Supabase project reference and GitHub Actions secrets before deployment.");
+              }
+              // The caller must explicitly type approval, GitHub Actions repeats
+              // the check, and the production-backend environment may require reviewers.
+              await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-backend.yml", {
+                mode: parsed.mode, approval: parsed.approval,
+              });
+              return Response.json({ ok: true, status: "queued", message:
+                "Backend deployment requested. Review GitHub Actions and production-backend approval before using live data." });
+            }
             if (parsed.action === "buildStatus") {
               const [builds, publishes] = await Promise.all([
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-build.yml"),
@@ -362,6 +412,7 @@ export const Route = createFileRoute("/api/github")({
                 throw new Error("Use a Supabase publishable key (sb_publishable_), never a secret or service-role key.");
               }
               await setPublicRepoVariable(parsed.token, user.login, appRepo, "VITE_SUPABASE_URL", url.toString().replace(/\/$/, ""));
+              await setPublicRepoVariable(parsed.token, user.login, appRepo, "SUPABASE_PROJECT_REF", url.hostname.slice(0, -".supabase.co".length));
               await setPublicRepoVariable(parsed.token, user.login, appRepo, "VITE_SUPABASE_PUBLISHABLE_KEY", parsed.publishableKey);
               return Response.json({ ok: true, message: "Public app configuration saved in GitHub repository variables." });
             }
