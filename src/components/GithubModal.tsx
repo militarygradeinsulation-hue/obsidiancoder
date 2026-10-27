@@ -30,6 +30,8 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   triggerBuild: "github_deploy",
   configureAppBackend: "github_deploy",
   publishApp: "github_deploy",
+  backendStatus: "github_list",
+  deployBackend: "github_deploy",
 };
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
@@ -80,6 +82,12 @@ export function GithubModal(props: {
   const [builds, setBuilds] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
   const [publishes, setPublishes] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
   const [hostingUrl, setHostingUrl] = React.useState("");
+  const [backendMode, setBackendMode] = React.useState<"functions-only" | "schema-and-functions">("functions-only");
+  const [backendReady, setBackendReady] = React.useState<null | {
+    hasAccessToken: boolean; hasDbPassword: boolean; hasProjectRef: boolean;
+    hasPublicUrl: boolean; hasPublicKey: boolean;
+  }>(null);
+  const [backendRuns, setBackendRuns] = React.useState<typeof builds>([]);
 
   React.useEffect(() => {
     if (!open) return;
@@ -154,8 +162,15 @@ export function GithubModal(props: {
     }
   }
 
-  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "configureAppBackend") {
+  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
     if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
+    let backendApproval = "";
+    if (action === "deployBackend") {
+      backendApproval = window.prompt(
+        "Review the migrations and target app Supabase project. Deployment can change live data and incur charges. Type APPROVE_BACKEND_CHANGES to continue."
+      ) || "";
+      if (backendApproval !== "APPROVE_BACKEND_CHANGES") return;
+    }
     if (action === "publishApp" && !window.confirm(
       "Publish this application's frontend to GitHub Pages? Ensure its backend is configured and its latest build passes. This will make the site public."
     )) return;
@@ -164,15 +179,22 @@ export function GithubModal(props: {
       const result = await ghCall<{
         ok: boolean; builds?: typeof builds; publishes?: typeof publishes;
         message?: string; url?: string;
+        readiness?: NonNullable<typeof backendReady>;
+        runs?: typeof backendRuns;
       }>({
         action, token, repo: managedRepo.trim(),
         ...(action === "configureAppBackend" ? { url: appUrl.trim(), publishableKey: appPublishableKey.trim() } : {}),
+        ...(action === "deployBackend" ? { mode: backendMode, approval: backendApproval } : {}),
       });
       if (action === "buildStatus") {
         setBuilds(result.builds ?? []);
         setPublishes(result.publishes ?? []);
       }
-      if (action === "configureAppBackend") setAppPublishableKey("");
+      if (action === "backendStatus") {
+        setBackendReady(result.readiness ?? null);
+        setBackendRuns(result.runs ?? []);
+      }
+      if (action === "configureAppBackend") { setAppPublishableKey(""); setBackendReady(null); }
       if (result.url) setHostingUrl(result.url);
       if (result.message) onLog(result.message);
     } catch (e) {
@@ -488,6 +510,57 @@ export function GithubModal(props: {
                   style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, marginBottom: 8 }} />
                 <button type="button" className="obs-chip" disabled={!!loading || !appUrl.trim() || !appPublishableKey.trim()}
                   onClick={() => void appAction("configureAppBackend")}>Save public app settings</button>
+              </div>
+              <div style={{ marginTop: 15, padding: 12, border: "1px solid rgba(244,161,37,.22)", borderRadius: 10 }}>
+                <h3 style={{ fontSize: 13, margin: "0 0 6px" }}>Server functions, private files, and database</h3>
+                <p style={{ color: "#B6BCC8", fontSize: 12, lineHeight: 1.5 }}>
+                  Every app uses its own Supabase project. Save its public settings above.
+                  Configure SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as GitHub Actions secrets.
+                  Review the SQL migrations before deploying.
+                </p>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+                  <button type="button" className="obs-chip" disabled={!!loading}
+                    onClick={() => void appAction("backendStatus")}>Check backend readiness</button>
+                  {user && managedRepo && (
+                    <a target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", fontSize: 12, alignSelf: "center" }}
+                      href={"https://github.com/" + user.login + "/" + managedRepo + "/settings/secrets/actions"}>
+                      Configure GitHub Secrets and Variables
+                    </a>
+                  )}
+                </div>
+                {backendReady && (
+                  <div role="status" style={{ marginTop: 10, color: "#B6BCC8", fontSize: 12 }}>
+                    {([
+                      ["Supabase project reference", backendReady.hasProjectRef],
+                      ["Public app URL", backendReady.hasPublicUrl],
+                      ["Public publishable key", backendReady.hasPublicKey],
+                      ["Management access token", backendReady.hasAccessToken],
+                      ["Database password", backendReady.hasDbPassword],
+                    ] as const).map(([name, ready]) => (
+                      <div key={name}>{ready ? "✓" : "○"} {name}</div>
+                    ))}
+                  </div>
+                )}
+                {backendRuns.slice(0, 2).map(run => (
+                  <p key={run.id} style={{ fontSize: 12, marginTop: 7 }}>
+                    Backend: {run.conclusion ?? run.status} ·
+                    <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", marginLeft: 5 }}>View workflow</a>
+                  </p>
+                ))}
+                <label style={{ color: "#B6BCC8", display: "block", fontSize: 12, marginTop: 12 }}>
+                  Backend deployment operation
+                  <select value={backendMode} onChange={e => setBackendMode(e.target.value as typeof backendMode)}
+                    style={{ display: "block", width: "100%", marginTop: 5, background: "#0b0d10", color: "#fff", border: "1px solid #464b56", padding: 8, borderRadius: 8 }}>
+                    <option value="functions-only">Deploy server functions only</option>
+                    <option value="schema-and-functions">Apply reviewed SQL migrations AND functions</option>
+                  </select>
+                </label>
+                <button type="button" className="obs-chip" style={{ marginTop: 9 }} disabled={!!loading}
+                  onClick={() => void appAction("deployBackend")}>Request backend deployment</button>
+                <p style={{ color: "#B6BCC8", fontSize: 11, marginTop: 10 }}>
+                  Explicit typed approval required. GitHub's production-backend environment can require an additional reviewer.
+                  This does not create or purchase a Supabase project automatically.
+                </p>
               </div>
               <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                 <button type="button" className="obs-chip" disabled={!!loading}
