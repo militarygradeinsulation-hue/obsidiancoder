@@ -1987,6 +1987,15 @@ function ForgePage() {
             </Link>
 
             <Link
+              to="/full-app"
+              className={btn}
+              data-testid="pocket-topbar-full-app"
+              title="Continue this Pocket build in the native React Full App workspace"
+            >
+              Full App
+            </Link>
+
+            <Link
               to="/archive"
               className={btn}
               data-testid="pocket-topbar-archive"
