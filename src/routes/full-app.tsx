@@ -3,6 +3,7 @@ import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Code2, Cloud, Database, FilePlus2, FolderGit2, RotateCcw, Sparkles, Trash2 } from "lucide-react";
 import { ObsidianModeNav } from "@/components/ObsidianModeNav";
 import { GithubModal } from "@/components/GithubModal";
+import { LiveReactPreview } from "@/components/LiveReactPreview";
 import { useAuth } from "@/hooks/useSubscription";
 import { authFetch } from "@/lib/auth-fetch";
 import { dualSafeGet, safeGet } from "@/lib/safe-storage";
@@ -247,7 +248,7 @@ function FullAppPage() {
       <main className="obs-page-wrap">
         <p className="obs-kicker">Full App · React + database</p>
         <h1 className="obs-display mt-2 text-4xl sm:text-6xl">Build the entire app</h1>
-        <p className="mt-3 max-w-3xl text-sm opacity-70">An editable React application workspace with AI-assisted multi-file changes and cloud project storage. Generated designs stay sandboxed until migrated into React. Supabase setup and production builds run in the exported project.</p>
+        <p className="mt-3 max-w-3xl text-sm opacity-70">An editable React application workspace with AI-assisted multi-file changes, cloud storage and isolated live React preview. Supabase setup and production deployment run in the exported project.</p>
         <div className="mt-5 flex flex-wrap items-center gap-2">
           <button type="button" className="obs-btn-ghost" onClick={importStudio}><RotateCcw size={14}/> Import current build</button>
           <button type="button" className="obs-btn-primary" onClick={saveCloud} disabled={!workspace || !userId || busy}><Cloud size={14}/> Save to cloud</button>
@@ -332,11 +333,10 @@ function FullAppPage() {
               )}
             </section>
             <section className="obs-node mt-5">
-              <h2 className="text-lg font-semibold"><Database className="mr-2 inline" size={17}/>App preview and backend</h2>
-              <p className="mt-1 text-sm opacity-65">Original generated design preview. The React project has a real auth and data template, but it must be built and configured before it can run. The preview below does not execute your edited React files.</p>
-              <iframe className="mt-4 w-full rounded-xl border border-white/10 bg-white" title="Original generated design" style={{ minHeight: 360, height: "48vh" }}
-                srcDoc={workspace.sourceHtml} sandbox="allow-scripts allow-forms" referrerPolicy="no-referrer"/>
-              <p className="mt-3 text-xs opacity-70">Database migrations are proposals only. Publish the complete source to GitHub, configure Supabase publishable credentials, apply reviewed SQL, and deploy with a build-capable host.</p>
+              <h2 className="text-lg font-semibold"><Database className="mr-2 inline" size={17}/>Live React preview and backend</h2>
+              <p className="mt-1 mb-4 text-sm opacity-65">See your edited React components running in a sandboxed browser. Switch back to the original generated design anytime. Your backend credentials stay outside the preview.</p>
+              <LiveReactPreview files={workspace.files} originalHtml={workspace.sourceHtml} revision={fingerprint} />
+              <p className="mt-3 text-xs opacity-70">Database migrations are proposals only. Publish source to GitHub, configure Supabase publishable credentials, apply reviewed SQL, and deploy with a build-capable host for real database access.</p>
             </section>
           </>
         )}
