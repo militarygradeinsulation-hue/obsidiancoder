@@ -17,6 +17,7 @@ import { Route as BrainRouteImport } from './routes/brain'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DemosRouteImport } from './routes/demos'
 import { Route as ForgeRouteImport } from './routes/forge'
+import { Route as FullAppRouteImport } from './routes/full-app'
 import { Route as GalleryRouteImport } from './routes/gallery'
 import { Route as HomeRouteImport } from './routes/home'
 import { Route as LibraryRouteImport } from './routes/library'
@@ -46,6 +47,7 @@ import { Route as TeamSlugRouteImport } from './routes/team.$slug'
 import { Route as Char91DotlovableChar93OauthConsentRouteImport } from './routes/[.lovable]/oauth/consent'
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as ApiDashboardStatsRouteImport } from './routes/api/dashboard/stats'
+import { Route as ApiFullAppEditsRouteImport } from './routes/api/full-app/edits'
 import { Route as ApiImagesFillRouteImport } from './routes/api/images.fill'
 import { Route as ApiJobsIdRouteImport } from './routes/api/jobs.$id'
 import { Route as ApiJobsCreateRouteImport } from './routes/api/jobs.create'
@@ -110,6 +112,11 @@ const DemosRoute = DemosRouteImport.update({
 const ForgeRoute = ForgeRouteImport.update({
   id: '/forge',
   path: '/forge',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FullAppRoute = FullAppRouteImport.update({
+  id: '/full-app',
+  path: '/full-app',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GalleryRoute = GalleryRouteImport.update({
@@ -261,6 +268,11 @@ const ApiDashboardStatsRoute = ApiDashboardStatsRouteImport.update({
   path: '/api/dashboard/stats',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFullAppEditsRoute = ApiFullAppEditsRouteImport.update({
+  id: '/api/full-app/edits',
+  path: '/api/full-app/edits',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiImagesFillRoute = ApiImagesFillRouteImport.update({
   id: '/api/images/fill',
   path: '/api/images/fill',
@@ -400,6 +412,7 @@ export interface FileRoutesByFullPath {
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
+  '/full-app': typeof FullAppRoute
   '/gallery': typeof GalleryRoute
   '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
@@ -429,6 +442,7 @@ export interface FileRoutesByFullPath {
   '/.lovable/oauth/consent': typeof Char91DotlovableChar93OauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
+  '/api/full-app/edits': typeof ApiFullAppEditsRoute
   '/api/images/fill': typeof ApiImagesFillRoute
   '/api/jobs/$id': typeof ApiJobsIdRoute
   '/api/jobs/create': typeof ApiJobsCreateRoute
@@ -464,6 +478,7 @@ export interface FileRoutesByTo {
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
+  '/full-app': typeof FullAppRoute
   '/gallery': typeof GalleryRoute
   '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
@@ -493,6 +508,7 @@ export interface FileRoutesByTo {
   '/.lovable/oauth/consent': typeof Char91DotlovableChar93OauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
+  '/api/full-app/edits': typeof ApiFullAppEditsRoute
   '/api/images/fill': typeof ApiImagesFillRoute
   '/api/jobs/$id': typeof ApiJobsIdRoute
   '/api/jobs/create': typeof ApiJobsCreateRoute
@@ -529,6 +545,7 @@ export interface FileRoutesById {
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
+  '/full-app': typeof FullAppRoute
   '/gallery': typeof GalleryRoute
   '/home': typeof HomeRoute
   '/library': typeof LibraryRoute
@@ -558,6 +575,7 @@ export interface FileRoutesById {
   '/.lovable/oauth/consent': typeof Char91DotlovableChar93OauthConsentRoute
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
+  '/api/full-app/edits': typeof ApiFullAppEditsRoute
   '/api/images/fill': typeof ApiImagesFillRoute
   '/api/jobs/$id': typeof ApiJobsIdRoute
   '/api/jobs/create': typeof ApiJobsCreateRoute
@@ -595,6 +613,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/demos'
     | '/forge'
+    | '/full-app'
     | '/gallery'
     | '/home'
     | '/library'
@@ -624,6 +643,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
+    | '/api/full-app/edits'
     | '/api/images/fill'
     | '/api/jobs/$id'
     | '/api/jobs/create'
@@ -659,6 +679,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/demos'
     | '/forge'
+    | '/full-app'
     | '/gallery'
     | '/home'
     | '/library'
@@ -688,6 +709,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
+    | '/api/full-app/edits'
     | '/api/images/fill'
     | '/api/jobs/$id'
     | '/api/jobs/create'
@@ -723,6 +745,7 @@ export interface FileRouteTypes {
     | '/dashboard'
     | '/demos'
     | '/forge'
+    | '/full-app'
     | '/gallery'
     | '/home'
     | '/library'
@@ -752,6 +775,7 @@ export interface FileRouteTypes {
     | '/.lovable/oauth/consent'
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
+    | '/api/full-app/edits'
     | '/api/images/fill'
     | '/api/jobs/$id'
     | '/api/jobs/create'
@@ -788,6 +812,7 @@ export interface RootRouteChildren {
   DashboardRoute: typeof DashboardRoute
   DemosRoute: typeof DemosRoute
   ForgeRoute: typeof ForgeRoute
+  FullAppRoute: typeof FullAppRoute
   GalleryRoute: typeof GalleryRoute
   HomeRoute: typeof HomeRoute
   LibraryRoute: typeof LibraryRoute
@@ -817,6 +842,7 @@ export interface RootRouteChildren {
   Char91DotlovableChar93OauthConsentRoute: typeof Char91DotlovableChar93OauthConsentRoute
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiDashboardStatsRoute: typeof ApiDashboardStatsRoute
+  ApiFullAppEditsRoute: typeof ApiFullAppEditsRoute
   ApiImagesFillRoute: typeof ApiImagesFillRoute
   ApiJobsIdRoute: typeof ApiJobsIdRoute
   ApiJobsCreateRoute: typeof ApiJobsCreateRoute
@@ -897,6 +923,13 @@ declare module '@tanstack/react-router' {
       path: '/forge'
       fullPath: '/forge'
       preLoaderRoute: typeof ForgeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/full-app': {
+      id: '/full-app'
+      path: '/full-app'
+      fullPath: '/full-app'
+      preLoaderRoute: typeof FullAppRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/gallery': {
@@ -1100,6 +1133,13 @@ declare module '@tanstack/react-router' {
       path: '/api/dashboard/stats'
       fullPath: '/api/dashboard/stats'
       preLoaderRoute: typeof ApiDashboardStatsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/full-app/edits': {
+      id: '/api/full-app/edits'
+      path: '/api/full-app/edits'
+      fullPath: '/api/full-app/edits'
+      preLoaderRoute: typeof ApiFullAppEditsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/api/images/fill': {
@@ -1323,6 +1363,7 @@ const rootRouteChildren: RootRouteChildren = {
   DashboardRoute: DashboardRoute,
   DemosRoute: DemosRoute,
   ForgeRoute: ForgeRoute,
+  FullAppRoute: FullAppRoute,
   GalleryRoute: GalleryRoute,
   HomeRoute: HomeRoute,
   LibraryRoute: LibraryRoute,
@@ -1354,6 +1395,7 @@ const rootRouteChildren: RootRouteChildren = {
     Char91DotlovableChar93OauthConsentRoute,
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiDashboardStatsRoute: ApiDashboardStatsRoute,
+  ApiFullAppEditsRoute: ApiFullAppEditsRoute,
   ApiImagesFillRoute: ApiImagesFillRoute,
   ApiJobsIdRoute: ApiJobsIdRoute,
   ApiJobsCreateRoute: ApiJobsCreateRoute,
