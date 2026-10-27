@@ -8,6 +8,8 @@ import {
 } from "@/lib/credit-gate.server";
 import { makeUsage } from "@/lib/usage-record";
 import { newRequestId } from "@/lib/ai-errors";
+import { buildArtifact } from "@/lib/publish-artifact";
+import { buildFullAppFiles } from "@/lib/full-app-scaffold";
 
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify"), token: z.string().min(10).max(400) }),
@@ -20,6 +22,7 @@ const bodySchema = z.discriminatedUnion("action", [
     title: z.string().max(200).optional(),
     enablePages: z.boolean().optional().default(true),
     isPrivate: z.boolean().optional().default(false),
+    mode: z.enum(["static", "full-app"]).optional().default("static"),
   }),
   z.object({
     action: z.literal("import"),
@@ -108,6 +111,39 @@ async function ensureRepo(token: string, login: string, name: string, isPrivate:
     throw new Error(`Create repo failed (${create.status}): ${body.slice(0, 200)}`);
   }
   return (await ghJson(create)) as { default_branch: string };
+}
+
+/** Full-app publishing is an atomic tree commit on a NEW repository.
+ * Never overwrite an existing project or expose runtime secrets.
+ */
+async function putFullAppFiles(
+  token: string, login: string, repo: string, branch: string,
+  files: Record<string, string>, title: string,
+) {
+  const refPath = "/repos/" + login + "/" + repo + "/git/ref/heads/" + encodeURIComponent(branch);
+  const ref = await gh(token, refPath);
+  if (!ref.ok) throw new Error("Could not read the new repository branch.");
+  const parentSha = ((await ghJson(ref)) as { object: { sha: string } }).object.sha;
+  const parentRes = await gh(token, "/repos/" + login + "/" + repo + "/git/commits/" + parentSha);
+  if (!parentRes.ok) throw new Error("Could not read the repository HEAD.");
+  const treeSha = ((await ghJson(parentRes)) as { tree: { sha: string } }).tree.sha;
+  const entries = Object.entries(files).map(([path, content]) => ({
+    path, mode: "100644", type: "blob", content,
+  }));
+  const treeRes = await gh(token, "/repos/" + login + "/" + repo + "/git/trees", {
+    method: "POST", body: JSON.stringify({ base_tree: treeSha, tree: entries }),
+  });
+  if (!treeRes.ok) throw new Error("Could not create full-app source tree.");
+  const newTree = ((await ghJson(treeRes)) as { sha: string }).sha;
+  const commitRes = await gh(token, "/repos/" + login + "/" + repo + "/git/commits", {
+    method: "POST", body: JSON.stringify({ message: "Initialize full app: " + title, tree: newTree, parents: [parentSha] }),
+  });
+  if (!commitRes.ok) throw new Error("Could not create full-app commit.");
+  const nextSha = ((await ghJson(commitRes)) as { sha: string }).sha;
+  const update = await gh(token, "/repos/" + login + "/" + repo + "/git/refs/heads/" + encodeURIComponent(branch), {
+    method: "PATCH", body: JSON.stringify({ sha: nextSha, force: false }),
+  });
+  if (!update.ok) throw new Error("Could not move new repository branch to full-app commit.");
 }
 
 async function putFile(
@@ -243,14 +279,27 @@ export const Route = createFileRoute("/api/github")({
           // deploy — flat 1-credit success charge (no upstream token cost)
           const user = await getUser(parsed.token);
           const name = slugify(parsed.repo);
+          // A complete app always starts in its own repository. Never silently
+          // overwrite someone's existing code or switch their Pages deployment.
+          if (parsed.mode === "full-app") {
+            const exists = await gh(parsed.token, "/repos/" + user.login + "/" + name);
+            if (exists.ok) throw new Error("Choose a new repository name for Full App. Existing repositories will not be overwritten.");
+            if (exists.status !== 404) throw new Error("GitHub repository availability could not be verified.");
+          }
           const repoInfo = await ensureRepo(parsed.token, user.login, name, parsed.isPrivate);
           const branch = repoInfo.default_branch || "main";
           const title = parsed.title || name;
           const readme = `# ${title}\n\nBuilt with **Aetheris Obsidian** — https://obsidiancoder.lovable.app\n\nOpen \`index.html\` locally or view the live GitHub Pages URL.\n`;
-          await putFile(parsed.token, user.login, name, "index.html", parsed.html, `Deploy: ${title}`, branch);
-          await putFile(parsed.token, user.login, name, "README.md", readme, "Add README", branch);
+          if (parsed.mode === "full-app") {
+            const artifact = buildArtifact({ html: parsed.html, surface: "publish" });
+            if (!artifact.safeToPublish) throw new Error("The generated design did not pass the publish safety gate.");
+            await putFullAppFiles(parsed.token, user.login, name, branch, buildFullAppFiles(artifact.html, title), title);
+          } else {
+            await putFile(parsed.token, user.login, name, "index.html", parsed.html, `Deploy: ${title}`, branch);
+            await putFile(parsed.token, user.login, name, "README.md", readme, "Add README", branch);
+          }
           let pages: { html_url: string; alreadyEnabled: boolean } | null = null;
-          if (parsed.enablePages) {
+          if (parsed.enablePages && parsed.mode === "static") {
             try { pages = await enablePages(parsed.token, user.login, name, branch); }
             catch { pages = null; }
           }
@@ -262,7 +311,7 @@ export const Route = createFileRoute("/api/github")({
                 provider: "github", operation: "github_deploy",
                 actualCostUsd: 0, costBasis: "actual", providerUsed: true, status: "committed",
                 credits: 1,
-                meta: { repo: name, pages: !!pages },
+                meta: { repo: name, pages: !!pages, mode: parsed.mode },
               }),
             });
           }
@@ -271,6 +320,7 @@ export const Route = createFileRoute("/api/github")({
             user: { login: user.login },
             repo: { name, full_name: `${user.login}/${name}`, html_url: `https://github.com/${user.login}/${name}` },
             pages,
+            mode: parsed.mode,
           });
         } catch (err) {
           if (!settled && entitlement) {
