@@ -31,7 +31,7 @@ try {
     writeFileSync(dest, content, "utf8");
   }
   if (process.env.VERIFY_FULL_APP_BUILD === "1") {
-    execFileSync("npm", ["install", "--no-audit", "--no-fund", "--ignore-scripts"], { cwd: root, stdio: "inherit" });
+    execFileSync("npm", ["install", "--no-audit", "--no-fund"], { cwd: root, stdio: "inherit" });
     execFileSync("npm", ["run", "build"], { cwd: root, stdio: "inherit" });
   }
 } finally {
