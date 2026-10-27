@@ -1,6 +1,6 @@
 // Backend-capable starter generator: static, allowlisted file paths only.
 // The generated design remains sandboxed until its components are migrated to React.
-import { addManagedAppBuild } from "./full-app-build";
+import { addManagedAppBuild } from "./full-app-build.ts";
 export type FullAppFiles = Record<string, string>;
 const BASE_FILES: Readonly<FullAppFiles> = {
   "package.json": "{\n  \"name\": \"obsidian-full-app\",\n  \"version\": \"1.0.0\",\n  \"private\": true,\n  \"type\": \"module\",\n  \"scripts\": {\n    \"dev\": \"vite --host 0.0.0.0\",\n    \"build\": \"tsc -b && vite build\",\n    \"preview\": \"vite preview\",\n    \"typecheck\": \"tsc --noEmit\"\n  },\n  \"dependencies\": {\n    \"@supabase/supabase-js\": \"2.110.5\",\n    \"react\": \"19.2.0\",\n    \"react-dom\": \"19.2.0\"\n  },\n  \"devDependencies\": {\n    \"@types/react\": \"19.2.0\",\n    \"@types/react-dom\": \"19.2.0\",\n    \"@vitejs/plugin-react\": \"5.2.0\",\n    \"typescript\": \"5.8.3\",\n    \"vite\": \"8.0.16\",\n    \"@types/node\": \"22.16.5\"\n  }\n}\n",
