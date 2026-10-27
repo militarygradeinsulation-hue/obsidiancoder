@@ -14,7 +14,7 @@
  *
  * Design constraints:
  * - Max 20 stored components (evict oldest when full)
- * - Max 4 KB per component (trimmed if larger)
+ * - Max 1600 chars per component (trimmed if larger — matches /api/generate input limit)
  * - Soft-matched to prompts by keyword overlap
  */
 
@@ -22,7 +22,7 @@ export interface StoredComponent {
   id: string;           // stable hash of trimmed markup
   label: string;        // human-readable name derived from element type / class
   kind: ComponentKind;
-  markup: string;       // trimmed HTML (max 4 KB)
+  markup: string;       // trimmed HTML (max 1600 chars)
   keywords: string[];   // extracted from class names and attributes
   usageCount: number;
   createdAt: number;
