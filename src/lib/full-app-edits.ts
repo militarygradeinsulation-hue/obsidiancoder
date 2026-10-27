@@ -17,7 +17,7 @@ export function isEditableAppPath(path: string): boolean {
       path === "src/generated-design.ts" ||
       path === "src/main.tsx") return false;
   return /^src\/(?:components|lib|pages|hooks|features|services|context|utils)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:ts|tsx|css)$/.test(path) ||
-    /^supabase\/migrations\/[A-Za-z0-9_-]+\.sql$/.test(path) ||
+    /^supabase\/migrations\/\d{14}_[a-z0-9_]+\.sql$/.test(path) ||
     /^supabase\/functions\/[a-z0-9-]+\/index\.ts$/.test(path);
 }
 
