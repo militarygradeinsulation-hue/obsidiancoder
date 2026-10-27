@@ -26,6 +26,10 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   listRepos: "github_list",
   import:    "github_import",
   deploy:    "github_deploy",
+  buildStatus: "github_list",
+  triggerBuild: "github_deploy",
+  configureAppBackend: "github_deploy",
+  publishApp: "github_deploy",
 };
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
@@ -57,8 +61,9 @@ export function GithubModal(props: {
   onLog: (line: string) => void;
   fullAppFiles?: Record<string, string>;
   defaultDeployMode?: "static" | "full-app";
+  fullAppAddons?: string[];
 }) {
-  const { open, onClose, currentHtml, defaultRepoName, onImport, onLog, fullAppFiles, defaultDeployMode = "static" } = props;
+  const { open, onClose, currentHtml, defaultRepoName, onImport, onLog, fullAppFiles, fullAppAddons, defaultDeployMode = "static" } = props;
   const [token, setToken] = React.useState("");
   const [user, setUser] = React.useState<GhUser | null>(null);
   const [repos, setRepos] = React.useState<Repo[]>([]);
@@ -69,6 +74,12 @@ export function GithubModal(props: {
   const [enablePages, setEnablePages] = React.useState(true);
   const [deployMode, setDeployMode] = React.useState<"static" | "full-app">(defaultDeployMode);
   const [result, setResult] = React.useState<DeployResult | null>(null);
+  const [managedRepo, setManagedRepo] = React.useState("");
+  const [appUrl, setAppUrl] = React.useState("");
+  const [appPublishableKey, setAppPublishableKey] = React.useState("");
+  const [builds, setBuilds] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
+  const [publishes, setPublishes] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
+  const [hostingUrl, setHostingUrl] = React.useState("");
 
   React.useEffect(() => {
     if (!open) return;
@@ -127,8 +138,10 @@ export function GithubModal(props: {
         isPrivate,
         mode: deployMode,
         ...(deployMode === "full-app" && fullAppFiles ? { files: fullAppFiles } : {}),
+        ...(deployMode === "full-app" && fullAppAddons ? { addons: fullAppAddons } : {}),
       });
       setResult(res);
+      if (res.mode === "full-app") setManagedRepo(res.repo.name);
       onLog(`✓ Pushed to ${res.repo.full_name}`);
       if (res.pages) onLog(`  Pages: ${res.pages.html_url}`);
       if (deployMode === "full-app") onLog("✓ Full App starter created: configure Supabase and deploy through a build-capable host.");
@@ -139,6 +152,33 @@ export function GithubModal(props: {
     } finally {
       setLoading(null);
     }
+  }
+
+  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "configureAppBackend") {
+    if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
+    if (action === "publishApp" && !window.confirm(
+      "Publish this application's frontend to GitHub Pages? Ensure its backend is configured and its latest build passes. This will make the site public."
+    )) return;
+    setErr(null); setLoading("app:" + action);
+    try {
+      const result = await ghCall<{
+        ok: boolean; builds?: typeof builds; publishes?: typeof publishes;
+        message?: string; url?: string;
+      }>({
+        action, token, repo: managedRepo.trim(),
+        ...(action === "configureAppBackend" ? { url: appUrl.trim(), publishableKey: appPublishableKey.trim() } : {}),
+      });
+      if (action === "buildStatus") {
+        setBuilds(result.builds ?? []);
+        setPublishes(result.publishes ?? []);
+      }
+      if (action === "configureAppBackend") setAppPublishableKey("");
+      if (result.url) setHostingUrl(result.url);
+      if (result.message) onLog(result.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "GitHub action failed";
+      setErr(message); onLog("GitHub Full App: " + message);
+    } finally { setLoading(null); }
   }
 
   async function importOne(repo: Repo) {
