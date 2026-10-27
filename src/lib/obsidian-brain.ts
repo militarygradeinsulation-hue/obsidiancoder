@@ -183,9 +183,10 @@ export interface BrainSnapshot {
   nextBuild: { family: string | null; provenScore: number | null; reasons: string[] };
 }
 
-export function brainSnapshot(libraryCode?: string, memory?: ProjectMemory | null): BrainSnapshot {
+export function brainSnapshot(libraryCode?: string, memory?: ProjectMemory | null, syncedEntries?: readonly BuildLearningEntry[]): BrainSnapshot {
   const project = readCurrentProject();
-  const entries = safe(() => readBuildLearning(libraryCode).entries, [] as BuildLearningEntry[]);
+  const localEntries = safe(() => readBuildLearning(libraryCode).entries, [] as BuildLearningEntry[]);
+  const entries = syncedEntries ? [...new Map([...localEntries, ...syncedEntries].map((e) => [e.id, e])).values()].sort((a, b) => b.at - a.at).slice(0, 60) : localEntries;
   const bias = learnedBias(entries);
   const pref = preferredFamily(bias);
   const registry = safe(() => loadRegistry(), [] as StoredComponent[]);
