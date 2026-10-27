@@ -12,7 +12,7 @@ assert.ok(isEditableAppPath("src/App.tsx"));
 assert.ok(isEditableAppPath("src/components/Dashboard.tsx"));
 assert.ok(isEditableAppPath("src/pages/Accounts.tsx"));
 assert.ok(isEditableAppPath("src/hooks/useInvoices.ts"));
-assert.ok(isEditableAppPath("supabase/migrations/002_notes.sql"));
+assert.ok(isEditableAppPath("supabase/migrations/20261027000002_notes.sql"));
 for (const unsafe of [
   "../.env", "src/../secrets.ts", "src/lib/supabase.ts", "src/generated-design.ts",
   "src/main.tsx", "package.json", ".env.local", "/src/App.tsx",
