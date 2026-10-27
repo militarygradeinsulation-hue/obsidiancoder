@@ -22,8 +22,8 @@ export function buildFullAppFiles(html: string, appName: string): FullAppFiles {
   const label = appName.replace(/[<>\\]/g, "").trim().slice(0, 100) || "Full App";
   return {
     ...BASE_FILES,
-    "src/generated-design.ts": "export const generatedHtml = " + JSON.stringify(html) + ";\\n",
+    "src/generated-design.ts": "export const generatedHtml = " + JSON.stringify(html) + ";\n",
     "index.html": BASE_FILES["index.html"].replace("Obsidian Full App", label.replace(/&/g, "&amp;").replace(/"/g, "&quot;")),
-    "README.md": "# " + label + "\\n\\n" + BASE_FILES["README.md"],
+    "README.md": "# " + label + "\n\n" + BASE_FILES["README.md"],
   };
 }
