@@ -10,6 +10,7 @@ import { makeUsage } from "@/lib/usage-record";
 import { newRequestId } from "@/lib/ai-errors";
 import { buildArtifact } from "@/lib/publish-artifact";
 import { buildFullAppFiles } from "@/lib/full-app-scaffold";
+import { reconcileFullAppFiles } from "@/lib/full-app-edits";
 
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify"), token: z.string().min(10).max(400) }),
@@ -23,6 +24,7 @@ const bodySchema = z.discriminatedUnion("action", [
     enablePages: z.boolean().optional().default(true),
     isPrivate: z.boolean().optional().default(false),
     mode: z.enum(["static", "full-app"]).optional().default("static"),
+    files: z.record(z.string(), z.string()).optional(),
   }),
   z.object({
     action: z.literal("import"),
@@ -293,7 +295,8 @@ export const Route = createFileRoute("/api/github")({
           if (parsed.mode === "full-app") {
             const artifact = buildArtifact({ html: parsed.html, surface: "publish" });
             if (!artifact.safeToPublish) throw new Error("The generated design did not pass the publish safety gate.");
-            await putFullAppFiles(parsed.token, user.login, name, branch, buildFullAppFiles(artifact.html, title), title);
+            await putFullAppFiles(parsed.token, user.login, name, branch,
+              parsed.files ? reconcileFullAppFiles(artifact.html, title, parsed.files) : buildFullAppFiles(artifact.html, title), title);
           } else {
             await putFile(parsed.token, user.login, name, "index.html", parsed.html, `Deploy: ${title}`, branch);
             await putFile(parsed.token, user.login, name, "README.md", readme, "Add README", branch);
