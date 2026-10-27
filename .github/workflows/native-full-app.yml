@@ -1,0 +1,35 @@
+name: Native Full App workspace
+
+on:
+  pull_request:
+    paths:
+      - "src/routes/full-app.tsx"
+      - "src/routes/api/full-app/**"
+      - "src/lib/full-app-edits.ts"
+      - "src/lib/__tests__/native-full-app.selftest.mts"
+      - "src/routes/api/github.ts"
+      - "src/components/GithubModal.tsx"
+      - "src/components/ObsidianModeNav.tsx"
+      - ".github/workflows/native-full-app.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+      - name: Install locked packages
+        run: bun install --frozen-lockfile
+      - name: Test native workspace edit protocol
+        run: bun src/lib/__tests__/native-full-app.selftest.mts
+      - name: TypeScript validation
+        run: bunx tsc --noEmit
+      - name: Build app
+        run: bun run build
