@@ -55,8 +55,10 @@ export function GithubModal(props: {
   defaultRepoName: string;
   onImport: (html: string) => void;
   onLog: (line: string) => void;
+  fullAppFiles?: Record<string, string>;
+  defaultDeployMode?: "static" | "full-app";
 }) {
-  const { open, onClose, currentHtml, defaultRepoName, onImport, onLog } = props;
+  const { open, onClose, currentHtml, defaultRepoName, onImport, onLog, fullAppFiles, defaultDeployMode = "static" } = props;
   const [token, setToken] = React.useState("");
   const [user, setUser] = React.useState<GhUser | null>(null);
   const [repos, setRepos] = React.useState<Repo[]>([]);
@@ -65,7 +67,7 @@ export function GithubModal(props: {
   const [repoName, setRepoName] = React.useState(defaultRepoName);
   const [isPrivate, setIsPrivate] = React.useState(false);
   const [enablePages, setEnablePages] = React.useState(true);
-  const [deployMode, setDeployMode] = React.useState<"static" | "full-app">("static");
+  const [deployMode, setDeployMode] = React.useState<"static" | "full-app">(defaultDeployMode);
   const [result, setResult] = React.useState<DeployResult | null>(null);
 
   React.useEffect(() => {
@@ -73,6 +75,7 @@ export function GithubModal(props: {
     const stored = typeof window !== "undefined" ? localStorage.getItem(TOKEN_KEY) : "";
     if (stored) setToken(stored);
     setRepoName(defaultRepoName);
+    setDeployMode(defaultDeployMode);
     setResult(null);
     setErr(null);
   }, [open, defaultRepoName]);
@@ -123,6 +126,7 @@ export function GithubModal(props: {
         enablePages: deployMode === "static" && enablePages,
         isPrivate,
         mode: deployMode,
+        ...(deployMode === "full-app" && fullAppFiles ? { files: fullAppFiles } : {}),
       });
       setResult(res);
       onLog(`✓ Pushed to ${res.repo.full_name}`);
