@@ -20,6 +20,7 @@ export function ObsidianModeNav({ showProject = false, className = "" }: { showP
     <nav className={`obs-modenav ${className}`} aria-label="Obsidian modes">
       <Link to="/pocket" title="Pocket — quick chat-to-build">Pocket</Link>
       <Link to="/" activeOptions={{ exact: true }} title="Studio — precision workspace">Studio</Link>
+      <Link to="/full-app" title="Full App — React, data, AI edits, GitHub">Full App</Link>
       <Link to="/brain" title="Brain — shared memory and learning">Brain</Link>
       <Link to="/agent" title="Agent — mission control">Agent</Link>
       <span className="obs-modenav-sep" aria-hidden />
