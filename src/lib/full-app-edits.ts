@@ -1,7 +1,7 @@
 // Pure, transactional edits for native multi-file Full App workspaces.
 // Inputs from AI and the browser are untrusted: source files are never executed here.
 import { z } from "zod";
-import { buildFullAppFiles, type FullAppFiles } from "./full-app-scaffold";
+import { buildFullAppFiles, type FullAppFiles } from "./full-app-scaffold.ts";
 
 export const MAX_APP_EDITS = 8;
 export const MAX_EDIT_BYTES = 50_000;
@@ -11,7 +11,7 @@ export function isEditableAppPath(path: string): boolean {
   if (!path || path.length > 180 || path.includes("..") || path.includes("\\") ||
       path.startsWith("/") || path.split("/").some((p) => p.startsWith("."))) return false;
   if (path === "src/App.tsx" || path === "src/styles.css") return true;
-  if (path === "src/lib/supabase.ts" || path === "src/generated-design.ts" ||
+  if (path === "src/lib/supabase.ts" || path === "supabase/migrations/001_app_items.sql" || path === "src/generated-design.ts" ||
       path === "src/main.tsx") return false;
   return /^src\/(?:components|lib)\/(?:[A-Za-z0-9_-]+\/)*[A-Za-z0-9_-]+\.(?:ts|tsx|css)$/.test(path) ||
     /^supabase\/migrations\/[A-Za-z0-9_-]+\.sql$/.test(path);
