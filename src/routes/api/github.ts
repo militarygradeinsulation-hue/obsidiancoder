@@ -1180,13 +1180,28 @@ export const Route = createFileRoute("/api/github")({
               return Response.json({ ok: true, diagnostics });
             }
             if (parsed.action === "buildStatus") {
-              const [builds, publishes, ships, health] = await Promise.all([
+              const [builds, publishes, ships, health, secretsRes] = await Promise.all([
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-build.yml"),
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-publish.yml"),
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-ship.yml").catch(() => []),
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-health.yml").catch(() => []),
+                gh(parsed.token, "/repos/" + user.login + "/" + appRepo + "/actions/secrets?per_page=100"),
               ]);
-              return Response.json({ ok: true, repo: appRepo, builds, publishes, ships, health });
+              let e2eCredentialsConfigured = false;
+              if (secretsRes.ok) {
+                const secrets = await ghJson(secretsRes) as { secrets?: Array<{ name: string }> };
+                const names = new Set((secrets.secrets ?? []).map(item => item.name));
+                e2eCredentialsConfigured = names.has("OBSIDIAN_E2E_EMAIL") && names.has("OBSIDIAN_E2E_PASSWORD");
+              }
+              return Response.json({
+                ok: true,
+                repo: appRepo,
+                builds,
+                publishes,
+                ships,
+                health,
+                e2eCredentialsConfigured,
+              });
             }
             if (parsed.action === "triggerBuild") {
               await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-build.yml");
