@@ -29,6 +29,12 @@ const bodySchema = z.discriminatedUnion("action", [
     addons: z.array(z.string()).max(4).optional(),
   }),
   z.object({ action: z.literal("buildStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({
+    action: z.literal("buildDiagnostics"),
+    token: z.string().min(10).max(400),
+    repo: z.string().min(1).max(90),
+    runId: z.number().int().positive(),
+  }),
   z.object({ action: z.literal("triggerBuild"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("publishApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("shipApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
@@ -286,6 +292,87 @@ async function managedRunStatus(token: string, login: string, repo: string, file
     created_at: x.created_at, head_sha: x.head_sha,
   }));
 }
+
+function redactDiagnosticLine(line: string): string {
+  return line
+    .replace(/(authorization:\s*bearer\s+)[^\s]+/ig, "$1[REDACTED]")
+    .replace(/\b(gh[pousr]_[A-Za-z0-9_]{20,}|github_pat_[A-Za-z0-9_]{20,})\b/g, "[REDACTED_GITHUB_TOKEN]")
+    .replace(/\b(sb_secret_[A-Za-z0-9_-]{12,}|service_role[A-Za-z0-9._-]{12,})\b/ig, "[REDACTED_SUPABASE_SECRET]")
+    .replace(/\b(sk-[A-Za-z0-9_-]{16,})\b/g, "[REDACTED_API_KEY]")
+    .replace(/([?&](?:token|key|secret|password)=)[^&\s]+/ig, "$1[REDACTED]");
+}
+
+function extractUsefulDiagnostics(raw: string): string[] {
+  const lines = raw.replace(/\r/g, "").split("\n");
+  const strong = /(error|failed|failure|exception|uncaught|cannot find|could not|does not exist|not found|type '.+' is not assignable|expected .+ received|horizontal overflow|should return|should not|timed out|timeout)/i;
+  const noise = /^(\s*$|##\[group\]|##\[endgroup\]|download action repository|preparing workflow directory|complete job name)/i;
+  const selected: string[] = [];
+  for (let i = 0; i < lines.length; i++) {
+    if (!strong.test(lines[i] ?? "") || noise.test(lines[i] ?? "")) continue;
+    const start = Math.max(0, i - 1);
+    const end = Math.min(lines.length, i + 3);
+    for (let j = start; j < end; j++) {
+      const cleaned = redactDiagnosticLine((lines[j] ?? "").trim()).slice(0, 700);
+      if (cleaned && !selected.includes(cleaned)) selected.push(cleaned);
+      if (selected.length >= 40) return selected;
+    }
+  }
+  return selected.slice(0, 40);
+}
+
+async function managedRunDiagnostics(token: string, login: string, repo: string, runId: number) {
+  const runRes = await gh(token, "/repos/" + login + "/" + repo + "/actions/runs/" + runId);
+  if (!runRes.ok) throw new Error("Could not inspect that build run.");
+  const run = await ghJson(runRes) as {
+    id: number; name?: string; path?: string; status?: string; conclusion?: string | null;
+    head_sha?: string; html_url?: string;
+  };
+  const allowedWorkflow =
+    run.path?.endsWith("/obsidian-build.yml") ||
+    run.path?.endsWith("/obsidian-ship.yml") ||
+    run.name === "Obsidian Full App build" ||
+    run.name === "Obsidian Ship";
+  if (!allowedWorkflow) throw new Error("Diagnostics are only available for Obsidian Full App build/ship workflows.");
+
+  const jobsRes = await gh(token, "/repos/" + login + "/" + repo + "/actions/runs/" + runId + "/jobs?per_page=30");
+  if (!jobsRes.ok) throw new Error("Could not inspect failed build jobs.");
+  const jobs = await ghJson(jobsRes) as { jobs?: Array<{
+    id: number; name: string; status: string; conclusion: string | null;
+    steps?: Array<{ name: string; status: string; conclusion: string | null; number: number }>;
+  }> };
+  const failed = (jobs.jobs ?? []).filter(job => job.conclusion && job.conclusion !== "success" && job.conclusion !== "skipped");
+  const diagnostics: string[] = [];
+  const failedSteps: string[] = [];
+
+  for (const job of failed.slice(0, 4)) {
+    for (const step of job.steps ?? []) {
+      if (step.conclusion && step.conclusion !== "success" && step.conclusion !== "skipped") {
+        failedSteps.push(job.name + " / " + step.name + " (" + step.conclusion + ")");
+      }
+    }
+    const logRes = await gh(token, "/repos/" + login + "/" + repo + "/actions/jobs/" + job.id + "/logs", {
+      headers: { Accept: "text/plain" },
+    });
+    if (!logRes.ok) continue;
+    const text = (await logRes.text()).slice(-120_000);
+    for (const line of extractUsefulDiagnostics(text)) {
+      if (!diagnostics.includes(line)) diagnostics.push(line);
+      if (diagnostics.length >= 60) break;
+    }
+  }
+
+  return {
+    runId: run.id,
+    workflow: run.name ?? "Obsidian build",
+    status: run.status ?? "unknown",
+    conclusion: run.conclusion ?? null,
+    headSha: run.head_sha ?? "",
+    url: run.html_url ?? "",
+    failedSteps: failedSteps.slice(0, 20),
+    diagnostics: diagnostics.slice(0, 60),
+  };
+}
+
 async function setPublicRepoVariable(token: string, login: string, repo: string, name: string, value: string) {
   const url = "/repos/" + login + "/" + repo + "/actions/variables/" + name;
   const current = await gh(token, url);
@@ -369,7 +456,7 @@ export const Route = createFileRoute("/api/github")({
             }
           }
 
-          if (parsed.action === "buildStatus" || parsed.action === "triggerBuild" ||
+          if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" ||
               parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "configureAppBackend" ||
               parsed.action === "backendStatus" || parsed.action === "deployBackend") {
             const user = await getUser(parsed.token);
@@ -391,6 +478,10 @@ export const Route = createFileRoute("/api/github")({
               });
               return Response.json({ ok: true, status: "queued", message:
                 "Backend deployment requested. Review GitHub Actions and production-backend approval before using live data." });
+            }
+            if (parsed.action === "buildDiagnostics") {
+              const diagnostics = await managedRunDiagnostics(parsed.token, user.login, appRepo, parsed.runId);
+              return Response.json({ ok: true, diagnostics });
             }
             if (parsed.action === "buildStatus") {
               const [builds, publishes, ships] = await Promise.all([
