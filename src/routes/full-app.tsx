@@ -32,12 +32,22 @@ export const Route = createFileRoute("/full-app")({
   component: FullAppPage,
 });
 
+interface FullAppProductionState {
+  githubRepo?: string;
+  lastBuildRunId?: number;
+  lastBuildConclusion?: string | null;
+  lastShipRunId?: number;
+  lastShipConclusion?: string | null;
+  deploymentUrl?: string;
+  lastCheckedAt?: number;
+}
 interface FullAppWorkspace {
   type: "obsidian-full-app.v1";
   title: string;
   sourceHtml: string;
   files: FullAppFiles;
   addons: AppAddonId[];
+  production?: FullAppProductionState;
   cloudId?: string;
   updatedAt: number;
 }
@@ -70,6 +80,20 @@ function newWorkspace(source?: { title: string; html: string; cloudId?: string }
   return { type: "obsidian-full-app.v1", title, sourceHtml: html,
     files: buildFullAppFiles(html, title), addons: [], updatedAt: Date.now() };
 }
+function sanitizeProduction(value: unknown): FullAppProductionState | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const p = value as Record<string, unknown>;
+  const clean: FullAppProductionState = {};
+  if (typeof p.githubRepo === "string" && /^[A-Za-z0-9._-]{1,90}$/.test(p.githubRepo)) clean.githubRepo = p.githubRepo;
+  if (typeof p.lastBuildRunId === "number" && Number.isSafeInteger(p.lastBuildRunId) && p.lastBuildRunId > 0) clean.lastBuildRunId = p.lastBuildRunId;
+  if (typeof p.lastBuildConclusion === "string" || p.lastBuildConclusion === null) clean.lastBuildConclusion = p.lastBuildConclusion as string | null;
+  if (typeof p.lastShipRunId === "number" && Number.isSafeInteger(p.lastShipRunId) && p.lastShipRunId > 0) clean.lastShipRunId = p.lastShipRunId;
+  if (typeof p.lastShipConclusion === "string" || p.lastShipConclusion === null) clean.lastShipConclusion = p.lastShipConclusion as string | null;
+  if (typeof p.deploymentUrl === "string" && /^https:\/\//.test(p.deploymentUrl) && p.deploymentUrl.length < 500) clean.deploymentUrl = p.deploymentUrl;
+  if (typeof p.lastCheckedAt === "number" && Number.isFinite(p.lastCheckedAt) && p.lastCheckedAt > 0) clean.lastCheckedAt = p.lastCheckedAt;
+  return Object.keys(clean).length ? clean : undefined;
+}
+
 function restoreWorkspace(value: unknown): FullAppWorkspace | null {
   if (!value || typeof value !== "object") return null;
   const w = value as Partial<FullAppWorkspace>;
@@ -80,7 +104,8 @@ function restoreWorkspace(value: unknown): FullAppWorkspace | null {
     const addons = validateAppAddons(w.addons);
     const files = reconcileFullAppFiles(w.sourceHtml, w.title, w.files, addons);
     return { type: "obsidian-full-app.v1", sourceHtml: w.sourceHtml, title: w.title.slice(0, 100),
-      files, addons, cloudId: typeof w.cloudId === "string" ? w.cloudId : undefined,
+      files, addons, production: sanitizeProduction((w as { production?: unknown }).production),
+      cloudId: typeof w.cloudId === "string" ? w.cloudId : undefined,
       updatedAt: typeof w.updatedAt === "number" ? w.updatedAt : Date.now() };
   } catch { return null; }
 }
@@ -219,7 +244,8 @@ function FullAppPage() {
       reconcileFullAppFiles(workspace.sourceHtml, workspace.title, files, workspace.addons);
       const id = workspace.cloudId ?? newCloudProjectId();
       const r = await saveCloudProject({ id, name: workspace.title, html: workspace.sourceHtml,
-        prompt: "Obsidian Full App native workspace", projectJson: { type: workspace.type, files, addons: workspace.addons },
+        prompt: "Obsidian Full App native workspace",
+        projectJson: { type: workspace.type, files, addons: workspace.addons, production: workspace.production },
         model: "full-app", surface: "coder" });
       if (!r.ok) throw new Error(r.error);
       setWorkspace(w => w ? { ...w, cloudId: id } : w);
@@ -247,6 +273,7 @@ function FullAppPage() {
         : buildFullAppFiles(r.data.html, r.data.projectName ?? "Cloud App"),
       // Converting a Studio cloud build must never overwrite that original.
       addons: (r.data.projectJson as { addons?: AppAddonId[] } | null)?.addons ?? [],
+      production: sanitizeProduction((r.data.projectJson as { production?: unknown } | null)?.production),
       cloudId: (r.data.projectJson as { type?: string } | null)?.type === "obsidian-full-app.v1"
         ? r.data.id : undefined, updatedAt: Date.now(),
     });
@@ -395,6 +422,12 @@ function FullAppPage() {
       {workspace && <GithubModal open={githubOpen} onClose={() => setGithubOpen(false)}
         currentHtml={workspace.sourceHtml} defaultRepoName={workspace.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-app"}
         fullAppFiles={workspace.files} fullAppAddons={workspace.addons} defaultDeployMode="full-app"
+        defaultManagedRepo={workspace.production?.githubRepo}
+        onProductionUpdate={patch => setWorkspace(w => w ? {
+          ...w,
+          production: { ...(w.production ?? {}), ...patch },
+          updatedAt: Date.now(),
+        } : w)}
         onImport={html => { if (confirm("Import this HTML as a new Full App design?")) { setWorkspace(newWorkspace({ title: workspace.title, html })); setSelected("src/App.tsx"); } }}
         onRepairDiagnostics={context => suggestChanges("edit", context)}
         onApplyFullAppFiles={(nextFiles, message) => replaceFiles(nextFiles, message)}
