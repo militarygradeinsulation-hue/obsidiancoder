@@ -47,6 +47,10 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   setSupabaseSecret: "github_deploy",
   deleteSupabaseSecret: "github_deploy",
   setIntegrationVariable: "github_deploy",
+  connectSupabaseBackend: "github_deploy",
+  setSupabaseSecret: "github_deploy",
+  deleteSupabaseSecret: "github_deploy",
+  setIntegrationVariable: "github_deploy",
 };
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
@@ -92,6 +96,7 @@ export function GithubModal(props: {
     lastHealthRunId?: number;
     lastHealthConclusion?: string | null;
     deploymentUrl?: string;
+    supabaseProjectRef?: string;
     lastCheckedAt?: number;
   }) => void;
 }) {
@@ -113,7 +118,11 @@ export function GithubModal(props: {
   const [managedRepo, setManagedRepo] = React.useState("");
   const [appUrl, setAppUrl] = React.useState("");
   const [appPublishableKey, setAppPublishableKey] = React.useState("");
-  const [provisionRegion, setProvisionRegion] = React.useState("us-east-1");
+  const [supabaseProjectRef, setSupabaseProjectRef] = React.useState("");
+  const [supabaseManagementToken, setSupabaseManagementToken] = React.useState("");
+  const [supabaseSecretNames, setSupabaseSecretNames] = React.useState<string[]>([]);
+  const [integrationSecretDrafts, setIntegrationSecretDrafts] = React.useState<Record<string, string>>({});
+  const [integrationVariableDrafts, setIntegrationVariableDrafts] = React.useState<Record<string, string>>({});
   const [supabaseAccessToken, setSupabaseAccessToken] = React.useState("");
   const [supabaseProjectRef, setSupabaseProjectRef] = React.useState("");
   const [supabaseConnection, setSupabaseConnection] = React.useState<null | {
@@ -140,6 +149,7 @@ export function GithubModal(props: {
     hasPublicKey: boolean;
     missingIntegrationSecrets?: string[];
     missingIntegrationVariables?: string[];
+    supabaseSecretsVerified?: boolean;
     integrations?: Array<{
       id: FullAppIntegrationId;
       label: string;
@@ -158,6 +168,7 @@ export function GithubModal(props: {
     backendReady.hasPublicUrl &&
     backendReady.hasPublicKey &&
     (backendMode === "functions-only" || backendReady.hasDbPassword) &&
+    (requiredIntegrations.length === 0 || backendReady.supabaseSecretsVerified === true) &&
     (backendReady.missingIntegrationSecrets?.length ?? 0) === 0 &&
     (backendReady.missingIntegrationVariables?.length ?? 0) === 0;
 
