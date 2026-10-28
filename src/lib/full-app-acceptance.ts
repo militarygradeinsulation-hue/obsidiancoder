@@ -9,8 +9,11 @@ function js(value: unknown): string {
 function stepCode(step: Journey["steps"][number], index: number): string {
   const label = "step " + String(index + 1);
   switch (step.action) {
-    case "goto":
-      return `    await page.goto(${js(step.path)}, { waitUntil: "networkidle" });`;
+    case "goto": {
+      const logical = step.path === "/" ? "" : step.path.replace(/^\//, "");
+      const target = logical ? "./#/" + logical : "./#/";
+      return `    await page.goto(${js(target)}, { waitUntil: "networkidle" });`;
+    }
     case "click":
       return `    await page.getByTestId(${js(step.testId)}).click();`;
     case "fill": {
