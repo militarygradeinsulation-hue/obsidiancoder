@@ -479,6 +479,80 @@ function FullAppPage() {
               </section>
             </div>
             <section className="obs-node mt-5">
+              <h2 className="text-lg font-semibold"><Sparkles size={18} className="mr-2 inline"/>App Architect</h2>
+              <p className="mt-1 text-sm opacity-65">
+                Describe the actual product. Obsidian turns it into routes, data ownership, auth, shared components,
+                backend functions, integrations, and acceptance checks before generating code.
+              </p>
+              <textarea
+                className="obs-textarea mt-4 w-full"
+                rows={4}
+                value={architectureRequest}
+                onChange={e => setArchitectureRequest(e.target.value)}
+                placeholder="Build a contractor CRM where signed-in users manage companies, contacts, opportunities, tasks, notes, and a dashboard. Each account must only see its own records."
+              />
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  className="obs-btn-primary"
+                  type="button"
+                  disabled={busy || !architectureRequest.trim()}
+                  onClick={() => void generateBlueprint()}
+                >
+                  {busy ? "Architecting…" : workspace.blueprint ? "Regenerate blueprint" : "Generate app blueprint"}
+                </button>
+                <button
+                  className="obs-btn-ghost"
+                  type="button"
+                  disabled={busy || !workspace.blueprint}
+                  onClick={() => void implementBlueprint()}
+                >
+                  Implement blueprint
+                </button>
+              </div>
+              <p className="mt-2 text-xs opacity-60">
+                Blueprint generation and implementation each use the regular AI credit system. The blueprint is saved with this Full App project.
+              </p>
+              {workspace.blueprint && (
+                <div className="mt-4 rounded-xl border border-white/10 bg-black/20 p-4">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="obs-kicker">Application blueprint</p>
+                      <h3 className="mt-1 font-semibold">{workspace.blueprint.name}</h3>
+                      <p className="mt-1 max-w-3xl text-sm opacity-70">{workspace.blueprint.summary}</p>
+                    </div>
+                    <span className="obs-pill">{workspace.blueprint.routes.length} views · {workspace.blueprint.entities.length} entities</span>
+                  </div>
+                  <div className="mt-4 grid gap-3 md:grid-cols-2">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide opacity-60">Views</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {workspace.blueprint.routes.map(route => (
+                          <span key={route.path} className="obs-pill">{route.path}</span>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-wide opacity-60">Data</p>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        {workspace.blueprint.entities.length
+                          ? workspace.blueprint.entities.map(entity => (
+                              <span key={entity.name} className="obs-pill">{entity.name} · {entity.ownership}</span>
+                            ))
+                          : <span className="text-xs opacity-55">No persistent entities required.</span>}
+                      </div>
+                    </div>
+                  </div>
+                  <details className="mt-4">
+                    <summary className="cursor-pointer text-xs font-medium text-amber-300">View full architecture</summary>
+                    <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3 text-[11px] leading-relaxed">
+                      {JSON.stringify(workspace.blueprint, null, 2)}
+                    </pre>
+                  </details>
+                </div>
+              )}
+            </section>
+
+            <section className="obs-node mt-5">
               <h2 className="text-lg font-semibold"><Sparkles size={18} className="mr-2 inline"/>AI multi-file development</h2>
               <p className="mt-1 text-sm opacity-65">Ask the coding agent to add a feature, refactor components, or propose a database migration. The agent returns changes for review and never edits your files without approval.</p>
               <textarea className="obs-textarea mt-4 w-full" rows={3} value={instruction} onChange={e => setInstruction(e.target.value)}
