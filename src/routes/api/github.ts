@@ -36,6 +36,16 @@ const bodySchema = z.discriminatedUnion("action", [
     runId: z.number().int().positive(),
   }),
   z.object({ action: z.literal("triggerBuild"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({
+    action: z.literal("syncFullApp"),
+    token: z.string().min(10).max(400),
+    repo: z.string().min(1).max(90),
+    html: z.string().min(1).max(4_000_000),
+    title: z.string().min(1).max(200),
+    files: z.record(z.string(), z.string()),
+    addons: z.array(z.string()).max(4).optional(),
+    expectedHeadSha: z.string().regex(/^[0-9a-f]{40}$/i).optional(),
+  }),
   z.object({ action: z.literal("publishApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("shipApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("backendStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
@@ -171,6 +181,86 @@ async function putFullAppFiles(
     method: "PATCH", body: JSON.stringify({ sha: nextSha, force: false }),
   });
   if (!update.ok) throw new Error("Could not move new repository branch to full-app commit.");
+}
+
+
+const OBSIDIAN_MANIFEST_PATH = ".obsidian/managed-files.json";
+
+async function readManagedManifest(token: string, login: string, repo: string, branch: string): Promise<string[]> {
+  const res = await gh(token, "/repos/" + login + "/" + repo + "/contents/" + encodeURIComponent(OBSIDIAN_MANIFEST_PATH) + "?ref=" + encodeURIComponent(branch));
+  if (!res.ok) return [];
+  try {
+    const data = await ghJson(res) as { content?: string; encoding?: string };
+    const raw = data.encoding === "base64" && data.content ? fromB64(data.content) : "";
+    const parsed = JSON.parse(raw) as { files?: unknown };
+    if (!Array.isArray(parsed.files)) return [];
+    return parsed.files.filter((v): v is string => typeof v === "string" && v.length < 220).slice(0, 500);
+  } catch {
+    return [];
+  }
+}
+
+async function syncManagedFullAppFiles(
+  token: string,
+  login: string,
+  repo: string,
+  branch: string,
+  expectedHeadSha: string | undefined,
+  files: Record<string, string>,
+  title: string,
+) {
+  const head = await managedDefaultHead(token, login, repo);
+  if (head.branch !== branch) throw new Error("Application default branch changed. Refresh repository status.");
+  if (expectedHeadSha && head.sha !== expectedHeadSha) {
+    throw new Error("The GitHub app changed since the last inspected build. Refresh status before syncing to avoid overwriting newer work.");
+  }
+
+  const parentRes = await gh(token, "/repos/" + login + "/" + repo + "/git/commits/" + head.sha);
+  if (!parentRes.ok) throw new Error("Could not read the application repository HEAD.");
+  const baseTree = (await ghJson(parentRes)) as { tree: { sha: string } };
+
+  const previousManaged = new Set(await readManagedManifest(token, login, repo, branch));
+  const nextManaged = Object.keys(files).sort();
+  const nextSet = new Set(nextManaged);
+  const tree: Array<{ path: string; mode: string; type: string; content?: string; sha?: null }> = [];
+
+  for (const [filePath, content] of Object.entries(files)) {
+    tree.push({ path: filePath, mode: "100644", type: "blob", content });
+  }
+  for (const stalePath of previousManaged) {
+    if (!nextSet.has(stalePath) && stalePath !== OBSIDIAN_MANIFEST_PATH) {
+      tree.push({ path: stalePath, mode: "100644", type: "blob", sha: null });
+    }
+  }
+  const manifest = JSON.stringify({
+    version: 1,
+    generatedBy: "Aetheris Obsidian",
+    files: [...nextManaged, OBSIDIAN_MANIFEST_PATH].sort(),
+  }, null, 2) + "\n";
+  tree.push({ path: OBSIDIAN_MANIFEST_PATH, mode: "100644", type: "blob", content: manifest });
+
+  const treeRes = await gh(token, "/repos/" + login + "/" + repo + "/git/trees", {
+    method: "POST",
+    body: JSON.stringify({ base_tree: baseTree.tree.sha, tree }),
+  });
+  if (!treeRes.ok) throw new Error("Could not prepare the repaired Full App source tree.");
+  const newTree = (await ghJson(treeRes)) as { sha: string };
+  const commitRes = await gh(token, "/repos/" + login + "/" + repo + "/git/commits", {
+    method: "POST",
+    body: JSON.stringify({
+      message: "Obsidian repair sync: " + title.slice(0, 100),
+      tree: newTree.sha,
+      parents: [head.sha],
+    }),
+  });
+  if (!commitRes.ok) throw new Error("Could not create the repaired Full App commit.");
+  const commit = (await ghJson(commitRes)) as { sha: string };
+  const update = await gh(token, "/repos/" + login + "/" + repo + "/git/refs/heads/" + branch.split("/").map(encodeURIComponent).join("/"), {
+    method: "PATCH",
+    body: JSON.stringify({ sha: commit.sha, force: false }),
+  });
+  if (!update.ok) throw new Error("Could not update the Full App branch. Refresh before retrying.");
+  return commit.sha;
 }
 
 async function putFile(
@@ -456,7 +546,7 @@ export const Route = createFileRoute("/api/github")({
             }
           }
 
-          if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" ||
+          if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" || parsed.action === "syncFullApp" ||
               parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "configureAppBackend" ||
               parsed.action === "backendStatus" || parsed.action === "deployBackend") {
             const user = await getUser(parsed.token);
@@ -494,6 +584,34 @@ export const Route = createFileRoute("/api/github")({
             if (parsed.action === "triggerBuild") {
               await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-build.yml");
               return Response.json({ ok: true, status: "queued", message: "Build + browser QA requested. Refresh status to see the run." });
+            }
+            if (parsed.action === "syncFullApp") {
+              const artifact = buildArtifact({ html: parsed.html, surface: "publish" });
+              if (!artifact.safeToPublish) throw new Error("The current Full App design did not pass the publish safety gate.");
+              const nextFiles = reconcileFullAppFiles(
+                artifact.html,
+                parsed.title,
+                parsed.files,
+                validateAppAddons(parsed.addons),
+              );
+              const { branch, sha: currentSha } = await managedDefaultHead(parsed.token, user.login, appRepo);
+              const nextSha = await syncManagedFullAppFiles(
+                parsed.token,
+                user.login,
+                appRepo,
+                branch,
+                parsed.expectedHeadSha,
+                nextFiles,
+                parsed.title,
+              );
+              await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-build.yml");
+              return Response.json({
+                ok: true,
+                status: "queued",
+                previousSha: currentSha,
+                headSha: nextSha,
+                message: "Repaired source synced to GitHub. Build + browser QA queued automatically.",
+              });
             }
             if (parsed.action === "shipApp") {
               await initializeManagedPages(parsed.token, user.login, appRepo);
