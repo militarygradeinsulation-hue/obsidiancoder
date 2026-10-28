@@ -39,12 +39,12 @@ export default defineConfig({
     ["html", { outputFolder: "playwright-report", open: "never" }],
   ],
   use: {
-    baseURL: "http://127.0.0.1:4173",
+    baseURL: process.env.OBSIDIAN_BASE_URL || "http://127.0.0.1:4173",
     trace: "retain-on-failure",
     screenshot: "only-on-failure",
     video: "retain-on-failure",
   },
-  webServer: {
+  webServer: process.env.OBSIDIAN_BASE_URL ? undefined : {
     command: "npm run preview -- --host 127.0.0.1 --port 4173",
     url: "http://127.0.0.1:4173",
     reuseExistingServer: false,
@@ -279,6 +279,60 @@ try {
 }
 `;
 
+const FUNCTIONAL_QA = String.raw`name: Obsidian Functional QA
+on:
+  workflow_dispatch:
+  workflow_run:
+    workflows: ["Obsidian Ship"]
+    types: [completed]
+permissions:
+  contents: read
+concurrency:
+  group: obsidian-functional-qa
+  cancel-in-progress: true
+jobs:
+  journeys:
+    if: __DOLLAR__{{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium runtime
+        run: npx playwright install --with-deps chromium
+      - name: Run production business journeys
+        env:
+          CUSTOM_DOMAIN: "__DOLLAR__{{ vars.OBSIDIAN_CUSTOM_DOMAIN }}"
+          PAGES_URL: "https://__DOLLAR__{{ github.repository_owner }}.github.io/__DOLLAR__{{ github.event.repository.name }}/"
+          OBSIDIAN_E2E_EMAIL: __DOLLAR__{{ secrets.OBSIDIAN_E2E_EMAIL }}
+          OBSIDIAN_E2E_PASSWORD: __DOLLAR__{{ secrets.OBSIDIAN_E2E_PASSWORD }}
+          OBSIDIAN_REQUIRE_AUTH_E2E: "true"
+        shell: bash
+        run: |
+          if [ -n "$CUSTOM_DOMAIN" ]; then
+            export OBSIDIAN_BASE_URL="https://$CUSTOM_DOMAIN/"
+          else
+            export OBSIDIAN_BASE_URL="$PAGES_URL"
+          fi
+          echo "OBSIDIAN_FUNCTIONAL_QA: testing $OBSIDIAN_BASE_URL"
+          npx playwright test tests/obsidian.acceptance.spec.ts --project=desktop-chromium
+      - name: Archive production functional evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-functional-qa
+          path: |
+            test-results/
+            playwright-report/
+            obsidian/acceptance.json
+          if-no-files-found: ignore
+          retention-days: 14
+`;
+
 const HEALTH = String.raw`name: Obsidian Production Health
 on:
   workflow_dispatch:
@@ -424,6 +478,7 @@ export function addManagedAppBuild(files: FullAppFiles, rawAddons?: unknown): Fu
     ".github/workflows/obsidian-publish.yml": yaml(DEPLOY),
     ".github/workflows/obsidian-ship.yml": yaml(SHIP),
     ".github/workflows/obsidian-health.yml": yaml(HEALTH),
+    ".github/workflows/obsidian-functional-qa.yml": yaml(FUNCTIONAL_QA),
     "playwright.config.ts": PLAYWRIGHT_CONFIG,
     "tests/obsidian.smoke.spec.ts": QA_SPEC,
     "scripts/obsidian-live-check.mjs": LIVE_VERIFY,
