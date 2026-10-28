@@ -39,6 +39,8 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   configureAppBackend: "github_deploy",
   publishApp: "github_deploy",
   shipApp: "github_deploy",
+  setCustomDomain: "github_deploy",
+  customDomainStatus: "github_list",
   rollbackApp: "github_deploy",
   backendStatus: "github_list",
   deployBackend: "github_deploy",
@@ -96,6 +98,9 @@ export function GithubModal(props: {
     lastHealthRunId?: number;
     lastHealthConclusion?: string | null;
     deploymentUrl?: string;
+    customDomain?: string;
+    customDomainHealthy?: boolean;
+    customDomainHttps?: boolean;
     supabaseProjectRef?: string;
     lastCheckedAt?: number;
   }) => void;
@@ -139,6 +144,15 @@ export function GithubModal(props: {
   const [ships, setShips] = React.useState<ManagedRun[]>([]);
   const [health, setHealth] = React.useState<ManagedRun[]>([]);
   const [hostingUrl, setHostingUrl] = React.useState("");
+  const [customDomainInput, setCustomDomainInput] = React.useState("");
+  const [domainStatus, setDomainStatus] = React.useState<null | {
+    url: string;
+    domain: string;
+    httpsEnforced: boolean;
+    status: string;
+    healthPending: boolean;
+    health: unknown;
+  }>(null);
   const [backendMode, setBackendMode] = React.useState<"functions-only" | "schema-and-functions">("functions-only");
   const [backendReady, setBackendReady] = React.useState<null | {
     hasAccessToken: boolean;
@@ -568,6 +582,102 @@ export function GithubModal(props: {
       if (result.message) onLog(result.message);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not save integration variable");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  function domainHealthFlags(value: {
+    domain: string;
+    httpsEnforced: boolean;
+    healthPending: boolean;
+    health: unknown;
+  }) {
+    const root = value.health && typeof value.health === "object"
+      ? (value.health as { domain?: { is_valid?: boolean; responds_to_https?: boolean; enforces_https?: boolean; reason?: string | null } }).domain
+      : undefined;
+    return {
+      healthy: !!root?.is_valid,
+      https: !!(value.httpsEnforced || root?.enforces_https || root?.responds_to_https),
+      reason: root?.reason ?? "",
+    };
+  }
+
+  async function setCustomDomain() {
+    if (!managedRepo.trim() || !customDomainInput.trim()) return;
+    setErr(null);
+    setLoading("custom-domain");
+    try {
+      const result = await ghCall<{
+        ok: boolean;
+        domain: {
+          url: string;
+          domain: string;
+          httpsEnforced: boolean;
+          status: string;
+          healthPending: boolean;
+          health: unknown;
+        };
+        message?: string;
+      }>({
+        action: "setCustomDomain",
+        token,
+        repo: managedRepo.trim(),
+        domain: customDomainInput.trim(),
+      });
+      setDomainStatus(result.domain);
+      setCustomDomainInput(result.domain.domain);
+      const flags = domainHealthFlags(result.domain);
+      onProductionUpdate?.({
+        githubRepo: managedRepo.trim(),
+        customDomain: result.domain.domain,
+        customDomainHealthy: flags.healthy,
+        customDomainHttps: flags.https,
+        deploymentUrl: result.domain.domain ? "https://" + result.domain.domain + "/" : undefined,
+        lastCheckedAt: Date.now(),
+      });
+      if (result.message) onLog(result.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not configure custom domain";
+      setErr(message);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function refreshCustomDomain() {
+    if (!managedRepo.trim()) return;
+    setErr(null);
+    setLoading("custom-domain-status");
+    try {
+      const result = await ghCall<{
+        ok: boolean;
+        domain: {
+          url: string;
+          domain: string;
+          httpsEnforced: boolean;
+          status: string;
+          healthPending: boolean;
+          health: unknown;
+        };
+      }>({
+        action: "customDomainStatus",
+        token,
+        repo: managedRepo.trim(),
+      });
+      setDomainStatus(result.domain);
+      if (result.domain.domain) setCustomDomainInput(result.domain.domain);
+      const flags = domainHealthFlags(result.domain);
+      onProductionUpdate?.({
+        githubRepo: managedRepo.trim(),
+        customDomain: result.domain.domain || undefined,
+        customDomainHealthy: flags.healthy,
+        customDomainHttps: flags.https,
+        deploymentUrl: result.domain.domain ? "https://" + result.domain.domain + "/" : result.domain.url || undefined,
+        lastCheckedAt: Date.now(),
+      });
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not check custom domain");
     } finally {
       setLoading(null);
     }
