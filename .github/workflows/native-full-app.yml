@@ -11,6 +11,7 @@ on:
       - "src/lib/full-app-backend.ts"
       - "src/lib/full-app-design.ts"
       - "src/lib/full-app-blueprint.ts"
+      - "src/lib/full-app-integrations.ts"
       - "src/routes/api/full-app/plan.ts"
       - "src/lib/__tests__/full-app-design.selftest.mts"
       - "src/lib/__tests__/full-app-blueprint.selftest.mts"
