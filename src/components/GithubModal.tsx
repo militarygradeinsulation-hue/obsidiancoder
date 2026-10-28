@@ -141,6 +141,37 @@ export function GithubModal(props: {
       setRepos(repos);
       localStorage.setItem(TOKEN_KEY, t);
       if (!silent) onLog(`✓ Connected to GitHub as @${user.login}`);
+
+      if (defaultManagedRepo) {
+        try {
+          const production = await ghCall<{
+            ok: boolean;
+            builds?: ManagedRun[];
+            publishes?: ManagedRun[];
+            ships?: ManagedRun[];
+          }>({
+            action: "buildStatus",
+            token: t,
+            repo: defaultManagedRepo,
+          });
+          const nextBuilds = production.builds ?? [];
+          const nextPublishes = production.publishes ?? [];
+          const nextShips = production.ships ?? [];
+          setBuilds(nextBuilds);
+          setPublishes(nextPublishes);
+          setShips(nextShips);
+          onProductionUpdate?.({
+            githubRepo: defaultManagedRepo,
+            lastBuildRunId: nextBuilds[0]?.id,
+            lastBuildConclusion: nextBuilds[0]?.conclusion ?? nextBuilds[0]?.status ?? null,
+            lastShipRunId: nextShips[0]?.id,
+            lastShipConclusion: nextShips[0]?.conclusion ?? nextShips[0]?.status ?? null,
+            lastCheckedAt: Date.now(),
+          });
+        } catch {
+          // Restoring GitHub status is best-effort; connection itself succeeded.
+        }
+      }
     } catch (e) {
       const msg = e instanceof Error ? e.message : "connect failed";
       setErr(msg);
