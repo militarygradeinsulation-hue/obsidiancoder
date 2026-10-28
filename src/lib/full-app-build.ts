@@ -274,6 +274,43 @@ try {
 }
 `;
 
+const HEALTH = String.raw`name: Obsidian Production Health
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 */6 * * *"
+permissions:
+  contents: read
+concurrency:
+  group: obsidian-production-health
+  cancel-in-progress: true
+jobs:
+  health:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install pinned dependencies
+        run: npm install --no-audit --no-fund
+      - name: Install Chromium runtime
+        run: npx playwright install --with-deps chromium
+      - name: Verify production site
+        env:
+          LIVE_URL: "https://__DOLLAR__{{ github.repository_owner }}.github.io/__DOLLAR__{{ github.event.repository.name }}/"
+        run: node scripts/obsidian-live-check.mjs "$LIVE_URL"
+      - name: Archive health evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-production-health
+          path: live-test-results/
+          if-no-files-found: ignore
+          retention-days: 14
+`;
+
 const SHIP = String.raw`name: Obsidian Ship
 on:
   workflow_dispatch:
@@ -362,6 +399,7 @@ export function addManagedAppBuild(files: FullAppFiles, rawAddons?: unknown): Fu
     ".github/workflows/obsidian-build.yml": yaml(BUILD),
     ".github/workflows/obsidian-publish.yml": yaml(DEPLOY),
     ".github/workflows/obsidian-ship.yml": yaml(SHIP),
+    ".github/workflows/obsidian-health.yml": yaml(HEALTH),
     "playwright.config.ts": PLAYWRIGHT_CONFIG,
     "tests/obsidian.smoke.spec.ts": QA_SPEC,
     "scripts/obsidian-live-check.mjs": LIVE_VERIFY,
