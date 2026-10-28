@@ -10,6 +10,8 @@ export const APPROVED_APP_ADDONS = {
 } as const;
 export type AppAddonId = keyof typeof APPROVED_APP_ADDONS;
 export const APP_ADDON_IDS = Object.keys(APPROVED_APP_ADDONS) as AppAddonId[];
+const PLAYWRIGHT_VERSION = "1.56.1";
+
 export function validateAppAddons(raw: unknown): AppAddonId[] {
   if (raw === undefined || raw === null) return [];
   if (!Array.isArray(raw) || raw.length > APP_ADDON_IDS.length) throw new Error("Invalid Full App dependencies.");
@@ -18,6 +20,81 @@ export function validateAppAddons(raw: unknown): AppAddonId[] {
   }
   return [...new Set(raw)] as AppAddonId[];
 }
+
+
+
+const PLAYWRIGHT_CONFIG = String.raw`import { defineConfig, devices } from "@playwright/test";
+
+export default defineConfig({
+  testDir: "./tests",
+  timeout: 30_000,
+  expect: { timeout: 8_000 },
+  fullyParallel: false,
+  forbidOnly: true,
+  retries: 0,
+  workers: 1,
+  reporter: [
+    ["line"],
+    ["json", { outputFile: "test-results/obsidian-qa.json" }],
+    ["html", { outputFolder: "playwright-report", open: "never" }],
+  ],
+  use: {
+    baseURL: "http://127.0.0.1:4173",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    video: "retain-on-failure",
+  },
+  webServer: {
+    command: "npm run preview -- --host 127.0.0.1 --port 4173",
+    url: "http://127.0.0.1:4173",
+    reuseExistingServer: false,
+    timeout: 120_000,
+  },
+  projects: [
+    { name: "desktop-chromium", use: { ...devices["Desktop Chrome"] } },
+    { name: "mobile-chromium", use: { ...devices["iPhone 13"] } },
+  ],
+});
+`;
+
+const QA_SPEC = String.raw`import { test, expect } from "@playwright/test";
+
+test("production app renders and remains usable", async ({ page }, testInfo) => {
+  const pageErrors: string[] = [];
+  page.on("pageerror", error => pageErrors.push(error.message));
+
+  const response = await page.goto("/", { waitUntil: "networkidle" });
+  expect(response, "The production server should answer.").not.toBeNull();
+  expect(response?.ok(), "The production route should return a successful status.").toBeTruthy();
+
+  const root = page.locator("#root");
+  await expect(root).toBeVisible();
+  await expect(root).not.toBeEmpty();
+
+  const bodyText = (await page.locator("body").innerText()).replace(/\\s+/g, " ").trim();
+  expect(bodyText.length, "The rendered application should contain visible content.").toBeGreaterThan(20);
+
+  const geometry = await page.evaluate(() => ({
+    scrollWidth: document.documentElement.scrollWidth,
+    clientWidth: document.documentElement.clientWidth,
+    scrollHeight: document.documentElement.scrollHeight,
+    clientHeight: document.documentElement.clientHeight,
+  }));
+  expect(
+    geometry.scrollWidth - geometry.clientWidth,
+    "The app should not create meaningful horizontal overflow.",
+  ).toBeLessThanOrEqual(8);
+  expect(geometry.scrollHeight, "The app should render a real page height.").toBeGreaterThan(120);
+
+  expect(pageErrors, "The browser should not throw uncaught runtime errors.").toEqual([]);
+
+  await page.screenshot({
+    path: `test-results/${testInfo.project.name}-full-page.png`,
+    fullPage: true,
+  });
+});
+`;
+
 
 const BUILD = String.raw`name: Obsidian Full App build
 on:
@@ -32,25 +109,59 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package.json
       - name: Install pinned dependencies
         run: npm install --no-audit --no-fund
-      - name: Typecheck and production build
+      - id: production_build
+        name: Typecheck and production build
         run: npm run build
         env:
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
-      - name: Archive build output
+      - name: Install Chromium runtime
+        if: steps.production_build.outcome == 'success'
+        run: npx playwright install --with-deps chromium
+      - id: browser_qa
+        name: Obsidian autonomous browser QA
+        if: steps.production_build.outcome == 'success'
+        run: npm run qa:e2e
+        env:
+          VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      - name: Write Obsidian build report
+        if: always()
+        shell: bash
+        env:
+          BUILD_OUTCOME: __DOLLAR__{{ steps.production_build.outcome }}
+          QA_OUTCOME: __DOLLAR__{{ steps.browser_qa.outcome }}
+        run: |
+          node -e 'const fs=require("fs"); const report={sha:process.env.GITHUB_SHA,runId:process.env.GITHUB_RUN_ID,build:process.env.BUILD_OUTCOME||"not-run",qa:process.env.QA_OUTCOME||"not-run",createdAt:new Date().toISOString()}; fs.writeFileSync("obsidian-build-report.json",JSON.stringify(report,null,2));'
+      - name: Archive production output
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: full-app-dist
           path: dist/
+          if-no-files-found: ignore
           retention-days: 7
+      - name: Archive Obsidian QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-qa
+          path: |
+            obsidian-build-report.json
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
 `;
 
 const DEPLOY = String.raw`name: Publish Obsidian Full App
@@ -91,15 +202,81 @@ jobs:
         uses: actions/deploy-pages@v4
 `;
 
+
+
+const SHIP = String.raw`name: Obsidian Ship
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+concurrency:
+  group: obsidian-ship
+  cancel-in-progress: false
+jobs:
+  verify-and-ship:
+    environment:
+      name: github-pages
+      url: __DOLLAR__{{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: package.json
+      - name: Install pinned dependencies
+        run: npm install --no-audit --no-fund
+      - id: production_build
+        name: Production build
+        run: npm run build
+        env:
+          GITHUB_PAGES_BASE: /__DOLLAR__{{ github.event.repository.name }}/
+          VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      - name: Install Chromium runtime
+        run: npx playwright install --with-deps chromium
+      - id: browser_qa
+        name: Obsidian autonomous browser QA
+        run: npm run qa:e2e
+        env:
+          VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      - name: Archive QA evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-ship-qa
+          path: |
+            test-results/
+            playwright-report/
+          if-no-files-found: ignore
+          retention-days: 14
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist/
+      - id: deployment
+        uses: actions/deploy-pages@v4
+`;
+
 function yaml(raw: string): string { return raw.replaceAll("__DOLLAR__", "$"); }
 
 export function addManagedAppBuild(files: FullAppFiles, rawAddons?: unknown): FullAppFiles {
   const addons = validateAppAddons(rawAddons);
   const pkg = JSON.parse(files["package.json"] || "null") as {
-    name: string; scripts: Record<string, string>; dependencies: Record<string, string>;
+    name: string;
+    scripts: Record<string, string>;
+    dependencies: Record<string, string>;
+    devDependencies?: Record<string, string>;
   } | null;
   if (!pkg?.dependencies || !pkg.scripts?.build) throw new Error("Missing Full App package manifest.");
   for (const id of addons) pkg.dependencies[id] = APPROVED_APP_ADDONS[id].version;
+  pkg.devDependencies = { ...(pkg.devDependencies ?? {}), "@playwright/test": PLAYWRIGHT_VERSION };
+  pkg.scripts["qa:e2e"] = "playwright test";
   const vite = files["vite.config.ts"];
   if (!vite || !vite.includes('defineConfig')) throw new Error("Missing Vite config.");
   return {
@@ -111,9 +288,12 @@ export function addManagedAppBuild(files: FullAppFiles, rawAddons?: unknown): Fu
     ),
     ".github/workflows/obsidian-build.yml": yaml(BUILD),
     ".github/workflows/obsidian-publish.yml": yaml(DEPLOY),
+    ".github/workflows/obsidian-ship.yml": yaml(SHIP),
+    "playwright.config.ts": PLAYWRIGHT_CONFIG,
+    "tests/obsidian.smoke.spec.ts": QA_SPEC,
     "README.md": (files["README.md"] || "") + "\n## Managed build and GitHub Pages publishing\n" +
       "The included GitHub Actions build checks source on pushes and on demand. " +
-      "Use ObsidianCoder's GitHub integration to inspect runs, trigger a build and explicitly publish after configuring Pages. " +
+      "Use ObsidianCoder's GitHub integration to inspect runs, trigger a build, run automated Chromium QA at desktop/mobile widths, and ship only after those checks pass. " +
       "Supply only PUBLIC Supabase URL and publishable key using GitHub repository Actions variables. " +
       "Run the included SQL migration in your own Supabase project; no database is created automatically. " +
       "Check the hosted URL, OAuth redirect URLs and per-user RLS before inviting users. " +
