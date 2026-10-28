@@ -51,6 +51,10 @@ interface FullAppProductionState {
   lastHealthConclusion?: string | null;
   lastBackendHealthRunId?: number;
   lastBackendHealthConclusion?: string | null;
+  lastSecurityStatus?: "pass" | "warning" | "error" | "unverified";
+  lastSecurityBlockingCount?: number;
+  lastSecurityWarningCount?: number;
+  lastSecurityCheckedAt?: number;
   deploymentUrl?: string;
   customDomain?: string;
   customDomainHealthy?: boolean;
@@ -112,6 +116,10 @@ function sanitizeProduction(value: unknown): FullAppProductionState | undefined 
   if (typeof p.lastHealthConclusion === "string" || p.lastHealthConclusion === null) clean.lastHealthConclusion = p.lastHealthConclusion as string | null;
   if (typeof p.lastBackendHealthRunId === "number" && Number.isSafeInteger(p.lastBackendHealthRunId) && p.lastBackendHealthRunId > 0) clean.lastBackendHealthRunId = p.lastBackendHealthRunId;
   if (typeof p.lastBackendHealthConclusion === "string" || p.lastBackendHealthConclusion === null) clean.lastBackendHealthConclusion = p.lastBackendHealthConclusion as string | null;
+  if (p.lastSecurityStatus === "pass" || p.lastSecurityStatus === "warning" || p.lastSecurityStatus === "error" || p.lastSecurityStatus === "unverified") clean.lastSecurityStatus = p.lastSecurityStatus;
+  if (typeof p.lastSecurityBlockingCount === "number" && Number.isFinite(p.lastSecurityBlockingCount) && p.lastSecurityBlockingCount >= 0) clean.lastSecurityBlockingCount = Math.floor(p.lastSecurityBlockingCount);
+  if (typeof p.lastSecurityWarningCount === "number" && Number.isFinite(p.lastSecurityWarningCount) && p.lastSecurityWarningCount >= 0) clean.lastSecurityWarningCount = Math.floor(p.lastSecurityWarningCount);
+  if (typeof p.lastSecurityCheckedAt === "number" && Number.isFinite(p.lastSecurityCheckedAt) && p.lastSecurityCheckedAt > 0) clean.lastSecurityCheckedAt = p.lastSecurityCheckedAt;
   if (typeof p.deploymentUrl === "string" && /^https:\/\//.test(p.deploymentUrl) && p.deploymentUrl.length < 500) clean.deploymentUrl = p.deploymentUrl;
   if (typeof p.customDomain === "string" && /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(p.customDomain)) clean.customDomain = p.customDomain;
   if (typeof p.customDomainHealthy === "boolean") clean.customDomainHealthy = p.customDomainHealthy;
@@ -417,6 +425,21 @@ function FullAppPage() {
                 <span className="obs-pill" data-tone={workspace.production.authSiteUrl ? "good" : "muted"}>
                   Auth URL: {workspace.production.authSiteUrl ? "configured" : "not configured"}
                 </span>
+                <span
+                  className="obs-pill"
+                  data-tone={
+                    workspace.production.lastSecurityStatus === "pass" || workspace.production.lastSecurityStatus === "warning"
+                      ? "good"
+                      : "muted"
+                  }
+                >
+                  Security: {workspace.production.lastSecurityStatus ?? "not checked"}
+                  {workspace.production.lastSecurityBlockingCount
+                    ? " · " + workspace.production.lastSecurityBlockingCount + " blocking"
+                    : workspace.production.lastSecurityWarningCount
+                      ? " · " + workspace.production.lastSecurityWarningCount + " warning"
+                      : ""}
+                </span>
                 {workspace.production.customDomain && (
                   <span className="obs-pill" data-tone={workspace.production.customDomainHealthy && workspace.production.customDomainHttps ? "good" : "muted"}>
                     Domain: {workspace.production.customDomainHealthy ? "DNS ready" : "DNS pending"} · {workspace.production.customDomainHttps ? "HTTPS" : "HTTPS pending"}
@@ -429,7 +452,9 @@ function FullAppPage() {
                workspace.production.lastShipConclusion === "success" &&
                workspace.production.lastHealthConclusion === "success" &&
                workspace.production.lastBackendHealthConclusion === "success" &&
-               workspace.production.authSiteUrl
+               workspace.production.authSiteUrl &&
+               (workspace.production.lastSecurityStatus === "pass" || workspace.production.lastSecurityStatus === "warning") &&
+               (workspace.production.lastSecurityBlockingCount ?? 0) === 0
                 ? <span className="obs-pill" data-tone="good">Production ready</span>
                 : <span className="obs-pill" data-tone="muted">Release checks incomplete</span>}
             </div>
