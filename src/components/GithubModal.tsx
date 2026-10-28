@@ -1088,6 +1088,41 @@ export function GithubModal(props: {
               </div>
               <div style={{ marginTop: 15, padding: 12, border: "1px solid rgba(244,161,37,.22)", borderRadius: 10 }}>
                 <h3 style={{ fontSize: 13, margin: "0 0 6px" }}>Server functions, private files, and database</h3>
+                <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: "rgba(255,255,255,.025)", border: "1px solid rgba(182,188,200,.14)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 5 }}>Connect an existing Supabase backend</div>
+                  <p style={{ color: "#B6BCC8", fontSize: 11, lineHeight: 1.5, margin: "0 0 8px" }}>
+                    Use a scoped Supabase management token and project ref. The token stays in this browser session and is sent only for Management API operations; Obsidian does not save it to the project.
+                  </p>
+                  <input
+                    type="password"
+                    value={supabaseAccessToken}
+                    onChange={e => setSupabaseAccessToken(e.target.value)}
+                    aria-label="Supabase management token"
+                    placeholder="Supabase management access token"
+                    autoComplete="off"
+                    style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, marginBottom: 6 }}
+                  />
+                  <input
+                    value={supabaseProjectRef}
+                    onChange={e => setSupabaseProjectRef(e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "").slice(0, 20))}
+                    aria-label="Supabase project reference"
+                    placeholder="20-character project ref"
+                    style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, marginBottom: 7 }}
+                  />
+                  <button
+                    type="button"
+                    className="obs-chip"
+                    disabled={!!loading || !supabaseAccessToken.trim() || supabaseProjectRef.length !== 20}
+                    onClick={() => void connectSupabaseProject()}
+                  >
+                    Connect Supabase project
+                  </button>
+                  {supabaseConnection && (
+                    <div style={{ marginTop: 8, color: "#B6BCC8", fontSize: 11 }}>
+                      ✓ {supabaseConnection.projectName} · {supabaseConnection.projectStatus} · {supabaseConnection.keyKind} key
+                    </div>
+                  )}
+                </div>
                 <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: "rgba(244,161,37,.05)", border: "1px solid rgba(244,161,37,.14)" }}>
                   <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 5 }}>Optional one-click backend provisioning</div>
                   <p style={{ color: "#B6BCC8", fontSize: 11, lineHeight: 1.5, margin: "0 0 8px" }}>
@@ -1140,13 +1175,74 @@ export function GithubModal(props: {
                 {requiredIntegrations.length > 0 && (
                   <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: "rgba(255,255,255,.025)" }}>
                     <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: .8, opacity: .65, marginBottom: 6 }}>
-                      Blueprint integrations
+                      Integration Vault · required by App Architect
                     </div>
-                    {requiredIntegrations.map(id => (
-                      <div key={id} style={{ fontSize: 12, color: "#B6BCC8", margin: "4px 0" }}>
-                        {FULL_APP_INTEGRATIONS[id].label} · {FULL_APP_INTEGRATIONS[id].purpose}
-                      </div>
-                    ))}
+                    {requiredIntegrations.map(id => {
+                      const def = FULL_APP_INTEGRATIONS[id];
+                      return (
+                        <div key={id} style={{ padding: "9px 0", borderTop: "1px solid rgba(182,188,200,.10)" }}>
+                          <div style={{ fontSize: 12, color: "#f2eee7", fontWeight: 600 }}>{def.label}</div>
+                          <div style={{ fontSize: 11, color: "#B6BCC8", marginTop: 2 }}>{def.purpose}</div>
+                          {def.secrets.map(name => {
+                            const configured = !!supabaseConnection?.secretNames.includes(name);
+                            return (
+                              <div key={name} style={{ marginTop: 7 }}>
+                                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
+                                  <span style={{ fontSize: 11, color: configured ? "#9ad3a4" : "#d8a45d" }}>
+                                    {configured ? "✓" : "○"} {name}
+                                  </span>
+                                  {configured && (
+                                    <button type="button" className="obs-chip" disabled={!!loading || !supabaseConnection}
+                                      onClick={() => void removeRuntimeSecret(id, name)}>
+                                      Remove
+                                    </button>
+                                  )}
+                                </div>
+                                <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+                                  <input
+                                    type="password"
+                                    value={secretDrafts[name] ?? ""}
+                                    onChange={e => setSecretDrafts(current => ({ ...current, [name]: e.target.value }))}
+                                    placeholder={configured ? "Replace secret value" : "Secret value"}
+                                    autoComplete="new-password"
+                                    style={{ flex: 1, minWidth: 0, background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 8, fontSize: 11 }}
+                                  />
+                                  <button
+                                    type="button"
+                                    className="obs-chip"
+                                    disabled={!!loading || !supabaseConnection || !(secretDrafts[name] ?? "").trim()}
+                                    onClick={() => void saveRuntimeSecret(id, name)}
+                                  >
+                                    Save secret
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          })}
+                          {def.publicVars.map(name => (
+                            <div key={name} style={{ marginTop: 7 }}>
+                              <div style={{ fontSize: 11, color: "#B6BCC8" }}>{name} · browser-safe public value</div>
+                              <div style={{ display: "flex", gap: 6, marginTop: 5 }}>
+                                <input
+                                  value={variableDrafts[name] ?? ""}
+                                  onChange={e => setVariableDrafts(current => ({ ...current, [name]: e.target.value }))}
+                                  placeholder="Public configuration value"
+                                  style={{ flex: 1, minWidth: 0, background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 8, fontSize: 11 }}
+                                />
+                                <button
+                                  type="button"
+                                  className="obs-chip"
+                                  disabled={!!loading || !(variableDrafts[name] ?? "").trim()}
+                                  onClick={() => void savePublicIntegrationVariable(id, name)}
+                                >
+                                  Save variable
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
                 {backendReady && (
