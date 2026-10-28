@@ -34,6 +34,10 @@ assert.ok(files[".github/workflows/obsidian-health.yml"].includes("17 */6 * * *"
 assert.ok(files[".github/workflows/obsidian-health.yml"].includes("obsidian-live-check.mjs"));
 assert.ok(files[".github/workflows/obsidian-build.yml"].includes("VITE_STRIPE_PUBLISHABLE_KEY"));
 assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("VITE_STRIPE_PUBLISHABLE_KEY"));
+assert.ok(files[".github/workflows/obsidian-build.yml"].includes("OBSIDIAN_E2E_EMAIL"));
+assert.ok(files[".github/workflows/obsidian-build.yml"].includes("OBSIDIAN_E2E_PASSWORD"));
+assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("OBSIDIAN_E2E_EMAIL"));
+assert.ok(files[".github/workflows/obsidian-ship.yml"].includes('OBSIDIAN_REQUIRE_AUTH_E2E: "true"'));
 assert.ok(files["playwright.config.ts"].includes("desktop-chromium"));
 assert.ok(files["playwright.config.ts"].includes("mobile-chromium"));
 assert.ok(files["tests/obsidian.smoke.spec.ts"].includes("horizontal overflow"));
@@ -55,6 +59,14 @@ assert.equal(JSON.parse(upgraded["package.json"]).dependencies["lucide-react"], 
 assert.equal(upgraded[".github/workflows/obsidian-publish.yml"], files[".github/workflows/obsidian-publish.yml"]);
 assert.equal(upgraded[".github/workflows/obsidian-ship.yml"], files[".github/workflows/obsidian-ship.yml"]);
 assert.equal(upgraded["playwright.config.ts"], files["playwright.config.ts"]);
+const acceptanceSource = 'import { test } from "@playwright/test";\ntest("generated", async () => {});\n';
+const withAcceptance = reconcileFullAppFiles(html, "Acme", {
+  ...existing,
+  "obsidian/acceptance.json": '{"version":1,"journeys":[]}\n',
+  "tests/obsidian.acceptance.spec.ts": acceptanceSource,
+});
+assert.equal(withAcceptance["tests/obsidian.acceptance.spec.ts"], acceptanceSource);
+assert.equal(withAcceptance["obsidian/acceptance.json"], '{"version":1,"journeys":[]}\n');
 assert.throws(() => reconcileFullAppFiles(html, "Acme", { ...existing, ".github/workflows/evil.yml": "bad" }));
 assert.throws(() => reconcileFullAppFiles(html, "Acme", { ...existing, ".env.production": "SERVICE_ROLE_KEY=secret" }));
 console.log("Managed Full App build and deployment scaffolding tests passed");
