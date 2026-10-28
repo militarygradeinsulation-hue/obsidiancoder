@@ -187,7 +187,7 @@ export const Route = createFileRoute("/api/full-app/plan")({
                 signal: request.signal,
               }, {
                 breakerKey: attempt.label,
-                stage: "full-app-architect",
+                stage: "plan",
                 requestId,
                 signal: request.signal,
                 maxAttempts: 1,
