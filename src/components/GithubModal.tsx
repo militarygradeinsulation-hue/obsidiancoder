@@ -89,6 +89,7 @@ export function GithubModal(props: {
   onRepairDiagnostics?: (context: string) => void | Promise<void>;
   onApplyFullAppFiles?: (files: Record<string, string>, message: string) => void;
   defaultManagedRepo?: string;
+  defaultSupabaseProjectRef?: string;
   onProductionUpdate?: (patch: {
     githubRepo?: string;
     lastBuildRunId?: number;
@@ -108,7 +109,7 @@ export function GithubModal(props: {
   const {
     open, onClose, currentHtml, defaultRepoName, onImport, onLog,
     fullAppFiles, fullAppAddons, requiredIntegrations = [], onRepairDiagnostics, onApplyFullAppFiles,
-    defaultManagedRepo, onProductionUpdate, defaultDeployMode = "static",
+    defaultManagedRepo, defaultSupabaseProjectRef, onProductionUpdate, defaultDeployMode = "static",
   } = props;
   const [token, setToken] = React.useState("");
   const [user, setUser] = React.useState<GhUser | null>(null);
@@ -188,9 +189,10 @@ export function GithubModal(props: {
     setRepoName(defaultRepoName);
     setDeployMode(defaultDeployMode);
     setManagedRepo(defaultManagedRepo ?? "");
+    setSupabaseProjectRef(defaultSupabaseProjectRef ?? "");
     setResult(null);
     setErr(null);
-  }, [open, defaultRepoName, defaultManagedRepo, defaultDeployMode]);
+  }, [open, defaultRepoName, defaultManagedRepo, defaultSupabaseProjectRef, defaultDeployMode]);
 
   React.useEffect(() => {
     if (!open || !token || user) return;
@@ -491,6 +493,11 @@ export function GithubModal(props: {
       });
       setAppUrl(result.backend.publicUrl);
       setBackendReady(null);
+      onProductionUpdate?.({
+        githubRepo: managedRepo.trim(),
+        supabaseProjectRef: result.backend.projectRef,
+        lastCheckedAt: Date.now(),
+      });
       onLog(result.message ?? "Supabase project connected.");
     } catch (e) {
       const message = e instanceof Error ? e.message : "Could not connect Supabase project";
@@ -763,7 +770,7 @@ export function GithubModal(props: {
     }
   }
 
-  async function appAction(action: "buildStatus" | "triggerBuild" | "triggerHealth" | "publishApp" | "shipApp" | "configureAppBackend" | "backendStatus" | "deployBackend" | "provisionBackend") {
+  async function appAction(action: "buildStatus" | "triggerBuild" | "triggerHealth" | "publishApp" | "shipApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
     if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
     let backendApproval = "";
     if (action === "deployBackend") {
@@ -771,12 +778,6 @@ export function GithubModal(props: {
         "Review the migrations and target app Supabase project. Deployment can change live data and incur charges. Type APPROVE_BACKEND_CHANGES to continue."
       ) || "";
       if (backendApproval !== "APPROVE_BACKEND_CHANGES") return;
-    }
-    if (action === "provisionBackend") {
-      const approval = window.prompt(
-        "This can create billable Supabase infrastructure in your own account. Type CREATE_SUPABASE_PROJECT to continue."
-      ) || "";
-      if (approval !== "CREATE_SUPABASE_PROJECT") return;
     }
     if ((action === "publishApp" || action === "shipApp") && !window.confirm(
       action === "shipApp"
@@ -803,11 +804,6 @@ export function GithubModal(props: {
             : {}),
         } : {}),
         ...(action === "deployBackend" ? { mode: backendMode, approval: backendApproval } : {}),
-        ...(action === "provisionBackend" ? {
-          projectName: (defaultRepoName || managedRepo || "obsidian-app").replace(/[^A-Za-z0-9 _-]+/g, " ").trim().slice(0, 80),
-          region: provisionRegion,
-          approval: "CREATE_SUPABASE_PROJECT",
-        } : {}),
       });
       if (action === "buildStatus") {
         const nextBuilds = result.builds ?? [];
@@ -1233,43 +1229,16 @@ export function GithubModal(props: {
                   )}
                 </div>
                 <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: "rgba(244,161,37,.05)", border: "1px solid rgba(244,161,37,.14)" }}>
-                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 5 }}>Optional one-click backend provisioning</div>
-                  <p style={{ color: "#B6BCC8", fontSize: 11, lineHeight: 1.5, margin: "0 0 8px" }}>
-                    Configure SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as GitHub Secrets plus SUPABASE_ORG_ID as a repository variable once.
-                    Obsidian can then create a separate Supabase project for this app and bind its public URL, project ref, and publishable key back to this repository.
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 5 }}>Backend ownership</div>
+                  <p style={{ color: "#B6BCC8", fontSize: 11, lineHeight: 1.5, margin: 0 }}>
+                    Obsidian connects to a Supabase project you own instead of silently creating billable infrastructure.
+                    Automatic project creation stays disabled until Obsidian can show the live organization-specific cost and receive explicit cost confirmation.
                   </p>
-                  <label style={{ color: "#B6BCC8", display: "block", fontSize: 11 }}>
-                    Backend region
-                    <select
-                      value={provisionRegion}
-                      onChange={e => setProvisionRegion(e.target.value)}
-                      style={{ display: "block", width: "100%", marginTop: 5, background: "#0b0d10", color: "#fff", border: "1px solid #464b56", padding: 8, borderRadius: 8 }}
-                    >
-                      <option value="us-east-1">US East · North Virginia</option>
-                      <option value="us-east-2">US East · Ohio</option>
-                      <option value="us-west-2">US West · Oregon</option>
-                      <option value="ca-central-1">Canada · Central</option>
-                      <option value="eu-west-1">Europe · Ireland</option>
-                      <option value="eu-central-1">Europe · Frankfurt</option>
-                      <option value="ap-southeast-1">Asia · Singapore</option>
-                      <option value="ap-northeast-1">Asia · Tokyo</option>
-                      <option value="ap-southeast-2">Oceania · Sydney</option>
-                    </select>
-                  </label>
-                  <button
-                    type="button"
-                    className="obs-chip"
-                    style={{ marginTop: 8 }}
-                    disabled={!!loading}
-                    onClick={() => void appAction("provisionBackend")}
-                  >
-                    Provision new Supabase backend
-                  </button>
                 </div>
                 <p style={{ color: "#B6BCC8", fontSize: 12, lineHeight: 1.5 }}>
-                  Every app uses its own Supabase project. Save its public settings above.
-                  Configure SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as GitHub Actions secrets.
-                  Review the SQL migrations before deploying.
+                  Every app uses its own Supabase project. The connection above discovers the browser-safe URL/key automatically.
+                  GitHub deployment still uses a scoped SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as Actions secrets for CLI deployment.
+                  Integration credentials below are stored in Supabase Function Secrets, never frontend code.
                 </p>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   <button type="button" className="obs-chip" disabled={!!loading}
@@ -1358,11 +1327,13 @@ export function GithubModal(props: {
                   <div role="status" style={{ marginTop: 10, color: "#B6BCC8", fontSize: 12 }}>
                     {([
                       ["Supabase project reference", backendReady.hasProjectRef],
-                      ["Supabase organization ID (needed only for provisioning)", !!backendReady.hasOrgId],
                       ["Public app URL", backendReady.hasPublicUrl],
                       ["Public publishable key", backendReady.hasPublicKey],
-                      ["Management access token", backendReady.hasAccessToken],
-                      ["Database password", backendReady.hasDbPassword],
+                      ["GitHub deploy access-token secret", backendReady.hasAccessToken],
+                      ["GitHub database-password secret", backendReady.hasDbPassword],
+                      ...(requiredIntegrations.length > 0
+                        ? [["Supabase runtime integration secrets verified", backendReady.supabaseSecretsVerified === true] as const]
+                        : []),
                     ] as const).map(([name, ready]) => (
                       <div key={name}>{ready ? "✓" : "○"} {name}</div>
                     ))}
