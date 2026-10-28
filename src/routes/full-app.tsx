@@ -21,6 +21,10 @@ import {
   parseFullAppBlueprint,
   type FullAppBlueprint,
 } from "@/lib/full-app-blueprint";
+import {
+  normalizeFullAppIntegrationNames,
+  type FullAppIntegrationId,
+} from "@/lib/full-app-integrations";
 
 export const Route = createFileRoute("/full-app")({
   beforeLoad: async () => {
@@ -165,6 +169,10 @@ function FullAppPage() {
   const selectedContent = files[selected] ?? "";
   const fingerprint = React.useMemo(() => workspaceFingerprint(files), [files]);
   const editable = isEditableAppPath(selected);
+  const blueprintIntegrations = React.useMemo<FullAppIntegrationId[]>(
+    () => normalizeFullAppIntegrationNames(workspace?.blueprint?.integrations.map(item => item.name) ?? []),
+    [workspace?.blueprint],
+  );
 
   function replaceFiles(nextFiles: FullAppFiles, message: string) {
     setWorkspace(w => w ? { ...w, files: nextFiles, updatedAt: Date.now() } : w);
@@ -596,7 +604,10 @@ function FullAppPage() {
       </main>
       {workspace && <GithubModal open={githubOpen} onClose={() => setGithubOpen(false)}
         currentHtml={workspace.sourceHtml} defaultRepoName={workspace.title.toLowerCase().replace(/[^a-z0-9]+/g, "-") + "-app"}
-        fullAppFiles={workspace.files} fullAppAddons={workspace.addons} defaultDeployMode="full-app"
+        fullAppFiles={workspace.files}
+        fullAppAddons={workspace.addons}
+        requiredIntegrations={blueprintIntegrations}
+        defaultDeployMode="full-app"
         defaultManagedRepo={workspace.production?.githubRepo}
         onProductionUpdate={patch => setWorkspace(w => w ? {
           ...w,
