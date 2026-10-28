@@ -50,6 +50,8 @@ interface FullAppProductionState {
   lastShipConclusion?: string | null;
   lastHealthRunId?: number;
   lastHealthConclusion?: string | null;
+  lastFunctionalRunId?: number;
+  lastFunctionalConclusion?: string | null;
   lastBackendHealthRunId?: number;
   lastBackendHealthConclusion?: string | null;
   lastSecurityStatus?: "pass" | "warning" | "error" | "unverified";
@@ -115,6 +117,8 @@ function sanitizeProduction(value: unknown): FullAppProductionState | undefined 
   if (typeof p.lastShipConclusion === "string" || p.lastShipConclusion === null) clean.lastShipConclusion = p.lastShipConclusion as string | null;
   if (typeof p.lastHealthRunId === "number" && Number.isSafeInteger(p.lastHealthRunId) && p.lastHealthRunId > 0) clean.lastHealthRunId = p.lastHealthRunId;
   if (typeof p.lastHealthConclusion === "string" || p.lastHealthConclusion === null) clean.lastHealthConclusion = p.lastHealthConclusion as string | null;
+  if (typeof p.lastFunctionalRunId === "number" && Number.isSafeInteger(p.lastFunctionalRunId) && p.lastFunctionalRunId > 0) clean.lastFunctionalRunId = p.lastFunctionalRunId;
+  if (typeof p.lastFunctionalConclusion === "string" || p.lastFunctionalConclusion === null) clean.lastFunctionalConclusion = p.lastFunctionalConclusion as string | null;
   if (typeof p.lastBackendHealthRunId === "number" && Number.isSafeInteger(p.lastBackendHealthRunId) && p.lastBackendHealthRunId > 0) clean.lastBackendHealthRunId = p.lastBackendHealthRunId;
   if (typeof p.lastBackendHealthConclusion === "string" || p.lastBackendHealthConclusion === null) clean.lastBackendHealthConclusion = p.lastBackendHealthConclusion as string | null;
   if (p.lastSecurityStatus === "pass" || p.lastSecurityStatus === "warning" || p.lastSecurityStatus === "error" || p.lastSecurityStatus === "unverified") clean.lastSecurityStatus = p.lastSecurityStatus;
@@ -426,6 +430,9 @@ function FullAppPage() {
                 </span>
                 <span className="obs-pill" data-tone={workspace.production.lastHealthConclusion === "success" ? "good" : "muted"}>
                   Frontend health: {workspace.production.lastHealthConclusion ?? "not checked"}
+                </span>
+                <span className="obs-pill" data-tone={workspace.production.lastFunctionalConclusion === "success" ? "good" : "muted"}>
+                  Functional QA: {workspace.production.lastFunctionalConclusion ?? "not run"}
                 </span>
                 <span className="obs-pill" data-tone={workspace.production.lastBackendHealthConclusion === "success" ? "good" : "muted"}>
                   Backend health: {workspace.production.lastBackendHealthConclusion ?? "not checked"}
