@@ -135,6 +135,8 @@ jobs:
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_STRIPE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
+          OBSIDIAN_E2E_EMAIL: __DOLLAR__{{ secrets.OBSIDIAN_E2E_EMAIL }}
+          OBSIDIAN_E2E_PASSWORD: __DOLLAR__{{ secrets.OBSIDIAN_E2E_PASSWORD }}
       - name: Write Obsidian build report
         if: always()
         shell: bash
@@ -367,6 +369,9 @@ jobs:
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
           VITE_STRIPE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
+          OBSIDIAN_E2E_EMAIL: __DOLLAR__{{ secrets.OBSIDIAN_E2E_EMAIL }}
+          OBSIDIAN_E2E_PASSWORD: __DOLLAR__{{ secrets.OBSIDIAN_E2E_PASSWORD }}
+          OBSIDIAN_REQUIRE_AUTH_E2E: "true"
       - name: Archive QA evidence
         if: always()
         uses: actions/upload-artifact@v4
