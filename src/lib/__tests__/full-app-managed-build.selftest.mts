@@ -29,6 +29,9 @@ assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("Verify deployed
 assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("obsidian-live-qa"));
 assert.ok(files["scripts/obsidian-live-check.mjs"].includes("OBSIDIAN_LIVE_QA: PASS"));
 assert.ok(files["scripts/obsidian-live-check.mjs"].includes("horizontal overflow"));
+assert.ok(files[".github/workflows/obsidian-health.yml"].includes("schedule:"));
+assert.ok(files[".github/workflows/obsidian-health.yml"].includes("17 */6 * * *"));
+assert.ok(files[".github/workflows/obsidian-health.yml"].includes("obsidian-live-check.mjs"));
 assert.ok(files["playwright.config.ts"].includes("desktop-chromium"));
 assert.ok(files["playwright.config.ts"].includes("mobile-chromium"));
 assert.ok(files["tests/obsidian.smoke.spec.ts"].includes("horizontal overflow"));
