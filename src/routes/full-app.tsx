@@ -50,6 +50,9 @@ interface FullAppProductionState {
   lastHealthRunId?: number;
   lastHealthConclusion?: string | null;
   deploymentUrl?: string;
+  customDomain?: string;
+  customDomainHealthy?: boolean;
+  customDomainHttps?: boolean;
   lastCheckedAt?: number;
 }
 interface FullAppWorkspace {
@@ -104,6 +107,9 @@ function sanitizeProduction(value: unknown): FullAppProductionState | undefined 
   if (typeof p.lastHealthRunId === "number" && Number.isSafeInteger(p.lastHealthRunId) && p.lastHealthRunId > 0) clean.lastHealthRunId = p.lastHealthRunId;
   if (typeof p.lastHealthConclusion === "string" || p.lastHealthConclusion === null) clean.lastHealthConclusion = p.lastHealthConclusion as string | null;
   if (typeof p.deploymentUrl === "string" && /^https:\/\//.test(p.deploymentUrl) && p.deploymentUrl.length < 500) clean.deploymentUrl = p.deploymentUrl;
+  if (typeof p.customDomain === "string" && /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(p.customDomain)) clean.customDomain = p.customDomain;
+  if (typeof p.customDomainHealthy === "boolean") clean.customDomainHealthy = p.customDomainHealthy;
+  if (typeof p.customDomainHttps === "boolean") clean.customDomainHttps = p.customDomainHttps;
   if (typeof p.lastCheckedAt === "number" && Number.isFinite(p.lastCheckedAt) && p.lastCheckedAt > 0) clean.lastCheckedAt = p.lastCheckedAt;
   return Object.keys(clean).length ? clean : undefined;
 }
@@ -397,6 +403,11 @@ function FullAppPage() {
                 <span className="obs-pill" data-tone={workspace.production.lastHealthConclusion === "success" ? "good" : "muted"}>
                   Live health: {workspace.production.lastHealthConclusion ?? "not checked"}
                 </span>
+                {workspace.production.customDomain && (
+                  <span className="obs-pill" data-tone={workspace.production.customDomainHealthy && workspace.production.customDomainHttps ? "good" : "muted"}>
+                    Domain: {workspace.production.customDomainHealthy ? "DNS ready" : "DNS pending"} · {workspace.production.customDomainHttps ? "HTTPS" : "HTTPS pending"}
+                  </span>
+                )}
               </div>
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
