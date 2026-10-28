@@ -32,6 +32,33 @@ function stepCode(step: Journey["steps"][number], index: number): string {
       return `    await expect(page.getByTestId(${js(step.testId)})).toBeVisible();`;
     case "expect_text":
       return `    await expect(page.getByTestId(${js(step.testId)})).toContainText(${js(step.text)});`;
+    case "select":
+      return `    await page.getByTestId(${js(step.testId)}).selectOption(${js(step.value)});`;
+    case "check":
+      return step.checked
+        ? `    await page.getByTestId(${js(step.testId)}).check();`
+        : `    await page.getByTestId(${js(step.testId)}).uncheck();`;
+    case "press":
+      return `    await page.getByTestId(${js(step.testId)}).press(${js(step.key)});`;
+    case "expect_url": {
+      const logical = step.path === "/" ? "" : step.path.replace(/^\//, "");
+      const suffix = logical ? "#/" + logical : "#/";
+      return `    await expect(page).toHaveURL(new RegExp(${js(suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\    case "expect_text":
+      return `    await expect(page.getByTestId(${js(step.testId)})).toContainText(${js(step.text)});`;
+  }
+}") + "$")}));`;
+    }
+    case "expect_value":
+      return `    await expect(page.getByTestId(${js(step.testId)})).toHaveValue(${js(step.value)});`;
+    case "upload_fixture": {
+      const fixture =
+        step.kind === "png"
+          ? `{ name: "obsidian-qa.png", mimeType: "image/png", buffer: Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9ZQmcAAAAASUVORK5CYII=", "base64") }`
+          : step.kind === "pdf"
+            ? `{ name: "obsidian-qa.pdf", mimeType: "application/pdf", buffer: Buffer.from("%PDF-1.4\\n1 0 obj<</Type/Catalog>>endobj\\ntrailer<</Root 1 0 R>>\\n%%EOF") }`
+            : `{ name: "obsidian-qa.txt", mimeType: "text/plain", buffer: Buffer.from("Obsidian functional QA fixture") }`;
+      return `    await page.getByTestId(${js(step.testId)}).setInputFiles(${fixture});`;
+    }
   }
 }
 
