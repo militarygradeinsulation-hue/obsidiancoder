@@ -117,6 +117,9 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "43 */6 * * *"
+  workflow_run:
+    workflows: ["Deploy Full App backend"]
+    types: [completed]
 permissions:
   contents: read
 concurrency:
@@ -124,6 +127,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   verify:
+    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
