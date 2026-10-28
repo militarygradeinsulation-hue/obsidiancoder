@@ -30,7 +30,10 @@ const blueprint = parseFullAppBlueprint({
   auth: { required: true, methods: ["email_password"], roles: [], notes: "" },
   storage: { required: false, privateByDefault: true, uses: [] },
   serverFunctions: [],
-  integrations: [],
+  integrations: [
+    { name: "Stripe", purpose: "Take subscription payments", secretRequired: true },
+    { name: "Resend", purpose: "Send transactional email", secretRequired: true },
+  ],
   implementationOrder: ["Create authenticated shell", "Add customer CRUD"],
   acceptanceChecks: [
     "Signed-out users see authentication.",
@@ -49,6 +52,10 @@ assert.ok(prompt.includes("Contractor CRM"));
 assert.ok(prompt.includes("auth.uid()"));
 assert.ok(prompt.includes("Never place secret keys in frontend files"));
 assert.ok(prompt.includes("highest-value coherent slice"));
+assert.ok(prompt.includes("STRIPE_SECRET_KEY"));
+assert.ok(prompt.includes("STRIPE_WEBHOOK_SECRET"));
+assert.ok(prompt.includes("RESEND_API_KEY"));
+assert.ok(prompt.includes("server-only path"));
 
 assert.throws(() => parseFullAppBlueprint({
   ...blueprint,
