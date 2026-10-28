@@ -34,6 +34,7 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   configureAppBackend: "github_deploy",
   publishApp: "github_deploy",
   shipApp: "github_deploy",
+  rollbackApp: "github_deploy",
   backendStatus: "github_list",
   deployBackend: "github_deploy",
 };
@@ -375,6 +376,47 @@ export function GithubModal(props: {
       const message = e instanceof Error ? e.message : "Could not read build diagnostics";
       setErr(message);
       onLog("Build diagnostics: " + message);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function rollbackToRun(run: ManagedRun) {
+    if (!managedRepo.trim()) return;
+    if (!window.confirm(
+      "Roll back the frontend source to this previously successful shipped revision? Obsidian will create a new rollback commit and rerun Build + QA + Ship. The live database/backend will not be rolled back."
+    )) return;
+    setErr(null);
+    setLoading("rollback:" + run.id);
+    try {
+      const result = await ghCall<{
+        ok: boolean;
+        status: string;
+        rollbackSha?: string;
+        url?: string;
+        message?: string;
+      }>({
+        action: "rollbackApp",
+        token,
+        repo: managedRepo.trim(),
+        runId: run.id,
+      });
+      if (result.url) {
+        setHostingUrl(result.url);
+        onProductionUpdate?.({
+          githubRepo: managedRepo.trim(),
+          deploymentUrl: result.url,
+          lastCheckedAt: Date.now(),
+        });
+      }
+      setBuilds([]);
+      setShips([]);
+      setPublishes([]);
+      if (result.message) onLog(result.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Rollback failed";
+      setErr(message);
+      onLog("Rollback: " + message);
     } finally {
       setLoading(null);
     }
@@ -801,6 +843,16 @@ export function GithubModal(props: {
                             </button>
                           )}
                         </>
+                      )}
+                      {label === "Ship" && run.conclusion === "success" && (
+                        <button
+                          type="button"
+                          className="obs-chip"
+                          disabled={!!loading}
+                          onClick={() => void rollbackToRun(run)}
+                        >
+                          Roll back to this release
+                        </button>
                       )}
                     </div>
                   )))}
