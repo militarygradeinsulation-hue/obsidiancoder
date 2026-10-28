@@ -43,6 +43,7 @@ const bodySchema = z.discriminatedUnion("action", [
     runId: z.number().int().positive(),
   }),
   z.object({ action: z.literal("triggerBuild"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({ action: z.literal("triggerHealth"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({
     action: z.literal("syncFullApp"),
     token: z.string().min(10).max(400),
@@ -678,7 +679,7 @@ export const Route = createFileRoute("/api/github")({
             }
           }
 
-          if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" || parsed.action === "syncFullApp" ||
+          if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" || parsed.action === "triggerHealth" || parsed.action === "syncFullApp" ||
               parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "rollbackApp" || parsed.action === "configureAppBackend" ||
               parsed.action === "backendStatus" || parsed.action === "deployBackend" || parsed.action === "provisionBackend") {
             const user = await getUser(parsed.token);
@@ -751,6 +752,10 @@ export const Route = createFileRoute("/api/github")({
             if (parsed.action === "triggerBuild") {
               await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-build.yml");
               return Response.json({ ok: true, status: "queued", message: "Build + browser QA requested. Refresh status to see the run." });
+            }
+            if (parsed.action === "triggerHealth") {
+              await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-health.yml");
+              return Response.json({ ok: true, status: "queued", message: "Live production health check queued." });
             }
             if (parsed.action === "syncFullApp") {
               const artifact = buildArtifact({ html: parsed.html, surface: "publish" });
