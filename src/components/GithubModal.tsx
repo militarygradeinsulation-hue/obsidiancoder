@@ -84,6 +84,8 @@ export function GithubModal(props: {
     lastBuildConclusion?: string | null;
     lastShipRunId?: number;
     lastShipConclusion?: string | null;
+    lastHealthRunId?: number;
+    lastHealthConclusion?: string | null;
     deploymentUrl?: string;
     lastCheckedAt?: number;
   }) => void;
@@ -111,6 +113,7 @@ export function GithubModal(props: {
   const [builds, setBuilds] = React.useState<ManagedRun[]>([]);
   const [publishes, setPublishes] = React.useState<ManagedRun[]>([]);
   const [ships, setShips] = React.useState<ManagedRun[]>([]);
+  const [health, setHealth] = React.useState<ManagedRun[]>([]);
   const [hostingUrl, setHostingUrl] = React.useState("");
   const [backendMode, setBackendMode] = React.useState<"functions-only" | "schema-and-functions">("functions-only");
   const [backendReady, setBackendReady] = React.useState<null | {
@@ -181,6 +184,7 @@ export function GithubModal(props: {
             builds?: ManagedRun[];
             publishes?: ManagedRun[];
             ships?: ManagedRun[];
+            health?: ManagedRun[];
           }>({
             action: "buildStatus",
             token: t,
@@ -189,15 +193,19 @@ export function GithubModal(props: {
           const nextBuilds = production.builds ?? [];
           const nextPublishes = production.publishes ?? [];
           const nextShips = production.ships ?? [];
+          const nextHealth = production.health ?? [];
           setBuilds(nextBuilds);
           setPublishes(nextPublishes);
           setShips(nextShips);
+          setHealth(nextHealth);
           onProductionUpdate?.({
             githubRepo: defaultManagedRepo,
             lastBuildRunId: nextBuilds[0]?.id,
             lastBuildConclusion: nextBuilds[0]?.conclusion ?? nextBuilds[0]?.status ?? null,
             lastShipRunId: nextShips[0]?.id,
             lastShipConclusion: nextShips[0]?.conclusion ?? nextShips[0]?.status ?? null,
+            lastHealthRunId: nextHealth[0]?.id,
+            lastHealthConclusion: nextHealth[0]?.conclusion ?? nextHealth[0]?.status ?? null,
             lastCheckedAt: Date.now(),
           });
         } catch {
@@ -516,7 +524,7 @@ export function GithubModal(props: {
     setErr(null); setLoading("app:" + action);
     try {
       const result = await ghCall<{
-        ok: boolean; builds?: typeof builds; publishes?: typeof publishes; ships?: typeof ships;
+        ok: boolean; builds?: typeof builds; publishes?: typeof publishes; ships?: typeof ships; health?: typeof health;
         message?: string; url?: string;
         readiness?: NonNullable<typeof backendReady>;
         runs?: typeof backendRuns;
@@ -535,15 +543,19 @@ export function GithubModal(props: {
         const nextBuilds = result.builds ?? [];
         const nextPublishes = result.publishes ?? [];
         const nextShips = result.ships ?? [];
+        const nextHealth = result.health ?? [];
         setBuilds(nextBuilds);
         setPublishes(nextPublishes);
         setShips(nextShips);
+        setHealth(nextHealth);
         onProductionUpdate?.({
           githubRepo: managedRepo.trim(),
           lastBuildRunId: nextBuilds[0]?.id,
           lastBuildConclusion: nextBuilds[0]?.conclusion ?? nextBuilds[0]?.status ?? null,
           lastShipRunId: nextShips[0]?.id,
           lastShipConclusion: nextShips[0]?.conclusion ?? nextShips[0]?.status ?? null,
+          lastHealthRunId: nextHealth[0]?.id,
+          lastHealthConclusion: nextHealth[0]?.conclusion ?? nextHealth[0]?.status ?? null,
           lastCheckedAt: Date.now(),
         });
       }
@@ -857,9 +869,9 @@ export function GithubModal(props: {
                 )}
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("shipApp")}>Ship verified app</button>
               </div>
-              {(builds.length > 0 || publishes.length > 0 || ships.length > 0) && (
+              {(builds.length > 0 || publishes.length > 0 || ships.length > 0 || health.length > 0) && (
                 <div style={{ marginTop: 12, fontSize: 12 }}>
-                  {([["Build + QA", builds], ["Ship", ships], ["Publish", publishes]] as const).map(([label, runs]) => runs.slice(0, 2).map(run => (
+                  {([["Build + QA", builds], ["Ship", ships], ["Live Health", health], ["Publish", publishes]] as const).map(([label, runs]) => runs.slice(0, 2).map(run => (
                     <div key={label + run.id} style={{ color: "#B6BCC8", margin: "7px 0", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                       <span>{label}: {run.conclusion ?? run.status}</span>
                       <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125" }}>View GitHub run</a>
