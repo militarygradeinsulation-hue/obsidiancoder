@@ -722,8 +722,10 @@ async function managedRunDiagnostics(token: string, login: string, repo: string,
   const allowedWorkflow =
     run.path?.endsWith("/obsidian-build.yml") ||
     run.path?.endsWith("/obsidian-ship.yml") ||
+    run.path?.endsWith("/obsidian-functional-qa.yml") ||
     run.name === "Obsidian Full App build" ||
-    run.name === "Obsidian Ship";
+    run.name === "Obsidian Ship" ||
+    run.name === "Obsidian Functional QA";
   if (!allowedWorkflow) throw new Error("Diagnostics are only available for Obsidian Full App build/ship workflows.");
 
   const jobsRes = await gh(token, "/repos/" + login + "/" + repo + "/actions/runs/" + runId + "/jobs?per_page=30");
@@ -1180,11 +1182,12 @@ export const Route = createFileRoute("/api/github")({
               return Response.json({ ok: true, diagnostics });
             }
             if (parsed.action === "buildStatus") {
-              const [builds, publishes, ships, health, secretsRes] = await Promise.all([
+              const [builds, publishes, ships, health, functional, secretsRes] = await Promise.all([
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-build.yml"),
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-publish.yml"),
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-ship.yml").catch(() => []),
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-health.yml").catch(() => []),
+                managedRunStatus(parsed.token, user.login, appRepo, "obsidian-functional-qa.yml").catch(() => []),
                 gh(parsed.token, "/repos/" + user.login + "/" + appRepo + "/actions/secrets?per_page=100"),
               ]);
               let e2eCredentialsConfigured = false;
@@ -1200,6 +1203,7 @@ export const Route = createFileRoute("/api/github")({
                 publishes,
                 ships,
                 health,
+                functional,
                 e2eCredentialsConfigured,
               });
             }
