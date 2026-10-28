@@ -12,6 +12,13 @@ import { buildArtifact } from "@/lib/publish-artifact";
 import { buildFullAppFiles } from "@/lib/full-app-scaffold";
 import { reconcileFullAppFiles } from "@/lib/full-app-edits";
 import { validateAppAddons } from "@/lib/full-app-build";
+import {
+  FULL_APP_INTEGRATION_IDS,
+  FULL_APP_INTEGRATIONS,
+  integrationPublicVariableNames,
+  integrationSecretNames,
+  type FullAppIntegrationId,
+} from "@/lib/full-app-integrations";
 
 const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("verify"), token: z.string().min(10).max(400) }),
@@ -54,7 +61,12 @@ const bodySchema = z.discriminatedUnion("action", [
     repo: z.string().min(1).max(90),
     runId: z.number().int().positive(),
   }),
-  z.object({ action: z.literal("backendStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({
+    action: z.literal("backendStatus"),
+    token: z.string().min(10).max(400),
+    repo: z.string().min(1).max(90),
+    integrations: z.array(z.enum(FULL_APP_INTEGRATION_IDS as [FullAppIntegrationId, ...FullAppIntegrationId[]])).max(8).optional().default([]),
+  }),
   z.object({
     action: z.literal("deployBackend"), token: z.string().min(10).max(400),
     repo: z.string().min(1).max(90),
@@ -493,7 +505,12 @@ async function setPublicRepoVariable(token: string, login: string, repo: string,
   if (!r.ok) throw new Error("Could not configure GitHub Actions variables (" + r.status + "). Check Variables: write permissions.");
 }
 
-async function backendReadiness(token: string, login: string, repo: string) {
+async function backendReadiness(
+  token: string,
+  login: string,
+  repo: string,
+  integrations: FullAppIntegrationId[] = [],
+) {
   const workflow = await gh(token, "/repos/" + login + "/" + repo +
     "/contents/.github/workflows/obsidian-backend.yml");
   if (!workflow.ok) throw new Error("This app does not contain the backend deployment workflow. Export a new Full App.");
@@ -507,12 +524,34 @@ async function backendReadiness(token: string, login: string, repo: string) {
   const vars = await ghJson(varsRes) as { variables?: Array<{ name: string }> };
   const secretNames = new Set((secrets.secrets ?? []).map(s => s.name));
   const variableNames = new Set((vars.variables ?? []).map(s => s.name));
+  const requiredIntegrationSecrets = integrationSecretNames(integrations);
+  const requiredIntegrationVariables = integrationPublicVariableNames(integrations);
+  const integrationStatus = integrations.map(id => {
+    const def = FULL_APP_INTEGRATIONS[id];
+    const missingSecrets = def.secrets.filter(name => !secretNames.has(name));
+    const missingVariables = def.publicVars.filter(name => !variableNames.has(name));
+    return {
+      id,
+      label: def.label,
+      purpose: def.purpose,
+      ready: missingSecrets.length === 0 && missingVariables.length === 0,
+      requiredSecrets: [...def.secrets],
+      requiredVariables: [...def.publicVars],
+      missingSecrets,
+      missingVariables,
+    };
+  });
   return {
     hasAccessToken: secretNames.has("SUPABASE_ACCESS_TOKEN"),
     hasDbPassword: secretNames.has("SUPABASE_DB_PASSWORD"),
     hasProjectRef: variableNames.has("SUPABASE_PROJECT_REF"),
     hasPublicUrl: variableNames.has("VITE_SUPABASE_URL"),
     hasPublicKey: variableNames.has("VITE_SUPABASE_PUBLISHABLE_KEY"),
+    requiredIntegrationSecrets,
+    requiredIntegrationVariables,
+    missingIntegrationSecrets: requiredIntegrationSecrets.filter(name => !secretNames.has(name)),
+    missingIntegrationVariables: requiredIntegrationVariables.filter(name => !variableNames.has(name)),
+    integrations: integrationStatus,
   };
 }
 
@@ -635,7 +674,12 @@ export const Route = createFileRoute("/api/github")({
             const user = await getUser(parsed.token);
             const appRepo = await managedAppRepo(parsed.token, user.login, parsed.repo);
             if (parsed.action === "backendStatus" || parsed.action === "deployBackend") {
-              const readiness = await backendReadiness(parsed.token, user.login, appRepo);
+              const readiness = await backendReadiness(
+                parsed.token,
+                user.login,
+                appRepo,
+                parsed.action === "backendStatus" ? parsed.integrations : [],
+              );
               if (parsed.action === "backendStatus") {
                 const runs = await managedRunStatus(parsed.token, user.login, appRepo, "obsidian-backend.yml");
                 return Response.json({ ok: true, readiness, runs });
