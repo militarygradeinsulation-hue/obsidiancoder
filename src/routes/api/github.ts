@@ -48,6 +48,12 @@ const bodySchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("publishApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("shipApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({
+    action: z.literal("rollbackApp"),
+    token: z.string().min(10).max(400),
+    repo: z.string().min(1).max(90),
+    runId: z.number().int().positive(),
+  }),
   z.object({ action: z.literal("backendStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({
     action: z.literal("deployBackend"), token: z.string().min(10).max(400),
@@ -510,6 +516,69 @@ async function backendReadiness(token: string, login: string, repo: string) {
   };
 }
 
+
+async function rollbackToSuccessfulShip(
+  token: string,
+  login: string,
+  repo: string,
+  runId: number,
+) {
+  const runRes = await gh(token, "/repos/" + login + "/" + repo + "/actions/runs/" + runId);
+  if (!runRes.ok) throw new Error("Could not inspect that release run.");
+  const run = await ghJson(runRes) as {
+    id: number;
+    name?: string;
+    path?: string;
+    conclusion?: string | null;
+    head_sha?: string;
+  };
+  const isShip =
+    run.path?.endsWith("/obsidian-ship.yml") ||
+    run.name === "Obsidian Ship";
+  if (!isShip || run.conclusion !== "success" || !run.head_sha || !/^[0-9a-f]{40}$/i.test(run.head_sha)) {
+    throw new Error("Rollback is allowed only to a previously successful Obsidian Ship run.");
+  }
+
+  const targetCommitRes = await gh(token, "/repos/" + login + "/" + repo + "/git/commits/" + run.head_sha);
+  if (!targetCommitRes.ok) throw new Error("Could not read the selected known-good release.");
+  const targetCommit = await ghJson(targetCommitRes) as { tree: { sha: string } };
+
+  const current = await managedDefaultHead(token, login, repo);
+  if (current.sha === run.head_sha) {
+    throw new Error("The selected release is already the current source revision.");
+  }
+
+  const rollbackCommitRes = await gh(token, "/repos/" + login + "/" + repo + "/git/commits", {
+    method: "POST",
+    body: JSON.stringify({
+      message: "Obsidian rollback to verified release " + run.head_sha.slice(0, 7),
+      tree: targetCommit.tree.sha,
+      parents: [current.sha],
+    }),
+  });
+  if (!rollbackCommitRes.ok) throw new Error("Could not create the rollback commit.");
+  const rollbackCommit = await ghJson(rollbackCommitRes) as { sha: string };
+
+  const refUpdate = await gh(
+    token,
+    "/repos/" + login + "/" + repo + "/git/refs/heads/" + current.branch.split("/").map(encodeURIComponent).join("/"),
+    {
+      method: "PATCH",
+      body: JSON.stringify({ sha: rollbackCommit.sha, force: false }),
+    },
+  );
+  if (!refUpdate.ok) throw new Error("Could not move the application branch to the rollback commit.");
+
+  await initializeManagedPages(token, login, repo);
+  await workflowDispatch(token, login, repo, "obsidian-ship.yml");
+
+  return {
+    sourceRunId: run.id,
+    sourceSha: run.head_sha,
+    rollbackSha: rollbackCommit.sha,
+  };
+}
+
 async function initializeManagedPages(token: string, login: string, repo: string) {
   const base = "/repos/" + login + "/" + repo + "/pages";
   const existing = await gh(token, base);
@@ -561,7 +630,7 @@ export const Route = createFileRoute("/api/github")({
           }
 
           if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" || parsed.action === "syncFullApp" ||
-              parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "configureAppBackend" ||
+              parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "rollbackApp" || parsed.action === "configureAppBackend" ||
               parsed.action === "backendStatus" || parsed.action === "deployBackend") {
             const user = await getUser(parsed.token);
             const appRepo = await managedAppRepo(parsed.token, user.login, parsed.repo);
@@ -635,6 +704,21 @@ export const Route = createFileRoute("/api/github")({
                 status: "queued",
                 url: "https://" + user.login.toLowerCase() + ".github.io/" + appRepo + "/",
                 message: "Obsidian Ship queued. The app will publish only if production build and browser QA both pass.",
+              });
+            }
+            if (parsed.action === "rollbackApp") {
+              const rollback = await rollbackToSuccessfulShip(
+                parsed.token,
+                user.login,
+                appRepo,
+                parsed.runId,
+              );
+              return Response.json({
+                ok: true,
+                status: "queued",
+                ...rollback,
+                url: "https://" + user.login.toLowerCase() + ".github.io/" + appRepo + "/",
+                message: "Rollback commit created from the verified release. Build + QA + Ship is running. Backend/database state was not changed.",
               });
             }
             if (parsed.action === "configureAppBackend") {
