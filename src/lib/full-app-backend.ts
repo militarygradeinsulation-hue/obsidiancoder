@@ -21,7 +21,7 @@ if (!fs.existsSync(root)) {
 }
 
 const files = fs.readdirSync(root)
-  .filter(name => /^\\d{14}_[a-z0-9_]+\\.sql$/.test(name))
+  .filter(name => /^\d{14}_[a-z0-9_]+\.sql$/.test(name))
   .sort();
 
 if (!files.length) {
@@ -35,47 +35,47 @@ const source = files
 
 const stripped = source
   .replace(/--[^\n]*/g, " ")
-  .replace(/\/\\*[\\s\\S]*?\\*\//g, " ")
-  .replace(/\\s+/g, " ")
+  .replace(/\/\*[\s\S]*?\*\//g, " ")
+  .replace(/\s+/g, " ")
   .toLowerCase();
 
 const errors = [];
 const warnings = [];
 
 const destructive = [
-  [/\\bdrop\\s+schema\\b/, "DROP SCHEMA is blocked by Obsidian migration QA."],
-  [/\\bdrop\\s+table\\b/, "DROP TABLE is blocked by Obsidian migration QA."],
-  [/\\btruncate\\s+(?:table\\s+)?/, "TRUNCATE is blocked by Obsidian migration QA."],
-  [/\\balter\\s+table[\\s\\S]{0,180}\\bdisable\\s+row\\s+level\\s+security\\b/, "Disabling RLS is blocked."],
-  [/\\bgrant\\s+all(?:\\s+privileges)?[\\s\\S]{0,180}\\bto\\s+(?:anon|authenticated)\\b/, "GRANT ALL to browser roles is blocked."],
+  [/\bdrop\s+schema\b/, "DROP SCHEMA is blocked by Obsidian migration QA."],
+  [/\bdrop\s+table\b/, "DROP TABLE is blocked by Obsidian migration QA."],
+  [/\btruncate\s+(?:table\s+)?/, "TRUNCATE is blocked by Obsidian migration QA."],
+  [/\balter\s+table[\s\S]{0,180}\bdisable\s+row\s+level\s+security\b/, "Disabling RLS is blocked."],
+  [/\bgrant\s+all(?:\s+privileges)?[\s\S]{0,180}\bto\s+(?:anon|authenticated)\b/, "GRANT ALL to browser roles is blocked."],
 ];
 for (const [pattern, message] of destructive) {
   if (pattern.test(stripped)) errors.push(message);
 }
 
-const created = [...stripped.matchAll(/\\bcreate\\s+table\\s+(?:if\\s+not\\s+exists\\s+)?public\\.([a-z_][a-z0-9_]*)/g)]
+const created = [...stripped.matchAll(/\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?public\.([a-z_][a-z0-9_]*)/g)]
   .map(match => match[1]);
 
 for (const table of [...new Set(created)]) {
   const escaped = table;
-  const rls = new RegExp("\\balter\\s+table\\s+(?:if\\s+exists\\s+)?public\\." + escaped + "\\s+enable\\s+row\\s+level\\s+security\\b");
+  const rls = new RegExp("\balter\s+table\s+(?:if\s+exists\s+)?public\." + escaped + "\s+enable\s+row\s+level\s+security\b");
   if (!rls.test(stripped)) {
     errors.push("Table public." + table + " is created without ENABLE ROW LEVEL SECURITY.");
   }
-  const policy = new RegExp("\\bcreate\\s+policy[\\s\\S]{0,300}\\bon\\s+public\\." + escaped + "\\b");
+  const policy = new RegExp("\bcreate\s+policy[\s\S]{0,300}\bon\s+public\." + escaped + "\b");
   if (!policy.test(stripped)) {
     warnings.push("Table public." + table + " has no CREATE POLICY in the reviewed migration set.");
   }
 }
 
-if (/\\bsecurity\\s+definer\\b/.test(stripped)) {
+if (/\bsecurity\s+definer\b/.test(stripped)) {
   warnings.push("SECURITY DEFINER function detected. Review search_path, authorization checks, and grants manually.");
 }
-if (/\\bdelete\\s+from\\s+public\\.[a-z_][a-z0-9_]*\\s*;/.test(stripped)) {
+if (/\bdelete\s+from\s+public\.[a-z_][a-z0-9_]*\s*;/.test(stripped)) {
   errors.push("Unbounded DELETE FROM public.<table>; is blocked.");
 }
-if (/\\bupdate\\s+public\\.[a-z_][a-z0-9_]*\\s+set\\b[^;]*;/.test(stripped) &&
-    !/\\bwhere\\b/.test(stripped)) {
+if (/\bupdate\s+public\.[a-z_][a-z0-9_]*\s+set\b[^;]*;/.test(stripped) &&
+    !/\bwhere\b/.test(stripped)) {
   warnings.push("Potential unbounded UPDATE detected. Review data migration statements manually.");
 }
 
