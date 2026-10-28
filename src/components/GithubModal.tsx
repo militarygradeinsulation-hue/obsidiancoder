@@ -102,6 +102,8 @@ export function GithubModal(props: {
     lastShipConclusion?: string | null;
     lastHealthRunId?: number;
     lastHealthConclusion?: string | null;
+    lastFunctionalRunId?: number;
+    lastFunctionalConclusion?: string | null;
     lastBackendHealthRunId?: number;
     lastBackendHealthConclusion?: string | null;
     lastSecurityStatus?: "pass" | "warning" | "error" | "unverified";
@@ -150,6 +152,7 @@ export function GithubModal(props: {
   const [publishes, setPublishes] = React.useState<ManagedRun[]>([]);
   const [ships, setShips] = React.useState<ManagedRun[]>([]);
   const [health, setHealth] = React.useState<ManagedRun[]>([]);
+  const [functional, setFunctional] = React.useState<ManagedRun[]>([]);
   const [e2eCredentialsConfigured, setE2eCredentialsConfigured] = React.useState(false);
   const [hostingUrl, setHostingUrl] = React.useState("");
   const [customDomainInput, setCustomDomainInput] = React.useState("");
@@ -253,6 +256,7 @@ export function GithubModal(props: {
             publishes?: ManagedRun[];
             ships?: ManagedRun[];
             health?: ManagedRun[];
+            functional?: ManagedRun[];
             e2eCredentialsConfigured?: boolean;
           }>({
             action: "buildStatus",
@@ -263,10 +267,12 @@ export function GithubModal(props: {
           const nextPublishes = production.publishes ?? [];
           const nextShips = production.ships ?? [];
           const nextHealth = production.health ?? [];
+          const nextFunctional = production.functional ?? [];
           setBuilds(nextBuilds);
           setPublishes(nextPublishes);
           setShips(nextShips);
           setHealth(nextHealth);
+          setFunctional(nextFunctional);
           setE2eCredentialsConfigured(!!production.e2eCredentialsConfigured);
           onProductionUpdate?.({
             githubRepo: defaultManagedRepo,
@@ -276,6 +282,8 @@ export function GithubModal(props: {
             lastShipConclusion: nextShips[0]?.conclusion ?? nextShips[0]?.status ?? null,
             lastHealthRunId: nextHealth[0]?.id,
             lastHealthConclusion: nextHealth[0]?.conclusion ?? nextHealth[0]?.status ?? null,
+            lastFunctionalRunId: nextFunctional[0]?.id,
+            lastFunctionalConclusion: nextFunctional[0]?.conclusion ?? nextFunctional[0]?.status ?? null,
             lastCheckedAt: Date.now(),
           });
         } catch {
@@ -866,7 +874,7 @@ export function GithubModal(props: {
     setErr(null); setLoading("app:" + action);
     try {
       const result = await ghCall<{
-        ok: boolean; builds?: typeof builds; publishes?: typeof publishes; ships?: typeof ships; health?: typeof health;
+        ok: boolean; builds?: typeof builds; publishes?: typeof publishes; ships?: typeof ships; health?: typeof health; functional?: typeof functional;
         e2eCredentialsConfigured?: boolean;
         message?: string; url?: string;
         readiness?: NonNullable<typeof backendReady>;
@@ -891,10 +899,12 @@ export function GithubModal(props: {
         const nextPublishes = result.publishes ?? [];
         const nextShips = result.ships ?? [];
         const nextHealth = result.health ?? [];
+        const nextFunctional = result.functional ?? [];
         setBuilds(nextBuilds);
         setPublishes(nextPublishes);
         setShips(nextShips);
         setHealth(nextHealth);
+        setFunctional(nextFunctional);
         setE2eCredentialsConfigured(!!result.e2eCredentialsConfigured);
         onProductionUpdate?.({
           githubRepo: managedRepo.trim(),
@@ -904,6 +914,8 @@ export function GithubModal(props: {
           lastShipConclusion: nextShips[0]?.conclusion ?? nextShips[0]?.status ?? null,
           lastHealthRunId: nextHealth[0]?.id,
           lastHealthConclusion: nextHealth[0]?.conclusion ?? nextHealth[0]?.status ?? null,
+          lastFunctionalRunId: nextFunctional[0]?.id,
+          lastFunctionalConclusion: nextFunctional[0]?.conclusion ?? nextFunctional[0]?.status ?? null,
           lastCheckedAt: Date.now(),
         });
       }
@@ -1248,13 +1260,13 @@ export function GithubModal(props: {
                 )}
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("shipApp")}>Ship verified app</button>
               </div>
-              {(builds.length > 0 || publishes.length > 0 || ships.length > 0 || health.length > 0) && (
+              {(builds.length > 0 || publishes.length > 0 || ships.length > 0 || health.length > 0 || functional.length > 0) && (
                 <div style={{ marginTop: 12, fontSize: 12 }}>
-                  {([["Build + QA", builds], ["Ship", ships], ["Live Health", health], ["Publish", publishes]] as const).map(([label, runs]) => runs.slice(0, 2).map(run => (
+                  {([["Build + QA", builds], ["Ship", ships], ["Functional QA", functional], ["Live Health", health], ["Publish", publishes]] as const).map(([label, runs]) => runs.slice(0, 2).map(run => (
                     <div key={label + run.id} style={{ color: "#B6BCC8", margin: "7px 0", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                       <span>{label}: {run.conclusion ?? run.status}</span>
                       <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125" }}>View GitHub run</a>
-                      {(label === "Build + QA" || label === "Ship") && run.conclusion && run.conclusion !== "success" && run.conclusion !== "skipped" && (
+                      {(label === "Build + QA" || label === "Ship" || label === "Functional QA") && run.conclusion && run.conclusion !== "success" && run.conclusion !== "skipped" && (
                         <>
                           {onRepairDiagnostics && (
                             <button
