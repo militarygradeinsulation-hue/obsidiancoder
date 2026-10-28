@@ -101,6 +101,8 @@ export function GithubModal(props: {
     lastShipConclusion?: string | null;
     lastHealthRunId?: number;
     lastHealthConclusion?: string | null;
+    lastBackendHealthRunId?: number;
+    lastBackendHealthConclusion?: string | null;
     deploymentUrl?: string;
     customDomain?: string;
     customDomainHealthy?: boolean;
@@ -879,9 +881,17 @@ export function GithubModal(props: {
         });
       }
       if (action === "backendStatus") {
+        const nextBackendHealth = result.healthRuns ?? [];
         setBackendReady(result.readiness ?? null);
         setBackendRuns(result.runs ?? []);
-        setBackendHealthRuns(result.healthRuns ?? []);
+        setBackendHealthRuns(nextBackendHealth);
+        onProductionUpdate?.({
+          githubRepo: managedRepo.trim(),
+          supabaseProjectRef: /^[a-z0-9]{20}$/.test(supabaseProjectRef.trim()) ? supabaseProjectRef.trim() : undefined,
+          lastBackendHealthRunId: nextBackendHealth[0]?.id,
+          lastBackendHealthConclusion: nextBackendHealth[0]?.conclusion ?? nextBackendHealth[0]?.status ?? null,
+          lastCheckedAt: Date.now(),
+        });
       }
       if (action === "configureAppBackend") { setAppPublishableKey(""); setBackendReady(null); }
       if (result.url) {
