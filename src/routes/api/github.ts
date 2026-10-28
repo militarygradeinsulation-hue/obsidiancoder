@@ -657,6 +657,7 @@ async function backendReadiness(
   login: string,
   repo: string,
   integrations: FullAppIntegrationId[] = [],
+  supabaseSecretNames?: ReadonlySet<string>,
 ) {
   const workflow = await gh(token, "/repos/" + login + "/" + repo +
     "/contents/.github/workflows/obsidian-backend.yml");
@@ -671,11 +672,12 @@ async function backendReadiness(
   const vars = await ghJson(varsRes) as { variables?: Array<{ name: string }> };
   const secretNames = new Set((secrets.secrets ?? []).map(s => s.name));
   const variableNames = new Set((vars.variables ?? []).map(s => s.name));
+  const runtimeSecretNames = supabaseSecretNames ?? new Set<string>();
   const requiredIntegrationSecrets = integrationSecretNames(integrations);
   const requiredIntegrationVariables = integrationPublicVariableNames(integrations);
   const integrationStatus = integrations.map(id => {
     const def = FULL_APP_INTEGRATIONS[id];
-    const missingSecrets = def.secrets.filter(name => !secretNames.has(name));
+    const missingSecrets = def.secrets.filter(name => !runtimeSecretNames.has(name));
     const missingVariables = def.publicVars.filter(name => !variableNames.has(name));
     return {
       id,
@@ -697,7 +699,8 @@ async function backendReadiness(
     hasPublicKey: variableNames.has("VITE_SUPABASE_PUBLISHABLE_KEY"),
     requiredIntegrationSecrets,
     requiredIntegrationVariables,
-    missingIntegrationSecrets: requiredIntegrationSecrets.filter(name => !secretNames.has(name)),
+    supabaseSecretsVerified: supabaseSecretNames !== undefined,
+    missingIntegrationSecrets: requiredIntegrationSecrets.filter(name => !runtimeSecretNames.has(name)),
     missingIntegrationVariables: requiredIntegrationVariables.filter(name => !variableNames.has(name)),
     integrations: integrationStatus,
   };
