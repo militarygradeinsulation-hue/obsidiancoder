@@ -1161,6 +1161,7 @@ export const Route = createFileRoute("/api/github")({
 
             if (parsed.action === "setCustomDomain") {
               const domain = await setManagedPagesDomain(parsed.token, user.login, appRepo, parsed.domain);
+              await setPublicRepoVariable(parsed.token, user.login, appRepo, "OBSIDIAN_CUSTOM_DOMAIN", domain.domain);
               return Response.json({
                 ok: true,
                 domain,
