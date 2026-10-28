@@ -77,7 +77,20 @@ Return STRICT JSON only with exactly this shape:
     {"name":"Resend","purpose":"Transactional email","secretRequired":true}
   ],
   "implementationOrder": ["First coherent milestone"],
-  "acceptanceChecks": ["Concrete testable behavior"]
+  "acceptanceChecks": ["Concrete testable behavior"],
+  "acceptanceJourneys": [
+    {
+      "name": "Create a customer",
+      "purpose": "Prove the primary CRUD path works",
+      "authRequired": true,
+      "steps": [
+        {"action":"goto","path":"/customers","note":""},
+        {"action":"fill","testId":"customer-name","value":"QA Customer","valueFrom":"literal","note":""},
+        {"action":"click","testId":"save-customer","note":""},
+        {"action":"expect_text","testId":"customer-list","text":"QA Customer","note":""}
+      ]
+    }
+  ]
 }
 
 RULES:
@@ -91,6 +104,13 @@ RULES:
 - Server functions should exist only for server-only behavior, secrets, webhooks, privileged validation, scheduled work, or third-party APIs that should not run in the browser.
 - Routes should be implementable with the current React project. Avoid fake routes that have no meaningful user flow.
 - Acceptance checks must be testable by browser/build/backend QA.
+- acceptanceJourneys should cover the app's highest-value real user flows, not every feature.
+- Use stable lowercase data-testid names such as customer-name, save-customer, customer-list.
+- Every journey must contain at least two deterministic steps.
+- Use authRequired=true only when the journey truly requires a signed-in user.
+- For login-required journeys, assume the test runner can provide OBSIDIAN_E2E_EMAIL and OBSIDIAN_E2E_PASSWORD. Do not invent credentials.
+- Use valueFrom="unique" when a flow needs a collision-free test value.
+- Use valueFrom="e2e_email" or "e2e_password" only for explicit auth fields.
 - Do not include markdown, commentary, or code fences.`;
 
 export const Route = createFileRoute("/api/full-app/plan")({
