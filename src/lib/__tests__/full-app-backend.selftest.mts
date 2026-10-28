@@ -1,4 +1,8 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { spawnSync } from "node:child_process";
 import { buildFullAppFiles } from "../full-app-scaffold.ts";
 import { reconcileFullAppFiles, isEditableAppPath } from "../full-app-edits.ts";
 import { APP_ITEMS_MIGRATION, APP_STORAGE_MIGRATION, APP_EDGE_FUNCTION,
@@ -49,4 +53,29 @@ assert.equal(repaired[APP_STORAGE_MIGRATION], files[APP_STORAGE_MIGRATION]);
 const altered = { ...files, [APP_STORAGE_MIGRATION]: "create policy insecure ..." };
 assert.equal(reconcileFullAppFiles(html, "Test", altered)[APP_STORAGE_MIGRATION],
   files[APP_STORAGE_MIGRATION], "mandatory RLS template regenerated");
-console.log("Per-app backend setup and RLS scaffolding tests passed");
+
+const tmp = fs.mkdtempSync(path.join(os.tmpdir(), "obsidian-db-audit-"));
+try {
+  for (const [filePath, content] of Object.entries(files)) {
+    if (!filePath.startsWith("supabase/migrations/") && filePath !== "scripts/obsidian-migration-audit.mjs") continue;
+    const target = path.join(tmp, filePath);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, content);
+  }
+  const auditScript = path.join(tmp, "scripts/obsidian-migration-audit.mjs");
+  const safe = spawnSync(process.execPath, [auditScript], { cwd: tmp, encoding: "utf8" });
+  assert.equal(safe.status, 0, safe.stderr || safe.stdout);
+  assert.ok((safe.stdout + safe.stderr).includes("OBSIDIAN_DB_AUDIT: PASS"));
+
+  fs.writeFileSync(
+    path.join(tmp, "supabase/migrations/20261028000000_unsafe_drop.sql"),
+    "drop table public.app_items;\n",
+  );
+  const unsafe = spawnSync(process.execPath, [auditScript], { cwd: tmp, encoding: "utf8" });
+  assert.notEqual(unsafe.status, 0);
+  assert.ok((unsafe.stdout + unsafe.stderr).includes("DROP TABLE is blocked"));
+} finally {
+  fs.rmSync(tmp, { recursive: true, force: true });
+}
+
+console.log("Per-app backend setup, provisioning, migration audit and RLS scaffolding tests passed");
