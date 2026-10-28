@@ -44,6 +44,7 @@ const bodySchema = z.discriminatedUnion("action", [
   }),
   z.object({ action: z.literal("triggerBuild"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("triggerHealth"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({ action: z.literal("triggerFunctional"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("triggerBackendHealth"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({
     action: z.literal("syncFullApp"),
@@ -1008,7 +1009,7 @@ export const Route = createFileRoute("/api/github")({
             }
           }
 
-          if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" || parsed.action === "triggerHealth" || parsed.action === "triggerBackendHealth" || parsed.action === "syncFullApp" ||
+          if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" || parsed.action === "triggerHealth" || parsed.action === "triggerFunctional" || parsed.action === "triggerBackendHealth" || parsed.action === "syncFullApp" ||
               parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "setCustomDomain" || parsed.action === "customDomainStatus" || parsed.action === "rollbackApp" || parsed.action === "configureAppBackend" ||
               parsed.action === "backendStatus" || parsed.action === "deployBackend" || parsed.action === "provisionBackend" ||
               parsed.action === "connectSupabaseBackend" || parsed.action === "setSupabaseSecret" ||
@@ -1214,6 +1215,10 @@ export const Route = createFileRoute("/api/github")({
             if (parsed.action === "triggerHealth") {
               await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-health.yml");
               return Response.json({ ok: true, status: "queued", message: "Live production health check queued." });
+            }
+            if (parsed.action === "triggerFunctional") {
+              await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-functional-qa.yml");
+              return Response.json({ ok: true, status: "queued", message: "Production functional QA queued." });
             }
             if (parsed.action === "triggerBackendHealth") {
               await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-backend-health.yml");
