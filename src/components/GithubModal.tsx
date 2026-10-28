@@ -628,7 +628,9 @@ export function GithubModal(props: {
         customDomain: result.domain.domain,
         customDomainHealthy: flags.healthy,
         customDomainHttps: flags.https,
-        deploymentUrl: result.domain.domain ? "https://" + result.domain.domain + "/" : undefined,
+        deploymentUrl: flags.healthy && result.domain.domain
+          ? "https://" + result.domain.domain + "/"
+          : result.domain.url || undefined,
         lastCheckedAt: Date.now(),
       });
       if (result.message) onLog(result.message);
@@ -668,7 +670,9 @@ export function GithubModal(props: {
         customDomain: result.domain.domain || undefined,
         customDomainHealthy: flags.healthy,
         customDomainHttps: flags.https,
-        deploymentUrl: result.domain.domain ? "https://" + result.domain.domain + "/" : result.domain.url || undefined,
+        deploymentUrl: flags.healthy && result.domain.domain
+          ? "https://" + result.domain.domain + "/"
+          : result.domain.url || undefined,
         lastCheckedAt: Date.now(),
       });
     } catch (e) {
