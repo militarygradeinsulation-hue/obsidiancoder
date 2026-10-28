@@ -89,7 +89,7 @@ test("production app renders and remains usable", async ({ page }, testInfo) => 
   expect(pageErrors, "The browser should not throw uncaught runtime errors.").toEqual([]);
 
   await page.screenshot({
-    path: `${"$"}{testInfo.project.name}-full-page.png`,
+    path: "test-results/" + testInfo.project.name + "-full-page.png",
     fullPage: true,
   });
 });
