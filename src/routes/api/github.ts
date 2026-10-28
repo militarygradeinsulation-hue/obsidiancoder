@@ -740,12 +740,13 @@ export const Route = createFileRoute("/api/github")({
               return Response.json({ ok: true, diagnostics });
             }
             if (parsed.action === "buildStatus") {
-              const [builds, publishes, ships] = await Promise.all([
+              const [builds, publishes, ships, health] = await Promise.all([
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-build.yml"),
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-publish.yml"),
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-ship.yml").catch(() => []),
+                managedRunStatus(parsed.token, user.login, appRepo, "obsidian-health.yml").catch(() => []),
               ]);
-              return Response.json({ ok: true, repo: appRepo, builds, publishes, ships });
+              return Response.json({ ok: true, repo: appRepo, builds, publishes, ships, health });
             }
             if (parsed.action === "triggerBuild") {
               await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-build.yml");
