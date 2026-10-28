@@ -2,6 +2,7 @@ import * as React from "react";
 import { Github, Loader2, ExternalLink, Rocket, Download, Check, X } from "lucide-react";
 import { authFetch } from "@/lib/auth-fetch";
 import { requirePaidAction, type GuardOperation } from "@/lib/action-guard";
+import { applyAppEditPlan, parseAppEditPlan, type AppEditPlan } from "@/lib/full-app-edits";
 
 type GhUser = { login: string; avatar_url: string; name?: string };
 type Repo = {
@@ -68,10 +69,11 @@ export function GithubModal(props: {
   defaultDeployMode?: "static" | "full-app";
   fullAppAddons?: string[];
   onRepairDiagnostics?: (context: string) => void | Promise<void>;
+  onApplyFullAppFiles?: (files: Record<string, string>, message: string) => void;
 }) {
   const {
     open, onClose, currentHtml, defaultRepoName, onImport, onLog,
-    fullAppFiles, fullAppAddons, onRepairDiagnostics, defaultDeployMode = "static",
+    fullAppFiles, fullAppAddons, onRepairDiagnostics, onApplyFullAppFiles, defaultDeployMode = "static",
   } = props;
   const [token, setToken] = React.useState("");
   const [user, setUser] = React.useState<GhUser | null>(null);
@@ -171,6 +173,130 @@ export function GithubModal(props: {
     }
   }
 
+  function repairPromptFromDiagnostics(d: {
+    runId: number;
+    workflow: string;
+    status: string;
+    conclusion: string | null;
+    headSha: string;
+    failedSteps: string[];
+    diagnostics: string[];
+  }, fallbackHead?: string) {
+    return [
+      "Repair this Full App using the verified Obsidian Build Engine diagnostics below.",
+      "Do not redesign unrelated areas. Preserve working behavior, auth, database ownership rules, and existing features.",
+      "Fix the smallest set of source files needed for the build and browser QA to pass.",
+      "Do not edit protected framework/workflow files. Do not weaken security checks to make tests pass.",
+      "",
+      "WORKFLOW: " + d.workflow,
+      "RUN: " + String(d.runId),
+      "REVISION: " + (d.headSha || fallbackHead || "unknown"),
+      "CONCLUSION: " + (d.conclusion || d.status),
+      "",
+      "FAILED STEPS:",
+      ...(d.failedSteps.length ? d.failedSteps.map(step => "- " + step) : ["- Build/QA failure; exact failed step unavailable."]),
+      "",
+      "DIAGNOSTICS:",
+      ...(d.diagnostics.length ? d.diagnostics.map(line => "- " + line) : ["- No bounded error excerpt was available. Inspect likely compile/runtime issues in current source."]),
+    ].join("\n").slice(0, 12_000);
+  }
+
+  function buildRepairSourceContext(files: Record<string, string>, repairPrompt: string) {
+    const entries = Object.entries(files);
+    const referenced = entries.filter(([path]) => repairPrompt.includes(path));
+    const rest = entries.filter(([path]) => !repairPrompt.includes(path));
+    const ordered = [...referenced, ...rest];
+    const context: Record<string, string> = {};
+    let used = 0;
+    for (const [filePath, source] of ordered) {
+      if (Object.keys(context).length >= 20 || used + filePath.length + source.length > 45_000) continue;
+      context[filePath] = source;
+      used += filePath.length + source.length;
+    }
+    return context;
+  }
+
+  async function fetchRunDiagnostics(run: ManagedRun) {
+    return ghCall<{
+      ok: boolean;
+      diagnostics: {
+        runId: number;
+        workflow: string;
+        status: string;
+        conclusion: string | null;
+        headSha: string;
+        url: string;
+        failedSteps: string[];
+        diagnostics: string[];
+      };
+    }>({
+      action: "buildDiagnostics",
+      token,
+      repo: managedRepo.trim(),
+      runId: run.id,
+    });
+  }
+
+  async function autoRepairRun(run: ManagedRun) {
+    if (!managedRepo.trim() || !fullAppFiles || !onApplyFullAppFiles) return;
+    if (!window.confirm(
+      "Run one bounded auto-repair cycle? Obsidian will use AI credits once, apply the targeted repair to this Full App, sync it to GitHub, and queue Build + QA again."
+    )) return;
+    setErr(null);
+    setLoading("auto-repair:" + run.id);
+    try {
+      const diagnosticResult = await fetchRunDiagnostics(run);
+      const d = diagnosticResult.diagnostics;
+      const repairPrompt = repairPromptFromDiagnostics(d, run.head_sha);
+      const sourceContext = buildRepairSourceContext(fullAppFiles, repairPrompt);
+      if (!Object.keys(sourceContext).length) throw new Error("No editable Full App source was available for repair.");
+
+      const editResponse = await authFetch("/api/full-app/edits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: repairPrompt,
+          task: "edit",
+          files: sourceContext,
+        }),
+      });
+      const editResult = await editResponse.json() as { ok?: boolean; plan?: AppEditPlan; error?: string };
+      if (!editResponse.ok || !editResult.ok || !editResult.plan) {
+        throw new Error(editResult.error ?? "The repair agent did not return a valid edit plan.");
+      }
+      const plan = parseAppEditPlan(editResult.plan);
+      const repairedFiles = applyAppEditPlan(fullAppFiles, plan);
+
+      const syncResult = await ghCall<{
+        ok: boolean;
+        status: string;
+        headSha?: string;
+        message?: string;
+      }>({
+        action: "syncFullApp",
+        token,
+        repo: managedRepo.trim(),
+        html: currentHtml,
+        title: defaultRepoName,
+        files: repairedFiles,
+        addons: fullAppAddons ?? [],
+        ...(d.headSha ? { expectedHeadSha: d.headSha } : {}),
+      });
+
+      onApplyFullAppFiles(repairedFiles, "Auto-repair applied and synced. Build + QA is running again.");
+      setBuilds([]);
+      setShips([]);
+      setPublishes([]);
+      onLog(syncResult.message ?? "Auto-repair synced. Build + QA queued.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Auto-repair failed";
+      setErr(message);
+      onLog("Auto-repair: " + message);
+    } finally {
+      setLoading(null);
+    }
+  }
+
   async function diagnoseRun(run: ManagedRun) {
     if (!managedRepo.trim() || !onRepairDiagnostics) return;
     setErr(null);
@@ -195,23 +321,7 @@ export function GithubModal(props: {
         runId: run.id,
       });
       const d = result.diagnostics;
-      const context = [
-        "Repair this Full App using the verified Obsidian Build Engine diagnostics below.",
-        "Do not redesign unrelated areas. Preserve working behavior, auth, database ownership rules, and existing features.",
-        "Fix the smallest set of source files needed for the build and browser QA to pass.",
-        "",
-        "WORKFLOW: " + d.workflow,
-        "RUN: " + String(d.runId),
-        "REVISION: " + (d.headSha || run.head_sha || "unknown"),
-        "CONCLUSION: " + (d.conclusion || d.status),
-        "",
-        "FAILED STEPS:",
-        ...(d.failedSteps.length ? d.failedSteps.map(step => "- " + step) : ["- Build/QA failure; exact failed step unavailable."]),
-        "",
-        "DIAGNOSTICS:",
-        ...(d.diagnostics.length ? d.diagnostics.map(line => "- " + line) : ["- No bounded error excerpt was available. Inspect likely compile/runtime issues in current source."]),
-      ].join("\n").slice(0, 12_000);
-      await onRepairDiagnostics(context);
+      await onRepairDiagnostics(repairPromptFromDiagnostics(d, run.head_sha));
       onLog("Build diagnostics loaded into the Full App repair agent.");
       onClose();
     } catch (e) {
@@ -606,15 +716,29 @@ export function GithubModal(props: {
                     <div key={label + run.id} style={{ color: "#B6BCC8", margin: "7px 0", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
                       <span>{label}: {run.conclusion ?? run.status}</span>
                       <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125" }}>View GitHub run</a>
-                      {onRepairDiagnostics && (label === "Build + QA" || label === "Ship") && run.conclusion && run.conclusion !== "success" && run.conclusion !== "skipped" && (
-                        <button
-                          type="button"
-                          className="obs-chip"
-                          disabled={!!loading}
-                          onClick={() => void diagnoseRun(run)}
-                        >
-                          Diagnose & propose repair
-                        </button>
+                      {(label === "Build + QA" || label === "Ship") && run.conclusion && run.conclusion !== "success" && run.conclusion !== "skipped" && (
+                        <>
+                          {onRepairDiagnostics && (
+                            <button
+                              type="button"
+                              className="obs-chip"
+                              disabled={!!loading}
+                              onClick={() => void diagnoseRun(run)}
+                            >
+                              Diagnose & propose repair
+                            </button>
+                          )}
+                          {fullAppFiles && onApplyFullAppFiles && (
+                            <button
+                              type="button"
+                              className="obs-chip"
+                              disabled={!!loading}
+                              onClick={() => void autoRepairRun(run)}
+                            >
+                              Auto repair once
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
                   )))}
