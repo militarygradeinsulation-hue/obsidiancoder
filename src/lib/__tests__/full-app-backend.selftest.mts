@@ -27,11 +27,13 @@ assert.ok(files[APP_BACKEND_WORKFLOW].includes("environment: production-backend"
 assert.ok(files[APP_BACKEND_WORKFLOW].includes("supabase db push"));
 assert.ok(files[APP_BACKEND_WORKFLOW].includes("supabase functions deploy --project-ref"));
 assert.ok(!files[APP_BACKEND_WORKFLOW].includes("functions deploy account-status"));
-assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("CREATE_SUPABASE_PROJECT"));
-assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("supabase projects create"));
-assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("supabase projects api-keys"));
-assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("gh variable set SUPABASE_PROJECT_REF"));
-assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("gh variable set VITE_SUPABASE_PUBLISHABLE_KEY"));
+assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("Project creation requires live cost confirmation"));
+assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("Automatic Supabase project creation is intentionally disabled"));
+assert.ok(!files[APP_BACKEND_PROVISION_WORKFLOW].includes("supabase projects create"));
+assert.ok(!files[APP_BACKEND_PROVISION_WORKFLOW].includes("CREATE_SUPABASE_PROJECT"));
+assert.ok(files["docs/BACKEND.md"].includes("Integration Vault"));
+assert.ok(files["docs/BACKEND.md"].includes("Supabase Function Secrets"));
+assert.ok(files["docs/BACKEND.md"].includes("Automatic project creation is intentionally disabled"));
 assert.ok(files["src/App.tsx"].includes("PrivateFiles userId={session.user.id}"));
 assert.ok(files["src/components/PrivateFiles.tsx"].includes("uploadPrivateFile"));
 assert.ok(files["src/lib/uploads.ts"].includes("createSignedUrl"));
@@ -78,4 +80,4 @@ try {
   fs.rmSync(tmp, { recursive: true, force: true });
 }
 
-console.log("Per-app backend setup, provisioning, migration audit and RLS scaffolding tests passed");
+console.log("Per-app backend setup, guarded provisioning, runtime secret vault, migration audit and RLS scaffolding tests passed");
