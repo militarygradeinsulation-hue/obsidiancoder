@@ -35,6 +35,7 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   buildDiagnostics: "github_list",
   triggerBuild: "github_deploy",
   triggerHealth: "github_deploy",
+  triggerBackendHealth: "github_deploy",
   syncFullApp: "github_deploy",
   configureAppBackend: "github_deploy",
   publishApp: "github_deploy",
@@ -172,6 +173,7 @@ export function GithubModal(props: {
     }>;
   }>(null);
   const [backendRuns, setBackendRuns] = React.useState<typeof builds>([]);
+  const [backendHealthRuns, setBackendHealthRuns] = React.useState<typeof builds>([]);
   const backendDeployReady = !!backendReady &&
     backendReady.hasAccessToken &&
     backendReady.hasProjectRef &&
@@ -770,7 +772,7 @@ export function GithubModal(props: {
     }
   }
 
-  async function appAction(action: "buildStatus" | "triggerBuild" | "triggerHealth" | "publishApp" | "shipApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
+  async function appAction(action: "buildStatus" | "triggerBuild" | "triggerHealth" | "triggerBackendHealth" | "publishApp" | "shipApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
     if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
     let backendApproval = "";
     if (action === "deployBackend") {
@@ -791,6 +793,7 @@ export function GithubModal(props: {
         message?: string; url?: string;
         readiness?: NonNullable<typeof backendReady>;
         runs?: typeof backendRuns;
+        healthRuns?: typeof backendHealthRuns;
       }>({
         action, token, repo: managedRepo.trim(),
         ...(action === "configureAppBackend" ? { url: appUrl.trim(), publishableKey: appPublishableKey.trim() } : {}),
@@ -828,6 +831,7 @@ export function GithubModal(props: {
       if (action === "backendStatus") {
         setBackendReady(result.readiness ?? null);
         setBackendRuns(result.runs ?? []);
+        setBackendHealthRuns(result.healthRuns ?? []);
       }
       if (action === "configureAppBackend") { setAppPublishableKey(""); setBackendReady(null); }
       if (result.url) {
@@ -1243,6 +1247,8 @@ export function GithubModal(props: {
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                   <button type="button" className="obs-chip" disabled={!!loading}
                     onClick={() => void appAction("backendStatus")}>Check backend readiness</button>
+                  <button type="button" className="obs-chip" disabled={!!loading}
+                    onClick={() => void appAction("triggerBackendHealth")}>Run backend health now</button>
                   {user && managedRepo && (
                     <a target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", fontSize: 12, alignSelf: "center" }}
                       href={"https://github.com/" + user.login + "/" + managedRepo + "/settings/secrets/actions"}>
@@ -1354,6 +1360,12 @@ export function GithubModal(props: {
                   <p key={run.id} style={{ fontSize: 12, marginTop: 7 }}>
                     Backend: {run.conclusion ?? run.status} ·
                     <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", marginLeft: 5 }}>View workflow</a>
+                  </p>
+                ))}
+                {backendHealthRuns.slice(0, 2).map(run => (
+                  <p key={"health-" + run.id} style={{ fontSize: 12, marginTop: 7 }}>
+                    Backend health: {run.conclusion ?? run.status} ·
+                    <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", marginLeft: 5 }}>View health run</a>
                   </p>
                 ))}
                 <label style={{ color: "#B6BCC8", display: "block", fontSize: 12, marginTop: 12 }}>
