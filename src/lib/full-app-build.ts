@@ -123,6 +123,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
       - name: Install Chromium runtime
         if: steps.production_build.outcome == 'success'
         run: npx playwright install --with-deps chromium
@@ -133,6 +134,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
       - name: Write Obsidian build report
         if: always()
         shell: bash
@@ -192,6 +194,7 @@ jobs:
           GITHUB_PAGES_BASE: /__DOLLAR__{{ github.event.repository.name }}/
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
@@ -341,6 +344,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
       - name: Install Chromium runtime
         run: npx playwright install --with-deps chromium
       - id: browser_qa
@@ -349,6 +353,7 @@ jobs:
         env:
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
       - name: Archive QA evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -365,6 +370,7 @@ jobs:
           GITHUB_PAGES_BASE: /__DOLLAR__{{ github.event.repository.name }}/
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+          VITE_STRIPE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_STRIPE_PUBLISHABLE_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
