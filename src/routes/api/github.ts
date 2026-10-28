@@ -196,6 +196,52 @@ function assertIntegrationVariableName(id: FullAppIntegrationId, name: string) {
   }
 }
 
+async function supabaseSecuritySummary(accessToken: string, projectRef: string) {
+  const res = await supabaseManagement(accessToken, "/v1/projects/" + projectRef + "/advisors/security");
+  if (!res.ok) {
+    return {
+      verified: false,
+      status: "unverified" as const,
+      blockingCount: 0,
+      warningCount: 0,
+      findings: [] as Array<{ name: string; title: string; level: string; count: number; description: string; remediation: string }>,
+      error: "Scoped Supabase token needs Advisors read access to run the production security check.",
+    };
+  }
+  const body = await supabaseJson(res) as {
+    lints?: Array<{
+      name?: string;
+      title?: string;
+      level?: string;
+      count?: number;
+      description?: string;
+      remediation?: string;
+    }>;
+  } | null;
+  const findings = (body?.lints ?? []).slice(0, 50).map(lint => ({
+    name: String(lint.name ?? "security_finding").slice(0, 120),
+    title: String(lint.title ?? "Security finding").slice(0, 220),
+    level: String(lint.level ?? "WARN").toUpperCase().slice(0, 20),
+    count: Math.max(0, Number(lint.count) || 0),
+    description: String(lint.description ?? "").slice(0, 700),
+    remediation: String(lint.remediation ?? "").slice(0, 500),
+  }));
+  const blockingCount = findings
+    .filter(item => item.level === "ERROR")
+    .reduce((sum, item) => sum + Math.max(1, item.count), 0);
+  const warningCount = findings
+    .filter(item => item.level !== "ERROR")
+    .reduce((sum, item) => sum + Math.max(1, item.count), 0);
+  return {
+    verified: true,
+    status: blockingCount > 0 ? "error" as const : warningCount > 0 ? "warning" as const : "pass" as const,
+    blockingCount,
+    warningCount,
+    findings,
+    error: "",
+  };
+}
+
 async function listSupabaseSecretNames(accessToken: string, projectRef: string): Promise<string[]> {
   const secretsRes = await supabaseManagement(accessToken, "/v1/projects/" + projectRef + "/secrets");
   if (!secretsRes.ok) {
@@ -1042,21 +1088,35 @@ export const Route = createFileRoute("/api/github")({
 
             if (parsed.action === "backendStatus" || parsed.action === "deployBackend") {
               let runtimeSecrets: Set<string> | undefined;
+              let security = {
+                verified: false,
+                status: "unverified" as const,
+                blockingCount: 0,
+                warningCount: 0,
+                findings: [] as Array<{ name: string; title: string; level: string; count: number; description: string; remediation: string }>,
+                error: "Connect the Supabase project with a scoped token to run Security Advisor.",
+              };
               if (parsed.supabaseAccessToken || parsed.projectRef) {
                 if (!parsed.supabaseAccessToken || !parsed.projectRef) {
                   throw new Error("Provide both Supabase project ref and management token to verify runtime secrets.");
                 }
-                runtimeSecrets = new Set(
-                  await listSupabaseSecretNames(parsed.supabaseAccessToken, parsed.projectRef)
-                );
+                const [names, securityResult] = await Promise.all([
+                  listSupabaseSecretNames(parsed.supabaseAccessToken, parsed.projectRef),
+                  supabaseSecuritySummary(parsed.supabaseAccessToken, parsed.projectRef),
+                ]);
+                runtimeSecrets = new Set(names);
+                security = securityResult;
               }
-              const readiness = await backendReadiness(
-                parsed.token,
-                user.login,
-                appRepo,
-                parsed.integrations,
-                runtimeSecrets,
-              );
+              const readiness = {
+                ...(await backendReadiness(
+                  parsed.token,
+                  user.login,
+                  appRepo,
+                  parsed.integrations,
+                  runtimeSecrets,
+                )),
+                security,
+              };
               if (parsed.action === "backendStatus") {
                 const [runs, healthRuns] = await Promise.all([
                   managedRunStatus(parsed.token, user.login, appRepo, "obsidian-backend.yml"),
@@ -1066,6 +1126,7 @@ export const Route = createFileRoute("/api/github")({
               }
               if (!readiness.hasAccessToken || !readiness.hasProjectRef ||
                   (parsed.mode === "schema-and-functions" && !readiness.hasDbPassword) ||
+                  (parsed.mode === "schema-and-functions" && (!readiness.security.verified || readiness.security.blockingCount > 0)) ||
                   readiness.missingIntegrationSecrets.length > 0 ||
                   readiness.missingIntegrationVariables.length > 0) {
                 const missing = [
@@ -1075,6 +1136,12 @@ export const Route = createFileRoute("/api/github")({
                 throw new Error(
                   "Backend is not production-ready. Configure the app's Supabase deployment credentials" +
                   (missing.length ? " and missing integration settings: " + missing.join(", ") : "") +
+                  (parsed.mode === "schema-and-functions" && !readiness.security.verified
+                    ? " Security Advisor has not been verified with this scoped token."
+                    : "") +
+                  (parsed.mode === "schema-and-functions" && readiness.security.blockingCount > 0
+                    ? " Security Advisor reports " + readiness.security.blockingCount + " blocking finding(s)."
+                    : "") +
                   "."
                 );
               }
