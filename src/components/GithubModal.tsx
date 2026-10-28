@@ -123,11 +123,6 @@ export function GithubModal(props: {
   const [managedRepo, setManagedRepo] = React.useState("");
   const [appUrl, setAppUrl] = React.useState("");
   const [appPublishableKey, setAppPublishableKey] = React.useState("");
-  const [supabaseProjectRef, setSupabaseProjectRef] = React.useState("");
-  const [supabaseManagementToken, setSupabaseManagementToken] = React.useState("");
-  const [supabaseSecretNames, setSupabaseSecretNames] = React.useState<string[]>([]);
-  const [integrationSecretDrafts, setIntegrationSecretDrafts] = React.useState<Record<string, string>>({});
-  const [integrationVariableDrafts, setIntegrationVariableDrafts] = React.useState<Record<string, string>>({});
   const [supabaseAccessToken, setSupabaseAccessToken] = React.useState("");
   const [supabaseProjectRef, setSupabaseProjectRef] = React.useState("");
   const [supabaseConnection, setSupabaseConnection] = React.useState<null | {
