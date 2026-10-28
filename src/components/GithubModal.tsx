@@ -35,6 +35,7 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   buildDiagnostics: "github_list",
   triggerBuild: "github_deploy",
   triggerHealth: "github_deploy",
+  triggerFunctional: "github_deploy",
   triggerBackendHealth: "github_deploy",
   syncFullApp: "github_deploy",
   configureAppBackend: "github_deploy",
@@ -857,7 +858,7 @@ export function GithubModal(props: {
     }
   }
 
-  async function appAction(action: "buildStatus" | "triggerBuild" | "triggerHealth" | "triggerBackendHealth" | "publishApp" | "shipApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
+  async function appAction(action: "buildStatus" | "triggerBuild" | "triggerHealth" | "triggerFunctional" | "triggerBackendHealth" | "publishApp" | "shipApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
     if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
     let backendApproval = "";
     if (action === "deployBackend") {
@@ -1253,6 +1254,7 @@ export function GithubModal(props: {
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("buildStatus")}>Check build + QA status</button>
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("triggerBuild")}>Run build + QA</button>
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("triggerHealth")}>Run live health now</button>
+                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("triggerFunctional")}>Run functional QA now</button>
                 {fullAppFiles && (
                   <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void syncCurrentFullApp()}>
                     Sync source + rebuild
