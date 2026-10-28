@@ -62,6 +62,8 @@ assert.ok(spec.includes('test("Create customer"'));
 assert.ok(spec.includes('process.env.OBSIDIAN_E2E_EMAIL'));
 assert.ok(spec.includes('process.env.OBSIDIAN_E2E_PASSWORD'));
 assert.ok(spec.includes('OBSIDIAN_REQUIRE_AUTH_E2E'));
+assert.ok(spec.includes('page.goto("./#/"'));
+assert.ok(spec.includes('page.goto("./#/login"'));
 assert.ok(spec.includes('getByTestId("customer-name").fill("QA Customer")'));
 assert.ok(spec.includes('getByTestId("customer-list")'));
 assert.ok(spec.includes('Authenticated acceptance journey requires'));
