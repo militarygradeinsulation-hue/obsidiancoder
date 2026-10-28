@@ -1406,6 +1406,40 @@ export function GithubModal(props: {
                   This does not create or purchase a Supabase project automatically.
                 </p>
               </div>
+              <div style={{ marginTop: 15, padding: 12, border: "1px solid rgba(182,188,200,.16)", borderRadius: 10 }}>
+                <h3 style={{ fontSize: 13, margin: "0 0 6px" }}>Custom domain</h3>
+                <p style={{ color: "#B6BCC8", fontSize: 11, lineHeight: 1.5, margin: "0 0 8px" }}>
+                  Bind a domain you own to this GitHub Pages app. For a subdomain, point its CNAME to {user ? user.login + ".github.io" : "YOUR-ACCOUNT.github.io"}.
+                  Apex domains need GitHub Pages A/AAAA records at your DNS provider.
+                </p>
+                <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                  <input
+                    value={customDomainInput}
+                    onChange={e => setCustomDomainInput(e.target.value.toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, ""))}
+                    placeholder="app.example.com"
+                    aria-label="Custom domain"
+                    style={{ flex: 1, minWidth: 180, background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 8 }}
+                  />
+                  <button type="button" className="obs-chip" disabled={!!loading || !customDomainInput.trim()}
+                    onClick={() => void setCustomDomain()}>
+                    Set domain
+                  </button>
+                  <button type="button" className="obs-chip" disabled={!!loading}
+                    onClick={() => void refreshCustomDomain()}>
+                    Check DNS / HTTPS
+                  </button>
+                </div>
+                {domainStatus && (() => {
+                  const flags = domainHealthFlags(domainStatus);
+                  return (
+                    <div style={{ marginTop: 8, color: "#B6BCC8", fontSize: 11 }}>
+                      <div>{flags.healthy ? "✓" : "○"} DNS / Pages domain: {flags.healthy ? "valid" : domainStatus.healthPending ? "checking" : "not ready"}</div>
+                      <div>{flags.https ? "✓" : "○"} HTTPS: {flags.https ? "ready/enforced" : "waiting for eligibility"}</div>
+                      {flags.reason && <div style={{ color: "#d8a45d", marginTop: 3 }}>{flags.reason}</div>}
+                    </div>
+                  );
+                })()}
+              </div>
               <div style={{ marginTop: 14, display: "flex", flexWrap: "wrap", gap: 10, alignItems: "center" }}>
                 <button type="button" className="obs-chip" disabled={!!loading}
                   onClick={() => void appAction("publishApp")}>Publish to GitHub Pages</button>
