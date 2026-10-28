@@ -50,6 +50,7 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   setSupabaseSecret: "github_deploy",
   deleteSupabaseSecret: "github_deploy",
   setIntegrationVariable: "github_deploy",
+  configureSupabaseAuth: "github_deploy",
   connectSupabaseBackend: "github_deploy",
   setSupabaseSecret: "github_deploy",
   deleteSupabaseSecret: "github_deploy",
@@ -91,6 +92,7 @@ export function GithubModal(props: {
   onApplyFullAppFiles?: (files: Record<string, string>, message: string) => void;
   defaultManagedRepo?: string;
   defaultSupabaseProjectRef?: string;
+  defaultDeploymentUrl?: string;
   onProductionUpdate?: (patch: {
     githubRepo?: string;
     lastBuildRunId?: number;
@@ -104,13 +106,14 @@ export function GithubModal(props: {
     customDomainHealthy?: boolean;
     customDomainHttps?: boolean;
     supabaseProjectRef?: string;
+    authSiteUrl?: string;
     lastCheckedAt?: number;
   }) => void;
 }) {
   const {
     open, onClose, currentHtml, defaultRepoName, onImport, onLog,
     fullAppFiles, fullAppAddons, requiredIntegrations = [], onRepairDiagnostics, onApplyFullAppFiles,
-    defaultManagedRepo, defaultSupabaseProjectRef, onProductionUpdate, defaultDeployMode = "static",
+    defaultManagedRepo, defaultSupabaseProjectRef, defaultDeploymentUrl, onProductionUpdate, defaultDeployMode = "static",
   } = props;
   const [token, setToken] = React.useState("");
   const [user, setUser] = React.useState<GhUser | null>(null);
@@ -192,9 +195,10 @@ export function GithubModal(props: {
     setDeployMode(defaultDeployMode);
     setManagedRepo(defaultManagedRepo ?? "");
     setSupabaseProjectRef(defaultSupabaseProjectRef ?? "");
+    setHostingUrl(defaultDeploymentUrl ?? "");
     setResult(null);
     setErr(null);
-  }, [open, defaultRepoName, defaultManagedRepo, defaultSupabaseProjectRef, defaultDeployMode]);
+  }, [open, defaultRepoName, defaultManagedRepo, defaultSupabaseProjectRef, defaultDeploymentUrl, defaultDeployMode]);
 
   React.useEffect(() => {
     if (!open || !token || user) return;
@@ -686,6 +690,52 @@ export function GithubModal(props: {
       });
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Could not check custom domain");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function configureAuthForProduction() {
+    const siteUrl = domainStatus?.domain
+      ? "https://" + domainStatus.domain + "/"
+      : hostingUrl;
+    if (!siteUrl) {
+      setErr("Ship the app or configure/check its custom domain before setting the Supabase Auth Site URL.");
+      return;
+    }
+    if (!supabaseAccessToken.trim() || !/^[a-z0-9]{20}$/.test(supabaseProjectRef.trim())) {
+      setErr("Connect the app's Supabase project first with a scoped management token.");
+      return;
+    }
+    if (!window.confirm(
+      "Set Supabase Auth Site URL to " + siteUrl + " and add it to the redirect allow-list? Existing redirect entries will be preserved."
+    )) return;
+    setErr(null);
+    setLoading("auth-config");
+    try {
+      const result = await ghCall<{
+        ok: boolean;
+        auth: { siteUrl: string; redirectCount: number; preservedRedirectCount: number };
+        message?: string;
+      }>({
+        action: "configureSupabaseAuth",
+        token,
+        repo: managedRepo.trim(),
+        supabaseAccessToken: supabaseAccessToken.trim(),
+        projectRef: supabaseProjectRef.trim(),
+        siteUrl,
+      });
+      onProductionUpdate?.({
+        githubRepo: managedRepo.trim(),
+        supabaseProjectRef: supabaseProjectRef.trim(),
+        authSiteUrl: result.auth.siteUrl,
+        lastCheckedAt: Date.now(),
+      });
+      onLog(result.message ?? "Supabase Auth production URL configured.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not configure Supabase Auth";
+      setErr(message);
+      onLog("Supabase Auth: " + message);
     } finally {
       setLoading(null);
     }
@@ -1229,6 +1279,21 @@ export function GithubModal(props: {
                   {supabaseConnection && (
                     <div style={{ marginTop: 8, color: "#B6BCC8", fontSize: 11 }}>
                       ✓ {supabaseConnection.projectName} · {supabaseConnection.projectStatus} · {supabaseConnection.keyKind} key
+                    </div>
+                  )}
+                  {(domainStatus?.domain || hostingUrl) && (
+                    <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", gap: 7, alignItems: "center" }}>
+                      <button
+                        type="button"
+                        className="obs-chip"
+                        disabled={!!loading || !supabaseConnection}
+                        onClick={() => void configureAuthForProduction()}
+                      >
+                        Configure Auth for live URL
+                      </button>
+                      <span style={{ color: "#7f8795", fontSize: 10 }}>
+                        {domainStatus?.domain ? "https://" + domainStatus.domain + "/" : hostingUrl}
+                      </span>
                     </div>
                   )}
                 </div>
