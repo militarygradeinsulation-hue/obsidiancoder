@@ -70,10 +70,21 @@ export function GithubModal(props: {
   fullAppAddons?: string[];
   onRepairDiagnostics?: (context: string) => void | Promise<void>;
   onApplyFullAppFiles?: (files: Record<string, string>, message: string) => void;
+  defaultManagedRepo?: string;
+  onProductionUpdate?: (patch: {
+    githubRepo?: string;
+    lastBuildRunId?: number;
+    lastBuildConclusion?: string | null;
+    lastShipRunId?: number;
+    lastShipConclusion?: string | null;
+    deploymentUrl?: string;
+    lastCheckedAt?: number;
+  }) => void;
 }) {
   const {
     open, onClose, currentHtml, defaultRepoName, onImport, onLog,
-    fullAppFiles, fullAppAddons, onRepairDiagnostics, onApplyFullAppFiles, defaultDeployMode = "static",
+    fullAppFiles, fullAppAddons, onRepairDiagnostics, onApplyFullAppFiles,
+    defaultManagedRepo, onProductionUpdate, defaultDeployMode = "static",
   } = props;
   const [token, setToken] = React.useState("");
   const [user, setUser] = React.useState<GhUser | null>(null);
@@ -106,9 +117,10 @@ export function GithubModal(props: {
     if (stored) setToken(stored);
     setRepoName(defaultRepoName);
     setDeployMode(defaultDeployMode);
+    setManagedRepo(defaultManagedRepo ?? "");
     setResult(null);
     setErr(null);
-  }, [open, defaultRepoName]);
+  }, [open, defaultRepoName, defaultManagedRepo, defaultDeployMode]);
 
   React.useEffect(() => {
     if (!open || !token || user) return;
@@ -160,7 +172,10 @@ export function GithubModal(props: {
         ...(deployMode === "full-app" && fullAppAddons ? { addons: fullAppAddons } : {}),
       });
       setResult(res);
-      if (res.mode === "full-app") setManagedRepo(res.repo.name);
+      if (res.mode === "full-app") {
+        setManagedRepo(res.repo.name);
+        onProductionUpdate?.({ githubRepo: res.repo.name });
+      }
       onLog(`✓ Pushed to ${res.repo.full_name}`);
       if (res.pages) onLog(`  Pages: ${res.pages.html_url}`);
       if (deployMode === "full-app") onLog("✓ Full App starter created: configure Supabase and deploy through a build-capable host.");
@@ -284,6 +299,7 @@ export function GithubModal(props: {
       });
 
       onApplyFullAppFiles(repairedFiles, "Auto-repair applied and synced. Build + QA is running again.");
+      onProductionUpdate?.({ githubRepo: managedRepo.trim(), lastCheckedAt: Date.now() });
       setBuilds([]);
       setShips([]);
       setPublishes([]);
@@ -360,6 +376,7 @@ export function GithubModal(props: {
         ...(latestKnownHead ? { expectedHeadSha: latestKnownHead } : {}),
       });
       if (result.message) onLog(result.message);
+      onProductionUpdate?.({ githubRepo: managedRepo.trim(), lastCheckedAt: Date.now() });
       setBuilds([]);
       setShips([]);
       setPublishes([]);
@@ -399,16 +416,30 @@ export function GithubModal(props: {
         ...(action === "deployBackend" ? { mode: backendMode, approval: backendApproval } : {}),
       });
       if (action === "buildStatus") {
-        setBuilds(result.builds ?? []);
-        setPublishes(result.publishes ?? []);
-        setShips(result.ships ?? []);
+        const nextBuilds = result.builds ?? [];
+        const nextPublishes = result.publishes ?? [];
+        const nextShips = result.ships ?? [];
+        setBuilds(nextBuilds);
+        setPublishes(nextPublishes);
+        setShips(nextShips);
+        onProductionUpdate?.({
+          githubRepo: managedRepo.trim(),
+          lastBuildRunId: nextBuilds[0]?.id,
+          lastBuildConclusion: nextBuilds[0]?.conclusion ?? nextBuilds[0]?.status ?? null,
+          lastShipRunId: nextShips[0]?.id,
+          lastShipConclusion: nextShips[0]?.conclusion ?? nextShips[0]?.status ?? null,
+          lastCheckedAt: Date.now(),
+        });
       }
       if (action === "backendStatus") {
         setBackendReady(result.readiness ?? null);
         setBackendRuns(result.runs ?? []);
       }
       if (action === "configureAppBackend") { setAppPublishableKey(""); setBackendReady(null); }
-      if (result.url) setHostingUrl(result.url);
+      if (result.url) {
+        setHostingUrl(result.url);
+        onProductionUpdate?.({ githubRepo: managedRepo.trim(), deploymentUrl: result.url, lastCheckedAt: Date.now() });
+      }
       if (result.message) onLog(result.message);
     } catch (e) {
       const message = e instanceof Error ? e.message : "GitHub action failed";
