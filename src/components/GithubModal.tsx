@@ -43,6 +43,10 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   backendStatus: "github_list",
   deployBackend: "github_deploy",
   provisionBackend: "github_deploy",
+  connectSupabaseBackend: "github_deploy",
+  setSupabaseSecret: "github_deploy",
+  deleteSupabaseSecret: "github_deploy",
+  setIntegrationVariable: "github_deploy",
 };
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
@@ -110,6 +114,16 @@ export function GithubModal(props: {
   const [appUrl, setAppUrl] = React.useState("");
   const [appPublishableKey, setAppPublishableKey] = React.useState("");
   const [provisionRegion, setProvisionRegion] = React.useState("us-east-1");
+  const [supabaseAccessToken, setSupabaseAccessToken] = React.useState("");
+  const [supabaseProjectRef, setSupabaseProjectRef] = React.useState("");
+  const [supabaseConnection, setSupabaseConnection] = React.useState<null | {
+    projectName: string;
+    projectStatus: string;
+    keyKind: string;
+    secretNames: string[];
+  }>(null);
+  const [secretDrafts, setSecretDrafts] = React.useState<Record<string, string>>({});
+  const [variableDrafts, setVariableDrafts] = React.useState<Record<string, string>>({});
   type ManagedRun = { id: number; status: string; conclusion: string | null; url: string; created_at: string; head_sha?: string };
   const [builds, setBuilds] = React.useState<ManagedRun[]>([]);
   const [publishes, setPublishes] = React.useState<ManagedRun[]>([]);
@@ -416,6 +430,133 @@ export function GithubModal(props: {
       const message = e instanceof Error ? e.message : "Could not read build diagnostics";
       setErr(message);
       onLog("Build diagnostics: " + message);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function connectSupabaseProject() {
+    if (!managedRepo.trim()) { setErr("Select the Full App repository first."); return; }
+    if (!supabaseAccessToken.trim() || !/^[a-z0-9]{20}$/.test(supabaseProjectRef.trim())) {
+      setErr("Enter a scoped Supabase management token and a 20-character project ref.");
+      return;
+    }
+    setErr(null);
+    setLoading("connect-supabase");
+    try {
+      const result = await ghCall<{
+        ok: boolean;
+        backend: {
+          projectRef: string;
+          projectName: string;
+          projectStatus: string;
+          publicUrl: string;
+          keyKind: string;
+          secretNames: string[];
+        };
+        message?: string;
+      }>({
+        action: "connectSupabaseBackend",
+        token,
+        repo: managedRepo.trim(),
+        supabaseAccessToken: supabaseAccessToken.trim(),
+        projectRef: supabaseProjectRef.trim(),
+      });
+      setSupabaseProjectRef(result.backend.projectRef);
+      setSupabaseConnection({
+        projectName: result.backend.projectName,
+        projectStatus: result.backend.projectStatus,
+        keyKind: result.backend.keyKind,
+        secretNames: result.backend.secretNames,
+      });
+      setAppUrl(result.backend.publicUrl);
+      setBackendReady(null);
+      onLog(result.message ?? "Supabase project connected.");
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not connect Supabase project";
+      setErr(message);
+      onLog("Supabase: " + message);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function saveRuntimeSecret(integration: FullAppIntegrationId, name: string) {
+    const value = secretDrafts[name]?.trim() ?? "";
+    if (!value || !supabaseAccessToken.trim() || !supabaseProjectRef.trim()) return;
+    setErr(null);
+    setLoading("secret:" + name);
+    try {
+      const result = await ghCall<{ ok: boolean; secretNames?: string[]; message?: string }>({
+        action: "setSupabaseSecret",
+        token,
+        repo: managedRepo.trim(),
+        supabaseAccessToken: supabaseAccessToken.trim(),
+        projectRef: supabaseProjectRef.trim(),
+        integration,
+        name,
+        value,
+      });
+      setSecretDrafts(current => ({ ...current, [name]: "" }));
+      setSupabaseConnection(current => current
+        ? { ...current, secretNames: result.secretNames ?? current.secretNames }
+        : current);
+      setBackendReady(null);
+      if (result.message) onLog(result.message);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not save runtime secret";
+      setErr(message);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function removeRuntimeSecret(integration: FullAppIntegrationId, name: string) {
+    if (!supabaseAccessToken.trim() || !supabaseProjectRef.trim()) return;
+    if (!window.confirm("Remove " + name + " from this app's Supabase runtime?")) return;
+    setErr(null);
+    setLoading("secret-delete:" + name);
+    try {
+      const result = await ghCall<{ ok: boolean; secretNames?: string[]; message?: string }>({
+        action: "deleteSupabaseSecret",
+        token,
+        repo: managedRepo.trim(),
+        supabaseAccessToken: supabaseAccessToken.trim(),
+        projectRef: supabaseProjectRef.trim(),
+        integration,
+        name,
+      });
+      setSupabaseConnection(current => current
+        ? { ...current, secretNames: result.secretNames ?? current.secretNames }
+        : current);
+      setBackendReady(null);
+      if (result.message) onLog(result.message);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not remove runtime secret");
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function savePublicIntegrationVariable(integration: FullAppIntegrationId, name: string) {
+    const value = variableDrafts[name]?.trim() ?? "";
+    if (!value) return;
+    setErr(null);
+    setLoading("variable:" + name);
+    try {
+      const result = await ghCall<{ ok: boolean; message?: string }>({
+        action: "setIntegrationVariable",
+        token,
+        repo: managedRepo.trim(),
+        integration,
+        name,
+        value,
+      });
+      setVariableDrafts(current => ({ ...current, [name]: "" }));
+      setBackendReady(null);
+      if (result.message) onLog(result.message);
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Could not save integration variable");
     } finally {
       setLoading(null);
     }
