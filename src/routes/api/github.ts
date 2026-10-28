@@ -825,15 +825,87 @@ export const Route = createFileRoute("/api/github")({
 
           if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" || parsed.action === "triggerHealth" || parsed.action === "syncFullApp" ||
               parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "rollbackApp" || parsed.action === "configureAppBackend" ||
-              parsed.action === "backendStatus" || parsed.action === "deployBackend" || parsed.action === "provisionBackend") {
+              parsed.action === "backendStatus" || parsed.action === "deployBackend" || parsed.action === "provisionBackend" ||
+              parsed.action === "connectSupabaseBackend" || parsed.action === "setSupabaseSecret" ||
+              parsed.action === "deleteSupabaseSecret" || parsed.action === "setIntegrationVariable") {
             const user = await getUser(parsed.token);
             const appRepo = await managedAppRepo(parsed.token, user.login, parsed.repo);
+            if (parsed.action === "connectSupabaseBackend") {
+              const backend = await inspectSupabaseProject(parsed.supabaseAccessToken, parsed.projectRef);
+              await setPublicRepoVariable(parsed.token, user.login, appRepo, "SUPABASE_PROJECT_REF", backend.projectRef);
+              await setPublicRepoVariable(parsed.token, user.login, appRepo, "VITE_SUPABASE_URL", backend.publicUrl);
+              await setPublicRepoVariable(parsed.token, user.login, appRepo, "VITE_SUPABASE_PUBLISHABLE_KEY", backend.publishableKey);
+              return Response.json({
+                ok: true,
+                backend: {
+                  projectRef: backend.projectRef,
+                  projectName: backend.projectName,
+                  projectStatus: backend.projectStatus,
+                  publicUrl: backend.publicUrl,
+                  keyKind: backend.keyKind,
+                  secretNames: backend.secretNames,
+                },
+                message: "Supabase project connected. Public app configuration was saved to GitHub variables; the management token was not stored.",
+              });
+            }
+            if (parsed.action === "setSupabaseSecret") {
+              assertIntegrationSecretName(parsed.integration, parsed.name);
+              const write = await supabaseManagement(
+                parsed.supabaseAccessToken,
+                "/v1/projects/" + parsed.projectRef + "/secrets",
+                {
+                  method: "POST",
+                  body: JSON.stringify([{ name: parsed.name, value: parsed.value }]),
+                },
+              );
+              if (!write.ok) {
+                throw new Error("Could not save the Supabase runtime secret. Check Edge Function Secrets write permission.");
+              }
+              const secretNames = await listSupabaseSecretNames(parsed.supabaseAccessToken, parsed.projectRef);
+              return Response.json({
+                ok: true,
+                secretNames,
+                message: parsed.name + " saved in the app's Supabase Function secrets. Obsidian did not persist the value.",
+              });
+            }
+            if (parsed.action === "deleteSupabaseSecret") {
+              assertIntegrationSecretName(parsed.integration, parsed.name);
+              const remove = await supabaseManagement(
+                parsed.supabaseAccessToken,
+                "/v1/projects/" + parsed.projectRef + "/secrets",
+                {
+                  method: "DELETE",
+                  body: JSON.stringify([parsed.name]),
+                },
+              );
+              if (!remove.ok) {
+                throw new Error("Could not delete the Supabase runtime secret.");
+              }
+              const secretNames = await listSupabaseSecretNames(parsed.supabaseAccessToken, parsed.projectRef);
+              return Response.json({ ok: true, secretNames, message: parsed.name + " removed from the app runtime." });
+            }
+            if (parsed.action === "setIntegrationVariable") {
+              assertIntegrationVariableName(parsed.integration, parsed.name);
+              await setPublicRepoVariable(parsed.token, user.login, appRepo, parsed.name, parsed.value);
+              return Response.json({ ok: true, message: parsed.name + " saved as a public GitHub Actions variable." });
+            }
+
             if (parsed.action === "backendStatus" || parsed.action === "deployBackend") {
+              let runtimeSecrets: Set<string> | undefined;
+              if (parsed.supabaseAccessToken || parsed.projectRef) {
+                if (!parsed.supabaseAccessToken || !parsed.projectRef) {
+                  throw new Error("Provide both Supabase project ref and management token to verify runtime secrets.");
+                }
+                runtimeSecrets = new Set(
+                  await listSupabaseSecretNames(parsed.supabaseAccessToken, parsed.projectRef)
+                );
+              }
               const readiness = await backendReadiness(
                 parsed.token,
                 user.login,
                 appRepo,
                 parsed.integrations,
+                runtimeSecrets,
               );
               if (parsed.action === "backendStatus") {
                 const runs = await managedRunStatus(parsed.token, user.login, appRepo, "obsidian-backend.yml");
@@ -862,22 +934,9 @@ export const Route = createFileRoute("/api/github")({
                 "Backend deployment requested. Review GitHub Actions and production-backend approval before using live data." });
             }
             if (parsed.action === "provisionBackend") {
-              const readiness = await backendReadiness(parsed.token, user.login, appRepo, []);
-              if (!readiness.hasAccessToken || !readiness.hasDbPassword || !readiness.hasOrgId) {
-                throw new Error(
-                  "Provisioning requires SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD secrets plus the SUPABASE_ORG_ID repository variable."
-                );
-              }
-              await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-provision-backend.yml", {
-                project_name: parsed.projectName,
-                region: parsed.region,
-                approval: parsed.approval,
-              });
-              return Response.json({
-                ok: true,
-                status: "queued",
-                message: "Supabase project provisioning queued. After it completes, refresh backend readiness and deploy reviewed migrations/functions.",
-              });
+              throw new Error(
+                "Automatic Supabase project creation is disabled until Obsidian can show the live organization-specific cost and receive explicit cost confirmation. Connect an existing project instead."
+              );
             }
 
             if (parsed.action === "buildDiagnostics") {
