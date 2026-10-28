@@ -115,8 +115,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-          cache-dependency-path: package.json
       - name: Install pinned dependencies
         run: npm install --no-audit --no-fund
       - id: production_build
@@ -226,15 +224,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: "npm"
-          cache-dependency-path: package.json
       - name: Install pinned dependencies
         run: npm install --no-audit --no-fund
       - id: production_build
-        name: Production build
+        name: Production build for QA
         run: npm run build
         env:
-          GITHUB_PAGES_BASE: /__DOLLAR__{{ github.event.repository.name }}/
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
       - name: Install Chromium runtime
@@ -255,6 +250,12 @@ jobs:
             playwright-report/
           if-no-files-found: ignore
           retention-days: 14
+      - name: Build Pages artifact after QA passes
+        run: npm run build
+        env:
+          GITHUB_PAGES_BASE: /__DOLLAR__{{ github.event.repository.name }}/
+          VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
