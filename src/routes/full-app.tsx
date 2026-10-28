@@ -397,6 +397,7 @@ function FullAppPage() {
         fullAppFiles={workspace.files} fullAppAddons={workspace.addons} defaultDeployMode="full-app"
         onImport={html => { if (confirm("Import this HTML as a new Full App design?")) { setWorkspace(newWorkspace({ title: workspace.title, html })); setSelected("src/App.tsx"); } }}
         onRepairDiagnostics={context => suggestChanges("edit", context)}
+        onApplyFullAppFiles={(nextFiles, message) => replaceFiles(nextFiles, message)}
         onLog={line => setStatus(line)}/>}
     </div>
   );
