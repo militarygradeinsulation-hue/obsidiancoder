@@ -56,6 +56,7 @@ assert.ok(prompt.includes("STRIPE_SECRET_KEY"));
 assert.ok(prompt.includes("STRIPE_WEBHOOK_SECRET"));
 assert.ok(prompt.includes("RESEND_API_KEY"));
 assert.ok(prompt.includes("server-only path"));
+assert.ok(prompt.includes("data-testid"));
 
 assert.throws(() => parseFullAppBlueprint({
   ...blueprint,
