@@ -131,6 +131,14 @@ export function GithubModal(props: {
     }>;
   }>(null);
   const [backendRuns, setBackendRuns] = React.useState<typeof builds>([]);
+  const backendDeployReady = !!backendReady &&
+    backendReady.hasAccessToken &&
+    backendReady.hasProjectRef &&
+    backendReady.hasPublicUrl &&
+    backendReady.hasPublicKey &&
+    (backendMode === "functions-only" || backendReady.hasDbPassword) &&
+    (backendReady.missingIntegrationSecrets?.length ?? 0) === 0 &&
+    (backendReady.missingIntegrationVariables?.length ?? 0) === 0;
 
   React.useEffect(() => {
     if (!open) return;
@@ -907,6 +915,18 @@ export function GithubModal(props: {
                     </a>
                   )}
                 </div>
+                {requiredIntegrations.length > 0 && (
+                  <div style={{ marginTop: 10, padding: 10, borderRadius: 8, background: "rgba(255,255,255,.025)" }}>
+                    <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: .8, opacity: .65, marginBottom: 6 }}>
+                      Blueprint integrations
+                    </div>
+                    {requiredIntegrations.map(id => (
+                      <div key={id} style={{ fontSize: 12, color: "#B6BCC8", margin: "4px 0" }}>
+                        {FULL_APP_INTEGRATIONS[id].label} · {FULL_APP_INTEGRATIONS[id].purpose}
+                      </div>
+                    ))}
+                  </div>
+                )}
                 {backendReady && (
                   <div role="status" style={{ marginTop: 10, color: "#B6BCC8", fontSize: 12 }}>
                     {([
@@ -917,6 +937,17 @@ export function GithubModal(props: {
                       ["Database password", backendReady.hasDbPassword],
                     ] as const).map(([name, ready]) => (
                       <div key={name}>{ready ? "✓" : "○"} {name}</div>
+                    ))}
+                    {(backendReady.integrations ?? []).map(integration => (
+                      <div key={integration.id} style={{ marginTop: 8, paddingTop: 7, borderTop: "1px solid rgba(182,188,200,.12)" }}>
+                        <div>{integration.ready ? "✓" : "○"} {integration.label}</div>
+                        {integration.missingSecrets.map(name => (
+                          <div key={name} style={{ paddingLeft: 14, color: "#d8a45d" }}>Missing secret: {name}</div>
+                        ))}
+                        {integration.missingVariables.map(name => (
+                          <div key={name} style={{ paddingLeft: 14, color: "#d8a45d" }}>Missing variable: {name}</div>
+                        ))}
+                      </div>
                     ))}
                   </div>
                 )}
@@ -934,8 +965,13 @@ export function GithubModal(props: {
                     <option value="schema-and-functions">Apply reviewed SQL migrations AND functions</option>
                   </select>
                 </label>
-                <button type="button" className="obs-chip" style={{ marginTop: 9 }} disabled={!!loading}
+                <button type="button" className="obs-chip" style={{ marginTop: 9 }} disabled={!!loading || !backendDeployReady}
                   onClick={() => void appAction("deployBackend")}>Request backend deployment</button>
+                {!backendDeployReady && (
+                  <p style={{ color: "#B6BCC8", fontSize: 11, marginTop: 7 }}>
+                    Run backend readiness first and configure every required backend/integration credential before deployment.
+                  </p>
+                )}
                 <p style={{ color: "#B6BCC8", fontSize: 11, marginTop: 10 }}>
                   Explicit typed approval required. GitHub's production-backend environment can require an additional reviewer.
                   This does not create or purchase a Supabase project automatically.
