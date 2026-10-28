@@ -15,6 +15,7 @@ on:
       - "src/routes/api/full-app/plan.ts"
       - "src/lib/__tests__/full-app-design.selftest.mts"
       - "src/lib/__tests__/full-app-blueprint.selftest.mts"
+      - "src/lib/__tests__/full-app-integrations.selftest.mts"
       - "src/lib/__tests__/full-app-backend.selftest.mts"
       - "src/lib/__tests__/full-app-managed-build.selftest.mts"
       - "src/lib/react-preview.ts"
@@ -53,6 +54,8 @@ jobs:
         run: bun src/lib/__tests__/full-app-design.selftest.mts
       - name: Test native application blueprint architecture
         run: bun src/lib/__tests__/full-app-blueprint.selftest.mts
+      - name: Test integration credential contracts
+        run: bun src/lib/__tests__/full-app-integrations.selftest.mts
       - name: Build app and generate TanStack route registry
         run: bun run build
       - name: TypeScript validation
