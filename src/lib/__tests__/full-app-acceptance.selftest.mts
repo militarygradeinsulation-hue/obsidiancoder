@@ -48,7 +48,10 @@ const blueprint = parseFullAppBlueprint({
         { action: "fill", testId: "login-email", value: "", valueFrom: "e2e_email", note: "" },
         { action: "fill", testId: "login-password", value: "", valueFrom: "e2e_password", note: "" },
         { action: "click", testId: "login-submit", note: "" },
+        { action: "expect_url", path: "/customers", note: "" },
         { action: "fill", testId: "customer-name", value: "QA Customer", valueFrom: "literal", note: "" },
+        { action: "select", testId: "customer-stage", value: "active", note: "" },
+        { action: "upload_fixture", testId: "customer-file", kind: "pdf", note: "" },
         { action: "click", testId: "save-customer", note: "" },
         { action: "expect_text", testId: "customer-list", text: "QA Customer", note: "" },
       ],
@@ -66,6 +69,9 @@ assert.ok(spec.includes('page.goto("./#/"'));
 assert.ok(spec.includes('page.goto("./#/login"'));
 assert.ok(spec.includes('getByTestId("customer-name").fill("QA Customer")'));
 assert.ok(spec.includes('getByTestId("customer-list")'));
+assert.ok(spec.includes('getByTestId("customer-stage").selectOption("active")'));
+assert.ok(spec.includes('getByTestId("customer-file").setInputFiles'));
+assert.ok(spec.includes('expect(new URL(page.url()).hash).toBe("#/customers")'));
 assert.ok(spec.includes('Authenticated acceptance journey requires'));
 
 const plan = JSON.parse(acceptancePlanFile(blueprint));
