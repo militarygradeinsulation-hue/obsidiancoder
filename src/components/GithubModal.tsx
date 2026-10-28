@@ -52,10 +52,6 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   deleteSupabaseSecret: "github_deploy",
   setIntegrationVariable: "github_deploy",
   configureSupabaseAuth: "github_deploy",
-  connectSupabaseBackend: "github_deploy",
-  setSupabaseSecret: "github_deploy",
-  deleteSupabaseSecret: "github_deploy",
-  setIntegrationVariable: "github_deploy",
 };
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {

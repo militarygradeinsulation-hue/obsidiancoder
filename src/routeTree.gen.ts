@@ -48,6 +48,7 @@ import { Route as Char91DotlovableChar93OauthConsentRouteImport } from './routes
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as ApiDashboardStatsRouteImport } from './routes/api/dashboard/stats'
 import { Route as ApiFullAppEditsRouteImport } from './routes/api/full-app/edits'
+import { Route as ApiFullAppPlanRouteImport } from './routes/api/full-app/plan'
 import { Route as ApiImagesFillRouteImport } from './routes/api/images.fill'
 import { Route as ApiJobsIdRouteImport } from './routes/api/jobs.$id'
 import { Route as ApiJobsCreateRouteImport } from './routes/api/jobs.create'
@@ -273,6 +274,11 @@ const ApiFullAppEditsRoute = ApiFullAppEditsRouteImport.update({
   path: '/api/full-app/edits',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiFullAppPlanRoute = ApiFullAppPlanRouteImport.update({
+  id: '/api/full-app/plan',
+  path: '/api/full-app/plan',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiImagesFillRoute = ApiImagesFillRouteImport.update({
   id: '/api/images/fill',
   path: '/api/images/fill',
@@ -443,6 +449,7 @@ export interface FileRoutesByFullPath {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
   '/api/full-app/edits': typeof ApiFullAppEditsRoute
+  '/api/full-app/plan': typeof ApiFullAppPlanRoute
   '/api/images/fill': typeof ApiImagesFillRoute
   '/api/jobs/$id': typeof ApiJobsIdRoute
   '/api/jobs/create': typeof ApiJobsCreateRoute
@@ -509,6 +516,7 @@ export interface FileRoutesByTo {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
   '/api/full-app/edits': typeof ApiFullAppEditsRoute
+  '/api/full-app/plan': typeof ApiFullAppPlanRoute
   '/api/images/fill': typeof ApiImagesFillRoute
   '/api/jobs/$id': typeof ApiJobsIdRoute
   '/api/jobs/create': typeof ApiJobsCreateRoute
@@ -576,6 +584,7 @@ export interface FileRoutesById {
   '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
   '/api/dashboard/stats': typeof ApiDashboardStatsRoute
   '/api/full-app/edits': typeof ApiFullAppEditsRoute
+  '/api/full-app/plan': typeof ApiFullAppPlanRoute
   '/api/images/fill': typeof ApiImagesFillRoute
   '/api/jobs/$id': typeof ApiJobsIdRoute
   '/api/jobs/create': typeof ApiJobsCreateRoute
@@ -644,6 +653,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
     | '/api/full-app/edits'
+    | '/api/full-app/plan'
     | '/api/images/fill'
     | '/api/jobs/$id'
     | '/api/jobs/create'
@@ -710,6 +720,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
     | '/api/full-app/edits'
+    | '/api/full-app/plan'
     | '/api/images/fill'
     | '/api/jobs/$id'
     | '/api/jobs/create'
@@ -776,6 +787,7 @@ export interface FileRouteTypes {
     | '/.mcp/invoke-tool/$tool'
     | '/api/dashboard/stats'
     | '/api/full-app/edits'
+    | '/api/full-app/plan'
     | '/api/images/fill'
     | '/api/jobs/$id'
     | '/api/jobs/create'
@@ -843,6 +855,7 @@ export interface RootRouteChildren {
   Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
   ApiDashboardStatsRoute: typeof ApiDashboardStatsRoute
   ApiFullAppEditsRoute: typeof ApiFullAppEditsRoute
+  ApiFullAppPlanRoute: typeof ApiFullAppPlanRoute
   ApiImagesFillRoute: typeof ApiImagesFillRoute
   ApiJobsIdRoute: typeof ApiJobsIdRoute
   ApiJobsCreateRoute: typeof ApiJobsCreateRoute
@@ -1142,6 +1155,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiFullAppEditsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/full-app/plan': {
+      id: '/api/full-app/plan'
+      path: '/api/full-app/plan'
+      fullPath: '/api/full-app/plan'
+      preLoaderRoute: typeof ApiFullAppPlanRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/images/fill': {
       id: '/api/images/fill'
       path: '/api/images/fill'
@@ -1396,6 +1416,7 @@ const rootRouteChildren: RootRouteChildren = {
   Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
   ApiDashboardStatsRoute: ApiDashboardStatsRoute,
   ApiFullAppEditsRoute: ApiFullAppEditsRoute,
+  ApiFullAppPlanRoute: ApiFullAppPlanRoute,
   ApiImagesFillRoute: ApiImagesFillRoute,
   ApiJobsIdRoute: ApiJobsIdRoute,
   ApiJobsCreateRoute: ApiJobsCreateRoute,

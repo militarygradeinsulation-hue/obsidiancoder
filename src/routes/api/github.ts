@@ -1093,7 +1093,7 @@ export const Route = createFileRoute("/api/github")({
               let runtimeSecrets: Set<string> | undefined;
               let security = {
                 verified: false,
-                status: "unverified" as const,
+                status: "unverified" as "unverified" | "pass" | "warning" | "error",
                 blockingCount: 0,
                 warningCount: 0,
                 findings: [] as Array<{ name: string; title: string; level: string; count: number; description: string; remediation: string }>,

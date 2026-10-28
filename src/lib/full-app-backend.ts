@@ -127,12 +127,12 @@ concurrency:
   cancel-in-progress: true
 jobs:
   verify:
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
+    if: ${"$"}{{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
-      SUPABASE_URL: ${{ vars.VITE_SUPABASE_URL }}
-      SUPABASE_PUBLISHABLE_KEY: ${{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
+      SUPABASE_URL: ${"$"}{{ vars.VITE_SUPABASE_URL }}
+      SUPABASE_PUBLISHABLE_KEY: ${"$"}{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
     steps:
       - name: Validate public backend configuration
         shell: bash
