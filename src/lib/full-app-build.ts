@@ -282,6 +282,9 @@ on:
   workflow_dispatch:
   schedule:
     - cron: "17 */6 * * *"
+  workflow_run:
+    workflows: ["Obsidian Ship"]
+    types: [completed]
 permissions:
   contents: read
 concurrency:
@@ -289,6 +292,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   health:
+    if: __DOLLAR__{{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -302,8 +306,17 @@ jobs:
         run: npx playwright install --with-deps chromium
       - name: Verify production site
         env:
-          LIVE_URL: "https://__DOLLAR__{{ github.repository_owner }}.github.io/__DOLLAR__{{ github.event.repository.name }}/"
-        run: node scripts/obsidian-live-check.mjs "$LIVE_URL"
+          CUSTOM_DOMAIN: "__DOLLAR__{{ vars.OBSIDIAN_CUSTOM_DOMAIN }}"
+          PAGES_URL: "https://__DOLLAR__{{ github.repository_owner }}.github.io/__DOLLAR__{{ github.event.repository.name }}/"
+        shell: bash
+        run: |
+          if [ -n "$CUSTOM_DOMAIN" ]; then
+            LIVE_URL="https://$CUSTOM_DOMAIN/"
+          else
+            LIVE_URL="$PAGES_URL"
+          fi
+          echo "OBSIDIAN_LIVE_QA: testing $LIVE_URL"
+          node scripts/obsidian-live-check.mjs "$LIVE_URL"
       - name: Archive health evidence
         if: always()
         uses: actions/upload-artifact@v4
