@@ -7,6 +7,10 @@ export const MAX_APP_EDITS = 12;
 export const MAX_EDIT_BYTES = 50_000;
 export const MAX_WORKSPACE_BYTES = 4_500_000;
 
+export function isGeneratedAcceptancePath(path: string): boolean {
+  return path === "obsidian/acceptance.json" || path === "tests/obsidian.acceptance.spec.ts";
+}
+
 export function isEditableAppPath(path: string): boolean {
   if (!path || path.length > 180 || path.includes("..") || path.includes("\\") ||
       path.startsWith("/") || path.split("/").some((p) => p.startsWith("."))) return false;
@@ -105,6 +109,12 @@ export function reconcileFullAppFiles(
     if (path === "supabase/migrations/001_app_items.sql") continue; // legacy scaffold migration
     if (Object.hasOwn(base, path) && !isEditableAppPath(path)) continue;
     if (base[path] === content) continue;
+    if (isGeneratedAcceptancePath(path)) {
+      if (typeof content !== "string" || content.length > MAX_EDIT_BYTES)
+        throw new Error("Generated acceptance file is invalid: " + path);
+      next[path] = content;
+      continue;
+    }
     if (!isEditableAppPath(path)) throw new Error("Cannot override protected file: " + path);
     if (typeof content !== "string" || content.length > MAX_EDIT_BYTES)
       throw new Error("Workspace file content is invalid: " + path);
