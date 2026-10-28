@@ -136,6 +136,105 @@ const bodySchema = z.discriminatedUnion("action", [
 ]);
 
 const GH = "https://api.github.com";
+const SUPABASE_MANAGEMENT = "https://api.supabase.com";
+
+async function supabaseManagement(
+  accessToken: string,
+  path: string,
+  init: RequestInit = {},
+) {
+  return fetch(SUPABASE_MANAGEMENT + path, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      Authorization: `Bearer ${accessToken}`,
+      "Content-Type": "application/json",
+      ...(init.headers || {}),
+    },
+  });
+}
+
+async function supabaseJson(res: Response) {
+  const text = await res.text();
+  if (!text) return null;
+  try { return JSON.parse(text); }
+  catch { throw new Error("Supabase Management API returned an invalid response."); }
+}
+
+function assertIntegrationSecretName(id: FullAppIntegrationId, name: string) {
+  if (!(FULL_APP_INTEGRATIONS[id].secrets as readonly string[]).includes(name)) {
+    throw new Error("That secret is not part of the selected integration.");
+  }
+  if (name.startsWith("SUPABASE_")) {
+    throw new Error("Supabase reserves secret names beginning with SUPABASE_.");
+  }
+}
+
+function assertIntegrationVariableName(id: FullAppIntegrationId, name: string) {
+  if (!(FULL_APP_INTEGRATIONS[id].publicVars as readonly string[]).includes(name)) {
+    throw new Error("That public variable is not part of the selected integration.");
+  }
+}
+
+async function inspectSupabaseProject(accessToken: string, projectRef: string) {
+  const [projectRes, keysRes, secretsRes] = await Promise.all([
+    supabaseManagement(accessToken, "/v1/projects/" + projectRef),
+    supabaseManagement(accessToken, "/v1/projects/" + projectRef + "/api-keys?reveal=true"),
+    supabaseManagement(accessToken, "/v1/projects/" + projectRef + "/secrets"),
+  ]);
+  if (!projectRes.ok) {
+    throw new Error("Could not access that Supabase project. Check the project ref and use a scoped token with Project Settings read access.");
+  }
+  if (!keysRes.ok) {
+    throw new Error("Supabase token needs API Keys read access to configure the app frontend.");
+  }
+  if (!secretsRes.ok) {
+    throw new Error("Supabase token needs Edge Function Secrets read access to verify integration secrets.");
+  }
+  const project = await supabaseJson(projectRes) as {
+    id?: string; ref?: string; name?: string; status?: string; organization_id?: string;
+  } | null;
+  const rawKeys = await supabaseJson(keysRes);
+  const rows = Array.isArray(rawKeys)
+    ? rawKeys
+    : rawKeys && typeof rawKeys === "object" && Array.isArray((rawKeys as { keys?: unknown }).keys)
+      ? (rawKeys as { keys: unknown[] }).keys
+      : [];
+  const candidates = rows.filter((value): value is Record<string, unknown> =>
+    !!value && typeof value === "object"
+  );
+  const keyValue = (row: Record<string, unknown>) =>
+    typeof row.api_key === "string" ? row.api_key :
+    typeof row.key === "string" ? row.key :
+    typeof row.value === "string" ? row.value : "";
+  const publishable =
+    candidates.find(row => keyValue(row).startsWith("sb_publishable_")) ??
+    candidates.find(row => String(row.type ?? row.name ?? "").toLowerCase().includes("publishable")) ??
+    candidates.find(row => String(row.name ?? "").toLowerCase() === "anon");
+  const publishableKey = publishable ? keyValue(publishable) : "";
+  if (!publishableKey || publishableKey.length < 15) {
+    throw new Error("No enabled publishable/anon API key was returned for that Supabase project.");
+  }
+  const secretRows = await supabaseJson(secretsRes);
+  const secretNames = Array.isArray(secretRows)
+    ? secretRows.map(value =>
+        value && typeof value === "object" && typeof (value as { name?: unknown }).name === "string"
+          ? (value as { name: string }).name
+          : ""
+      ).filter(Boolean)
+    : [];
+  return {
+    projectRef,
+    projectName: project?.name ?? projectRef,
+    projectStatus: project?.status ?? "unknown",
+    organizationId: project?.organization_id ?? "",
+    publicUrl: "https://" + projectRef + ".supabase.co",
+    publishableKey,
+    keyKind: publishableKey.startsWith("sb_publishable_") ? "publishable" : "legacy-anon",
+    secretNames: [...new Set(secretNames)].sort(),
+  };
+}
+
 
 async function gh(token: string, path: string, init: RequestInit = {}) {
   return fetch(`${GH}${path}`, {
