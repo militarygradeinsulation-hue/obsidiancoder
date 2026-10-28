@@ -55,15 +55,18 @@ for (const [pattern, message] of destructive) {
 
 const created = [...stripped.matchAll(/\bcreate\s+table\s+(?:if\s+not\s+exists\s+)?public\.([a-z_][a-z0-9_]*)/g)]
   .map(match => match[1]);
+const policyTables = new Set(
+  [...stripped.matchAll(/\bcreate\s+policy[\s\S]{0,300}\bon\s+public\.([a-z_][a-z0-9_]*)\b/g)]
+    .map(match => match[1]),
+);
 
 for (const table of [...new Set(created)]) {
-  const escaped = table;
-  const rls = new RegExp("\balter\s+table\s+(?:if\s+exists\s+)?public\." + escaped + "\s+enable\s+row\s+level\s+security\b");
-  if (!rls.test(stripped)) {
+  const rlsDirect = "alter table public." + table + " enable row level security";
+  const rlsIfExists = "alter table if exists public." + table + " enable row level security";
+  if (!stripped.includes(rlsDirect) && !stripped.includes(rlsIfExists)) {
     errors.push("Table public." + table + " is created without ENABLE ROW LEVEL SECURITY.");
   }
-  const policy = new RegExp("\bcreate\s+policy[\s\S]{0,300}\bon\s+public\." + escaped + "\b");
-  if (!policy.test(stripped)) {
+  if (!policyTables.has(table)) {
     warnings.push("Table public." + table + " has no CREATE POLICY in the reviewed migration set.");
   }
 }
