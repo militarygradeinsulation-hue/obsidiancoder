@@ -204,6 +204,61 @@ function FullAppPage() {
     () => normalizeFullAppIntegrationNames(workspace?.blueprint?.integrations.map(item => item.name) ?? []),
     [workspace?.blueprint],
   );
+  const productionReadiness = React.useMemo(() => {
+    const blueprint = workspace?.blueprint;
+    const production = workspace?.production;
+    if (!production) return null;
+
+    const backendRequired = !!blueprint && (
+      blueprint.auth.required ||
+      blueprint.entities.length > 0 ||
+      blueprint.storage.required ||
+      blueprint.serverFunctions.length > 0 ||
+      blueprint.integrations.length > 0
+    );
+    const functionalRequired = (blueprint?.acceptanceJourneys.length ?? 0) > 0;
+    const checks: Array<{ label: string; pass: boolean; state: string }> = [
+      { label: "Build + QA", pass: production.lastBuildConclusion === "success", state: production.lastBuildConclusion ?? "not checked" },
+      { label: "Ship", pass: production.lastShipConclusion === "success", state: production.lastShipConclusion ?? "not run" },
+      { label: "Frontend health", pass: production.lastHealthConclusion === "success", state: production.lastHealthConclusion ?? "not checked" },
+    ];
+    if (functionalRequired) {
+      checks.push({
+        label: "Functional QA",
+        pass: production.lastFunctionalConclusion === "success",
+        state: production.lastFunctionalConclusion ?? "not run",
+      });
+    }
+    if (backendRequired) {
+      checks.push({
+        label: "Backend health",
+        pass: production.lastBackendHealthConclusion === "success",
+        state: production.lastBackendHealthConclusion ?? "not checked",
+      });
+      checks.push({
+        label: "Security",
+        pass: production.lastSecurityStatus === "pass",
+        state: production.lastSecurityStatus ?? "unverified",
+      });
+    }
+    if (production.customDomain) {
+      checks.push({
+        label: "Custom domain",
+        pass: !!production.customDomainHealthy && !!production.customDomainHttps,
+        state: production.customDomainHealthy && production.customDomainHttps ? "ready" : "pending",
+      });
+    }
+    const passed = checks.filter(check => check.pass).length;
+    const ready = passed === checks.length && checks.length > 0;
+    const blocking = checks.some(check => ["failure", "error", "cancelled", "timed_out"].includes(check.state));
+    return {
+      checks,
+      passed,
+      total: checks.length,
+      ready,
+      label: ready ? "Production ready" : blocking ? "Needs repair" : "Needs verification",
+    };
+  }, [workspace?.blueprint, workspace?.production]);
 
   function replaceFiles(nextFiles: FullAppFiles, message: string) {
     setWorkspace(w => w ? { ...w, files: nextFiles, updatedAt: Date.now() } : w);
@@ -416,6 +471,18 @@ function FullAppPage() {
         <p className="mt-3 text-xs opacity-75" role="status">{status}</p>
         {workspace?.production?.githubRepo && (
           <section className="obs-node mt-4" aria-label="Production status">
+            {productionReadiness && (
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                <div>
+                  <p className="obs-kicker">Production readiness</p>
+                  <p className="mt-1 text-lg font-semibold">{productionReadiness.label}</p>
+                  <p className="mt-1 text-xs opacity-60">{productionReadiness.passed} of {productionReadiness.total} production checks passing</p>
+                </div>
+                <span className="obs-pill" data-tone={productionReadiness.ready ? "good" : "muted"}>
+                  {Math.round((productionReadiness.passed / Math.max(1, productionReadiness.total)) * 100)}%
+                </span>
+              </div>
+            )}
             <div className="flex flex-wrap items-center justify-between gap-3">
               <div>
                 <p className="obs-kicker">Production connection</p>
