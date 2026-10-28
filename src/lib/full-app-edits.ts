@@ -3,7 +3,7 @@
 import { z } from "zod";
 import { buildFullAppFiles, type FullAppFiles } from "./full-app-scaffold.ts";
 
-export const MAX_APP_EDITS = 8;
+export const MAX_APP_EDITS = 12;
 export const MAX_EDIT_BYTES = 50_000;
 export const MAX_WORKSPACE_BYTES = 4_500_000;
 
