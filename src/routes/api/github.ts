@@ -57,6 +57,17 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("publishApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("shipApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({
+    action: z.literal("setCustomDomain"),
+    token: z.string().min(10).max(400),
+    repo: z.string().min(1).max(90),
+    domain: z.string().trim().min(3).max(63),
+  }),
+  z.object({
+    action: z.literal("customDomainStatus"),
+    token: z.string().min(10).max(400),
+    repo: z.string().min(1).max(90),
+  }),
+  z.object({
     action: z.literal("rollbackApp"),
     token: z.string().min(10).max(400),
     repo: z.string().min(1).max(90),
@@ -773,6 +784,70 @@ async function rollbackToSuccessfulShip(
   };
 }
 
+
+function normalizeCustomDomain(raw: string): string {
+  const domain = raw.trim().toLowerCase().replace(/\.$/, "");
+  if (!/^(?=.{3,63}$)(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(domain)) {
+    throw new Error("Enter a valid custom domain such as app.example.com.");
+  }
+  return domain;
+}
+
+async function managedPagesDomainStatus(token: string, login: string, repo: string) {
+  const pageRes = await gh(token, "/repos/" + login + "/" + repo + "/pages");
+  if (!pageRes.ok) throw new Error("GitHub Pages is not enabled for this application.");
+  const page = await ghJson(pageRes) as {
+    html_url?: string;
+    cname?: string | null;
+    https_enforced?: boolean;
+    status?: string;
+  };
+
+  const healthRes = await gh(token, "/repos/" + login + "/" + repo + "/pages/health");
+  let health: unknown = null;
+  let healthPending = false;
+  if (healthRes.status === 202) {
+    healthPending = true;
+  } else if (healthRes.ok) {
+    health = await ghJson(healthRes);
+  }
+  return {
+    url: page.html_url ?? "",
+    domain: page.cname ?? "",
+    httpsEnforced: !!page.https_enforced,
+    status: page.status ?? "unknown",
+    healthPending,
+    health,
+  };
+}
+
+async function setManagedPagesDomain(token: string, login: string, repo: string, rawDomain: string) {
+  const domain = normalizeCustomDomain(rawDomain);
+  await initializeManagedPages(token, login, repo);
+  const update = await gh(token, "/repos/" + login + "/" + repo + "/pages", {
+    method: "PUT",
+    body: JSON.stringify({ cname: domain, build_type: "workflow" }),
+  });
+  if (!update.ok) {
+    const body = await update.text();
+    throw new Error("Could not set the GitHub Pages custom domain (" + update.status + "): " + body.slice(0, 160));
+  }
+
+  const current = await managedPagesDomainStatus(token, login, repo);
+  const domainHealth = current.health && typeof current.health === "object"
+    ? (current.health as { domain?: { is_valid?: boolean; is_https_eligible?: boolean; enforces_https?: boolean } }).domain
+    : undefined;
+
+  if (domainHealth?.is_valid && domainHealth.is_https_eligible && !domainHealth.enforces_https) {
+    const https = await gh(token, "/repos/" + login + "/" + repo + "/pages", {
+      method: "PUT",
+      body: JSON.stringify({ cname: domain, https_enforced: true, build_type: "workflow" }),
+    });
+    if (https.ok) return managedPagesDomainStatus(token, login, repo);
+  }
+  return current;
+}
+
 async function initializeManagedPages(token: string, login: string, repo: string) {
   const base = "/repos/" + login + "/" + repo + "/pages";
   const existing = await gh(token, base);
@@ -824,7 +899,7 @@ export const Route = createFileRoute("/api/github")({
           }
 
           if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" || parsed.action === "triggerHealth" || parsed.action === "syncFullApp" ||
-              parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "rollbackApp" || parsed.action === "configureAppBackend" ||
+              parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "setCustomDomain" || parsed.action === "customDomainStatus" || parsed.action === "rollbackApp" || parsed.action === "configureAppBackend" ||
               parsed.action === "backendStatus" || parsed.action === "deployBackend" || parsed.action === "provisionBackend" ||
               parsed.action === "connectSupabaseBackend" || parsed.action === "setSupabaseSecret" ||
               parsed.action === "deleteSupabaseSecret" || parsed.action === "setIntegrationVariable") {
@@ -937,6 +1012,21 @@ export const Route = createFileRoute("/api/github")({
               throw new Error(
                 "Automatic Supabase project creation is disabled until Obsidian can show the live organization-specific cost and receive explicit cost confirmation. Connect an existing project instead."
               );
+            }
+
+            if (parsed.action === "setCustomDomain") {
+              const domain = await setManagedPagesDomain(parsed.token, user.login, appRepo, parsed.domain);
+              return Response.json({
+                ok: true,
+                domain,
+                message: domain.httpsEnforced
+                  ? "Custom domain configured and HTTPS enforced."
+                  : "Custom domain saved. GitHub is waiting for DNS/HTTPS eligibility; check domain status after DNS propagates.",
+              });
+            }
+            if (parsed.action === "customDomainStatus") {
+              const domain = await managedPagesDomainStatus(parsed.token, user.login, appRepo);
+              return Response.json({ ok: true, domain });
             }
 
             if (parsed.action === "buildDiagnostics") {
