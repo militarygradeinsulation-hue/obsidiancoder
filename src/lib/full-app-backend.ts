@@ -57,7 +57,7 @@ const created = [...stripped.matchAll(/\\bcreate\\s+table\\s+(?:if\\s+not\\s+exi
   .map(match => match[1]);
 
 for (const table of [...new Set(created)]) {
-  const escaped = table.replace(/[.*+?^\${}()|[\\]\\]/g, "\\const BACKEND_DEPLOY_WORKFLOW = ");
+  const escaped = table;
   const rls = new RegExp("\\balter\\s+table\\s+(?:if\\s+exists\\s+)?public\\." + escaped + "\\s+enable\\s+row\\s+level\\s+security\\b");
   if (!rls.test(stripped)) {
     errors.push("Table public." + table + " is created without ENABLE ROW LEVEL SECURITY.");
