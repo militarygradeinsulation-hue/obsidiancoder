@@ -103,6 +103,10 @@ export function GithubModal(props: {
     lastHealthConclusion?: string | null;
     lastBackendHealthRunId?: number;
     lastBackendHealthConclusion?: string | null;
+    lastSecurityStatus?: "pass" | "warning" | "error" | "unverified";
+    lastSecurityBlockingCount?: number;
+    lastSecurityWarningCount?: number;
+    lastSecurityCheckedAt?: number;
     deploymentUrl?: string;
     customDomain?: string;
     customDomainHealthy?: boolean;
@@ -166,6 +170,21 @@ export function GithubModal(props: {
     missingIntegrationSecrets?: string[];
     missingIntegrationVariables?: string[];
     supabaseSecretsVerified?: boolean;
+    security?: {
+      verified: boolean;
+      status: "pass" | "warning" | "error" | "unverified";
+      blockingCount: number;
+      warningCount: number;
+      error?: string;
+      findings: Array<{
+        name: string;
+        title: string;
+        level: string;
+        count: number;
+        description: string;
+        remediation: string;
+      }>;
+    };
     integrations?: Array<{
       id: FullAppIntegrationId;
       label: string;
@@ -186,6 +205,8 @@ export function GithubModal(props: {
     backendReady.hasPublicKey &&
     (backendMode === "functions-only" || backendReady.hasDbPassword) &&
     (requiredIntegrations.length === 0 || backendReady.supabaseSecretsVerified === true) &&
+    (backendMode === "functions-only" ||
+      (backendReady.security?.verified === true && (backendReady.security?.blockingCount ?? 0) === 0)) &&
     (backendReady.missingIntegrationSecrets?.length ?? 0) === 0 &&
     (backendReady.missingIntegrationVariables?.length ?? 0) === 0;
 
@@ -890,6 +911,10 @@ export function GithubModal(props: {
           supabaseProjectRef: /^[a-z0-9]{20}$/.test(supabaseProjectRef.trim()) ? supabaseProjectRef.trim() : undefined,
           lastBackendHealthRunId: nextBackendHealth[0]?.id,
           lastBackendHealthConclusion: nextBackendHealth[0]?.conclusion ?? nextBackendHealth[0]?.status ?? null,
+          lastSecurityStatus: result.readiness?.security?.status ?? "unverified",
+          lastSecurityBlockingCount: result.readiness?.security?.blockingCount ?? 0,
+          lastSecurityWarningCount: result.readiness?.security?.warningCount ?? 0,
+          lastSecurityCheckedAt: result.readiness?.security?.verified ? Date.now() : undefined,
           lastCheckedAt: Date.now(),
         });
       }
@@ -1415,9 +1440,39 @@ export function GithubModal(props: {
                       ...(requiredIntegrations.length > 0
                         ? [["Supabase runtime integration secrets verified", backendReady.supabaseSecretsVerified === true] as const]
                         : []),
+                      ["Supabase Security Advisor", backendReady.security?.verified === true && (backendReady.security?.blockingCount ?? 0) === 0],
                     ] as const).map(([name, ready]) => (
                       <div key={name}>{ready ? "✓" : "○"} {name}</div>
                     ))}
+                    {backendReady.security && (
+                      <div style={{ marginTop: 8, paddingTop: 7, borderTop: "1px solid rgba(182,188,200,.12)" }}>
+                        <div style={{ color:
+                          backendReady.security.status === "error" ? "#f08a8a" :
+                          backendReady.security.status === "warning" ? "#d8a45d" :
+                          backendReady.security.status === "pass" ? "#9ad3a4" : "#B6BCC8"
+                        }}>
+                          Security Advisor: {backendReady.security.status}
+                          {backendReady.security.blockingCount > 0 ? " · " + backendReady.security.blockingCount + " blocking" : ""}
+                          {backendReady.security.warningCount > 0 ? " · " + backendReady.security.warningCount + " warning" : ""}
+                        </div>
+                        {!backendReady.security.verified && backendReady.security.error && (
+                          <div style={{ paddingLeft: 14, color: "#d8a45d", marginTop: 3 }}>{backendReady.security.error}</div>
+                        )}
+                        {backendReady.security.findings.slice(0, 8).map(finding => (
+                          <details key={finding.name} style={{ marginTop: 5, paddingLeft: 14 }}>
+                            <summary style={{ cursor: "pointer", color: finding.level === "ERROR" ? "#f08a8a" : "#d8a45d" }}>
+                              {finding.level} · {finding.title} ({finding.count})
+                            </summary>
+                            <div style={{ marginTop: 4, color: "#B6BCC8", lineHeight: 1.45 }}>{finding.description}</div>
+                            {finding.remediation && (
+                              <a href={finding.remediation} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", display: "inline-block", marginTop: 3 }}>
+                                Remediation guidance
+                              </a>
+                            )}
+                          </details>
+                        ))}
+                      </div>
+                    )}
                     {(backendReady.integrations ?? []).map(integration => (
                       <div key={integration.id} style={{ marginTop: 8, paddingTop: 7, borderTop: "1px solid rgba(182,188,200,.12)" }}>
                         <div>{integration.ready ? "✓" : "○"} {integration.label}</div>
