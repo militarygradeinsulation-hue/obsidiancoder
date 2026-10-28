@@ -25,6 +25,10 @@ assert.ok(files[".github/workflows/obsidian-publish.yml"].includes("id-token: wr
 assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("Obsidian Ship"));
 assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("npm run qa:e2e"));
 assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("Build Pages artifact after QA passes"));
+assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("Verify deployed production URL"));
+assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("obsidian-live-qa"));
+assert.ok(files["scripts/obsidian-live-check.mjs"].includes("OBSIDIAN_LIVE_QA: PASS"));
+assert.ok(files["scripts/obsidian-live-check.mjs"].includes("horizontal overflow"));
 assert.ok(files["playwright.config.ts"].includes("desktop-chromium"));
 assert.ok(files["playwright.config.ts"].includes("mobile-chromium"));
 assert.ok(files["tests/obsidian.smoke.spec.ts"].includes("horizontal overflow"));
