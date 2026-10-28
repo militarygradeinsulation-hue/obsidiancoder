@@ -305,6 +305,44 @@ function FullAppPage() {
           <span className="obs-pill" data-tone={workspace?.cloudId ? "good" : "muted"}>{workspace?.cloudId ? "Cloud-linked" : "Local workspace"}</span>
         </div>
         <p className="mt-3 text-xs opacity-75" role="status">{status}</p>
+        {workspace?.production?.githubRepo && (
+          <section className="obs-node mt-4" aria-label="Production status">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <p className="obs-kicker">Production connection</p>
+                <h2 className="mt-1 text-sm font-semibold">{workspace.production.githubRepo}</h2>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <span className="obs-pill" data-tone={workspace.production.lastBuildConclusion === "success" ? "good" : "muted"}>
+                  Build + QA: {workspace.production.lastBuildConclusion ?? "not checked"}
+                </span>
+                <span className="obs-pill" data-tone={workspace.production.lastShipConclusion === "success" ? "good" : "muted"}>
+                  Ship: {workspace.production.lastShipConclusion ?? "not run"}
+                </span>
+              </div>
+            </div>
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <button type="button" className="obs-btn-ghost" onClick={() => setGithubOpen(true)}>
+                <FolderGit2 size={14}/> Open production controls
+              </button>
+              {workspace.production.deploymentUrl && (
+                <a
+                  className="obs-btn-ghost"
+                  href={workspace.production.deploymentUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Open live app
+                </a>
+              )}
+              {workspace.production.lastCheckedAt && (
+                <span className="text-xs opacity-55">
+                  Last checked {new Date(workspace.production.lastCheckedAt).toLocaleString()}
+                </span>
+              )}
+            </div>
+          </section>
+        )}
         {!workspace || loadedKey !== cacheKey ? <p className="obs-empty mt-8">Loading application files…</p> : (
           <>
             <section className="obs-node mt-6">
