@@ -30,6 +30,7 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   triggerBuild: "github_deploy",
   configureAppBackend: "github_deploy",
   publishApp: "github_deploy",
+  shipApp: "github_deploy",
   backendStatus: "github_list",
   deployBackend: "github_deploy",
 };
@@ -81,6 +82,7 @@ export function GithubModal(props: {
   const [appPublishableKey, setAppPublishableKey] = React.useState("");
   const [builds, setBuilds] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
   const [publishes, setPublishes] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
+  const [ships, setShips] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
   const [hostingUrl, setHostingUrl] = React.useState("");
   const [backendMode, setBackendMode] = React.useState<"functions-only" | "schema-and-functions">("functions-only");
   const [backendReady, setBackendReady] = React.useState<null | {
@@ -162,7 +164,7 @@ export function GithubModal(props: {
     }
   }
 
-  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
+  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "shipApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
     if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
     let backendApproval = "";
     if (action === "deployBackend") {
@@ -171,13 +173,15 @@ export function GithubModal(props: {
       ) || "";
       if (backendApproval !== "APPROVE_BACKEND_CHANGES") return;
     }
-    if (action === "publishApp" && !window.confirm(
-      "Publish this application's frontend to GitHub Pages? Ensure its backend is configured and its latest build passes. This will make the site public."
+    if ((action === "publishApp" || action === "shipApp") && !window.confirm(
+      action === "shipApp"
+        ? "Run Obsidian Ship? It will build the app, run desktop/mobile browser QA, and publish only if every check passes."
+        : "Publish this application's frontend to GitHub Pages? Ensure its backend is configured and its latest build passes. This will make the site public."
     )) return;
     setErr(null); setLoading("app:" + action);
     try {
       const result = await ghCall<{
-        ok: boolean; builds?: typeof builds; publishes?: typeof publishes;
+        ok: boolean; builds?: typeof builds; publishes?: typeof publishes; ships?: typeof ships;
         message?: string; url?: string;
         readiness?: NonNullable<typeof backendReady>;
         runs?: typeof backendRuns;
@@ -189,6 +193,7 @@ export function GithubModal(props: {
       if (action === "buildStatus") {
         setBuilds(result.builds ?? []);
         setPublishes(result.publishes ?? []);
+        setShips(result.ships ?? []);
       }
       if (action === "backendStatus") {
         setBackendReady(result.readiness ?? null);
@@ -488,12 +493,13 @@ export function GithubModal(props: {
                 style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, margin: "8px 0" }} />
               <datalist id="obs-managed-repos">{repos.map(repo => <option key={repo.full_name} value={repo.name}/>)}</datalist>
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("buildStatus")}>Check build status</button>
-                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("triggerBuild")}>Run production build</button>
+                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("buildStatus")}>Check build + QA status</button>
+                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("triggerBuild")}>Run build + QA</button>
+                <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("shipApp")}>Ship verified app</button>
               </div>
-              {(builds.length > 0 || publishes.length > 0) && (
+              {(builds.length > 0 || publishes.length > 0 || ships.length > 0) && (
                 <div style={{ marginTop: 12, fontSize: 12 }}>
-                  {([["Build", builds], ["Publish", publishes]] as const).map(([label, runs]) => runs.slice(0, 2).map(run => (
+                  {([["Build + QA", builds], ["Ship", ships], ["Publish", publishes]] as const).map(([label, runs]) => runs.slice(0, 2).map(run => (
                     <p key={label + run.id} style={{ color: "#B6BCC8", margin: "6px 0" }}>
                       {label}: {run.conclusion ?? run.status} · <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125" }}>View GitHub run</a>
                     </p>
@@ -568,8 +574,9 @@ export function GithubModal(props: {
                 {hostingUrl && <a href={hostingUrl} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125", fontSize: 12 }}>Open hosted site after deployment completes</a>}
               </div>
               <p style={{ color: "#B6BCC8", fontSize: 11, marginTop: 10 }}>
-                Publishing is opt-in and makes the frontend public. Database migration, authorization,
-                redirect URLs and successful production workflow must be verified separately.
+                "Ship verified app" is the preferred path: it compiles, launches the production build in Chromium,
+                checks desktop/mobile rendering and runtime errors, then deploys only after QA passes. Database migration,
+                authorization and redirect URLs still require their own backend verification.
               </p>
             </section>
 
