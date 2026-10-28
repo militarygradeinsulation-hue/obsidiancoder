@@ -673,7 +673,15 @@ export function GithubModal(props: {
       }>({
         action, token, repo: managedRepo.trim(),
         ...(action === "configureAppBackend" ? { url: appUrl.trim(), publishableKey: appPublishableKey.trim() } : {}),
-        ...(action === "backendStatus" || action === "deployBackend" ? { integrations: requiredIntegrations } : {}),
+        ...(action === "backendStatus" || action === "deployBackend" ? {
+          integrations: requiredIntegrations,
+          ...(supabaseAccessToken.trim() && /^[a-z0-9]{20}$/.test(supabaseProjectRef.trim())
+            ? {
+                supabaseAccessToken: supabaseAccessToken.trim(),
+                projectRef: supabaseProjectRef.trim(),
+              }
+            : {}),
+        } : {}),
         ...(action === "deployBackend" ? { mode: backendMode, approval: backendApproval } : {}),
         ...(action === "provisionBackend" ? {
           projectName: (defaultRepoName || managedRepo || "obsidian-app").replace(/[^A-Za-z0-9 _-]+/g, " ").trim().slice(0, 80),
