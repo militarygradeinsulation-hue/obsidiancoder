@@ -16,6 +16,11 @@ import {
   workspaceFingerprint, type AppEditPlan, MAX_EDIT_BYTES,
 } from "@/lib/full-app-edits";
 import { listCloudProjects, loadCloudProject, newCloudProjectId, saveCloudProject, type CloudProjectMeta } from "@/lib/cloud-projects";
+import {
+  blueprintImplementationPrompt,
+  parseFullAppBlueprint,
+  type FullAppBlueprint,
+} from "@/lib/full-app-blueprint";
 
 export const Route = createFileRoute("/full-app")({
   beforeLoad: async () => {
@@ -47,6 +52,7 @@ interface FullAppWorkspace {
   sourceHtml: string;
   files: FullAppFiles;
   addons: AppAddonId[];
+  blueprint?: FullAppBlueprint;
   production?: FullAppProductionState;
   cloudId?: string;
   updatedAt: number;
@@ -94,6 +100,12 @@ function sanitizeProduction(value: unknown): FullAppProductionState | undefined 
   return Object.keys(clean).length ? clean : undefined;
 }
 
+function sanitizeBlueprint(value: unknown): FullAppBlueprint | undefined {
+  if (!value) return undefined;
+  try { return parseFullAppBlueprint(value); }
+  catch { return undefined; }
+}
+
 function restoreWorkspace(value: unknown): FullAppWorkspace | null {
   if (!value || typeof value !== "object") return null;
   const w = value as Partial<FullAppWorkspace>;
@@ -104,7 +116,9 @@ function restoreWorkspace(value: unknown): FullAppWorkspace | null {
     const addons = validateAppAddons(w.addons);
     const files = reconcileFullAppFiles(w.sourceHtml, w.title, w.files, addons);
     return { type: "obsidian-full-app.v1", sourceHtml: w.sourceHtml, title: w.title.slice(0, 100),
-      files, addons, production: sanitizeProduction((w as { production?: unknown }).production),
+      files, addons,
+      blueprint: sanitizeBlueprint((w as { blueprint?: unknown }).blueprint),
+      production: sanitizeProduction((w as { production?: unknown }).production),
       cloudId: typeof w.cloudId === "string" ? w.cloudId : undefined,
       updatedAt: typeof w.updatedAt === "number" ? w.updatedAt : Date.now() };
   } catch { return null; }
@@ -118,6 +132,7 @@ function FullAppPage() {
   const [selected, setSelected] = React.useState("src/App.tsx");
   const [newPath, setNewPath] = React.useState("");
   const [instruction, setInstruction] = React.useState("");
+  const [architectureRequest, setArchitectureRequest] = React.useState("");
   const [draft, setDraft] = React.useState<{ plan: AppEditPlan; fingerprint: string } | null>(null);
   const [status, setStatus] = React.useState("Ready");
   const [busy, setBusy] = React.useState(false);
@@ -177,6 +192,47 @@ function FullAppPage() {
       replaceFiles(applyAppEditPlan(files, { summary: "Delete file", edits: [{ action: "delete", path: selected }] }), "File deleted locally");
       setSelected("src/App.tsx");
     } catch (e) { setStatus(e instanceof Error ? e.message : "Deletion blocked."); }
+  }
+
+  async function generateBlueprint() {
+    if (!workspace || !architectureRequest.trim()) return;
+    setBusy(true);
+    setDraft(null);
+    setStatus("Architecting routes, data, auth, components, and backend requirements...");
+    try {
+      const response = await authFetch("/api/full-app/plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          idea: architectureRequest.trim(),
+          projectName: workspace.title,
+          currentDesignSummary: workspace.sourceHtml
+            .replace(/<script[\s\S]*?<\/script>/gi, " ")
+            .replace(/<style[\s\S]*?<\/style>/gi, " ")
+            .replace(/<[^>]+>/g, " ")
+            .replace(/\s+/g, " ")
+            .trim()
+            .slice(0, 3_000),
+        }),
+      });
+      const result = await response.json() as { ok?: boolean; blueprint?: FullAppBlueprint; error?: string };
+      if (!response.ok || !result.ok || !result.blueprint) {
+        throw new Error(result.error ?? "Architecture planning failed.");
+      }
+      const blueprint = parseFullAppBlueprint(result.blueprint);
+      setWorkspace(w => w ? { ...w, blueprint, updatedAt: Date.now() } : w);
+      setStatus("Application blueprint ready. Review it, then implement the first functional slice.");
+    } catch (e) {
+      setStatus(e instanceof Error ? e.message : "Could not generate application blueprint.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function implementBlueprint() {
+    if (!workspace?.blueprint) return;
+    const prompt = blueprintImplementationPrompt(workspace.blueprint);
+    await suggestChanges("edit", prompt);
   }
 
   async function suggestChanges(task: "edit" | "convert-design" = "edit", promptOverride?: string) {
@@ -245,7 +301,13 @@ function FullAppPage() {
       const id = workspace.cloudId ?? newCloudProjectId();
       const r = await saveCloudProject({ id, name: workspace.title, html: workspace.sourceHtml,
         prompt: "Obsidian Full App native workspace",
-        projectJson: { type: workspace.type, files, addons: workspace.addons, production: workspace.production },
+        projectJson: {
+          type: workspace.type,
+          files,
+          addons: workspace.addons,
+          blueprint: workspace.blueprint,
+          production: workspace.production,
+        },
         model: "full-app", surface: "coder" });
       if (!r.ok) throw new Error(r.error);
       setWorkspace(w => w ? { ...w, cloudId: id } : w);
@@ -273,6 +335,7 @@ function FullAppPage() {
         : buildFullAppFiles(r.data.html, r.data.projectName ?? "Cloud App"),
       // Converting a Studio cloud build must never overwrite that original.
       addons: (r.data.projectJson as { addons?: AppAddonId[] } | null)?.addons ?? [],
+      blueprint: sanitizeBlueprint((r.data.projectJson as { blueprint?: unknown } | null)?.blueprint),
       production: sanitizeProduction((r.data.projectJson as { production?: unknown } | null)?.production),
       cloudId: (r.data.projectJson as { type?: string } | null)?.type === "obsidian-full-app.v1"
         ? r.data.id : undefined, updatedAt: Date.now(),
