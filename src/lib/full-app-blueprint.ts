@@ -56,6 +56,35 @@ const journeyStepSchema = z.discriminatedUnion("action", [
     testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
     text: z.string().min(1).max(180),
   }).strict(),
+  z.object({
+    action: z.literal("select"),
+    testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+    value: z.string().min(1).max(160),
+  }).strict(),
+  z.object({
+    action: z.literal("check"),
+    testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+    checked: z.boolean().default(true),
+  }).strict(),
+  z.object({
+    action: z.literal("press"),
+    testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+    key: z.enum(["Enter", "Escape", "Tab", "ArrowDown", "ArrowUp", "Space"]),
+  }).strict(),
+  z.object({
+    action: z.literal("expect_url"),
+    path: z.string().min(1).max(160),
+  }).strict(),
+  z.object({
+    action: z.literal("expect_value"),
+    testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+    value: z.string().max(240),
+  }).strict(),
+  z.object({
+    action: z.literal("upload_fixture"),
+    testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+    kind: z.enum(["png", "pdf", "text"]),
+  }).strict(),
 ]).and(z.object({
   note: z.string().max(220).optional().default(""),
 }));
