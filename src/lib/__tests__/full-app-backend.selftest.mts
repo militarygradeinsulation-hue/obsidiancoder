@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { buildFullAppFiles } from "../full-app-scaffold.ts";
 import { reconcileFullAppFiles, isEditableAppPath } from "../full-app-edits.ts";
 import { APP_ITEMS_MIGRATION, APP_STORAGE_MIGRATION, APP_EDGE_FUNCTION,
-  APP_BACKEND_WORKFLOW, APP_BACKEND_PROVISION_WORKFLOW } from "../full-app-backend.ts";
+  APP_BACKEND_WORKFLOW, APP_BACKEND_PROVISION_WORKFLOW, APP_BACKEND_HEALTH_WORKFLOW } from "../full-app-backend.ts";
 
 const html = "<!doctype html><html><body>App</body></html>";
 const files = buildFullAppFiles(html, "Test", ["lucide-react"]);
@@ -29,6 +29,11 @@ assert.ok(files[APP_BACKEND_WORKFLOW].includes("supabase functions deploy --proj
 assert.ok(!files[APP_BACKEND_WORKFLOW].includes("functions deploy account-status"));
 assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("Project creation requires live cost confirmation"));
 assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("Automatic Supabase project creation is intentionally disabled"));
+assert.ok(files[APP_BACKEND_HEALTH_WORKFLOW].includes("Obsidian Backend Health"));
+assert.ok(files[APP_BACKEND_HEALTH_WORKFLOW].includes("schedule:"));
+assert.ok(files[APP_BACKEND_HEALTH_WORKFLOW].includes("anonymous RLS returned zero rows"));
+assert.ok(files[APP_BACKEND_HEALTH_WORKFLOW].includes("account-status"));
+assert.ok(files[APP_BACKEND_WORKFLOW].includes("OBSIDIAN_BACKEND_QA: PASS"));
 assert.ok(!files[APP_BACKEND_PROVISION_WORKFLOW].includes("supabase projects create"));
 assert.ok(!files[APP_BACKEND_PROVISION_WORKFLOW].includes("CREATE_SUPABASE_PROJECT"));
 assert.ok(files["docs/BACKEND.md"].includes("Integration Vault"));
