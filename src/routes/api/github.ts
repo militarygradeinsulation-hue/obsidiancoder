@@ -134,6 +134,14 @@ const bodySchema = z.discriminatedUnion("action", [
     value: z.string().min(1).max(2_048),
   }),
   z.object({
+    action: z.literal("configureSupabaseAuth"),
+    token: z.string().min(10).max(400),
+    repo: z.string().min(1).max(90),
+    supabaseAccessToken: z.string().min(20).max(600),
+    projectRef: z.string().regex(/^[a-z0-9]{20}$/),
+    siteUrl: z.string().url().max(500),
+  }),
+  z.object({
     action: z.literal("configureAppBackend"),
     token: z.string().min(10).max(400), repo: z.string().min(1).max(90),
     url: z.string().url().max(250),
@@ -201,6 +209,59 @@ async function listSupabaseSecretNames(accessToken: string, projectRef: string):
           : ""
       ).filter(Boolean))].sort()
     : [];
+}
+
+function normalizeProductionSiteUrl(raw: string) {
+  const url = new URL(raw);
+  if (url.protocol !== "https:" || url.username || url.password || url.search || url.hash) {
+    throw new Error("Production Auth Site URL must be a clean HTTPS URL.");
+  }
+  // GitHub Pages apps may legitimately live under /repo/. Preserve that base path.
+  if (!url.pathname.endsWith("/")) url.pathname += "/";
+  return url.toString();
+}
+
+async function configureSupabaseAuthForSite(
+  accessToken: string,
+  projectRef: string,
+  siteUrl: string,
+) {
+  const normalized = normalizeProductionSiteUrl(siteUrl);
+  const currentRes = await supabaseManagement(accessToken, "/v1/projects/" + projectRef + "/config/auth");
+  if (!currentRes.ok) {
+    throw new Error("Supabase token needs Auth Config and Project Settings read access.");
+  }
+  const current = await supabaseJson(currentRes) as {
+    site_url?: string | null;
+    uri_allow_list?: string | null;
+  } | null;
+
+  const existing = String(current?.uri_allow_list ?? "")
+    .split(",")
+    .map(value => value.trim())
+    .filter(Boolean);
+  const wildcard = normalized + "**";
+  const redirects = [...new Set([...existing, normalized, wildcard])].slice(0, 100);
+
+  const update = await supabaseManagement(
+    accessToken,
+    "/v1/projects/" + projectRef + "/config/auth",
+    {
+      method: "PATCH",
+      body: JSON.stringify({
+        site_url: normalized,
+        uri_allow_list: redirects.join(","),
+      }),
+    },
+  );
+  if (!update.ok) {
+    throw new Error("Could not update Supabase Auth. The scoped token needs Auth Config and Project Settings read-write access.");
+  }
+  return {
+    siteUrl: normalized,
+    redirectCount: redirects.length,
+    preservedRedirectCount: existing.length,
+  };
 }
 
 async function inspectSupabaseProject(accessToken: string, projectRef: string) {
@@ -903,7 +964,8 @@ export const Route = createFileRoute("/api/github")({
               parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "setCustomDomain" || parsed.action === "customDomainStatus" || parsed.action === "rollbackApp" || parsed.action === "configureAppBackend" ||
               parsed.action === "backendStatus" || parsed.action === "deployBackend" || parsed.action === "provisionBackend" ||
               parsed.action === "connectSupabaseBackend" || parsed.action === "setSupabaseSecret" ||
-              parsed.action === "deleteSupabaseSecret" || parsed.action === "setIntegrationVariable") {
+              parsed.action === "deleteSupabaseSecret" || parsed.action === "setIntegrationVariable" ||
+              parsed.action === "configureSupabaseAuth") {
             const user = await getUser(parsed.token);
             const appRepo = await managedAppRepo(parsed.token, user.login, parsed.repo);
             if (parsed.action === "connectSupabaseBackend") {
@@ -964,6 +1026,18 @@ export const Route = createFileRoute("/api/github")({
               assertIntegrationVariableName(parsed.integration, parsed.name);
               await setPublicRepoVariable(parsed.token, user.login, appRepo, parsed.name, parsed.value);
               return Response.json({ ok: true, message: parsed.name + " saved as a public GitHub Actions variable." });
+            }
+            if (parsed.action === "configureSupabaseAuth") {
+              const auth = await configureSupabaseAuthForSite(
+                parsed.supabaseAccessToken,
+                parsed.projectRef,
+                parsed.siteUrl,
+              );
+              return Response.json({
+                ok: true,
+                auth,
+                message: "Supabase Auth Site URL and redirect allow-list updated without removing existing redirects.",
+              });
             }
 
             if (parsed.action === "backendStatus" || parsed.action === "deployBackend") {
