@@ -633,6 +633,26 @@ function FullAppPage() {
                       </div>
                     </div>
                   </div>
+                  {workspace.blueprint.acceptanceJourneys.length > 0 && (
+                    <div className="mt-4">
+                      <p className="text-xs font-semibold uppercase tracking-wide opacity-60">Production journeys</p>
+                      <div className="mt-2 grid gap-2 md:grid-cols-2">
+                        {workspace.blueprint.acceptanceJourneys.map((journey, index) => (
+                          <div key={journey.name + index} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <p className="text-sm font-medium">{journey.name}</p>
+                              <span className="obs-pill" data-tone={journey.authRequired ? "muted" : "good"}>
+                                {journey.authRequired ? "Login required" : "Public flow"}
+                              </span>
+                            </div>
+                            <p className="mt-1 text-xs opacity-65">{journey.purpose}</p>
+                            <p className="mt-2 text-[11px] opacity-55">{journey.steps.length} deterministic steps</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
                   <details className="mt-4">
                     <summary className="cursor-pointer text-xs font-medium text-amber-300">View full architecture</summary>
                     <pre className="mt-3 max-h-80 overflow-auto whitespace-pre-wrap break-words rounded-lg bg-black/30 p-3 text-[11px] leading-relaxed">
