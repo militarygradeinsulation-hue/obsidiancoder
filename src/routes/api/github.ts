@@ -72,6 +72,7 @@ const bodySchema = z.discriminatedUnion("action", [
     repo: z.string().min(1).max(90),
     mode: z.enum(["functions-only", "schema-and-functions"]),
     approval: z.literal("APPROVE_BACKEND_CHANGES"),
+    integrations: z.array(z.enum(FULL_APP_INTEGRATION_IDS as [FullAppIntegrationId, ...FullAppIntegrationId[]])).max(8).optional().default([]),
   }),
   z.object({
     action: z.literal("configureAppBackend"),
@@ -678,15 +679,25 @@ export const Route = createFileRoute("/api/github")({
                 parsed.token,
                 user.login,
                 appRepo,
-                parsed.action === "backendStatus" ? parsed.integrations : [],
+                parsed.integrations,
               );
               if (parsed.action === "backendStatus") {
                 const runs = await managedRunStatus(parsed.token, user.login, appRepo, "obsidian-backend.yml");
                 return Response.json({ ok: true, readiness, runs });
               }
               if (!readiness.hasAccessToken || !readiness.hasProjectRef ||
-                  (parsed.mode === "schema-and-functions" && !readiness.hasDbPassword)) {
-                throw new Error("Configure this app's separate Supabase project reference and GitHub Actions secrets before deployment.");
+                  (parsed.mode === "schema-and-functions" && !readiness.hasDbPassword) ||
+                  readiness.missingIntegrationSecrets.length > 0 ||
+                  readiness.missingIntegrationVariables.length > 0) {
+                const missing = [
+                  ...readiness.missingIntegrationSecrets,
+                  ...readiness.missingIntegrationVariables,
+                ];
+                throw new Error(
+                  "Backend is not production-ready. Configure the app's Supabase deployment credentials" +
+                  (missing.length ? " and missing integration settings: " + missing.join(", ") : "") +
+                  "."
+                );
               }
               // The caller must explicitly type approval, GitHub Actions repeats
               // the check, and the production-backend environment may require reviewers.
