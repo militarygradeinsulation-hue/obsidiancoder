@@ -41,6 +41,7 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   rollbackApp: "github_deploy",
   backendStatus: "github_list",
   deployBackend: "github_deploy",
+  provisionBackend: "github_deploy",
 };
 
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
@@ -105,6 +106,7 @@ export function GithubModal(props: {
   const [managedRepo, setManagedRepo] = React.useState("");
   const [appUrl, setAppUrl] = React.useState("");
   const [appPublishableKey, setAppPublishableKey] = React.useState("");
+  const [provisionRegion, setProvisionRegion] = React.useState("us-east-1");
   type ManagedRun = { id: number; status: string; conclusion: string | null; url: string; created_at: string; head_sha?: string };
   const [builds, setBuilds] = React.useState<ManagedRun[]>([]);
   const [publishes, setPublishes] = React.useState<ManagedRun[]>([]);
@@ -115,6 +117,7 @@ export function GithubModal(props: {
     hasAccessToken: boolean;
     hasDbPassword: boolean;
     hasProjectRef: boolean;
+    hasOrgId?: boolean;
     hasPublicUrl: boolean;
     hasPublicKey: boolean;
     missingIntegrationSecrets?: string[];
@@ -490,7 +493,7 @@ export function GithubModal(props: {
     }
   }
 
-  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "shipApp" | "configureAppBackend" | "backendStatus" | "deployBackend") {
+  async function appAction(action: "buildStatus" | "triggerBuild" | "publishApp" | "shipApp" | "configureAppBackend" | "backendStatus" | "deployBackend" | "provisionBackend") {
     if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
     let backendApproval = "";
     if (action === "deployBackend") {
@@ -498,6 +501,12 @@ export function GithubModal(props: {
         "Review the migrations and target app Supabase project. Deployment can change live data and incur charges. Type APPROVE_BACKEND_CHANGES to continue."
       ) || "";
       if (backendApproval !== "APPROVE_BACKEND_CHANGES") return;
+    }
+    if (action === "provisionBackend") {
+      const approval = window.prompt(
+        "This can create billable Supabase infrastructure in your own account. Type CREATE_SUPABASE_PROJECT to continue."
+      ) || "";
+      if (approval !== "CREATE_SUPABASE_PROJECT") return;
     }
     if ((action === "publishApp" || action === "shipApp") && !window.confirm(
       action === "shipApp"
@@ -516,6 +525,11 @@ export function GithubModal(props: {
         ...(action === "configureAppBackend" ? { url: appUrl.trim(), publishableKey: appPublishableKey.trim() } : {}),
         ...(action === "backendStatus" || action === "deployBackend" ? { integrations: requiredIntegrations } : {}),
         ...(action === "deployBackend" ? { mode: backendMode, approval: backendApproval } : {}),
+        ...(action === "provisionBackend" ? {
+          projectName: (defaultRepoName || managedRepo || "obsidian-app").replace(/[^A-Za-z0-9 _-]+/g, " ").trim().slice(0, 80),
+          region: provisionRegion,
+          approval: "CREATE_SUPABASE_PROJECT",
+        } : {}),
       });
       if (action === "buildStatus") {
         const nextBuilds = result.builds ?? [];
