@@ -21,6 +21,7 @@ import {
   parseFullAppBlueprint,
   type FullAppBlueprint,
 } from "@/lib/full-app-blueprint";
+import { addAcceptanceFiles } from "@/lib/full-app-acceptance";
 import {
   normalizeFullAppIntegrationNames,
   type FullAppIntegrationId,
@@ -254,7 +255,12 @@ function FullAppPage() {
         throw new Error(result.error ?? "Architecture planning failed.");
       }
       const blueprint = parseFullAppBlueprint(result.blueprint);
-      setWorkspace(w => w ? { ...w, blueprint, updatedAt: Date.now() } : w);
+      setWorkspace(w => w ? {
+        ...w,
+        blueprint,
+        files: addAcceptanceFiles(w.files, blueprint),
+        updatedAt: Date.now(),
+      } : w);
       setStatus("Application blueprint ready. Review it, then implement the first functional slice.");
     } catch (e) {
       setStatus(e instanceof Error ? e.message : "Could not generate application blueprint.");
@@ -362,14 +368,16 @@ function FullAppPage() {
     setBusy(true);
     const r = await loadCloudProject(cloudChoice);
     if (!r.ok) { setStatus(r.error); setBusy(false); return; }
+    const cloudBlueprint = sanitizeBlueprint((r.data.projectJson as { blueprint?: unknown } | null)?.blueprint);
+    const rawFiles = (r.data.projectJson as { type?: string; files?: FullAppFiles } | null)?.type === "obsidian-full-app.v1"
+      ? (r.data.projectJson as { files: FullAppFiles }).files
+      : buildFullAppFiles(r.data.html, r.data.projectName ?? "Cloud App");
     const incoming = restoreWorkspace({
       type: "obsidian-full-app.v1", title: r.data.projectName ?? "Cloud App", sourceHtml: r.data.html,
-      files: (r.data.projectJson as { type?: string; files?: FullAppFiles } | null)?.type === "obsidian-full-app.v1"
-        ? (r.data.projectJson as { files: FullAppFiles }).files
-        : buildFullAppFiles(r.data.html, r.data.projectName ?? "Cloud App"),
+      files: cloudBlueprint ? addAcceptanceFiles(rawFiles, cloudBlueprint) : rawFiles,
       // Converting a Studio cloud build must never overwrite that original.
       addons: (r.data.projectJson as { addons?: AppAddonId[] } | null)?.addons ?? [],
-      blueprint: sanitizeBlueprint((r.data.projectJson as { blueprint?: unknown } | null)?.blueprint),
+      blueprint: cloudBlueprint,
       production: sanitizeProduction((r.data.projectJson as { production?: unknown } | null)?.production),
       cloudId: (r.data.projectJson as { type?: string } | null)?.type === "obsidian-full-app.v1"
         ? r.data.id : undefined, updatedAt: Date.now(),
