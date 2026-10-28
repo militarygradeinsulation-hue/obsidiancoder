@@ -27,6 +27,7 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   import:    "github_import",
   deploy:    "github_deploy",
   buildStatus: "github_list",
+  buildDiagnostics: "github_list",
   triggerBuild: "github_deploy",
   configureAppBackend: "github_deploy",
   publishApp: "github_deploy",
@@ -65,8 +66,12 @@ export function GithubModal(props: {
   fullAppFiles?: Record<string, string>;
   defaultDeployMode?: "static" | "full-app";
   fullAppAddons?: string[];
+  onRepairDiagnostics?: (context: string) => void | Promise<void>;
 }) {
-  const { open, onClose, currentHtml, defaultRepoName, onImport, onLog, fullAppFiles, fullAppAddons, defaultDeployMode = "static" } = props;
+  const {
+    open, onClose, currentHtml, defaultRepoName, onImport, onLog,
+    fullAppFiles, fullAppAddons, onRepairDiagnostics, defaultDeployMode = "static",
+  } = props;
   const [token, setToken] = React.useState("");
   const [user, setUser] = React.useState<GhUser | null>(null);
   const [repos, setRepos] = React.useState<Repo[]>([]);
@@ -80,9 +85,10 @@ export function GithubModal(props: {
   const [managedRepo, setManagedRepo] = React.useState("");
   const [appUrl, setAppUrl] = React.useState("");
   const [appPublishableKey, setAppPublishableKey] = React.useState("");
-  const [builds, setBuilds] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
-  const [publishes, setPublishes] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
-  const [ships, setShips] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
+  type ManagedRun = { id: number; status: string; conclusion: string | null; url: string; created_at: string; head_sha?: string };
+  const [builds, setBuilds] = React.useState<ManagedRun[]>([]);
+  const [publishes, setPublishes] = React.useState<ManagedRun[]>([]);
+  const [ships, setShips] = React.useState<ManagedRun[]>([]);
   const [hostingUrl, setHostingUrl] = React.useState("");
   const [backendMode, setBackendMode] = React.useState<"functions-only" | "schema-and-functions">("functions-only");
   const [backendReady, setBackendReady] = React.useState<null | {
@@ -159,6 +165,58 @@ export function GithubModal(props: {
       const msg = e instanceof Error ? e.message : "deploy failed";
       setErr(msg);
       onLog(`✗ Deploy: ${msg}`);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function diagnoseRun(run: ManagedRun) {
+    if (!managedRepo.trim() || !onRepairDiagnostics) return;
+    setErr(null);
+    setLoading("diagnostics:" + run.id);
+    try {
+      const result = await ghCall<{
+        ok: boolean;
+        diagnostics: {
+          runId: number;
+          workflow: string;
+          status: string;
+          conclusion: string | null;
+          headSha: string;
+          url: string;
+          failedSteps: string[];
+          diagnostics: string[];
+        };
+      }>({
+        action: "buildDiagnostics",
+        token,
+        repo: managedRepo.trim(),
+        runId: run.id,
+      });
+      const d = result.diagnostics;
+      const context = [
+        "Repair this Full App using the verified Obsidian Build Engine diagnostics below.",
+        "Do not redesign unrelated areas. Preserve working behavior, auth, database ownership rules, and existing features.",
+        "Fix the smallest set of source files needed for the build and browser QA to pass.",
+        "",
+        "WORKFLOW: " + d.workflow,
+        "RUN: " + String(d.runId),
+        "REVISION: " + (d.headSha || run.head_sha || "unknown"),
+        "CONCLUSION: " + (d.conclusion || d.status),
+        "",
+        "FAILED STEPS:",
+        ...(d.failedSteps.length ? d.failedSteps.map(step => "- " + step) : ["- Build/QA failure; exact failed step unavailable."]),
+        "",
+        "DIAGNOSTICS:",
+        ...(d.diagnostics.length ? d.diagnostics.map(line => "- " + line) : ["- No bounded error excerpt was available. Inspect likely compile/runtime issues in current source."]),
+      ].join("\n").slice(0, 12_000);
+      await onRepairDiagnostics(context);
+      onLog("Build diagnostics loaded into the Full App repair agent.");
+      onClose();
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not read build diagnostics";
+      setErr(message);
+      onLog("Build diagnostics: " + message);
     } finally {
       setLoading(null);
     }
@@ -500,9 +558,20 @@ export function GithubModal(props: {
               {(builds.length > 0 || publishes.length > 0 || ships.length > 0) && (
                 <div style={{ marginTop: 12, fontSize: 12 }}>
                   {([["Build + QA", builds], ["Ship", ships], ["Publish", publishes]] as const).map(([label, runs]) => runs.slice(0, 2).map(run => (
-                    <p key={label + run.id} style={{ color: "#B6BCC8", margin: "6px 0" }}>
-                      {label}: {run.conclusion ?? run.status} · <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125" }}>View GitHub run</a>
-                    </p>
+                    <div key={label + run.id} style={{ color: "#B6BCC8", margin: "7px 0", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
+                      <span>{label}: {run.conclusion ?? run.status}</span>
+                      <a href={run.url} target="_blank" rel="noopener noreferrer" style={{ color: "#F4A125" }}>View GitHub run</a>
+                      {onRepairDiagnostics && (label === "Build + QA" || label === "Ship") && run.conclusion && run.conclusion !== "success" && run.conclusion !== "skipped" && (
+                        <button
+                          type="button"
+                          className="obs-chip"
+                          disabled={!!loading}
+                          onClick={() => void diagnoseRun(run)}
+                        >
+                          Diagnose & propose repair
+                        </button>
+                      )}
+                    </div>
                   )))}
                 </div>
               )}
