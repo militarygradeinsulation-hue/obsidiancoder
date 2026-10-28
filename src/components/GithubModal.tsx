@@ -88,6 +88,7 @@ export function GithubModal(props: {
   defaultDeployMode?: "static" | "full-app";
   fullAppAddons?: string[];
   requiredIntegrations?: FullAppIntegrationId[];
+  requiresAuthAcceptance?: boolean;
   onRepairDiagnostics?: (context: string) => void | Promise<void>;
   onApplyFullAppFiles?: (files: Record<string, string>, message: string) => void;
   defaultManagedRepo?: string;
@@ -118,7 +119,7 @@ export function GithubModal(props: {
 }) {
   const {
     open, onClose, currentHtml, defaultRepoName, onImport, onLog,
-    fullAppFiles, fullAppAddons, requiredIntegrations = [], onRepairDiagnostics, onApplyFullAppFiles,
+    fullAppFiles, fullAppAddons, requiredIntegrations = [], requiresAuthAcceptance = false, onRepairDiagnostics, onApplyFullAppFiles,
     defaultManagedRepo, defaultSupabaseProjectRef, defaultDeploymentUrl, onProductionUpdate, defaultDeployMode = "static",
   } = props;
   const [token, setToken] = React.useState("");
@@ -149,6 +150,7 @@ export function GithubModal(props: {
   const [publishes, setPublishes] = React.useState<ManagedRun[]>([]);
   const [ships, setShips] = React.useState<ManagedRun[]>([]);
   const [health, setHealth] = React.useState<ManagedRun[]>([]);
+  const [e2eCredentialsConfigured, setE2eCredentialsConfigured] = React.useState(false);
   const [hostingUrl, setHostingUrl] = React.useState("");
   const [customDomainInput, setCustomDomainInput] = React.useState("");
   const [domainStatus, setDomainStatus] = React.useState<null | {
@@ -251,6 +253,7 @@ export function GithubModal(props: {
             publishes?: ManagedRun[];
             ships?: ManagedRun[];
             health?: ManagedRun[];
+            e2eCredentialsConfigured?: boolean;
           }>({
             action: "buildStatus",
             token: t,
@@ -264,6 +267,7 @@ export function GithubModal(props: {
           setPublishes(nextPublishes);
           setShips(nextShips);
           setHealth(nextHealth);
+          setE2eCredentialsConfigured(!!production.e2eCredentialsConfigured);
           onProductionUpdate?.({
             githubRepo: defaultManagedRepo,
             lastBuildRunId: nextBuilds[0]?.id,
@@ -863,6 +867,7 @@ export function GithubModal(props: {
     try {
       const result = await ghCall<{
         ok: boolean; builds?: typeof builds; publishes?: typeof publishes; ships?: typeof ships; health?: typeof health;
+        e2eCredentialsConfigured?: boolean;
         message?: string; url?: string;
         readiness?: NonNullable<typeof backendReady>;
         runs?: typeof backendRuns;
@@ -890,6 +895,7 @@ export function GithubModal(props: {
         setPublishes(nextPublishes);
         setShips(nextShips);
         setHealth(nextHealth);
+        setE2eCredentialsConfigured(!!result.e2eCredentialsConfigured);
         onProductionUpdate?.({
           githubRepo: managedRepo.trim(),
           lastBuildRunId: nextBuilds[0]?.id,
@@ -1214,6 +1220,23 @@ export function GithubModal(props: {
                 onChange={e => setManagedRepo(e.target.value)} placeholder="Your Full App repository name"
                 style={{ width: "100%", background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 9, margin: "8px 0" }} />
               <datalist id="obs-managed-repos">{repos.map(repo => <option key={repo.full_name} value={repo.name}/>)}</datalist>
+              {requiresAuthAcceptance && (
+                <div style={{ margin: "8px 0 10px", padding: 9, borderRadius: 8, background: e2eCredentialsConfigured ? "rgba(87,160,105,.08)" : "rgba(244,161,37,.06)", border: "1px solid rgba(182,188,200,.14)" }}>
+                  <div style={{ fontSize: 12, color: e2eCredentialsConfigured ? "#9ad3a4" : "#d8a45d" }}>
+                    {e2eCredentialsConfigured ? "✓" : "○"} Authenticated acceptance journeys: {e2eCredentialsConfigured ? "test account configured" : "E2E credentials required before Ship can pass"}
+                  </div>
+                  {!e2eCredentialsConfigured && user && managedRepo && (
+                    <a
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: "#F4A125", fontSize: 11, display: "inline-block", marginTop: 5 }}
+                      href={"https://github.com/" + user.login + "/" + managedRepo + "/settings/secrets/actions"}
+                    >
+                      Add OBSIDIAN_E2E_EMAIL and OBSIDIAN_E2E_PASSWORD
+                    </a>
+                  )}
+                </div>
+              )}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("buildStatus")}>Check build + QA status</button>
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("triggerBuild")}>Run build + QA</button>
