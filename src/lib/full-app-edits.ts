@@ -101,6 +101,7 @@ export function reconcileFullAppFiles(
   if (!submitted || typeof submitted !== "object" || Array.isArray(submitted)) throw new Error("Invalid workspace.");
   if (Object.keys(submitted).length > 100) throw new Error("Too many workspace files.");
   const updates: AppEdit[] = [];
+  const generatedAcceptance: Record<string, string> = {};
   for (const [path, content] of Object.entries(submitted)) {
     // Publish HTML may be repaired/sanitized after it was saved in the browser.
     // Always regenerate this protected file from trusted server HTML instead.
@@ -112,7 +113,7 @@ export function reconcileFullAppFiles(
     if (isGeneratedAcceptancePath(path)) {
       if (typeof content !== "string" || content.length > MAX_EDIT_BYTES)
         throw new Error("Generated acceptance file is invalid: " + path);
-      next[path] = content;
+      generatedAcceptance[path] = content;
       continue;
     }
     if (!isEditableAppPath(path)) throw new Error("Cannot override protected file: " + path);
@@ -120,7 +121,7 @@ export function reconcileFullAppFiles(
       throw new Error("Workspace file content is invalid: " + path);
     updates.push({ action: "write", path, content });
   }
-  const next = { ...base };
+  const next = { ...base, ...generatedAcceptance };
   // Importing an entire workspace is not an AI edit batch.
   for (const change of updates) next[change.path] = change.content!;
   const total = Object.values(next).reduce((size, content) => size + content.length, 0);
