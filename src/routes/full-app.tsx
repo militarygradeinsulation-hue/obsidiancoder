@@ -49,6 +49,8 @@ interface FullAppProductionState {
   lastShipConclusion?: string | null;
   lastHealthRunId?: number;
   lastHealthConclusion?: string | null;
+  lastBackendHealthRunId?: number;
+  lastBackendHealthConclusion?: string | null;
   deploymentUrl?: string;
   customDomain?: string;
   customDomainHealthy?: boolean;
@@ -108,6 +110,8 @@ function sanitizeProduction(value: unknown): FullAppProductionState | undefined 
   if (typeof p.lastShipConclusion === "string" || p.lastShipConclusion === null) clean.lastShipConclusion = p.lastShipConclusion as string | null;
   if (typeof p.lastHealthRunId === "number" && Number.isSafeInteger(p.lastHealthRunId) && p.lastHealthRunId > 0) clean.lastHealthRunId = p.lastHealthRunId;
   if (typeof p.lastHealthConclusion === "string" || p.lastHealthConclusion === null) clean.lastHealthConclusion = p.lastHealthConclusion as string | null;
+  if (typeof p.lastBackendHealthRunId === "number" && Number.isSafeInteger(p.lastBackendHealthRunId) && p.lastBackendHealthRunId > 0) clean.lastBackendHealthRunId = p.lastBackendHealthRunId;
+  if (typeof p.lastBackendHealthConclusion === "string" || p.lastBackendHealthConclusion === null) clean.lastBackendHealthConclusion = p.lastBackendHealthConclusion as string | null;
   if (typeof p.deploymentUrl === "string" && /^https:\/\//.test(p.deploymentUrl) && p.deploymentUrl.length < 500) clean.deploymentUrl = p.deploymentUrl;
   if (typeof p.customDomain === "string" && /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(p.customDomain)) clean.customDomain = p.customDomain;
   if (typeof p.customDomainHealthy === "boolean") clean.customDomainHealthy = p.customDomainHealthy;
@@ -405,7 +409,13 @@ function FullAppPage() {
                   Ship: {workspace.production.lastShipConclusion ?? "not run"}
                 </span>
                 <span className="obs-pill" data-tone={workspace.production.lastHealthConclusion === "success" ? "good" : "muted"}>
-                  Live health: {workspace.production.lastHealthConclusion ?? "not checked"}
+                  Frontend health: {workspace.production.lastHealthConclusion ?? "not checked"}
+                </span>
+                <span className="obs-pill" data-tone={workspace.production.lastBackendHealthConclusion === "success" ? "good" : "muted"}>
+                  Backend health: {workspace.production.lastBackendHealthConclusion ?? "not checked"}
+                </span>
+                <span className="obs-pill" data-tone={workspace.production.authSiteUrl ? "good" : "muted"}>
+                  Auth URL: {workspace.production.authSiteUrl ? "configured" : "not configured"}
                 </span>
                 {workspace.production.customDomain && (
                   <span className="obs-pill" data-tone={workspace.production.customDomainHealthy && workspace.production.customDomainHttps ? "good" : "muted"}>
@@ -413,6 +423,15 @@ function FullAppPage() {
                   </span>
                 )}
               </div>
+            </div>
+            <div className="mt-3 text-xs" role="status">
+              {workspace.production.lastBuildConclusion === "success" &&
+               workspace.production.lastShipConclusion === "success" &&
+               workspace.production.lastHealthConclusion === "success" &&
+               workspace.production.lastBackendHealthConclusion === "success" &&
+               workspace.production.authSiteUrl
+                ? <span className="obs-pill" data-tone="good">Production ready</span>
+                : <span className="obs-pill" data-tone="muted">Release checks incomplete</span>}
             </div>
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button type="button" className="obs-btn-ghost" onClick={() => setGithubOpen(true)}>
