@@ -164,9 +164,23 @@ async function putFullAppFiles(
   const parentRes = await gh(token, "/repos/" + login + "/" + repo + "/git/commits/" + parentSha);
   if (!parentRes.ok) throw new Error("Could not read the repository HEAD.");
   const treeSha = ((await ghJson(parentRes)) as { tree: { sha: string } }).tree.sha;
-  const entries = Object.entries(files).map(([path, content]) => ({
-    path, mode: "100644", type: "blob", content,
-  }));
+  const managedPaths = Object.keys(files).sort();
+  const manifest = JSON.stringify({
+    version: 1,
+    generatedBy: "Aetheris Obsidian",
+    files: [...managedPaths, ".obsidian/managed-files.json"].sort(),
+  }, null, 2) + "\n";
+  const entries = [
+    ...Object.entries(files).map(([path, content]) => ({
+      path, mode: "100644", type: "blob", content,
+    })),
+    {
+      path: ".obsidian/managed-files.json",
+      mode: "100644",
+      type: "blob",
+      content: manifest,
+    },
+  ];
   const treeRes = await gh(token, "/repos/" + login + "/" + repo + "/git/trees", {
     method: "POST", body: JSON.stringify({ base_tree: treeSha, tree: entries }),
   });
