@@ -47,6 +47,8 @@ interface FullAppProductionState {
   lastBuildConclusion?: string | null;
   lastShipRunId?: number;
   lastShipConclusion?: string | null;
+  lastHealthRunId?: number;
+  lastHealthConclusion?: string | null;
   deploymentUrl?: string;
   lastCheckedAt?: number;
 }
@@ -99,6 +101,8 @@ function sanitizeProduction(value: unknown): FullAppProductionState | undefined 
   if (typeof p.lastBuildConclusion === "string" || p.lastBuildConclusion === null) clean.lastBuildConclusion = p.lastBuildConclusion as string | null;
   if (typeof p.lastShipRunId === "number" && Number.isSafeInteger(p.lastShipRunId) && p.lastShipRunId > 0) clean.lastShipRunId = p.lastShipRunId;
   if (typeof p.lastShipConclusion === "string" || p.lastShipConclusion === null) clean.lastShipConclusion = p.lastShipConclusion as string | null;
+  if (typeof p.lastHealthRunId === "number" && Number.isSafeInteger(p.lastHealthRunId) && p.lastHealthRunId > 0) clean.lastHealthRunId = p.lastHealthRunId;
+  if (typeof p.lastHealthConclusion === "string" || p.lastHealthConclusion === null) clean.lastHealthConclusion = p.lastHealthConclusion as string | null;
   if (typeof p.deploymentUrl === "string" && /^https:\/\//.test(p.deploymentUrl) && p.deploymentUrl.length < 500) clean.deploymentUrl = p.deploymentUrl;
   if (typeof p.lastCheckedAt === "number" && Number.isFinite(p.lastCheckedAt) && p.lastCheckedAt > 0) clean.lastCheckedAt = p.lastCheckedAt;
   return Object.keys(clean).length ? clean : undefined;
@@ -389,6 +393,9 @@ function FullAppPage() {
                 </span>
                 <span className="obs-pill" data-tone={workspace.production.lastShipConclusion === "success" ? "good" : "muted"}>
                   Ship: {workspace.production.lastShipConclusion ?? "not run"}
+                </span>
+                <span className="obs-pill" data-tone={workspace.production.lastHealthConclusion === "success" ? "good" : "muted"}>
+                  Live health: {workspace.production.lastHealthConclusion ?? "not checked"}
                 </span>
               </div>
             </div>
