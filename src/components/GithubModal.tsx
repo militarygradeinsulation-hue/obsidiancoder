@@ -3,6 +3,10 @@ import { Github, Loader2, ExternalLink, Rocket, Download, Check, X } from "lucid
 import { authFetch } from "@/lib/auth-fetch";
 import { requirePaidAction, type GuardOperation } from "@/lib/action-guard";
 import { applyAppEditPlan, parseAppEditPlan, type AppEditPlan } from "@/lib/full-app-edits";
+import {
+  FULL_APP_INTEGRATIONS,
+  type FullAppIntegrationId,
+} from "@/lib/full-app-integrations";
 
 type GhUser = { login: string; avatar_url: string; name?: string };
 type Repo = {
@@ -69,6 +73,7 @@ export function GithubModal(props: {
   fullAppFiles?: Record<string, string>;
   defaultDeployMode?: "static" | "full-app";
   fullAppAddons?: string[];
+  requiredIntegrations?: FullAppIntegrationId[];
   onRepairDiagnostics?: (context: string) => void | Promise<void>;
   onApplyFullAppFiles?: (files: Record<string, string>, message: string) => void;
   defaultManagedRepo?: string;
@@ -84,7 +89,7 @@ export function GithubModal(props: {
 }) {
   const {
     open, onClose, currentHtml, defaultRepoName, onImport, onLog,
-    fullAppFiles, fullAppAddons, onRepairDiagnostics, onApplyFullAppFiles,
+    fullAppFiles, fullAppAddons, requiredIntegrations = [], onRepairDiagnostics, onApplyFullAppFiles,
     defaultManagedRepo, onProductionUpdate, defaultDeployMode = "static",
   } = props;
   const [token, setToken] = React.useState("");
@@ -107,8 +112,23 @@ export function GithubModal(props: {
   const [hostingUrl, setHostingUrl] = React.useState("");
   const [backendMode, setBackendMode] = React.useState<"functions-only" | "schema-and-functions">("functions-only");
   const [backendReady, setBackendReady] = React.useState<null | {
-    hasAccessToken: boolean; hasDbPassword: boolean; hasProjectRef: boolean;
-    hasPublicUrl: boolean; hasPublicKey: boolean;
+    hasAccessToken: boolean;
+    hasDbPassword: boolean;
+    hasProjectRef: boolean;
+    hasPublicUrl: boolean;
+    hasPublicKey: boolean;
+    missingIntegrationSecrets?: string[];
+    missingIntegrationVariables?: string[];
+    integrations?: Array<{
+      id: FullAppIntegrationId;
+      label: string;
+      purpose: string;
+      ready: boolean;
+      requiredSecrets: string[];
+      requiredVariables: string[];
+      missingSecrets: string[];
+      missingVariables: string[];
+    }>;
   }>(null);
   const [backendRuns, setBackendRuns] = React.useState<typeof builds>([]);
 
@@ -486,6 +506,7 @@ export function GithubModal(props: {
       }>({
         action, token, repo: managedRepo.trim(),
         ...(action === "configureAppBackend" ? { url: appUrl.trim(), publishableKey: appPublishableKey.trim() } : {}),
+        ...(action === "backendStatus" ? { integrations: requiredIntegrations } : {}),
         ...(action === "deployBackend" ? { mode: backendMode, approval: backendApproval } : {}),
       });
       if (action === "buildStatus") {
