@@ -40,6 +40,9 @@ assert.ok(files[".github/workflows/obsidian-ship.yml"].includes("OBSIDIAN_E2E_EM
 assert.ok(files[".github/workflows/obsidian-ship.yml"].includes('OBSIDIAN_REQUIRE_AUTH_E2E: "true"'));
 assert.ok(files["playwright.config.ts"].includes("desktop-chromium"));
 assert.ok(files["playwright.config.ts"].includes("mobile-chromium"));
+assert.ok(files["playwright.config.ts"].includes("process.env.OBSIDIAN_BASE_URL"));
+assert.ok(files[".github/workflows/obsidian-functional-qa.yml"].includes("Obsidian Functional QA"));
+assert.ok(files[".github/workflows/obsidian-functional-qa.yml"].includes("tests/obsidian.acceptance.spec.ts"));
 assert.ok(files["tests/obsidian.smoke.spec.ts"].includes("horizontal overflow"));
 assert.equal(JSON.parse(files["package.json"]).devDependencies["@playwright/test"], "1.56.1");
 assert.equal(JSON.parse(files["package.json"]).scripts["qa:e2e"], "playwright test");
