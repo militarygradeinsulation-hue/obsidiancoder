@@ -53,6 +53,7 @@ interface FullAppProductionState {
   customDomain?: string;
   customDomainHealthy?: boolean;
   customDomainHttps?: boolean;
+  supabaseProjectRef?: string;
   lastCheckedAt?: number;
 }
 interface FullAppWorkspace {
@@ -110,6 +111,7 @@ function sanitizeProduction(value: unknown): FullAppProductionState | undefined 
   if (typeof p.customDomain === "string" && /^(?:[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?\.)+[a-z]{2,63}$/.test(p.customDomain)) clean.customDomain = p.customDomain;
   if (typeof p.customDomainHealthy === "boolean") clean.customDomainHealthy = p.customDomainHealthy;
   if (typeof p.customDomainHttps === "boolean") clean.customDomainHttps = p.customDomainHttps;
+  if (typeof p.supabaseProjectRef === "string" && /^[a-z0-9]{20}$/.test(p.supabaseProjectRef)) clean.supabaseProjectRef = p.supabaseProjectRef;
   if (typeof p.lastCheckedAt === "number" && Number.isFinite(p.lastCheckedAt) && p.lastCheckedAt > 0) clean.lastCheckedAt = p.lastCheckedAt;
   return Object.keys(clean).length ? clean : undefined;
 }
@@ -627,6 +629,7 @@ function FullAppPage() {
         requiredIntegrations={blueprintIntegrations}
         defaultDeployMode="full-app"
         defaultManagedRepo={workspace.production?.githubRepo}
+        defaultSupabaseProjectRef={workspace.production?.supabaseProjectRef}
         onProductionUpdate={patch => setWorkspace(w => w ? {
           ...w,
           production: { ...(w.production ?? {}), ...patch },
