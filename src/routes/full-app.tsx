@@ -54,6 +54,7 @@ interface FullAppProductionState {
   customDomainHealthy?: boolean;
   customDomainHttps?: boolean;
   supabaseProjectRef?: string;
+  authSiteUrl?: string;
   lastCheckedAt?: number;
 }
 interface FullAppWorkspace {
@@ -112,6 +113,7 @@ function sanitizeProduction(value: unknown): FullAppProductionState | undefined 
   if (typeof p.customDomainHealthy === "boolean") clean.customDomainHealthy = p.customDomainHealthy;
   if (typeof p.customDomainHttps === "boolean") clean.customDomainHttps = p.customDomainHttps;
   if (typeof p.supabaseProjectRef === "string" && /^[a-z0-9]{20}$/.test(p.supabaseProjectRef)) clean.supabaseProjectRef = p.supabaseProjectRef;
+  if (typeof p.authSiteUrl === "string" && /^https:\/\//.test(p.authSiteUrl) && p.authSiteUrl.length < 500) clean.authSiteUrl = p.authSiteUrl;
   if (typeof p.lastCheckedAt === "number" && Number.isFinite(p.lastCheckedAt) && p.lastCheckedAt > 0) clean.lastCheckedAt = p.lastCheckedAt;
   return Object.keys(clean).length ? clean : undefined;
 }
@@ -630,6 +632,7 @@ function FullAppPage() {
         defaultDeployMode="full-app"
         defaultManagedRepo={workspace.production?.githubRepo}
         defaultSupabaseProjectRef={workspace.production?.supabaseProjectRef}
+        defaultDeploymentUrl={workspace.production?.deploymentUrl}
         onProductionUpdate={patch => setWorkspace(w => w ? {
           ...w,
           production: { ...(w.production ?? {}), ...patch },
