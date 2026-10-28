@@ -75,6 +75,14 @@ const bodySchema = z.discriminatedUnion("action", [
     integrations: z.array(z.enum(FULL_APP_INTEGRATION_IDS as [FullAppIntegrationId, ...FullAppIntegrationId[]])).max(8).optional().default([]),
   }),
   z.object({
+    action: z.literal("provisionBackend"),
+    token: z.string().min(10).max(400),
+    repo: z.string().min(1).max(90),
+    projectName: z.string().trim().min(2).max(80),
+    region: z.string().regex(/^[a-z0-9-]{4,24}$/),
+    approval: z.literal("CREATE_SUPABASE_PROJECT"),
+  }),
+  z.object({
     action: z.literal("configureAppBackend"),
     token: z.string().min(10).max(400), repo: z.string().min(1).max(90),
     url: z.string().url().max(250),
@@ -546,6 +554,7 @@ async function backendReadiness(
     hasAccessToken: secretNames.has("SUPABASE_ACCESS_TOKEN"),
     hasDbPassword: secretNames.has("SUPABASE_DB_PASSWORD"),
     hasProjectRef: variableNames.has("SUPABASE_PROJECT_REF"),
+    hasOrgId: variableNames.has("SUPABASE_ORG_ID"),
     hasPublicUrl: variableNames.has("VITE_SUPABASE_URL"),
     hasPublicKey: variableNames.has("VITE_SUPABASE_PUBLISHABLE_KEY"),
     requiredIntegrationSecrets,
@@ -671,7 +680,7 @@ export const Route = createFileRoute("/api/github")({
 
           if (parsed.action === "buildStatus" || parsed.action === "buildDiagnostics" || parsed.action === "triggerBuild" || parsed.action === "syncFullApp" ||
               parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "rollbackApp" || parsed.action === "configureAppBackend" ||
-              parsed.action === "backendStatus" || parsed.action === "deployBackend") {
+              parsed.action === "backendStatus" || parsed.action === "deployBackend" || parsed.action === "provisionBackend") {
             const user = await getUser(parsed.token);
             const appRepo = await managedAppRepo(parsed.token, user.login, parsed.repo);
             if (parsed.action === "backendStatus" || parsed.action === "deployBackend") {
@@ -707,6 +716,25 @@ export const Route = createFileRoute("/api/github")({
               return Response.json({ ok: true, status: "queued", message:
                 "Backend deployment requested. Review GitHub Actions and production-backend approval before using live data." });
             }
+            if (parsed.action === "provisionBackend") {
+              const readiness = await backendReadiness(parsed.token, user.login, appRepo, []);
+              if (!readiness.hasAccessToken || !readiness.hasDbPassword || !readiness.hasOrgId) {
+                throw new Error(
+                  "Provisioning requires SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD secrets plus the SUPABASE_ORG_ID repository variable."
+                );
+              }
+              await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-provision-backend.yml", {
+                project_name: parsed.projectName,
+                region: parsed.region,
+                approval: parsed.approval,
+              });
+              return Response.json({
+                ok: true,
+                status: "queued",
+                message: "Supabase project provisioning queued. After it completes, refresh backend readiness and deploy reviewed migrations/functions.",
+              });
+            }
+
             if (parsed.action === "buildDiagnostics") {
               const diagnostics = await managedRunDiagnostics(parsed.token, user.login, appRepo, parsed.runId);
               return Response.json({ ok: true, diagnostics });
