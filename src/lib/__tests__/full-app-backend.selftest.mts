@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { buildFullAppFiles } from "../full-app-scaffold.ts";
 import { reconcileFullAppFiles, isEditableAppPath } from "../full-app-edits.ts";
 import { APP_ITEMS_MIGRATION, APP_STORAGE_MIGRATION, APP_EDGE_FUNCTION,
-  APP_BACKEND_WORKFLOW } from "../full-app-backend.ts";
+  APP_BACKEND_WORKFLOW, APP_BACKEND_PROVISION_WORKFLOW } from "../full-app-backend.ts";
 
 const html = "<!doctype html><html><body>App</body></html>";
 const files = buildFullAppFiles(html, "Test", ["lucide-react"]);
@@ -21,7 +21,13 @@ assert.ok(!files[APP_BACKEND_WORKFLOW].includes("\n  push:"));
 assert.ok(files[APP_BACKEND_WORKFLOW].includes("APPROVE_BACKEND_CHANGES"));
 assert.ok(files[APP_BACKEND_WORKFLOW].includes("environment: production-backend"));
 assert.ok(files[APP_BACKEND_WORKFLOW].includes("supabase db push"));
-assert.ok(files[APP_BACKEND_WORKFLOW].includes("supabase functions deploy"));
+assert.ok(files[APP_BACKEND_WORKFLOW].includes("supabase functions deploy --project-ref"));
+assert.ok(!files[APP_BACKEND_WORKFLOW].includes("functions deploy account-status"));
+assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("CREATE_SUPABASE_PROJECT"));
+assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("supabase projects create"));
+assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("supabase projects api-keys"));
+assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("gh variable set SUPABASE_PROJECT_REF"));
+assert.ok(files[APP_BACKEND_PROVISION_WORKFLOW].includes("gh variable set VITE_SUPABASE_PUBLISHABLE_KEY"));
 assert.ok(files["src/App.tsx"].includes("PrivateFiles userId={session.user.id}"));
 assert.ok(files["src/components/PrivateFiles.tsx"].includes("uploadPrivateFile"));
 assert.ok(files["src/lib/uploads.ts"].includes("createSignedUrl"));
