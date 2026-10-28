@@ -29,6 +29,7 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   buildStatus: "github_list",
   buildDiagnostics: "github_list",
   triggerBuild: "github_deploy",
+  syncFullApp: "github_deploy",
   configureAppBackend: "github_deploy",
   publishApp: "github_deploy",
   shipApp: "github_deploy",
@@ -217,6 +218,45 @@ export function GithubModal(props: {
       const message = e instanceof Error ? e.message : "Could not read build diagnostics";
       setErr(message);
       onLog("Build diagnostics: " + message);
+    } finally {
+      setLoading(null);
+    }
+  }
+
+  async function syncCurrentFullApp() {
+    if (!managedRepo.trim()) { setErr("Enter the GitHub repository name of your Full App."); return; }
+    if (!fullAppFiles) { setErr("No editable Full App source is available to sync."); return; }
+    setErr(null);
+    setLoading("app:syncFullApp");
+    try {
+      const latestKnownHead =
+        builds[0]?.head_sha ||
+        ships[0]?.head_sha ||
+        undefined;
+      const result = await ghCall<{
+        ok: boolean;
+        status: string;
+        previousSha?: string;
+        headSha?: string;
+        message?: string;
+      }>({
+        action: "syncFullApp",
+        token,
+        repo: managedRepo.trim(),
+        html: currentHtml,
+        title: defaultRepoName,
+        files: fullAppFiles,
+        addons: fullAppAddons ?? [],
+        ...(latestKnownHead ? { expectedHeadSha: latestKnownHead } : {}),
+      });
+      if (result.message) onLog(result.message);
+      setBuilds([]);
+      setShips([]);
+      setPublishes([]);
+    } catch (e) {
+      const message = e instanceof Error ? e.message : "Could not sync repaired Full App source";
+      setErr(message);
+      onLog("Full App sync: " + message);
     } finally {
       setLoading(null);
     }
@@ -553,6 +593,11 @@ export function GithubModal(props: {
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("buildStatus")}>Check build + QA status</button>
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("triggerBuild")}>Run build + QA</button>
+                {fullAppFiles && (
+                  <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void syncCurrentFullApp()}>
+                    Sync source + rebuild
+                  </button>
+                )}
                 <button className="obs-chip" type="button" disabled={!!loading} onClick={() => void appAction("shipApp")}>Ship verified app</button>
               </div>
               {(builds.length > 0 || publishes.length > 0 || ships.length > 0) && (
