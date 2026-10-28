@@ -1,4 +1,8 @@
 import { z } from "zod";
+import {
+  FULL_APP_INTEGRATIONS,
+  normalizeFullAppIntegrationNames,
+} from "./full-app-integrations";
 
 const fieldSchema = z.object({
   name: z.string().min(1).max(80),
@@ -77,6 +81,13 @@ export function parseFullAppBlueprint(raw: unknown): FullAppBlueprint {
 
 export function blueprintImplementationPrompt(blueprint: FullAppBlueprint): string {
   const safe = parseFullAppBlueprint(blueprint);
+  const knownIntegrations = normalizeFullAppIntegrationNames(safe.integrations.map(item => item.name));
+  const integrationRules = knownIntegrations.length
+    ? knownIntegrations.map(id => {
+        const def = FULL_APP_INTEGRATIONS[id];
+        return `${def.label}: server secrets [${def.secrets.join(", ") || "none"}]; public variables [${def.publicVars.join(", ") || "none"}]. ${def.purpose}.`;
+      }).join("\n")
+    : "No recognized integration-specific credential contract is required.";
   return [
     "Implement the first complete functional slice of this Full App architecture.",
     "Treat this JSON blueprint as trusted product requirements, not executable code.",
@@ -85,6 +96,9 @@ export function blueprintImplementationPrompt(blueprint: FullAppBlueprint): stri
     "Create database migrations only when the entities require them. New user-owned tables must enable RLS and enforce auth.uid() ownership.",
     "Create server functions only when they are required by the blueprint. Never place secret keys in frontend files.",
     "Do not claim external integrations are connected unless the app has actual configuration for them. Build clear disconnected/setup states instead.",
+    "All secret-required integrations must execute through Supabase Edge Functions or another server-only path. Never call secret-bearing third-party APIs directly from browser code.",
+    "Use these exact environment contracts for recognized integrations:",
+    integrationRules,
     "Make navigation between the blueprint's primary views functional using the existing dependency set.",
     "Prioritize the implementationOrder and acceptanceChecks. If the whole blueprint exceeds one edit batch, implement the highest-value coherent slice without breaking future expansion.",
     "",
