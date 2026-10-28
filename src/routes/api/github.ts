@@ -176,20 +176,31 @@ function assertIntegrationVariableName(id: FullAppIntegrationId, name: string) {
   }
 }
 
+async function listSupabaseSecretNames(accessToken: string, projectRef: string): Promise<string[]> {
+  const secretsRes = await supabaseManagement(accessToken, "/v1/projects/" + projectRef + "/secrets");
+  if (!secretsRes.ok) {
+    throw new Error("Supabase token needs Edge Function Secrets read access.");
+  }
+  const secretRows = await supabaseJson(secretsRes);
+  return Array.isArray(secretRows)
+    ? [...new Set(secretRows.map(value =>
+        value && typeof value === "object" && typeof (value as { name?: unknown }).name === "string"
+          ? (value as { name: string }).name
+          : ""
+      ).filter(Boolean))].sort()
+    : [];
+}
+
 async function inspectSupabaseProject(accessToken: string, projectRef: string) {
-  const [projectRes, keysRes, secretsRes] = await Promise.all([
+  const [projectRes, keysRes] = await Promise.all([
     supabaseManagement(accessToken, "/v1/projects/" + projectRef),
     supabaseManagement(accessToken, "/v1/projects/" + projectRef + "/api-keys?reveal=true"),
-    supabaseManagement(accessToken, "/v1/projects/" + projectRef + "/secrets"),
   ]);
   if (!projectRes.ok) {
     throw new Error("Could not access that Supabase project. Check the project ref and use a scoped token with Project Settings read access.");
   }
   if (!keysRes.ok) {
     throw new Error("Supabase token needs API Keys read access to configure the app frontend.");
-  }
-  if (!secretsRes.ok) {
-    throw new Error("Supabase token needs Edge Function Secrets read access to verify integration secrets.");
   }
   const project = await supabaseJson(projectRes) as {
     id?: string; ref?: string; name?: string; status?: string; organization_id?: string;
@@ -215,14 +226,7 @@ async function inspectSupabaseProject(accessToken: string, projectRef: string) {
   if (!publishableKey || publishableKey.length < 15) {
     throw new Error("No enabled publishable/anon API key was returned for that Supabase project.");
   }
-  const secretRows = await supabaseJson(secretsRes);
-  const secretNames = Array.isArray(secretRows)
-    ? secretRows.map(value =>
-        value && typeof value === "object" && typeof (value as { name?: unknown }).name === "string"
-          ? (value as { name: string }).name
-          : ""
-      ).filter(Boolean)
-    : [];
+  const secretNames = await listSupabaseSecretNames(accessToken, projectRef);
   return {
     projectRef,
     projectName: project?.name ?? projectRef,
