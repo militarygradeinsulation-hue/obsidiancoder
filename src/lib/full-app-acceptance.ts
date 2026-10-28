@@ -42,11 +42,8 @@ function stepCode(step: Journey["steps"][number], index: number): string {
       return `    await page.getByTestId(${js(step.testId)}).press(${js(step.key)});`;
     case "expect_url": {
       const logical = step.path === "/" ? "" : step.path.replace(/^\//, "");
-      const suffix = logical ? "#/" + logical : "#/";
-      return `    await expect(page).toHaveURL(new RegExp(${js(suffix.replace(/[.*+?^${}()|[\]\\]/g, "\\    case "expect_text":
-      return `    await expect(page.getByTestId(${js(step.testId)})).toContainText(${js(step.text)});`;
-  }
-}") + "$")}));`;
+      const hash = logical ? "#/" + logical : "#/";
+      return `    expect(new URL(page.url()).hash).toBe(${js(hash)});`;
     }
     case "expect_value":
       return `    await expect(page.getByTestId(${js(step.testId)})).toHaveValue(${js(step.value)});`;
