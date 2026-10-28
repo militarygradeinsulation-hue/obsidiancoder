@@ -514,7 +514,7 @@ export function GithubModal(props: {
       }>({
         action, token, repo: managedRepo.trim(),
         ...(action === "configureAppBackend" ? { url: appUrl.trim(), publishableKey: appPublishableKey.trim() } : {}),
-        ...(action === "backendStatus" ? { integrations: requiredIntegrations } : {}),
+        ...(action === "backendStatus" || action === "deployBackend" ? { integrations: requiredIntegrations } : {}),
         ...(action === "deployBackend" ? { mode: backendMode, approval: backendApproval } : {}),
       });
       if (action === "buildStatus") {
