@@ -32,6 +32,41 @@ const componentSchema = z.object({
   sharedAcross: z.array(z.string().min(1).max(120)).max(12).default([]),
 }).strict();
 
+const journeyStepSchema = z.discriminatedUnion("action", [
+  z.object({
+    action: z.literal("goto"),
+    path: z.string().min(1).max(160),
+  }).strict(),
+  z.object({
+    action: z.literal("click"),
+    testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+  }).strict(),
+  z.object({
+    action: z.literal("fill"),
+    testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+    value: z.string().max(240),
+    valueFrom: z.enum(["literal", "e2e_email", "e2e_password", "unique"]).default("literal"),
+  }).strict(),
+  z.object({
+    action: z.literal("expect_visible"),
+    testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+  }).strict(),
+  z.object({
+    action: z.literal("expect_text"),
+    testId: z.string().regex(/^[a-z0-9][a-z0-9_-]{1,79}$/),
+    text: z.string().min(1).max(180),
+  }).strict(),
+]).and(z.object({
+  note: z.string().max(220).optional().default(""),
+}));
+
+const acceptanceJourneySchema = z.object({
+  name: z.string().min(1).max(120),
+  purpose: z.string().min(1).max(320),
+  authRequired: z.boolean().default(false),
+  steps: z.array(journeyStepSchema).min(2).max(20),
+}).strict();
+
 const serverFunctionSchema = z.object({
   name: z.string().min(1).max(80),
   purpose: z.string().min(1).max(400),
@@ -67,6 +102,7 @@ export const fullAppBlueprintSchema = z.object({
   }).strict()).max(10),
   implementationOrder: z.array(z.string().min(1).max(200)).min(1).max(16),
   acceptanceChecks: z.array(z.string().min(1).max(240)).min(3).max(20),
+  acceptanceJourneys: z.array(acceptanceJourneySchema).max(12).default([]),
 }).strict();
 
 export type FullAppBlueprint = z.infer<typeof fullAppBlueprintSchema>;
@@ -101,6 +137,8 @@ export function blueprintImplementationPrompt(blueprint: FullAppBlueprint): stri
     integrationRules,
     "Make navigation between the blueprint's primary views functional using the existing dependency set.",
     "Prioritize the implementationOrder and acceptanceChecks. If the whole blueprint exceeds one edit batch, implement the highest-value coherent slice without breaking future expansion.",
+    "For every acceptanceJourneys step that references a testId, add that exact stable data-testid attribute to the real interactive/output element. Do not attach test IDs to decorative wrappers just to satisfy tests.",
+    "Authentication journeys may use OBSIDIAN_E2E_EMAIL and OBSIDIAN_E2E_PASSWORD at test time; never hardcode test credentials into source.",
     "",
     "APPLICATION BLUEPRINT:",
     JSON.stringify(safe, null, 2),
