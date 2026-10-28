@@ -111,6 +111,9 @@ RULES:
 - For login-required journeys, assume the test runner can provide OBSIDIAN_E2E_EMAIL and OBSIDIAN_E2E_PASSWORD. Do not invent credentials.
 - Use valueFrom="unique" when a flow needs a collision-free test value.
 - Use valueFrom="e2e_email" or "e2e_password" only for explicit auth fields.
+- Use select for real <select> controls, check for checkboxes/radios, press for keyboard-driven controls, expect_url after navigation, expect_value when field state matters, and upload_fixture for file inputs.
+- Prefer upload_fixture kind "png" or "pdf" for document/image workflows supported by the app.
+- Keep journeys deterministic and leave the app in a clean/reusable state when practical.
 - Do not include markdown, commentary, or code fences.`;
 
 export const Route = createFileRoute("/api/full-app/plan")({
