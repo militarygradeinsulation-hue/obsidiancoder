@@ -136,6 +136,7 @@ export function blueprintImplementationPrompt(blueprint: FullAppBlueprint): stri
     "Use these exact environment contracts for recognized integrations:",
     integrationRules,
     "Make navigation between the blueprint's primary views functional using the existing dependency set.",
+    "The current production host is static GitHub Pages. Implement logical routes as hash routes (for example /customers -> #/customers) so direct navigation works under repository subpaths without server rewrite rules. Preserve the logical route paths in the blueprint, but use hash navigation in the browser.",
     "Prioritize the implementationOrder and acceptanceChecks. If the whole blueprint exceeds one edit batch, implement the highest-value coherent slice without breaking future expansion.",
     "For every acceptanceJourneys step that references a testId, add that exact stable data-testid attribute to the real interactive/output element. Do not attach test IDs to decorative wrappers just to satisfy tests.",
     "Authentication journeys may use OBSIDIAN_E2E_EMAIL and OBSIDIAN_E2E_PASSWORD at test time; never hardcode test credentials into source.",
