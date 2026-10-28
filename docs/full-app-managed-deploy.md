@@ -51,9 +51,11 @@ Full App now has a broader production path:
 7. **Build + QA** — the production Vite build is launched in Chromium and tested at desktop/mobile sizes.
 8. **Repair** — failed runs can produce bounded diagnostics and a one-cycle targeted repair proposal or auto-repair.
 9. **Ship** — a passing revision is deployed to GitHub Pages, then the actual production URL is opened and verified again.
-10. **Monitor** — `Obsidian Production Health` rechecks the live site on demand and every six hours.
-11. **Rollback** — successful Ship runs can be restored through a new forward-moving rollback commit followed by Build + QA + Ship.
-12. **Domain** — a user-owned custom domain can be bound to GitHub Pages, with DNS health and HTTPS eligibility/status surfaced inside Obsidian.
+10. **Functional QA** — App Architect converts its highest-value acceptance requirements into deterministic Playwright journeys using stable `data-testid` hooks. Public journeys run during ordinary Build + QA. Authenticated journeys use `OBSIDIAN_E2E_EMAIL` and `OBSIDIAN_E2E_PASSWORD`; Ship refuses to pass signed-in journeys when those credentials are missing.
+11. **Production journey verification** — after a successful Ship, `Obsidian Functional QA` reruns the generated business journeys against the actual production URL and archives traces/screenshots/reports. It can also be triggered manually after backend or credential changes.
+12. **Monitor** — `Obsidian Production Health` rechecks the live site on demand and every six hours.
+13. **Rollback** — successful Ship runs can be restored through a new forward-moving rollback commit followed by Build + QA + Ship.
+14. **Domain** — a user-owned custom domain can be bound to GitHub Pages, with DNS health and HTTPS eligibility/status surfaced inside Obsidian.
 
 ### Credential boundaries
 - The GitHub token remains browser-local and is used to manage the selected repository.
@@ -76,5 +78,8 @@ The generated frontend currently ships through GitHub Pages, so the browser appl
 - Connect an app-owned Supabase project and confirm only secret **names** return to the browser after a vault write; the value must not be persisted in Full App project JSON.
 - Confirm backend deployment is blocked when a blueprint-required runtime secret or public variable is missing.
 - Confirm Ship verifies the actual deployed URL and stores live QA evidence.
+- Confirm a blueprint with structured acceptance journeys generates `obsidian/acceptance.json` and `tests/obsidian.acceptance.spec.ts`, and that the AI edit allowlist cannot directly modify those generated files.
+- Confirm authenticated journeys are skipped during ordinary Build + QA when no E2E account is configured, but block Ship when `OBSIDIAN_REQUIRE_AUTH_E2E=true`.
+- Confirm the post-Ship Functional QA workflow targets the real production URL and reports separately from build/health status.
 - Confirm a previous successful Ship can create a non-force rollback commit.
 - Confirm a custom domain can be set and that DNS/HTTPS status is surfaced separately from deployment status.
