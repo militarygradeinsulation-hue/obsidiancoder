@@ -92,128 +92,27 @@ console.log("OBSIDIAN_DB_AUDIT: PASS");
 `;
 
 const BACKEND_DEPLOY_WORKFLOW = "name: Deploy Full App backend\non:\n  workflow_dispatch:\n    inputs:\n      mode:\n        description: \"Apply migrations AND functions, or functions only\"\n        required: true\n        type: choice\n        options:\n          - functions-only\n          - schema-and-functions\n      approval:\n        description: \"Type APPROVE_BACKEND_CHANGES after reviewing SQL and targets\"\n        required: true\n        type: string\npermissions:\n  contents: read\nconcurrency:\n  group: full-app-production-backend\n  cancel-in-progress: false\njobs:\n  backend:\n    if: ${{ inputs.approval == 'APPROVE_BACKEND_CHANGES' }}\n    runs-on: ubuntu-latest\n    timeout-minutes: 20\n    environment: production-backend\n    env:\n      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}\n      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}\n      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PROJECT_REF }}\n    steps:\n      - uses: actions/checkout@v4\n        with:\n          persist-credentials: false\n      - uses: supabase/setup-cli@v1\n        with:\n          version: latest\n      - name: Verify separate application backend configuration\n        shell: bash\n        run: |\n          test -n \"$SUPABASE_ACCESS_TOKEN\"\n          test -n \"$SUPABASE_PROJECT_REF\"\n          test -n \"$SUPABASE_DB_PASSWORD\"\n          [[ \"$SUPABASE_PROJECT_REF\" =~ ^[a-z0-9]{20}$ ]]\n      - name: Obsidian migration safety audit\n        if: ${{ inputs.mode == 'schema-and-functions' }}\n        run: node scripts/obsidian-migration-audit.mjs\n      - name: Link the app's own database\n        if: ${{ inputs.mode == 'schema-and-functions' }}\n        run: supabase link --project-ref \"$SUPABASE_PROJECT_REF\" --password \"$SUPABASE_DB_PASSWORD\"\n      - name: Apply reviewed migration files\n        if: ${{ inputs.mode == 'schema-and-functions' }}\n        run: supabase db push --linked --yes\n      - name: Deploy all reviewed Edge Functions\n        run: supabase functions deploy --project-ref \"$SUPABASE_PROJECT_REF\" --use-api\n";
-const BACKEND_PROVISION_WORKFLOW = String.raw`name: Obsidian Provision Backend
+const BACKEND_PROVISION_WORKFLOW = String.raw`name: Obsidian Backend Provisioning Guard
 on:
   workflow_dispatch:
-    inputs:
-      project_name:
-        description: "New Supabase project name"
-        required: true
-        type: string
-      region:
-        description: "Supabase region code"
-        required: true
-        default: "us-east-1"
-        type: string
-      approval:
-        description: "Type CREATE_SUPABASE_PROJECT to authorize infrastructure creation"
-        required: true
-        type: string
 permissions:
   contents: read
-  actions: write
-concurrency:
-  group: obsidian-provision-backend
-  cancel-in-progress: false
 jobs:
-  provision:
-    if: ${{ inputs.approval == 'CREATE_SUPABASE_PROJECT' }}
+  guard:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    environment: production-backend
-    env:
-      SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-      SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
-      SUPABASE_ORG_ID: ${{ vars.SUPABASE_ORG_ID }}
-      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
-      - uses: supabase/setup-cli@v1
-        with:
-          version: latest
-      - name: Validate explicit owner configuration
+      - name: Project creation requires live cost confirmation
         shell: bash
         run: |
-          test -n "$SUPABASE_ACCESS_TOKEN"
-          test -n "$SUPABASE_DB_PASSWORD"
-          test -n "$SUPABASE_ORG_ID"
-          test "${{ inputs.approval }}" = "CREATE_SUPABASE_PROJECT"
-          [[ "${{ inputs.region }}" =~ ^[a-z0-9-]{4,24}$ ]]
-      - id: create
-        name: Create isolated Supabase project
-        shell: bash
-        run: |
-          set -euo pipefail
-          PROJECT_NAME="${{ inputs.project_name }}"
-          OUTPUT="$(supabase projects create "$PROJECT_NAME"             --org-id "$SUPABASE_ORG_ID"             --region "${{ inputs.region }}"             --db-password "$SUPABASE_DB_PASSWORD"             --output json             --yes)"
-          printf '%s' "$OUTPUT" > /tmp/obsidian-project.json
-          REF="$(node - <<'NODE'
-          const fs = require("fs");
-          const value = JSON.parse(fs.readFileSync("/tmp/obsidian-project.json", "utf8"));
-          const ref = value.ref || value.project_ref || value.id || "";
-          if (typeof ref === "string" && /^[a-z0-9]{20}$/.test(ref)) process.stdout.write(ref);
-          NODE
-          )"
-          if [ -z "$REF" ]; then
-            supabase projects list --output json > /tmp/obsidian-projects.json
-            REF="$(PROJECT_NAME="$PROJECT_NAME" node - <<'NODE'
-            const fs = require("fs");
-            const name = process.env.PROJECT_NAME;
-            const rows = JSON.parse(fs.readFileSync("/tmp/obsidian-projects.json", "utf8"));
-            const matches = (Array.isArray(rows) ? rows : []).filter(p => p && p.name === name);
-            matches.sort((a,b) => String(b.created_at || "").localeCompare(String(a.created_at || "")));
-            const ref = matches[0]?.ref || matches[0]?.id || "";
-            if (typeof ref === "string" && /^[a-z0-9]{20}$/.test(ref)) process.stdout.write(ref);
-            NODE
-            )"
-          fi
-          test -n "$REF"
-          echo "project_ref=$REF" >> "$GITHUB_OUTPUT"
-      - id: key
-        name: Discover publishable application key
-        shell: bash
-        run: |
-          set -euo pipefail
-          REF="${{ steps.create.outputs.project_ref }}"
-          supabase projects api-keys --project-ref "$REF" --output json > /tmp/obsidian-keys.json
-          KEY="$(node - <<'NODE'
-          const fs = require("fs");
-          const value = JSON.parse(fs.readFileSync("/tmp/obsidian-keys.json", "utf8"));
-          const rows = Array.isArray(value) ? value : (Array.isArray(value?.keys) ? value.keys : Object.values(value || {}));
-          const candidates = rows.filter(Boolean);
-          const keyOf = x => typeof x === "string" ? x : (x.api_key || x.key || x.value || "");
-          const row =
-            candidates.find(x => /^sb_publishable_/.test(keyOf(x))) ||
-            candidates.find(x => String(x?.type || x?.name || "").toLowerCase().includes("publishable")) ||
-            candidates.find(x => String(x?.name || "").toLowerCase() === "anon");
-          const key = keyOf(row);
-          if (typeof key === "string" && key.length >= 20) process.stdout.write(key);
-          NODE
-          )"
-          test -n "$KEY"
-          echo "::add-mask::$KEY"
-          echo "publishable_key=$KEY" >> "$GITHUB_OUTPUT"
-      - name: Bind backend to this application repository
-        shell: bash
-        run: |
-          REF="${{ steps.create.outputs.project_ref }}"
-          KEY="${{ steps.key.outputs.publishable_key }}"
-          gh variable set SUPABASE_PROJECT_REF --body "$REF"
-          gh variable set VITE_SUPABASE_URL --body "https://$REF.supabase.co"
-          gh variable set VITE_SUPABASE_PUBLISHABLE_KEY --body "$KEY"
-      - name: Provisioning summary
-        shell: bash
-        run: |
-          {
-            echo "### Obsidian backend provisioned"
-            echo ""
-            echo "Project ref: \`${{ steps.create.outputs.project_ref }}\`"
-            echo "Public app URL and publishable key were saved as GitHub Actions variables."
-            echo "Database password and management access token remain GitHub secrets."
-            echo "Run the guarded backend deployment next to apply reviewed migrations and Edge Functions."
-          } >> "$GITHUB_STEP_SUMMARY"
+          echo "Automatic Supabase project creation is intentionally disabled."
+          echo "Open Obsidian Full App -> GitHub -> Connect an existing Supabase backend."
+          echo "A future managed-create flow must show the current organization-specific cost and receive explicit confirmation before creating billable infrastructure."
+          exit 1
 `;
 
-const BACKEND_README = "# Application backend deployment\n\nThis project has its own Supabase schema, private uploads and an authenticated Edge Function.\n\n## First setup\n1. Create or choose a **separate** Supabase project owned by this application. You are responsible for its cost, permissions, backups and usage.\n2. In GitHub repository Settings → Secrets and variables → Actions, choose either an existing project or guarded provisioning:\n   - Existing project: set SUPABASE_PROJECT_REF, VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY as variables.\n   - New project through Obsidian: set SUPABASE_ORG_ID as a variable plus SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as secrets, then run the Obsidian Provision Backend workflow and type CREATE_SUPABASE_PROJECT. It creates the project and writes the three public variables automatically.\n   - SUPABASE_ACCESS_TOKEN should be scoped to the user's own Supabase account/organization.\n   Never put secret/service-role keys in VITE_ variables or frontend files.\n3. Review all SQL migrations, storage RLS policies, and server functions. The deployment workflow runs scripts/obsidian-migration-audit.mjs first and blocks destructive schema operations, disabled/missing RLS on newly created public tables, and other critical patterns. Warnings still require human review. Test policies for two users on a nonproduction project first.\n4. Set up GitHub environment production-backend with required reviewers to add human approval before database changes.\n5. Run the \"Deploy Full App backend\" workflow in GitHub Actions. Choose functions-only if schema is already in place. The workflow deploys every reviewed function under `supabase/functions/`. Choose schema-and-functions ONLY after reviewing migration diff and confirming the target project. Type APPROVE_BACKEND_CHANGES exactly.\n6. In Full App → GitHub, use Backend readiness and Deploy backend after completing setup. The UI requests the same gated GitHub workflow; it does not create a Supabase organization/project or store management tokens in Obsidian.\n7. Verify login and logout, per-user app_items RLS, private upload/read/delete (max 5 MB), signed URLs, and account-status function with a signed-in account.\n8. Confirm production authorization, site origin/redirect URLs, backup policy, recovery and cost limits before inviting users.\n\n## Security\nStorage objects must be under <user-uuid>/<uuid>.<png|jpg|pdf>; buckets are private. Only authenticated owners may select/insert/update/delete their path. Signed object URLs expire after 60 seconds. The sample Edge Function rejects requests without a validated user JWT and reads app_items as the user, under its RLS policy. It never uses service-role keys.\n\n## Deployment boundaries\nDatabase and Edge Functions deploy **only** through an explicit GitHub Actions invocation, separate from frontend publication. This does not auto-provision paid Supabase projects. It supports owner-managed backend deployment, not dynamic creation of a separate hosted database for every ObsidianCoder end user without their authorization.\n\nThe generated app uses static React hosting; server-side processing runs on the app's own Supabase Edge Functions. Supported integration secrets are stored directly in the app's Supabase Edge Function Secrets through Obsidian's Integration Vault; secret values are never written to source, GitHub variables, project files, or browser bundles. Add more functions or reviewed migrations and redeploy deliberately.\n";
+
+const BACKEND_README = "# Application backend deployment\n\nThis project has its own Supabase schema, private uploads and an authenticated Edge Function.\n\n## First setup\n1. Create or choose a **separate** Supabase project owned by this application. You are responsible for its cost, permissions, backups and usage.\n2. In GitHub repository Settings → Secrets and variables → Actions, choose either an existing project or guarded provisioning:\n   - Existing project: set SUPABASE_PROJECT_REF, VITE_SUPABASE_URL, VITE_SUPABASE_PUBLISHABLE_KEY as variables.\n   - New project through Obsidian: set SUPABASE_ORG_ID as a variable plus SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as secrets, then run the Obsidian Provision Backend workflow and type CREATE_SUPABASE_PROJECT. It creates the project and writes the three public variables automatically.\n   - SUPABASE_ACCESS_TOKEN should be scoped to the user's own Supabase account/organization.\n   Never put secret/service-role keys in VITE_ variables or frontend files.\n3. Review all SQL migrations, storage RLS policies, and server functions. The deployment workflow runs scripts/obsidian-migration-audit.mjs first and blocks destructive schema operations, disabled/missing RLS on newly created public tables, and other critical patterns. Warnings still require human review. Test policies for two users on a nonproduction project first.\n4. Set up GitHub environment production-backend with required reviewers to add human approval before database changes.\n5. Run the \"Deploy Full App backend\" workflow in GitHub Actions. Choose functions-only if schema is already in place. The workflow deploys every reviewed function under `supabase/functions/`. Choose schema-and-functions ONLY after reviewing migration diff and confirming the target project. Type APPROVE_BACKEND_CHANGES exactly.\n6. If App Architect requires Stripe, Resend, Twilio, OpenAI, Google, or HubSpot, enter those credentials in Obsidian's Integration Vault. Secret values are written directly to Supabase Function Secrets and are never written to frontend files or echoed back. Browser-safe public values are stored as GitHub variables.
+7. In Full App → GitHub, run Backend readiness and then Deploy backend after completing setup. Runtime integration secrets are verified against Supabase before deployment. The UI does not create a Supabase organization/project or persist management tokens.\n7. Verify login and logout, per-user app_items RLS, private upload/read/delete (max 5 MB), signed URLs, and account-status function with a signed-in account.\n8. Confirm production authorization, site origin/redirect URLs, backup policy, recovery and cost limits before inviting users.\n\n## Security\nStorage objects must be under <user-uuid>/<uuid>.<png|jpg|pdf>; buckets are private. Only authenticated owners may select/insert/update/delete their path. Signed object URLs expire after 60 seconds. The sample Edge Function rejects requests without a validated user JWT and reads app_items as the user, under its RLS policy. It never uses service-role keys.\n\n## Deployment boundaries\nDatabase and Edge Functions deploy **only** through an explicit GitHub Actions invocation, separate from frontend publication. The bundled provisioning workflow is a guard that refuses project creation. This supports owner-managed backend deployment without silently creating billable Supabase infrastructure.\n\nThe generated app uses static React hosting; server-side processing runs on the app's own Supabase Edge Functions. Supported integration secrets are stored directly in the app's Supabase Edge Function Secrets through Obsidian's Integration Vault; secret values are never written to source, GitHub variables, project files, or browser bundles. Add more functions or reviewed migrations and redeploy deliberately.\n";
 
 export function addAppBackend(files: FullAppFiles): FullAppFiles {
   const baseMigration = files["supabase/migrations/001_app_items.sql"] || files[APP_ITEMS_MIGRATION];
