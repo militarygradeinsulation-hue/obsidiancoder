@@ -31,6 +31,7 @@ const bodySchema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("buildStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("triggerBuild"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("publishApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
+  z.object({ action: z.literal("shipApp"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({ action: z.literal("backendStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90) }),
   z.object({
     action: z.literal("deployBackend"), token: z.string().min(10).max(400),
@@ -369,7 +370,7 @@ export const Route = createFileRoute("/api/github")({
           }
 
           if (parsed.action === "buildStatus" || parsed.action === "triggerBuild" ||
-              parsed.action === "publishApp" || parsed.action === "configureAppBackend" ||
+              parsed.action === "publishApp" || parsed.action === "shipApp" || parsed.action === "configureAppBackend" ||
               parsed.action === "backendStatus" || parsed.action === "deployBackend") {
             const user = await getUser(parsed.token);
             const appRepo = await managedAppRepo(parsed.token, user.login, parsed.repo);
@@ -392,15 +393,26 @@ export const Route = createFileRoute("/api/github")({
                 "Backend deployment requested. Review GitHub Actions and production-backend approval before using live data." });
             }
             if (parsed.action === "buildStatus") {
-              const [builds, publishes] = await Promise.all([
+              const [builds, publishes, ships] = await Promise.all([
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-build.yml"),
                 managedRunStatus(parsed.token, user.login, appRepo, "obsidian-publish.yml"),
+                managedRunStatus(parsed.token, user.login, appRepo, "obsidian-ship.yml").catch(() => []),
               ]);
-              return Response.json({ ok: true, repo: appRepo, builds, publishes });
+              return Response.json({ ok: true, repo: appRepo, builds, publishes, ships });
             }
             if (parsed.action === "triggerBuild") {
               await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-build.yml");
-              return Response.json({ ok: true, status: "queued", message: "Build requested. Refresh status to see the run." });
+              return Response.json({ ok: true, status: "queued", message: "Build + browser QA requested. Refresh status to see the run." });
+            }
+            if (parsed.action === "shipApp") {
+              await initializeManagedPages(parsed.token, user.login, appRepo);
+              await workflowDispatch(parsed.token, user.login, appRepo, "obsidian-ship.yml");
+              return Response.json({
+                ok: true,
+                status: "queued",
+                url: "https://" + user.login.toLowerCase() + ".github.io/" + appRepo + "/",
+                message: "Obsidian Ship queued. The app will publish only if production build and browser QA both pass.",
+              });
             }
             if (parsed.action === "configureAppBackend") {
               const url = new URL(parsed.url);
