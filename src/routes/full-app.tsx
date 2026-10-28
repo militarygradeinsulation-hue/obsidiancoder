@@ -602,7 +602,9 @@ function FullAppPage() {
                       <h3 className="mt-1 font-semibold">{workspace.blueprint.name}</h3>
                       <p className="mt-1 max-w-3xl text-sm opacity-70">{workspace.blueprint.summary}</p>
                     </div>
-                    <span className="obs-pill">{workspace.blueprint.routes.length} views · {workspace.blueprint.entities.length} entities</span>
+                    <span className="obs-pill">
+                      {workspace.blueprint.routes.length} views · {workspace.blueprint.entities.length} entities · {workspace.blueprint.acceptanceJourneys.length} journeys
+                    </span>
                   </div>
                   <div className="mt-4 grid gap-3 md:grid-cols-2">
                     <div>
@@ -681,6 +683,7 @@ function FullAppPage() {
         fullAppFiles={workspace.files}
         fullAppAddons={workspace.addons}
         requiredIntegrations={blueprintIntegrations}
+        requiresAuthAcceptance={workspace.blueprint?.acceptanceJourneys.some(journey => journey.authRequired) ?? false}
         defaultDeployMode="full-app"
         defaultManagedRepo={workspace.production?.githubRepo}
         defaultSupabaseProjectRef={workspace.production?.supabaseProjectRef}
