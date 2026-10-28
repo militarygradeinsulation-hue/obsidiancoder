@@ -198,9 +198,81 @@ jobs:
           path: dist/
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify deployed production URL
+        run: node scripts/obsidian-live-check.mjs "__DOLLAR__{{ steps.deployment.outputs.page_url }}"
+      - name: Archive live production QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-live-qa
+          path: live-test-results/
+          if-no-files-found: ignore
+          retention-days: 14
 `;
 
 
+
+const LIVE_VERIFY = String.raw`import { chromium } from "@playwright/test";
+import fs from "node:fs";
+
+const url = process.argv[2] || "";
+if (!/^https:\/\//.test(url)) {
+  console.error("OBSIDIAN_LIVE_QA: invalid production URL");
+  process.exit(1);
+}
+
+fs.mkdirSync("live-test-results", { recursive: true });
+
+async function waitForLive(target) {
+  let last = "";
+  for (let attempt = 1; attempt <= 12; attempt++) {
+    try {
+      const response = await fetch(target, { redirect: "follow", cache: "no-store" });
+      last = String(response.status);
+      if (response.ok) return;
+    } catch (error) {
+      last = error instanceof Error ? error.message : String(error);
+    }
+    await new Promise(resolve => setTimeout(resolve, 5_000));
+  }
+  throw new Error("Production URL did not become healthy: " + last);
+}
+
+await waitForLive(url);
+
+const browser = await chromium.launch({ headless: true });
+const cases = [
+  { name: "desktop", width: 1440, height: 900 },
+  { name: "mobile", width: 390, height: 844 },
+];
+
+try {
+  for (const item of cases) {
+    const page = await browser.newPage({ viewport: { width: item.width, height: item.height } });
+    const errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    const response = await page.goto(url, { waitUntil: "networkidle", timeout: 30_000 });
+    if (!response?.ok()) throw new Error(item.name + " production response failed: " + String(response?.status()));
+    const text = (await page.locator("body").innerText()).replace(/\s+/g, " ").trim();
+    if (text.length < 20) throw new Error(item.name + " production page rendered insufficient content.");
+    const geometry = await page.evaluate(() => ({
+      scrollWidth: document.documentElement.scrollWidth,
+      clientWidth: document.documentElement.clientWidth,
+      height: document.documentElement.scrollHeight,
+    }));
+    if (geometry.scrollWidth - geometry.clientWidth > 8) {
+      throw new Error(item.name + " production page has horizontal overflow.");
+    }
+    if (geometry.height < 120) throw new Error(item.name + " production page height is invalid.");
+    if (errors.length) throw new Error(item.name + " production runtime errors: " + errors.slice(0, 3).join(" | "));
+    await page.screenshot({ path: "live-test-results/" + item.name + ".png", fullPage: true });
+    await page.close();
+  }
+  console.log("OBSIDIAN_LIVE_QA: PASS " + url);
+} finally {
+  await browser.close();
+}
+`;
 
 const SHIP = String.raw`name: Obsidian Ship
 on:
@@ -292,6 +364,7 @@ export function addManagedAppBuild(files: FullAppFiles, rawAddons?: unknown): Fu
     ".github/workflows/obsidian-ship.yml": yaml(SHIP),
     "playwright.config.ts": PLAYWRIGHT_CONFIG,
     "tests/obsidian.smoke.spec.ts": QA_SPEC,
+    "scripts/obsidian-live-check.mjs": LIVE_VERIFY,
     "README.md": (files["README.md"] || "") + "\n## Managed build and GitHub Pages publishing\n" +
       "The included GitHub Actions build checks source on pushes and on demand. " +
       "Use ObsidianCoder's GitHub integration to inspect runs, trigger a build, run automated Chromium QA at desktop/mobile widths, and ship only after those checks pass. " +
