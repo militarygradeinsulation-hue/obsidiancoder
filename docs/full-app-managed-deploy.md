@@ -1,9 +1,27 @@
 # Full App: managed build, dependency selection, and publishing
 
 ## New workflow
-In Full App choose from the approved, pinned dependency list. Your workspace keeps the selection alongside its files in the existing cloud-project JSON. Protected `package.json`, `vite.config.ts`, and workflow files are always regenerated from trusted templates.
+In Full App choose from the approved, pinned dependency list. Your workspace keeps the selection alongside its files in the existing cloud-project JSON. Protected `package.json`, `vite.config.ts`, Playwright QA files, and workflow files are always regenerated from trusted templates.
 
-Use the GitHub modal to export to a **new repository**. The export now includes `.github/workflows/obsidian-build.yml` (push, PR, manual) and `.github/workflows/obsidian-publish.yml` (manual only).
+### Obsidian Build Engine — phase 1
+Every newly exported Full App now contains a real isolated build-and-test path on GitHub Actions:
+
+1. Install the pinned project dependencies on an Ubuntu runner.
+2. Run the real TypeScript + Vite production build.
+3. Install a pinned Playwright/Chromium test runtime.
+4. Launch the production build locally on the runner.
+5. Open it in Chromium at desktop and mobile viewport profiles.
+6. Fail QA for an empty render, failed HTTP response, meaningful horizontal overflow, or uncaught browser runtime error.
+7. Save full-page screenshots, traces/report data, and a bounded Obsidian build report as workflow artifacts.
+8. `Obsidian Ship` repeats production build + browser QA and deploys to GitHub Pages only after both pass.
+
+The generated app therefore has two distinct release paths:
+- **Build + QA** — verify a revision without publishing it.
+- **Ship verified app** — verify and publish in one gated workflow.
+
+This is the first Build Engine implementation. Execution stays isolated from ObsidianCoder itself; generated application code runs on GitHub-hosted runners, not inside the Obsidian account/server process.
+
+Use the GitHub modal to export to a **new repository**. The export now includes `.github/workflows/obsidian-build.yml` (push, PR, manual), `.github/workflows/obsidian-publish.yml` (manual legacy publish path), and `.github/workflows/obsidian-ship.yml` (QA-gated build + publish).
 
 After export, in the same GitHub modal enter/select the app repository and:
 1. Check the latest build status, or trigger a new production build. GitHub Actions installs and builds on its own isolated runner; ObsidianCoder does not run the code.
