@@ -914,6 +914,40 @@ export function GithubModal(props: {
               </div>
               <div style={{ marginTop: 15, padding: 12, border: "1px solid rgba(244,161,37,.22)", borderRadius: 10 }}>
                 <h3 style={{ fontSize: 13, margin: "0 0 6px" }}>Server functions, private files, and database</h3>
+                <div style={{ marginBottom: 12, padding: 10, borderRadius: 8, background: "rgba(244,161,37,.05)", border: "1px solid rgba(244,161,37,.14)" }}>
+                  <div style={{ fontSize: 12, fontWeight: 600, marginBottom: 5 }}>Optional one-click backend provisioning</div>
+                  <p style={{ color: "#B6BCC8", fontSize: 11, lineHeight: 1.5, margin: "0 0 8px" }}>
+                    Configure SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as GitHub Secrets plus SUPABASE_ORG_ID as a repository variable once.
+                    Obsidian can then create a separate Supabase project for this app and bind its public URL, project ref, and publishable key back to this repository.
+                  </p>
+                  <label style={{ color: "#B6BCC8", display: "block", fontSize: 11 }}>
+                    Backend region
+                    <select
+                      value={provisionRegion}
+                      onChange={e => setProvisionRegion(e.target.value)}
+                      style={{ display: "block", width: "100%", marginTop: 5, background: "#0b0d10", color: "#fff", border: "1px solid #464b56", padding: 8, borderRadius: 8 }}
+                    >
+                      <option value="us-east-1">US East · North Virginia</option>
+                      <option value="us-east-2">US East · Ohio</option>
+                      <option value="us-west-2">US West · Oregon</option>
+                      <option value="ca-central-1">Canada · Central</option>
+                      <option value="eu-west-1">Europe · Ireland</option>
+                      <option value="eu-central-1">Europe · Frankfurt</option>
+                      <option value="ap-southeast-1">Asia · Singapore</option>
+                      <option value="ap-northeast-1">Asia · Tokyo</option>
+                      <option value="ap-southeast-2">Oceania · Sydney</option>
+                    </select>
+                  </label>
+                  <button
+                    type="button"
+                    className="obs-chip"
+                    style={{ marginTop: 8 }}
+                    disabled={!!loading}
+                    onClick={() => void appAction("provisionBackend")}
+                  >
+                    Provision new Supabase backend
+                  </button>
+                </div>
                 <p style={{ color: "#B6BCC8", fontSize: 12, lineHeight: 1.5 }}>
                   Every app uses its own Supabase project. Save its public settings above.
                   Configure SUPABASE_ACCESS_TOKEN and SUPABASE_DB_PASSWORD as GitHub Actions secrets.
@@ -945,6 +979,7 @@ export function GithubModal(props: {
                   <div role="status" style={{ marginTop: 10, color: "#B6BCC8", fontSize: 12 }}>
                     {([
                       ["Supabase project reference", backendReady.hasProjectRef],
+                      ["Supabase organization ID (needed only for provisioning)", !!backendReady.hasOrgId],
                       ["Public app URL", backendReady.hasPublicUrl],
                       ["Public publishable key", backendReady.hasPublicKey],
                       ["Management access token", backendReady.hasAccessToken],
