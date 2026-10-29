@@ -7,7 +7,7 @@ import { LiveReactPreview } from "@/components/LiveReactPreview";
 import { useAuth } from "@/hooks/useSubscription";
 import { authFetch } from "@/lib/auth-fetch";
 import { dualSafeGet, safeGet } from "@/lib/safe-storage";
-import { idbKV, persistWorkspace, readDurable, readHot, shouldApplyHydrated } from "@/lib/fullapp-local";
+import { getHotStore, idbKV, persistWorkspace, readDurable, readHot, shouldApplyHydrated } from "@/lib/fullapp-local";
 import { getAccountCode } from "@/lib/account-code";
 import { readCurrentProject } from "@/lib/current-project";
 import { buildFullAppFiles, type FullAppFiles } from "@/lib/full-app-scaffold";
@@ -177,14 +177,18 @@ function FullAppPage() {
   const [githubOpen, setGithubOpen] = React.useState(false);
 
   const [storageWarning, setStorageWarning] = React.useState(false);
+  // Never persist a placeholder before IndexedDB restoration completes.
+  const [hydratedKey, setHydratedKey] = React.useState("");
   const editedRef = React.useRef(false);
   const mountRevRef = React.useRef<FullAppWorkspace | null>(null);
 
   React.useEffect(() => {
     if (authLoading) return;
     const keyAtStart = cacheKey;
-    const local = readHot(window.localStorage ?? null, cacheKey, restoreWorkspace);
+    const local = readHot(getHotStore(), cacheKey, restoreWorkspace);
     const initial = local ?? newWorkspace(studioSource() ?? undefined);
+    setHydratedKey("");
+    setStorageWarning(false);
     editedRef.current = false;
     mountRevRef.current = initial;
     setWorkspace(initial);
@@ -198,27 +202,35 @@ function FullAppPage() {
       setWorkspace((cur) => {
         // Only the untouched initial snapshot may be replaced by a newer IDB copy.
         const edited = editedRef.current || cur !== mountRevRef.current;
-        if (!shouldApplyHydrated({ keyAtStart, keyNow: keyAtStart, editedSinceMount: edited, current: cur, candidate: durable })) return cur;
+        // A freshly generated placeholder has a new timestamp, but is NOT a
+        // saved workspace: any valid durable snapshot must take precedence.
+        if (!shouldApplyHydrated({ keyAtStart, keyNow: cacheKey, editedSinceMount: edited, current: local ? cur : null, candidate: durable })) return cur;
         mountRevRef.current = durable;
         setStatus("Restored local workspace");
         return durable;
       });
+      setHydratedKey(keyAtStart);
     });
     return () => { cancelled = true; };
   }, [authLoading, cacheKey]);
 
   React.useEffect(() => {
     if (!workspace || loadedKey !== cacheKey) return;
+    // Record edits even while IDB hydration is pending, so late backups cannot
+    // replace the user's newer, unsaved changes.
     if (workspace !== mountRevRef.current) editedRef.current = true;
+    if (hydratedKey !== cacheKey) return;
     const key = cacheKey;
+    let cancelled = false;
     const t = window.setTimeout(() => {
-      void persistWorkspace(workspace, key, idbKV, window.localStorage ?? null).then((r) => {
+      void persistWorkspace(workspace, key, idbKV, getHotStore()).then((r) => {
+        if (cancelled) return;
         setStorageWarning(!r.ok);
         if (!r.ok) setStatus("Couldn't save on this device (storage full or private mode). Save to cloud or export before leaving.");
       });
     }, 600);
-    return () => window.clearTimeout(t);
-  }, [workspace, loadedKey, cacheKey]);
+    return () => { cancelled = true; window.clearTimeout(t); };
+  }, [workspace, loadedKey, cacheKey, hydratedKey]);
 
   const files = workspace?.files ?? {};
   const selectedContent = files[selected] ?? "";
@@ -479,6 +491,16 @@ function FullAppPage() {
   }
 
   const inputStyle = "w-full rounded-xl border border-white/15 bg-black/30 p-3 text-sm text-white";
+  // Auth can switch before the mount effect loads the new owner's workspace.
+  // Do not render the previous account's React source during that transition.
+  if (authLoading || loadedKey !== cacheKey || !workspace) {
+    return (
+      <div className="obs-page">
+        <header className="obs-page-top"><span className="obs-display text-2xl" style={{ color: "var(--obs-orange)" }}>Obsidian</span><ObsidianModeNav /></header>
+        <main className="obs-page-wrap"><p role="status" className="text-sm opacity-70">Opening your Full App workspace…</p></main>
+      </div>
+    );
+  }
   return (
     <div className="obs-page">
       <header className="obs-page-top"><span className="obs-display text-2xl" style={{ color: "var(--obs-orange)" }}>Obsidian</span><ObsidianModeNav showProject /></header>
