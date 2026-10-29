@@ -22,6 +22,13 @@
       "when": 1793233231081,
       "tag": "0002_connections_oauth_browser_binding",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1793235000000,
+      "tag": "0003_connections_metadata_least_privilege",
+      "breakpoints": true
     }
   ]
 }
