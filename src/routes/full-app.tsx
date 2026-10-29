@@ -220,6 +220,10 @@ function FullAppPage() {
     // replace the user's newer, unsaved changes.
     if (workspace !== mountRevRef.current) editedRef.current = true;
     if (hydratedKey !== cacheKey) return;
+    // An untouched initial/restored snapshot has nothing new to save. Writing an
+    // unsaved placeholder after a slow/timed-out IDB read would give it a newer
+    // hot timestamp than the real durable copy and hide it on the next load.
+    if (workspace === mountRevRef.current) return;
     const key = cacheKey;
     let cancelled = false;
     const t = window.setTimeout(() => {
