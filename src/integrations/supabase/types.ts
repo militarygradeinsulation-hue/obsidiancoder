@@ -341,6 +341,102 @@ export type Database = {
         }
         Relationships: []
       }
+      connected_accounts: {
+        Row: {
+          avatar_url: string | null
+          created_at: string
+          display_name: string | null
+          id: string
+          last_checked_at: string | null
+          login: string | null
+          provider: string
+          provider_account_id: string
+          scopes: string[]
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_checked_at?: string | null
+          login?: string | null
+          provider: string
+          provider_account_id: string
+          scopes?: string[]
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avatar_url?: string | null
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          last_checked_at?: string | null
+          login?: string | null
+          provider?: string
+          provider_account_id?: string
+          scopes?: string[]
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      connection_oauth_states: {
+        Row: {
+          created_at: string
+          expires_at: string
+          provider: string
+          state_hash: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          provider: string
+          state_hash: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          provider?: string
+          state_hash?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      connection_token_vault: {
+        Row: {
+          ciphertext: string
+          created_at: string
+          key_version: number
+          provider: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          ciphertext: string
+          created_at?: string
+          key_version?: number
+          provider: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          ciphertext?: string
+          created_at?: string
+          key_version?: number
+          provider?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       credit_usage: {
         Row: {
           committed_at: string | null
@@ -923,6 +1019,10 @@ export type Database = {
       commit_credits: {
         Args: { _request_id?: string; _reservation_id: string }
         Returns: boolean
+      }
+      consume_connection_oauth_state: {
+        Args: { _provider: string; _state_hash: string }
+        Returns: string
       }
       credit_balance: {
         Args: { _cap: number; _env: string; _user_id: string }
