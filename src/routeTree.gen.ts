@@ -14,6 +14,7 @@ import { Route as AgentRouteImport } from './routes/agent'
 import { Route as ArchiveRouteImport } from './routes/archive'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BrainRouteImport } from './routes/brain'
+import { Route as ConnectionsRouteImport } from './routes/connections'
 import { Route as DashboardRouteImport } from './routes/dashboard'
 import { Route as DemosRouteImport } from './routes/demos'
 import { Route as ForgeRouteImport } from './routes/forge'
@@ -99,6 +100,11 @@ const AuthRoute = AuthRouteImport.update({
 const BrainRoute = BrainRouteImport.update({
   id: '/brain',
   path: '/brain',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ConnectionsRoute = ConnectionsRouteImport.update({
+  id: '/connections',
+  path: '/connections',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DashboardRoute = DashboardRouteImport.update({
@@ -422,6 +428,7 @@ export interface FileRoutesByFullPath {
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
   '/brain': typeof BrainRoute
+  '/connections': typeof ConnectionsRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
@@ -490,6 +497,7 @@ export interface FileRoutesByTo {
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
   '/brain': typeof BrainRoute
+  '/connections': typeof ConnectionsRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
@@ -559,6 +567,7 @@ export interface FileRoutesById {
   '/archive': typeof ArchiveRoute
   '/auth': typeof AuthRoute
   '/brain': typeof BrainRoute
+  '/connections': typeof ConnectionsRoute
   '/dashboard': typeof DashboardRoute
   '/demos': typeof DemosRoute
   '/forge': typeof ForgeRoute
@@ -629,6 +638,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/auth'
     | '/brain'
+    | '/connections'
     | '/dashboard'
     | '/demos'
     | '/forge'
@@ -697,6 +707,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/auth'
     | '/brain'
+    | '/connections'
     | '/dashboard'
     | '/demos'
     | '/forge'
@@ -765,6 +776,7 @@ export interface FileRouteTypes {
     | '/archive'
     | '/auth'
     | '/brain'
+    | '/connections'
     | '/dashboard'
     | '/demos'
     | '/forge'
@@ -834,6 +846,7 @@ export interface RootRouteChildren {
   ArchiveRoute: typeof ArchiveRoute
   AuthRoute: typeof AuthRoute
   BrainRoute: typeof BrainRoute
+  ConnectionsRoute: typeof ConnectionsRoute
   DashboardRoute: typeof DashboardRoute
   DemosRoute: typeof DemosRoute
   ForgeRoute: typeof ForgeRoute
@@ -929,6 +942,13 @@ declare module '@tanstack/react-router' {
       path: '/brain'
       fullPath: '/brain'
       preLoaderRoute: typeof BrainRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/connections': {
+      id: '/connections'
+      path: '/connections'
+      fullPath: '/connections'
+      preLoaderRoute: typeof ConnectionsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/dashboard': {
@@ -1401,6 +1421,7 @@ const rootRouteChildren: RootRouteChildren = {
   ArchiveRoute: ArchiveRoute,
   AuthRoute: AuthRoute,
   BrainRoute: BrainRoute,
+  ConnectionsRoute: ConnectionsRoute,
   DashboardRoute: DashboardRoute,
   DemosRoute: DemosRoute,
   ForgeRoute: ForgeRoute,
