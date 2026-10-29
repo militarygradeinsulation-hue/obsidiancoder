@@ -49,7 +49,9 @@ function ConnectionsPage() {
 
   const load = React.useCallback(async () => {
     try {
-      setRows(await list());
+      const r = await list();
+      if (r.ok) setRows(r.rows);
+      else setNote("Couldn't load your connections right now. Your status is unknown — try again.");
     } catch {
       setNote("Couldn't load your connections.");
     }
@@ -74,7 +76,9 @@ function ConnectionsPage() {
           ? "Too many attempts — wait a few minutes."
           : r.error === "not_configured"
             ? "GitHub connections aren't set up yet."
-            : "Couldn't start the GitHub connection.",
+            : r.error === "wrong_origin"
+              ? `For security, connect GitHub from ${r.origin ?? "the main site"}/connections.`
+              : "Couldn't start the GitHub connection.",
       );
     // Top-level navigation so GitHub isn't blocked inside an embedded preview.
     try {
@@ -111,7 +115,11 @@ function ConnectionsPage() {
     setNote(
       r?.ok
         ? "Disconnected. To fully revoke, also remove the app under GitHub → Settings → Applications."
-        : "Couldn't disconnect.",
+        : r && !r.ok && r.stage === "account"
+          ? "Stored access was deleted, but the account card couldn't be removed. Try again."
+          : r && !r.ok && r.stage === "token"
+            ? "Couldn't delete the stored access. Nothing was removed — try again."
+            : "Couldn't disconnect. Try again.",
     );
     await load();
   }

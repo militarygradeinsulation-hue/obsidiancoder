@@ -87,6 +87,8 @@ export const CALLBACK_MESSAGES: Record<string, string> = {
   connected: "GitHub connected.",
   denied: "GitHub authorization was cancelled.",
   invalid_state: "That connection link expired or was already used. Please try again.",
+  missing_binding:
+    "That GitHub link wasn't started in this browser (or a newer attempt replaced it). Start again from this page.",
   exchange_failed: "GitHub didn't accept the authorization. Please try again.",
   identity_failed: "Couldn't read your GitHub profile. Please try again.",
   not_configured: "GitHub connections aren't set up yet.",

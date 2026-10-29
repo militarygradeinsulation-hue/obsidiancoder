@@ -209,29 +209,41 @@ export const disconnectGithub = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }): Promise<DisconnectResult> => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const scope = (q: any) => q.eq("user_id", context.userId).eq("provider", "github");
+    const uid = context.userId;
     // 1) Kill pending links first so an old authorize URL can't reconnect.
-    const s = await scope(supabaseAdmin.from("connection_oauth_states").delete());
+    const s = await supabaseAdmin
+      .from("connection_oauth_states")
+      .delete()
+      .eq("user_id", uid)
+      .eq("provider", "github");
     if (s.error) {
       console.error("disconnect: states delete failed", s.error.code);
       return { ok: false, stage: "pending_links" };
     }
     // 2) Token next. If this fails keep the account row so the user still sees
     //    the connection and can retry, rather than an invisible orphan token.
-    const a = await scope(supabaseAdmin.from("connection_token_vault").delete());
+    const a = await supabaseAdmin
+      .from("connection_token_vault")
+      .delete()
+      .eq("user_id", uid)
+      .eq("provider", "github");
     if (a.error) {
       console.error("disconnect: vault delete failed", a.error.code);
       return { ok: false, stage: "token" };
     }
     // 3) Metadata. Token is already gone, so a failure here is cosmetic; mark it.
-    const b = await scope(supabaseAdmin.from("connected_accounts").delete());
+    const b = await supabaseAdmin
+      .from("connected_accounts")
+      .delete()
+      .eq("user_id", uid)
+      .eq("provider", "github");
     if (b.error) {
       console.error("disconnect: account delete failed", b.error.code);
-      await scope(
-        supabaseAdmin
-          .from("connected_accounts")
-          .update({ status: "disconnected", updated_at: new Date().toISOString() }),
-      );
+      await supabaseAdmin
+        .from("connected_accounts")
+        .update({ status: "disconnected", updated_at: new Date().toISOString() })
+        .eq("user_id", uid)
+        .eq("provider", "github");
       return { ok: false, stage: "account" };
     }
     return { ok: true };
