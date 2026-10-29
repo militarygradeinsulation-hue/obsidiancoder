@@ -172,6 +172,7 @@ import {
 } from "@/lib/pocket-concept";
 import { compactRecentSignatures, conceptPlanKey } from "@/lib/pocket-hardening";
 import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
+import { planWithLocalCache } from "@/lib/plan-cache";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { dnaPromptBlock, parseCritique } from "@/lib/pocket-prompt";
 import { ArtDirectionControl } from "@/components/ArtDirectionControl";
@@ -2521,19 +2522,22 @@ function Index() {
           stageMarks.plannerCalled = true;
           const planner = resolvePocketPlannerModel();
           try {
-            const pres = await planConceptsFn({
-              data: {
-                model: planner.model,
-                plannerPrompt: conceptPlannerPrompt({
-                  prompt: basePrompt,
-                  family: artFamily,
-                  recentSummaries: recentDigest,
-                }),
-              },
+            const plannerPrompt = conceptPlannerPrompt({
+              prompt: basePrompt,
+              family: artFamily,
+              recentSummaries: recentDigest,
             });
-            if (!("paywall" in pres) && pres.ok) {
-              buildPlan = parseConceptPlan(JSON.parse(pres.rawJson) as unknown, base);
-              setTerminal((t) => [...t, `✓ Direction planned with ${planner.entryLabel}${pres.cached ? " (cached)" : ""}`]);
+            const out = await planWithLocalCache({
+              userId: authUserId, model: planner.model, plannerPrompt, base,
+              call: () => planConceptsFn({ data: { model: planner.model, plannerPrompt } }),
+            });
+            if (out.source === "local") {
+              buildPlan = out.plan;
+              setTerminal((t) => [...t, "✓ Direction reused from this device's planner cache — no planner call"]);
+            } else if (!("paywall" in out.res) && out.res.ok) {
+              buildPlan = out.plan ?? base;
+              const serverCached = out.res.cached;
+              setTerminal((t) => [...t, `✓ Direction planned with ${planner.entryLabel}${serverCached ? " (cached)" : ""}`]);
             }
           } catch {
             setTerminal((t) => [...t, "⚠ Planner unavailable — using deterministic directions."]);

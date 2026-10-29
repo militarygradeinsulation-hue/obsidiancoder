@@ -128,6 +128,7 @@ import {
   selectedConcept,
   type PocketConceptPlan,
 } from "@/lib/pocket-concept";
+import { planWithLocalCache } from "@/lib/plan-cache";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
@@ -1075,22 +1076,24 @@ function ForgePage() {
         } else if (profile !== "fast" && paidAccess) {
           const planner = resolvePocketPlannerModel();
           try {
-            const res = await planConcepts({
-              data: {
-                model: planner.model,
-                plannerPrompt: conceptPlannerPrompt({
-                  prompt: p,
-                  family: effectiveStyleFamily,
-                  recentSummaries: recentDigest,
-                }),
-              },
+            const plannerPrompt = conceptPlannerPrompt({
+              prompt: p,
+              family: effectiveStyleFamily,
+              recentSummaries: recentDigest,
             });
-            if ("paywall" in res) {
+            const out = await planWithLocalCache({
+              userId: authUserId, model: planner.model, plannerPrompt, base,
+              call: () => planConcepts({ data: { model: planner.model, plannerPrompt } }),
+            });
+            if (out.source === "local") {
+              plan = out.plan;
+              log(`Direction reused from this device's planner cache — no planner call`);
+            } else if ("paywall" in out.res) {
               requireAccount("Studio art direction");
-            } else if (res.ok) {
-              if (!res.cached) providerCalls += 1;
-              plan = parseConceptPlan(JSON.parse(res.rawJson) as unknown, base);
-              log(`Direction planned with ${planner.entryLabel}${res.cached ? " (cached)" : ""}`);
+            } else if (out.res.ok) {
+              if (!out.res.cached) providerCalls += 1;
+              plan = out.plan ?? base;
+              log(`Direction planned with ${planner.entryLabel}${out.res.cached ? " (cached)" : ""}`);
             }
           } catch {
             log("Planner unavailable — using deterministic directions.");

@@ -7,6 +7,7 @@ import { LiveReactPreview } from "@/components/LiveReactPreview";
 import { useAuth } from "@/hooks/useSubscription";
 import { authFetch } from "@/lib/auth-fetch";
 import { dualSafeGet, safeGet } from "@/lib/safe-storage";
+import { idbKV, persistWorkspace, readDurable, readHot, shouldApplyHydrated } from "@/lib/fullapp-local";
 import { getAccountCode } from "@/lib/account-code";
 import { readCurrentProject } from "@/lib/current-project";
 import { buildFullAppFiles, type FullAppFiles } from "@/lib/full-app-scaffold";
@@ -175,24 +176,47 @@ function FullAppPage() {
   const [cloudChoice, setCloudChoice] = React.useState("");
   const [githubOpen, setGithubOpen] = React.useState(false);
 
+  const [storageWarning, setStorageWarning] = React.useState(false);
+  const editedRef = React.useRef(false);
+  const mountRevRef = React.useRef<FullAppWorkspace | null>(null);
+
   React.useEffect(() => {
     if (authLoading) return;
-    let local: FullAppWorkspace | null = null;
-    try { local = restoreWorkspace(JSON.parse(localStorage.getItem(cacheKey) || "null")); } catch { /* ignore */ }
-    setWorkspace(local ?? newWorkspace(studioSource() ?? undefined));
+    const keyAtStart = cacheKey;
+    const local = readHot(window.localStorage ?? null, cacheKey, restoreWorkspace);
+    const initial = local ?? newWorkspace(studioSource() ?? undefined);
+    editedRef.current = false;
+    mountRevRef.current = initial;
+    setWorkspace(initial);
     setSelected("src/App.tsx");
     setLoadedKey(cacheKey);
     setDraft(null);
     setStatus(local ? "Restored local workspace" : "Full App workspace initialized");
+    let cancelled = false;
+    void readDurable(idbKV, cacheKey, restoreWorkspace).then((durable) => {
+      if (cancelled) return;
+      setWorkspace((cur) => {
+        // Only the untouched initial snapshot may be replaced by a newer IDB copy.
+        const edited = editedRef.current || cur !== mountRevRef.current;
+        if (!shouldApplyHydrated({ keyAtStart, keyNow: keyAtStart, editedSinceMount: edited, current: cur, candidate: durable })) return cur;
+        mountRevRef.current = durable;
+        setStatus("Restored local workspace");
+        return durable;
+      });
+    });
+    return () => { cancelled = true; };
   }, [authLoading, cacheKey]);
 
   React.useEffect(() => {
     if (!workspace || loadedKey !== cacheKey) return;
+    if (workspace !== mountRevRef.current) editedRef.current = true;
+    const key = cacheKey;
     const t = window.setTimeout(() => {
-      try {
-        localStorage.setItem(cacheKey, JSON.stringify(workspace));
-      } catch { setStatus("Local storage is full. Export or save before leaving."); }
-    }, 300);
+      void persistWorkspace(workspace, key, idbKV, window.localStorage ?? null).then((r) => {
+        setStorageWarning(!r.ok);
+        if (!r.ok) setStatus("Couldn't save on this device (storage full or private mode). Save to cloud or export before leaving.");
+      });
+    }, 600);
     return () => window.clearTimeout(t);
   }, [workspace, loadedKey, cacheKey]);
 
@@ -469,6 +493,11 @@ function FullAppPage() {
           <span className="obs-pill" data-tone={workspace?.cloudId ? "good" : "muted"}>{workspace?.cloudId ? "Cloud-linked" : "Local workspace"}</span>
         </div>
         <p className="mt-3 text-xs opacity-75" role="status">{status}</p>
+        {storageWarning && (
+          <p role="alert" className="mt-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            This device couldn't save your workspace. Use Save to cloud or export your code so you don't lose changes.
+          </p>
+        )}
         {workspace?.production?.githubRepo && (
           <section className="obs-node mt-4" aria-label="Production status">
             {productionReadiness && (
