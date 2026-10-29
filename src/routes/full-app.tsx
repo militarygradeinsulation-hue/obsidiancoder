@@ -7,6 +7,7 @@ import { LiveReactPreview } from "@/components/LiveReactPreview";
 import { useAuth } from "@/hooks/useSubscription";
 import { authFetch } from "@/lib/auth-fetch";
 import { dualSafeGet, safeGet } from "@/lib/safe-storage";
+import { idbKV, persistWorkspace, readDurable, readHot, shouldApplyHydrated } from "@/lib/fullapp-local";
 import { getAccountCode } from "@/lib/account-code";
 import { readCurrentProject } from "@/lib/current-project";
 import { buildFullAppFiles, type FullAppFiles } from "@/lib/full-app-scaffold";
@@ -492,6 +493,11 @@ function FullAppPage() {
           <span className="obs-pill" data-tone={workspace?.cloudId ? "good" : "muted"}>{workspace?.cloudId ? "Cloud-linked" : "Local workspace"}</span>
         </div>
         <p className="mt-3 text-xs opacity-75" role="status">{status}</p>
+        {storageWarning && (
+          <p role="alert" className="mt-2 rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            This device couldn't save your workspace. Use Save to cloud or export your code so you don't lose changes.
+          </p>
+        )}
         {workspace?.production?.githubRepo && (
           <section className="obs-node mt-4" aria-label="Production status">
             {productionReadiness && (
