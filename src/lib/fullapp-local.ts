@@ -21,6 +21,15 @@ export interface HotStore {
 }
 export const idbKV: LocalKV = { get: idbGet, set: idbSet };
 
+/** Browsers can throw SecurityError just from accessing localStorage. */
+export function getHotStore(): HotStore | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
 /** Cheap size estimate without serializing the whole workspace. */
 export function estimateChars(w: { sourceHtml?: string; files?: Record<string, string> }): number {
   let n = (w.sourceHtml?.length ?? 0) + 2_000;
