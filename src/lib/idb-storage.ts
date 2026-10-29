@@ -93,9 +93,20 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
 export async function idbRemove(key: string): Promise<void> {
   const db = await openDb();
   if (!db) return;
-  const store = tx(db, "readwrite");
-  if (!store) return;
-  try { store.delete(key); } catch { /* ignore */ }
+  return new Promise<void>((resolve) => {
+    const store = tx(db, "readwrite");
+    if (!store) return resolve();
+    const transaction = store.transaction;
+    // Await completion so cache-clear UI does not race a pending IDB delete.
+    transaction.oncomplete = () => resolve();
+    transaction.onabort = () => resolve();
+    transaction.onerror = () => resolve();
+    try {
+      store.delete(key).onerror = () => resolve();
+    } catch {
+      resolve();
+    }
+  });
 }
 
 /** Test seam — drops the cached connection so a fresh open is attempted. */
