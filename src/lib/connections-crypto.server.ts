@@ -68,3 +68,11 @@ export async function hashState(state: string): Promise<string> {
 export function tokenAad(userId: string, provider: string): string {
   return `${provider}:${userId}`;
 }
+
+/**
+ * Binds one OAuth state to one browser: hash of the HttpOnly cookie nonce and
+ * the state. Stored with the state row; the callback must reproduce it.
+ */
+export async function bindingHash(nonce: string, state: string, provider: string): Promise<string> {
+  return hashState(`link-v1:${provider}:${nonce}:${state}`);
+}

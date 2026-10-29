@@ -388,6 +388,7 @@ export type Database = {
       }
       connection_oauth_states: {
         Row: {
+          binding_hash: string | null
           created_at: string
           expires_at: string
           provider: string
@@ -395,6 +396,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          binding_hash?: string | null
           created_at?: string
           expires_at: string
           provider: string
@@ -402,6 +404,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          binding_hash?: string | null
           created_at?: string
           expires_at?: string
           provider?: string
@@ -1022,6 +1025,10 @@ export type Database = {
       }
       consume_connection_oauth_state: {
         Args: { _provider: string; _state_hash: string }
+        Returns: string
+      }
+      consume_connection_oauth_state_v2: {
+        Args: { _binding_hash: string; _provider: string; _state_hash: string }
         Returns: string
       }
       credit_balance: {
