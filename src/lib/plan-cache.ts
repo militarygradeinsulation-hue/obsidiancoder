@@ -112,7 +112,20 @@ export function sanitizePlanJson(raw: unknown): string | null {
 async function readBucket(kv: PlanCacheKV, userId: string): Promise<Bucket> {
   try {
     const b = await kv.get<Bucket>(bucketKey(userId));
-    if (b && b.v === 1 && Array.isArray(b.entries)) return { ...emptyBucket(), ...b };
+    if (b && b.v === 1 && Array.isArray(b.entries)) {
+      // A partially written or manually edited browser store is untrusted.
+      const entries = b.entries.filter((e): e is Entry =>
+        !!e && typeof e.k === "string" && /^[0-9a-f]{64}$/.test(e.k) &&
+        typeof e.at === "number" && Number.isFinite(e.at) &&
+        typeof e.json === "string" && e.json.length <= 20_000
+      ).slice(0, PLAN_CACHE_MAX);
+      return {
+        v: 1,
+        entries,
+        hits: Number.isSafeInteger(b.hits) && b.hits >= 0 ? b.hits : 0,
+        misses: Number.isSafeInteger(b.misses) && b.misses >= 0 ? b.misses : 0,
+      };
+    }
   } catch {
     /* blocked */
   }
@@ -147,7 +160,11 @@ export async function getCachedPlan(opts: {
       plan = null;
     }
   }
-  const entries = plan ? live : live.filter((e) => e.k !== opts.key);
+  // True bounded LRU: a hit becomes most recently used without extending
+  // its original TTL. This avoids evicting frequently reused plans.
+  const entries = plan && hit
+    ? [hit, ...live.filter((e) => e.k !== opts.key)]
+    : live.filter((e) => e.k !== opts.key);
   await kv
     .set(bucketKey(opts.userId), {
       ...b,
