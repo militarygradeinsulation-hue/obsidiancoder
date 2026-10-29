@@ -99,6 +99,30 @@ console.log('\nplanner cache');
   ok('IDB blocked → safe network fallback', r.source === 'network' && c.calls === 1);
 }
 
+
+{
+  const kv = memKV();
+  const start = 2_000_000;
+  const keys: string[] = [];
+  for (let i = 0; i < PLAN_CACHE_MAX; i++) {
+    const key = await planCacheKey({ userId: U1, model: 'm', plannerPrompt: 'LRU ' + i });
+    keys.push(key);
+    await putCachedPlan({ userId: U1, key, rawJson: good, kv, now: start + i });
+  }
+  ok('LRU hit refreshes recency', !!(await getCachedPlan({ userId: U1, key: keys[0], base, kv, now: start + 30 })));
+  const freshKey = await planCacheKey({ userId: U1, model: 'm', plannerPrompt: 'LRU newest' });
+  await putCachedPlan({ userId: U1, key: freshKey, rawJson: good, kv, now: start + 31 });
+  ok('recently used oldest plan survives eviction', !!(await getCachedPlan({ userId: U1, key: keys[0], base, kv, now: start + 32 })));
+  ok('least recently used plan is evicted', !(await getCachedPlan({ userId: U1, key: keys[1], base, kv, now: start + 32 })));
+}
+{
+  const kv = memKV();
+  kv.m.set('obs.plancache.v1.' + U1, { v: 1, hits: 'bad', misses: -10, entries: [null, { k: 42, at: 'bad', json: null }] });
+  const stats = await planCacheStats(U1, kv);
+  ok('malformed bucket rows are removed', !!stats && stats.entries === 0);
+  ok('malformed cache counters are reset', !!stats && stats.hits === 0 && stats.misses === 0);
+}
+
 console.log('\nfull app local durability');
 type W = { updatedAt: number; sourceHtml: string; files: Record<string, string> };
 const v = (raw: unknown): W | null => (raw && typeof raw === 'object' && typeof (raw as W).updatedAt === 'number' && typeof (raw as W).sourceHtml === 'string') ? raw as W : null;
@@ -106,6 +130,7 @@ const w = (t: number, size = 10): W => ({ updatedAt: t, sourceHtml: 'x'.repeat(s
 {
   ok('newest wins', newest(w(1), w(5), null)!.updatedAt === 5);
   ok('newer IDB applies when untouched', shouldApplyHydrated({ keyAtStart: 'a', keyNow: 'a', editedSinceMount: false, current: w(1), candidate: w(2) }));
+  ok('durable backup wins over fresh unsaved placeholder', shouldApplyHydrated({ keyAtStart: 'a', keyNow: 'a', editedSinceMount: false, current: null, candidate: w(1) }));
   ok('new edit wins over IDB', !shouldApplyHydrated({ keyAtStart: 'a', keyNow: 'a', editedSinceMount: true, current: w(1), candidate: w(9) }));
   ok('older IDB never clobbers', !shouldApplyHydrated({ keyAtStart: 'a', keyNow: 'a', editedSinceMount: false, current: w(5), candidate: w(4) }));
   ok('account switch ignores stale hydrate', !shouldApplyHydrated({ keyAtStart: 'u1', keyNow: 'u2', editedSinceMount: false, current: null, candidate: w(9) }));
