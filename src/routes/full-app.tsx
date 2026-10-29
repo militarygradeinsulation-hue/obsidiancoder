@@ -7,7 +7,7 @@ import { LiveReactPreview } from "@/components/LiveReactPreview";
 import { useAuth } from "@/hooks/useSubscription";
 import { authFetch } from "@/lib/auth-fetch";
 import { dualSafeGet, safeGet } from "@/lib/safe-storage";
-import { getHotStore, idbKV, persistWorkspace, readDurable, readHot, shouldApplyHydrated } from "@/lib/fullapp-local";
+import { getHotStore, idbKV, persistWorkspace, readDurable, readHot, shouldApplyHydrated, shouldPersist } from "@/lib/fullapp-local";
 import { getAccountCode } from "@/lib/account-code";
 import { readCurrentProject } from "@/lib/current-project";
 import { buildFullAppFiles, type FullAppFiles } from "@/lib/full-app-scaffold";
