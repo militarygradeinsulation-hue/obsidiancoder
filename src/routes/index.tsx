@@ -172,6 +172,7 @@ import {
 } from "@/lib/pocket-concept";
 import { compactRecentSignatures, conceptPlanKey } from "@/lib/pocket-hardening";
 import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
+import { planWithLocalCache } from "@/lib/plan-cache";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { dnaPromptBlock, parseCritique } from "@/lib/pocket-prompt";
 import { ArtDirectionControl } from "@/components/ArtDirectionControl";

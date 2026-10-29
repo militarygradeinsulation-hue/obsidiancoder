@@ -128,6 +128,7 @@ import {
   selectedConcept,
   type PocketConceptPlan,
 } from "@/lib/pocket-concept";
+import { planWithLocalCache } from "@/lib/plan-cache";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { assessCandidateForCommit } from "@/lib/candidate-assess";
 import { finalizeCandidate } from "@/lib/finalize-candidate";
