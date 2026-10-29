@@ -73,9 +73,16 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
   return new Promise<boolean>((resolve) => {
     const store = tx(db, "readwrite");
     if (!store) return resolve(false);
+    // IDBRequest.onsuccess fires BEFORE the enclosing transaction commits.
+    // A later transaction abort/quota error must never be reported as saved.
+    let requestSucceeded = false;
+    const transaction = store.transaction;
+    transaction.oncomplete = () => resolve(requestSucceeded);
+    transaction.onabort = () => resolve(false);
+    transaction.onerror = () => resolve(false);
     try {
       const req = store.put(value, key);
-      req.onsuccess = () => resolve(true);
+      req.onsuccess = () => { requestSucceeded = true; };
       req.onerror = () => resolve(false);
     } catch {
       resolve(false);
