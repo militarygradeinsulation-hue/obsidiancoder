@@ -56,6 +56,11 @@ export function shouldApplyHydrated(i: {
   return !i.current || i.candidate.updatedAt > i.current.updatedAt;
 }
 
+/** Autosave only after hydration and only once the user changed the initial snapshot. */
+export function shouldPersist(i: { hydrated: boolean; current: unknown; initial: unknown }): boolean {
+  return i.hydrated && i.current !== i.initial;
+}
+
 export function readHot<T>(
   store: HotStore | null,
   key: string,
