@@ -28,7 +28,10 @@ export const Route = createFileRoute("/api/public/connections/github/callback")(
         try {
           if (!gh.configured) return done("not_configured");
           const url = new URL(request.url);
-          const pre = precheckCallback(url.searchParams.get("state"), request.headers.get("cookie"));
+          const pre = precheckCallback(
+            url.searchParams.get("state"),
+            request.headers.get("cookie"),
+          );
           if (!pre.ok) return done(pre.code);
           const code = url.searchParams.get("code") ?? "";
 
