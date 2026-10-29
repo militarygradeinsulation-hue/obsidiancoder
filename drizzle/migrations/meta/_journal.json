@@ -8,6 +8,13 @@
       "when": 1791849185300,
       "tag": "0000_lock_free_open_usage_rls",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1793232810199,
+      "tag": "0001_connections_hub_github",
+      "breakpoints": true
     }
   ]
 }
