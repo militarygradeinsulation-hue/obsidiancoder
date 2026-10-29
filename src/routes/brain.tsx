@@ -1,6 +1,7 @@
 import * as React from "react";
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { ObsidianModeNav } from "@/components/ObsidianModeNav";
+import { PlannerCachePanel } from "@/components/PlannerCachePanel";
 import { brainSnapshot, resolveBrainLibraryCode, type BrainSnapshot } from "@/lib/obsidian-brain";
 import { getAccountCode } from "@/lib/account-code";
 
@@ -59,6 +60,7 @@ function BrainMap({ snap }: { snap: BrainSnapshot }) {
   const L = snap.learning;
   return (
     <div className="mt-10 grid gap-4 lg:grid-cols-3">
+      <PlannerCachePanel />
       {/* Core: next build */}
       <section className="obs-node lg:col-span-3" data-live={snap.nextBuild.family ? "true" : "false"}>
         <h3>Next similar build <span className="obs-pill" data-tone={snap.nextBuild.family ? "good" : "muted"}>{snap.nextBuild.family ? "Brain hit ready" : "Novel path"}</span></h3>
