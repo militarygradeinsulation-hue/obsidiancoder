@@ -1,3 +1,4 @@
+import { brainLearningForUser } from "@/lib/brain-cloud";
 import { createFileRoute, redirect, ClientOnly, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -2469,7 +2470,7 @@ function Index() {
 
     // Graded memory of past builds — drives the exemplar brief, the proven
     // direction reuse, and the model bias below.
-    const learningEntries = readBuildLearning(libraryCode).entries;
+    const learningEntries = authUserId ? brainLearningForUser(authUserId, libraryCode) : readBuildLearning(libraryCode).entries;
     const learningBias = learnedBias(learningEntries);
     let buildDna: PocketDesignDNA | null = null;
     let buildPlan: PocketConceptPlan | null = current.artPlan ?? null;

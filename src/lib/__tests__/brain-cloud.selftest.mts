@@ -1,0 +1,15 @@
+import { mergeBrainRecords, createBrainRecord, removeBrainRecord, validatedCloudLearnings, type BrainRecord } from "../brain-cloud";
+import { strict as assert } from "node:assert";
+const a: BrainRecord = { record_id: "one", project_key: "global", kind: "note", title: "Old", body: "before", payload: {}, updated_at: 10, deleted_at: null };
+const b: BrainRecord = { ...a, title: "New", updated_at: 20 };
+assert.equal(mergeBrainRecords([a], [b])[0].title, "New", "newer record wins");
+assert.equal(mergeBrainRecords([b], [a]).length, 1, "sync does not duplicate IDs");
+const removed: BrainRecord = { ...b, deleted_at: 20 };
+assert.equal(mergeBrainRecords([b], [removed])[0].deleted_at, 20, "tombstone wins timestamp tie");
+const n = createBrainRecord("project-123", "decision", "  Framework  ", "  Keep React  ");
+assert.equal(n.title, "Framework");
+assert.equal(n.body, "Keep React");
+assert.equal(n.project_key, "project-123");
+assert.ok(removeBrainRecord(n).deleted_at !== null);
+assert.equal(validatedCloudLearnings([a, { ...a, record_id: "learning:x", kind: "learning", payload: { id: "x", at: 1, family: "dark", model: "m", outcome: "kept" } }]).length, 1);
+console.log("Brain cloud merge self-test passed");
