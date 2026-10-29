@@ -1,5 +1,5 @@
 import { planWithLocalCache, planCacheKey, getCachedPlan, putCachedPlan, planCacheStats, clearPlanCache, sanitizePlanJson, PLAN_CACHE_MAX, PLAN_CACHE_TTL_MS, type PlanCacheKV } from '../plan-cache';
-import { newest, shouldApplyHydrated, persistWorkspace, readDurable, readHot, HOT_SNAPSHOT_MAX_CHARS, type LocalKV, type HotStore } from '../fullapp-local';
+import { newest, shouldApplyHydrated, shouldPersist, persistWorkspace, readDurable, readHot, HOT_SNAPSHOT_MAX_CHARS, type LocalKV, type HotStore } from '../fullapp-local';
 import { deterministicConceptPlan } from '../pocket-concept';
 
 let pass = 0, fail = 0;
@@ -134,6 +134,7 @@ const w = (t: number, size = 10): W => ({ updatedAt: t, sourceHtml: 'x'.repeat(s
   ok('new edit wins over IDB', !shouldApplyHydrated({ keyAtStart: 'a', keyNow: 'a', editedSinceMount: true, current: w(1), candidate: w(9) }));
   ok('older IDB never clobbers', !shouldApplyHydrated({ keyAtStart: 'a', keyNow: 'a', editedSinceMount: false, current: w(5), candidate: w(4) }));
   ok('account switch ignores stale hydrate', !shouldApplyHydrated({ keyAtStart: 'u1', keyNow: 'u2', editedSinceMount: false, current: null, candidate: w(9) }));
+  { const init = w(1); ok('untouched placeholder is never autosaved (slow IDB)', !shouldPersist({ hydrated: true, current: init, initial: init })); ok('no autosave before hydration', !shouldPersist({ hydrated: false, current: w(2), initial: init })); ok('user edit autosaves after hydration', shouldPersist({ hydrated: true, current: w(2), initial: init })); }
   const kv = memKV(); const hot = memHot();
   const r = await persistWorkspace(w(3), 'k', kv, hot);
   ok('small saved to IDB + hot', r.durable && r.hot && r.ok);
