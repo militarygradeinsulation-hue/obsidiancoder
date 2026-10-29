@@ -15,6 +15,13 @@
       "when": 1793232810199,
       "tag": "0001_connections_hub_github",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793233231081,
+      "tag": "0002_connections_oauth_browser_binding",
+      "breakpoints": true
     }
   ]
 }
