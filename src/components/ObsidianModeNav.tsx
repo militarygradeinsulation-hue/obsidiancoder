@@ -28,19 +28,57 @@ export function ObsidianModeNav({
 
   return (
     <nav className={`obs-modenav ${className}`} aria-label="Obsidian modes">
-      {modes.includes("pocket") && <Link to="/pocket" title="Pocket — quick chat-to-build">Pocket</Link>}
-      {modes.includes("studio") && <Link to="/" activeOptions={{ exact: true }} title="Studio — precision workspace">Studio</Link>}
-      {modes.includes("full-app") && <Link to="/full-app" title="Full App — React, cloud data, and GitHub">Full App</Link>}
-      {modes.includes("brain") && <Link to="/brain" title="Brain — shared memory and learning">Brain</Link>}
-      {modes.includes("agent") && <Link to="/agent" title="Agent — mission control">Agent</Link>}
+      {modes.includes("pocket") && (
+        <Link to="/pocket" title="Pocket — quick chat-to-build">
+          Pocket
+        </Link>
+      )}
+      {modes.includes("studio") && (
+        <Link to="/" activeOptions={{ exact: true }} title="Studio — precision workspace">
+          Studio
+        </Link>
+      )}
+      {modes.includes("full-app") && (
+        <Link to="/full-app" title="Full App — React, cloud data, and GitHub">
+          Full App
+        </Link>
+      )}
+      {modes.includes("brain") && (
+        <Link to="/brain" title="Brain — shared memory and learning">
+          Brain
+        </Link>
+      )}
+      {modes.includes("agent") && (
+        <Link to="/agent" title="Agent — mission control">
+          Agent
+        </Link>
+      )}
       {modes.length > 0 && <span className="obs-modenav-sep" aria-hidden />}
-      <Link to="/archive" className="obs-modenav-secondary" title="Every build — reopen, download, publish">Archive</Link>
-      <Link to="/library" className="obs-modenav-secondary obs-modenav-label-long" title="Saved and published builds">Library</Link>
-      <Link to="/connections" className="obs-modenav-secondary" title="Linked accounts like GitHub">Connections</Link>
+      <Link
+        to="/archive"
+        className="obs-modenav-secondary"
+        title="Every build — reopen, download, publish"
+      >
+        Archive
+      </Link>
+      <Link
+        to="/library"
+        className="obs-modenav-secondary obs-modenav-label-long"
+        title="Saved and published builds"
+      >
+        Library
+      </Link>
+      <Link to="/connections" className="obs-modenav-secondary" title="Linked accounts like GitHub">
+        Connections
+      </Link>
       {showProject && project && (
         <>
           <span className="obs-modenav-sep" aria-hidden />
-          <span className="obs-modenav-secondary" style={{ fontSize: 11, padding: "0 8px", opacity: 0.75, whiteSpace: "nowrap" }} title={`Current project (${project.surface})`}>
+          <span
+            className="obs-modenav-secondary"
+            style={{ fontSize: 11, padding: "0 8px", opacity: 0.75, whiteSpace: "nowrap" }}
+            title={`Current project (${project.surface})`}
+          >
             ◆ {project.title}
           </span>
         </>

@@ -9,7 +9,7 @@ function b64(bytes: Uint8Array): string {
   for (const b of bytes) s += String.fromCharCode(b);
   return btoa(s);
 }
-function unb64(s: string): Uint8Array {
+function unb64(s: string): Uint8Array<ArrayBuffer> {
   const bin = atob(s);
   const out = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
@@ -22,11 +22,19 @@ async function importKey(secret: string): Promise<CryptoKey> {
   return crypto.subtle.importKey("raw", raw, "AES-GCM", false, ["encrypt", "decrypt"]);
 }
 
-export async function encryptToken(plaintext: string, secret: string, aad: string): Promise<string> {
+export async function encryptToken(
+  plaintext: string,
+  secret: string,
+  aad: string,
+): Promise<string> {
   const key = await importKey(secret);
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ct = new Uint8Array(
-    await crypto.subtle.encrypt({ name: "AES-GCM", iv, additionalData: enc.encode(aad) }, key, enc.encode(plaintext)),
+    await crypto.subtle.encrypt(
+      { name: "AES-GCM", iv, additionalData: enc.encode(aad) },
+      key,
+      enc.encode(plaintext),
+    ),
   );
   const buf = new Uint8Array(iv.length + ct.length);
   buf.set(iv);
@@ -39,9 +47,9 @@ export async function decryptToken(stored: string, secret: string, aad: string):
   const buf = unb64(stored.slice(3));
   const key = await importKey(secret);
   const pt = await crypto.subtle.decrypt(
-    { name: "AES-GCM", iv: buf.subarray(0, 12), additionalData: enc.encode(aad) },
+    { name: "AES-GCM", iv: buf.slice(0, 12), additionalData: enc.encode(aad) },
     key,
-    buf.subarray(12),
+    buf.slice(12),
   );
   return dec.decode(pt);
 }
