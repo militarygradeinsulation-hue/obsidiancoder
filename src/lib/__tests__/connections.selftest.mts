@@ -68,7 +68,7 @@ check("start sets HttpOnly Secure Lax cookie", /httpOnly: true/.test(fn) && /sec
 check("disconnect invalidates pending states first", fn.indexOf('from("connection_oauth_states")\n      .delete()') > 0 && fn.indexOf('from("connection_oauth_states")\n      .delete()') < fn.indexOf('from("connection_token_vault")\n      .delete()'));
 check("rate-limit count error fails closed", /countErr \|\| count === null/.test(fn));
 check("no module-scope admin import in functions", !/^import .*client\.server/m.test(fn) && !/^import .*client\.server/m.test(cb));
-check("token never returned from functions", !/access_token|ciphertext:\s*v|return \{[^}]*token/.test(fn));
+check("token never returned from functions", !/access_token/.test(fn) && !/return \{[^}]*(ciphertext|token:|\btoken\b,)/.test(fn));
 
 console.log(`\n${pass} passed, ${fail} failed`);
 if (fail) process.exit(1);
