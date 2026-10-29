@@ -2519,7 +2519,6 @@ function Index() {
           stageMarks.speedPath = true;
           setTerminal((t) => [...t, `⚡ Reused a proven ${getFamily(provenDna.family).label} direction (scored ${proven!.score}/100) — planner call skipped`]);
         } else if (artProfile !== "fast" && paidAccess) {
-          stageMarks.plannerCalled = true;
           const planner = resolvePocketPlannerModel();
           try {
             const plannerPrompt = conceptPlannerPrompt({
@@ -2537,6 +2536,8 @@ function Index() {
             } else if (!("paywall" in out.res) && out.res.ok) {
               buildPlan = out.plan ?? base;
               const serverCached = out.res.cached;
+              // Only count physical planner dispatches, not local/server cache hits.
+              stageMarks.plannerCalled = !serverCached;
               setTerminal((t) => [...t, `✓ Direction planned with ${planner.entryLabel}${serverCached ? " (cached)" : ""}`]);
             }
           } catch {
