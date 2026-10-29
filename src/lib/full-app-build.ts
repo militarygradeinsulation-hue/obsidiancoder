@@ -449,6 +449,16 @@ jobs:
           path: dist/
       - id: deployment
         uses: actions/deploy-pages@v4
+      - name: Verify deployed production URL
+        run: node scripts/obsidian-live-check.mjs "__DOLLAR__{{ steps.deployment.outputs.page_url }}"
+      - name: Archive live production QA
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: obsidian-live-qa
+          path: live-test-results/
+          if-no-files-found: ignore
+          retention-days: 14
 `;
 
 function yaml(raw: string): string { return raw.replaceAll("__DOLLAR__", "$"); }
