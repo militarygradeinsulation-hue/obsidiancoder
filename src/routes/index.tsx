@@ -2536,7 +2536,8 @@ function Index() {
               setTerminal((t) => [...t, "✓ Direction reused from this device's planner cache — no planner call"]);
             } else if (!("paywall" in out.res) && out.res.ok) {
               buildPlan = out.plan ?? base;
-              setTerminal((t) => [...t, `✓ Direction planned with ${planner.entryLabel}${out.res.ok && out.res.cached ? " (cached)" : ""}`]);
+              const serverCached = out.res.cached;
+              setTerminal((t) => [...t, `✓ Direction planned with ${planner.entryLabel}${serverCached ? " (cached)" : ""}`]);
             }
           } catch {
             setTerminal((t) => [...t, "⚠ Planner unavailable — using deterministic directions."]);
