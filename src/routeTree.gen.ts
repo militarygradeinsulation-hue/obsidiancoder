@@ -73,6 +73,7 @@ import { Route as ApiPublicTeamSlugRouteImport } from './routes/api/public/team.
 import { Route as LovableEmailAuthPreviewRouteImport } from './routes/lovable/email/auth/preview'
 import { Route as LovableEmailAuthWebhookRouteImport } from './routes/lovable/email/auth/webhook'
 import { Route as LovableEmailTransactionalPreviewRouteImport } from './routes/lovable/email/transactional/preview'
+import { Route as ApiPublicConnectionsGithubCallbackRouteImport } from './routes/api/public/connections.github.callback'
 import { Route as ApiPublicLibraryCodeIdRouteImport } from './routes/api/public/library.$code.$id'
 
 const IndexRoute = IndexRouteImport.update({
@@ -403,6 +404,12 @@ const LovableEmailTransactionalPreviewRoute =
     path: '/lovable/email/transactional/preview',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicConnectionsGithubCallbackRoute =
+  ApiPublicConnectionsGithubCallbackRouteImport.update({
+    id: '/api/public/connections/github/callback',
+    path: '/api/public/connections/github/callback',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicLibraryCodeIdRoute = ApiPublicLibraryCodeIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -474,6 +481,7 @@ export interface FileRoutesByFullPath {
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
+  '/api/public/connections/github/callback': typeof ApiPublicConnectionsGithubCallbackRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRoutesByTo {
@@ -541,6 +549,7 @@ export interface FileRoutesByTo {
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
+  '/api/public/connections/github/callback': typeof ApiPublicConnectionsGithubCallbackRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRoutesById {
@@ -609,6 +618,7 @@ export interface FileRoutesById {
   '/lovable/email/auth/preview': typeof LovableEmailAuthPreviewRoute
   '/lovable/email/auth/webhook': typeof LovableEmailAuthWebhookRoute
   '/lovable/email/transactional/preview': typeof LovableEmailTransactionalPreviewRoute
+  '/api/public/connections/github/callback': typeof ApiPublicConnectionsGithubCallbackRoute
   '/api/public/library/$code/$id': typeof ApiPublicLibraryCodeIdRoute
 }
 export interface FileRouteTypes {
@@ -678,6 +688,7 @@ export interface FileRouteTypes {
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
+    | '/api/public/connections/github/callback'
     | '/api/public/library/$code/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -745,6 +756,7 @@ export interface FileRouteTypes {
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
+    | '/api/public/connections/github/callback'
     | '/api/public/library/$code/$id'
   id:
     | '__root__'
@@ -812,6 +824,7 @@ export interface FileRouteTypes {
     | '/lovable/email/auth/preview'
     | '/lovable/email/auth/webhook'
     | '/lovable/email/transactional/preview'
+    | '/api/public/connections/github/callback'
     | '/api/public/library/$code/$id'
   fileRoutesById: FileRoutesById
 }
@@ -878,6 +891,7 @@ export interface RootRouteChildren {
   LovableEmailAuthPreviewRoute: typeof LovableEmailAuthPreviewRoute
   LovableEmailAuthWebhookRoute: typeof LovableEmailAuthWebhookRoute
   LovableEmailTransactionalPreviewRoute: typeof LovableEmailTransactionalPreviewRoute
+  ApiPublicConnectionsGithubCallbackRoute: typeof ApiPublicConnectionsGithubCallbackRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -1330,6 +1344,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LovableEmailTransactionalPreviewRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/connections/github/callback': {
+      id: '/api/public/connections/github/callback'
+      path: '/api/public/connections/github/callback'
+      fullPath: '/api/public/connections/github/callback'
+      preLoaderRoute: typeof ApiPublicConnectionsGithubCallbackRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/library/$code/$id': {
       id: '/api/public/library/$code/$id'
       path: '/$id'
@@ -1439,6 +1460,8 @@ const rootRouteChildren: RootRouteChildren = {
   LovableEmailAuthPreviewRoute: LovableEmailAuthPreviewRoute,
   LovableEmailAuthWebhookRoute: LovableEmailAuthWebhookRoute,
   LovableEmailTransactionalPreviewRoute: LovableEmailTransactionalPreviewRoute,
+  ApiPublicConnectionsGithubCallbackRoute:
+    ApiPublicConnectionsGithubCallbackRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

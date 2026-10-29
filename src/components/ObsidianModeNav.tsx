@@ -36,6 +36,7 @@ export function ObsidianModeNav({
       {modes.length > 0 && <span className="obs-modenav-sep" aria-hidden />}
       <Link to="/archive" className="obs-modenav-secondary" title="Every build — reopen, download, publish">Archive</Link>
       <Link to="/library" className="obs-modenav-secondary obs-modenav-label-long" title="Saved and published builds">Library</Link>
+      <Link to="/connections" className="obs-modenav-secondary" title="Linked accounts like GitHub">Connections</Link>
       {showProject && project && (
         <>
           <span className="obs-modenav-sep" aria-hidden />
