@@ -1038,6 +1038,7 @@ ${memBlock}`,
           // LAST, so the art-direction brief is the final, authoritative word
           // instead of competing with generic reference markup.
           const premiumDirection =
+            !contextHtml &&
             !data.advisory &&
             !data.referenceRebuild &&
             (data.surface === "pocket" || data.surface === "vibe") &&

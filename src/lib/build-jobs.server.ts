@@ -179,21 +179,23 @@ export async function updateBuildJobProgress(
 /** Mark a job complete with its final result. */
 export async function completeBuildJob(
   id: string,
-  result: { resultHtml: string; servedModel?: string | null },
+  result: { resultHtml: string; servedModel?: string | null; responsePayload?: unknown },
 ): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { error } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from("build_jobs")
     .update({
       status: "complete",
       stage: "complete",
       progress: 100,
       result_html: result.resultHtml,
+      request_body: result.responsePayload ? { responsePayload: result.responsePayload } : {},
       served_model: result.servedModel ?? null,
       completed_at: new Date().toISOString(),
     } as never)
-    .eq("id", id);
+    .eq("id", id).eq("status", "running").eq("cancel_requested", false).select("id").maybeSingle();
   if (error) throw new Error(`build_jobs completion update failed: ${error.message}`);
+  if (!data && await isBuildJobCancelRequested(id)) await cancelBuildJobRecord(id);
 }
 
 /** Mark a job failed. */
@@ -205,9 +207,10 @@ export async function failBuildJob(id: string, errorMessage: string): Promise<vo
       status: "failed",
       stage: "failed",
       error: errorMessage.slice(0, 500),
+      request_body: {},
       completed_at: new Date().toISOString(),
     } as never)
-    .eq("id", id);
+    .eq("id", id).in("status", ["queued", "running"]);
   if (error) throw new Error(`build_jobs failure update failed: ${error.message}`);
 }
 
@@ -216,7 +219,7 @@ export async function cancelBuildJobRecord(id: string): Promise<void> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { error } = await supabaseAdmin
     .from("build_jobs")
-    .update({ status: "cancelled", stage: "cancelled", completed_at: new Date().toISOString() } as never)
+    .update({ status: "cancelled", stage: "cancelled", request_body: {}, completed_at: new Date().toISOString() } as never)
     .eq("id", id);
   if (error) throw new Error(`build_jobs cancel update failed: ${error.message}`);
 }

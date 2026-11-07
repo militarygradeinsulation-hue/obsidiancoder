@@ -50,13 +50,22 @@ export const Route = createFileRoute("/api/jobs/create")({
           );
         }
 
+        let cookie = request.headers.get("cookie");
+        let setCookie: string | undefined;
+        if (freePocket) {
+          const { readOrMintFreeOpenCookie } = await import("@/lib/free-open.server");
+          const minted = readOrMintFreeOpenCookie(request);
+          setCookie = minted.setCookieHeader;
+          if (setCookie) cookie = (cookie ? cookie + "; " : "") + "obs-free-open=" + minted.cookieId;
+        }
         const stored: StoredJobRequest = {
           body: parsed.data,
           authorization: request.headers.get("authorization"),
           ownerCodeHeader: request.headers.get(OWNER_CODE_HEADER),
-          cookie: request.headers.get("cookie"),
+          cookie,
+          userAgent: request.headers.get("user-agent"),
           freePocket,
-          forwardedFor: request.headers.get("x-forwarded-for"),
+          forwardedFor: request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
         };
 
         const jobId = await createBuildJob({
@@ -84,7 +93,7 @@ export const Route = createFileRoute("/api/jobs/create")({
           await failBuildJob(jobId, "Could not dispatch background worker.");
           return Response.json({ error: "Could not start the background build. No AI call was made." }, { status: 503 });
         }
-        return Response.json({ jobId, accessToken: !owner && !user ? accessToken : undefined });
+        return Response.json({ jobId, accessToken: !owner && !user ? accessToken : undefined }, { headers: setCookie ? { "Set-Cookie": setCookie, "Cache-Control": "no-store" } : { "Cache-Control": "no-store" } });
       },
     },
   },

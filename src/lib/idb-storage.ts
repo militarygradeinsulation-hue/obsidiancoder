@@ -75,7 +75,10 @@ export async function idbSet(key: string, value: unknown): Promise<boolean> {
     if (!store) return resolve(false);
     try {
       const req = store.put(value, key);
-      req.onsuccess = () => resolve(true);
+      // A successful put can still roll back; report durability at commit.
+      store.transaction.oncomplete = () => resolve(true);
+      store.transaction.onabort = () => resolve(false);
+      store.transaction.onerror = () => resolve(false);
       req.onerror = () => resolve(false);
     } catch {
       resolve(false);

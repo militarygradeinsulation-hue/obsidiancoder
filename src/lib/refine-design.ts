@@ -19,6 +19,16 @@ export function assertRefineDesign(before: string, after: string, prompt: string
     }
   }
   const landmarks = (s: string) => [...s.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, "").matchAll(/<(header|nav|main|footer)\b[^>]*>/gi)].map(m => m[1].toLowerCase());
+  // Preserve the primary containers' classes and inline layout as well as their order.
+  if (!stylingRequested) {
+    for (const original of before.matchAll(/<(?:body|header|nav|main|footer)\b[^>]*>/gi)) {
+      const tag = original[0].match(/^<([a-z]+)/i)![1];
+      const candidates = [...after.matchAll(new RegExp("<" + tag + "\\b[^>]*>", "gi"))];
+      const attrs = ["class", "style", "id"].map(attr => original[0].match(new RegExp("\\b" + attr + "=[\"']([^\"']*)[\"']", "i"))?.[0]).filter(Boolean) as string[];
+      if (attrs.length && !candidates.some(m => attrs.every(attr => m[0].includes(attr))))
+        throw new Error("Refinement changed a primary layout container.");
+    }
+  }
   const next = landmarks(after); let cursor = 0;
   for (const landmark of landmarks(before)) {
     const found = next.indexOf(landmark, cursor);

@@ -1,5 +1,5 @@
 import { ProjectImages } from "@/components/ProjectImages";
-import { assetToken, restoreProjectImages, type ProjectImage } from "@/lib/project-assets";
+import { assetToken, restoreProjectImages, readProjectImage, type ProjectImage } from "@/lib/project-assets";
 import { generateDurably, pendingBuilds, readBuild, forgetBuild, stopBuild } from "@/lib/build-job-client";
 import { assertRefineDesign } from "@/lib/refine-design";
 import { createFileRoute, redirect, ClientOnly, Link } from "@tanstack/react-router";
@@ -1585,7 +1585,7 @@ function Index() {
                   messages: [...s.messages, { role: "assistant" as const, content: "Background build finished. Open its saved version to review and restore it." }] } : s)
               : [...all, recovered];
           });
-          forgetBuild(job.jobId); return;
+          return;
         }
         if (out.status === "failed" || out.status === "cancelled") {
           setTerminal(lines => [...lines, "Background build: " + (out.error || out.status)]);
@@ -1628,6 +1628,16 @@ function Index() {
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
     writeTimerRef.current = setTimeout(() => {
       const ok = dualSafeSet(STORAGE_KEY, sessions);
+      if (ok) for (const job of pendingBuilds().filter(j => j.scope.startsWith("studio:"))) {
+        const session = sessions.find(s => "studio:" + s.id === job.scope);
+        if (!session) continue;
+        void readBuild(job).then(async response => {
+          if (!response.ok) return;
+          const out = await response.json();
+          if (out.status === "complete" && (session.html === out.resultHtml || session.versions.some(v => v.html === out.resultHtml || v.id === job.jobId)))
+            forgetBuild(job.jobId);
+        }).catch(() => {});
+      }
       if (!ok) setTerminal((t) => (t[t.length - 1]?.includes("Storage quota") ? t : [...t, "! Storage quota exceeded — session not persisted"]));
     }, 250);
     return () => { if (writeTimerRef.current) clearTimeout(writeTimerRef.current); };
@@ -1915,12 +1925,7 @@ function Index() {
           continue;
         }
         if (file.type.startsWith("image/")) {
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            const r = new FileReader();
-            r.onload = () => resolve(String(r.result));
-            r.onerror = () => reject(new Error("read failed"));
-            r.readAsDataURL(file);
-          });
+          const { dataUrl } = await readProjectImage(file);
           setPendingAttachments((a) => [...a, { kind: "image", name: file.name, dataUrl }]);
         } else if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
           const text = await extractPdfText(file);
@@ -2262,7 +2267,8 @@ function Index() {
       previewMode &&
       classification.strategy === "ai-patch" &&
       stableHtml &&
-      pendingAttachments.length === 0
+      pendingAttachments.length === 0 &&
+      !basePrompt.includes("obs-asset://")
     ) {
 
       const modelForPatch = adaptiveModel;
@@ -2273,18 +2279,11 @@ function Index() {
       abortMapRef.current.set(sessionId, patchController);
       try {
         setTerminal((t) => [...t, `→ Patch mode → ${modelForPatch}`]);
-        const pRes = await authFetch("/api/patch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: patchController.signal,
-          body: JSON.stringify({
-            prompt: basePrompt,
-            currentHtml: stableHtml,
-            outline,
-            memory: memoryStr,
-            model: modelForPatch,
-          }),
-        });
+        const pRes = await generateDurably({
+          task: "patch", surface: "coder", prompt: basePrompt, currentHtml: stableHtml,
+          outline, memory: memoryStr, model: modelForPatch,
+        }, { method: "POST", headers: { "Content-Type": "application/json" }, signal: patchController.signal },
+          "studio:" + sessionId);
         const pCtype = (pRes.headers.get("content-type") || "").toLowerCase();
         let pJson:
           | { ok: true; patch: unknown; model: string; fallbackUsed: boolean; requestId?: string }
@@ -2329,6 +2328,8 @@ function Index() {
             break patchAttempt;
           } else if (patchParsed.data.operations.length === 0) {
 
+            const finished = pendingBuilds().find(j => j.scope === "studio:" + sessionId);
+            if (finished) forgetBuild(finished.jobId);
             // Legitimate escape hatch: model explicitly deferred to full generation.
             setTerminal((t) => [...t, `· Model deferred to full generation (empty patch).`]);
 
@@ -2342,6 +2343,7 @@ function Index() {
 
             let validation = validateHtml(applied.html);
             let patchedHtml = applied.html;
+            assertRefineDesign(stableHtml, patchedHtml, basePrompt);
             const patchRepairAttempts: RepairAttempt[] = [];
             if (validation.status === "failed") {
               const rep = tryLocalRepair(patchedHtml, validation.issues);
@@ -2433,6 +2435,7 @@ function Index() {
             validation = finP.finalValidation;
 
             const newVersion: Version = makeVersion(committedPatchHtml, versionLabel, commitMeta);
+            newVersion.id = pendingBuilds().find(j => j.scope === "studio:" + sessionId)?.jobId ?? newVersion.id;
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
                   ...s,
@@ -2477,6 +2480,10 @@ function Index() {
           setLoading(false); setStage(null); markBuildEnd(sessionId);
           abortRef.current = null;
           return;
+        }
+        if (pendingBuilds().some(j => j.scope === "studio:" + sessionId)) {
+          setError("The background refinement is still available. Reopen the project to reconnect, or stop it before retrying.");
+          setLoading(false); setStage(null); markBuildEnd(sessionId); return;
         }
         setTerminal((t) => [...t, `✗ Patch route error: ${(err as Error).message.slice(0, 120)} — falling back to full AI generation.`]);
         abortRef.current = null;
@@ -3301,6 +3308,7 @@ function Index() {
       }
 
       const newVersion: Version = makeVersion(committedFinalHtml, versionLabel, genMeta);
+      newVersion.id = pendingBuilds().find(j => j.scope === "studio:" + sessionId)?.jobId ?? newVersion.id;
       setSessions((all) => all.map((s) => s.id === sessionId
         ? {
             ...s,

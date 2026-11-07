@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { getBuildJob, requestBuildJobCancel } from "@/lib/build-jobs.server";
+import { getBuildJob, requestBuildJobCancel, cancelBuildJobRecord } from "@/lib/build-jobs.server";
 import { isOwnerRequest, resolveUserFromRequest } from "@/lib/credit-gate.server";
 
 export const Route = createFileRoute("/api/jobs/$id")({
@@ -38,6 +38,7 @@ export const Route = createFileRoute("/api/jobs/$id")({
           createdAt: job.createdAt,
           completedAt: job.completedAt,
           servedModel: job.servedModel,
+          responsePayload: job.status === "complete" ? (job.requestBody as { responsePayload?: unknown } | null)?.responsePayload : undefined,
         }, { headers: { "Cache-Control": "no-store" } });
       },
       DELETE: async ({ request, params }) => {
@@ -53,6 +54,7 @@ export const Route = createFileRoute("/api/jobs/$id")({
           return Response.json({ error: "Not found" }, { status: 404 });
         }
         await requestBuildJobCancel(id);
+        if (job.status === "queued") await cancelBuildJobRecord(id);
         return Response.json({ ok: true });
       },
     },

@@ -544,7 +544,6 @@ function ForgePage() {
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout> | undefined;
     const POLL_INTERVAL_MS = 4000;
-    const MAX_POLL_MS = 5 * 60_000; // stop watching after 5 minutes either way
 
     const poll = async () => {
       if (cancelled) return;
@@ -563,7 +562,9 @@ function ForgePage() {
           setPane("preview");
           setStatus("Your build finished while you were away");
           log("Recovered a build that finished in the background.");
-          forgetBuild(pending.jobId);
+          const existing = safeGet<PocketSession>(sessionKey(code));
+          if (safeSet(sessionKey(code), { ...existing, html: job.resultHtml, title: existing?.title ?? "Recovered build",
+            prompt: existing?.prompt ?? "", versions: existing?.versions ?? [], at: Date.now() })) forgetBuild(pending.jobId);
           return;
         }
         if (job.status === "failed" || job.status === "cancelled") {
@@ -1236,7 +1237,7 @@ function ForgePage() {
       // to have resolved, guarantees it survives regardless of mount state.
       // The existing restore-on-mount logic in Pocket already reads this
       // same key, so the next time Pocket opens the finished build is there.
-      safeSet(sessionKey(libraryCode), {
+      const persistedBuild = safeSet(sessionKey(libraryCode), {
         html: finalHtml,
         title: buildTitle,
         prompt: p,
@@ -1251,6 +1252,10 @@ function ForgePage() {
         mode,
         model,
       } satisfies PocketSession);
+      if (persistedBuild) {
+        const done = pendingBuilds().find(j => j.scope === "pocket:" + (libraryCode.trim() || "guest"));
+        if (done) forgetBuild(done.jobId);
+      }
 
       // Shelve every build in the permanent archive, saved or not.
       try {

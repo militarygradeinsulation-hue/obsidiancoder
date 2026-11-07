@@ -1,5 +1,5 @@
 import { authFetch } from "./auth-fetch";
-import { safeGet, safeSet, safeRemove } from "./safe-storage";
+import { safeGet, safeSet } from "./safe-storage";
 export type PendingBuild = { jobId: string; accessToken?: string; scope: string; startedAt: number };
 const KEY = "obs.pendingBuilds.v2";
 export const pendingBuilds = (): PendingBuild[] => safeGet<PendingBuild[]>(KEY) ?? [];
@@ -34,9 +34,10 @@ export async function generateDurably(body: Record<string, unknown>, init: Reque
     if (init.signal?.aborted) throw new DOMException("Viewer detached; build continues in background.", "AbortError");
     const res = await readBuild(job);
     if (!res.ok) throw new Error("Build continues in the background. Reopen this project to reconnect.");
-    const out = await res.json() as { status: string; resultHtml?: string; servedModel?: string; error?: string };
+    const out = await res.json() as { status: string; resultHtml?: string; servedModel?: string; error?: string; responsePayload?: unknown };
     if (out.status === "complete" && out.resultHtml) {
-      forgetBuild(jobId);
+      // The UI acknowledges only after saving; navigation must not lose the pointer.
+      if (body.task === "patch" && out.responsePayload) return Response.json(out.responsePayload);
       return new Response(out.resultHtml, { headers: { "content-type": "text/html", "x-obs-model-used": out.servedModel ?? "" } });
     }
     if (out.status === "failed" || out.status === "cancelled") {
