@@ -22,13 +22,25 @@ function entitiesDir(): string {
 }
 const ENTITIES = entitiesDir();
 import { defineConfig } from "@lovable.dev/vite-tanstack-config";
-import { loadEnv } from "vite";
+import { loadEnv, type Plugin } from "vite";
 import { mcpPlugin } from "@lovable.dev/mcp-js/stacks/tanstack/vite";
 
 // Load ALL env vars (no prefix) into process.env for server routes.
 // Do NOT expose these to the client bundle via envDefine.
 const serverEnv = loadEnv(process.env.NODE_ENV ?? "development", process.cwd(), "");
 Object.assign(process.env, serverEnv);
+
+// Vite normalizes root with forward slashes; MCP 0.24 compares using the
+// native separator. Give only that plugin a native path on Windows.
+function platformMcpPlugin(): Plugin {
+  const plugin = mcpPlugin();
+  const resolved = plugin.configResolved;
+  if (process.platform !== "win32" || !resolved) return plugin;
+  const hook = typeof resolved === "function" ? resolved : resolved.handler;
+  return { ...plugin, configResolved(config) {
+    return hook.call(this, { ...config, root: path.resolve(config.root) });
+  }};
+}
 
 export default defineConfig({
   tanstackStart: {
@@ -37,12 +49,11 @@ export default defineConfig({
     server: { entry: "server" },
   },
   vite: {
-    plugins: [mcpPlugin()],
+    plugins: [platformMcpPlugin()],
     resolve: {
       alias: {
         "entities/lib/decode.js": path.join(ENTITIES, "lib/decode.js"),
         "entities/lib/encode.js": path.join(ENTITIES, "lib/encode.js"),
-        entities: ENTITIES,
       },
     },
   },

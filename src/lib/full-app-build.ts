@@ -38,8 +38,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-__DOLLAR__{{ runner.os }}-__DOLLAR__{{ hashFiles('package.json') }}
       - name: Install pinned dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --prefer-offline --no-audit --no-fund
       - name: Typecheck and production build
         run: npm run build
         env:
@@ -75,12 +79,16 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
+      - uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-__DOLLAR__{{ runner.os }}-__DOLLAR__{{ hashFiles('package.json') }}
       - name: Install pinned dependencies
-        run: npm install --no-audit --no-fund
+        run: npm install --prefer-offline --no-audit --no-fund
       - name: Build published app
         run: npm run build
         env:
-          GITHUB_PAGES_BASE: /__DOLLAR__{{ github.event.repository.name }}/
+          GITHUB_PAGES_BASE: __DOLLAR__{{ vars.OBSIDIAN_PAGES_BASE || format('/{0}/', github.event.repository.name) }}
           VITE_SUPABASE_URL: __DOLLAR__{{ vars.VITE_SUPABASE_URL }}
           VITE_SUPABASE_PUBLISHABLE_KEY: __DOLLAR__{{ vars.VITE_SUPABASE_PUBLISHABLE_KEY }}
       - uses: actions/configure-pages@v5

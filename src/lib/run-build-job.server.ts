@@ -10,12 +10,16 @@
 // Postgres -> HTTP callback) and /api/public/jobs/sweep (the cron-driven
 // safety net for anything that didn't finish through its original path).
 
-import { claimBuildJob, getBuildJob, failBuildJob } from "@/lib/build-jobs.server";
+import { claimBuildJob, getBuildJob, failBuildJob, completeBuildJob, isBuildJobCancelRequested, cancelBuildJobRecord } from "@/lib/build-jobs.server";
 import { OWNER_CODE_HEADER } from "@/lib/credit-gate.server";
 
 /** The shape createBuildJob's caller stores in request_body — see jobs.create.ts. */
 export interface StoredJobRequest {
   body: unknown;
+  cookie?: string | null;
+  userAgent?: string | null;
+  freePocket?: boolean;
+  forwardedFor?: string | null;
   /**
    * The Authorization: Bearer <token> header from the original request —
    * this, not a cookie, is what resolveUserFromRequest actually reads for
@@ -67,6 +71,10 @@ export async function claimAndRunBuildJob(jobId: string): Promise<void> {
 
     const headers = new Headers({ "content-type": "application/json" });
     if (stored.authorization) headers.set("authorization", stored.authorization);
+    if (stored.cookie) headers.set("cookie", stored.cookie);
+    if (stored.userAgent) headers.set("user-agent", stored.userAgent);
+    if (stored.freePocket) headers.set("x-obs-free", "1");
+    if (stored.forwardedFor) headers.set("x-forwarded-for", stored.forwardedFor);
     if (stored.ownerCodeHeader) headers.set(OWNER_CODE_HEADER, stored.ownerCodeHeader);
 
     // jobId travels INSIDE the body (inputSchema's own jobId field), not as
@@ -87,8 +95,33 @@ export async function claimAndRunBuildJob(jobId: string): Promise<void> {
       // behave normally rather than being artificially skipped.
     });
 
+    if ((stored.body as { task?: string }).task === "patch") {
+      const { handlePatch } = await import("@/routes/api/patch");
+      const { applyPatch } = await import("@/lib/patch-engine");
+      const { parsePatchResponse } = await import("@/lib/patch-protocol");
+      const { assertRefineDesign } = await import("@/lib/refine-design");
+      const { validateHtml } = await import("@/lib/validation");
+      const response = await handlePatch(reconstructed);
+      const payload = await response.json() as { ok?: boolean; patch?: unknown; model?: string; message?: string; error?: string };
+      if (!response.ok || !payload.ok) throw new Error(payload.error || payload.message || "Patch failed.");
+      const parsed = parsePatchResponse(JSON.stringify(payload.patch));
+      if (!parsed.ok) throw new Error("Invalid patch result.");
+      const source = (stored.body as { currentHtml: string; prompt: string });
+      const applied = applyPatch(source.currentHtml, parsed.patch);
+      if (!applied.ok) throw new Error(applied.error);
+      assertRefineDesign(source.currentHtml, applied.html, source.prompt);
+      if (validateHtml(applied.html).status === "failed") throw new Error("Patch failed validation.");
+      if (await isBuildJobCancelRequested(jobId)) { await cancelBuildJobRecord(jobId); return; }
+      await completeBuildJob(jobId, { resultHtml: applied.html, servedModel: payload.model, responsePayload: payload });
+      return;
+    }
     const { handleGenerate } = await import("@/routes/api/generate");
-    const response = await handleGenerate(reconstructed);
+    const response = await handleGenerate(reconstructed, { claimedJobId: jobId });
+    if (!response.ok) {
+      const envelope = await response.json().catch(() => null) as { message?: string; error?: string } | null;
+      await failBuildJob(jobId, envelope?.message || envelope?.error || "Build authorization or generation failed.");
+      return;
+    }
 
     // Nobody is listening to this response live — drain it to completion
     // so the underlying stream actually runs to its end (and therefore

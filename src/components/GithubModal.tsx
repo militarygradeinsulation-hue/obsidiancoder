@@ -22,6 +22,9 @@ type DeployResult = {
 const TOKEN_KEY = "obs.gh.token";
 
 const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
+  prepareDomain: "github_deploy",
+  connectDomain: "github_deploy",
+  domainStatus: "github_list",
   verify:    "github_verify",
   listRepos: "github_list",
   import:    "github_import",
@@ -81,6 +84,8 @@ export function GithubModal(props: {
   const [appPublishableKey, setAppPublishableKey] = React.useState("");
   const [builds, setBuilds] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
   const [publishes, setPublishes] = React.useState<Array<{ id: number; status: string; conclusion: string | null; url: string; created_at: string }>>([]);
+  const [domain, setDomain] = React.useState("");
+  const [domainState, setDomainState] = React.useState<{ message?: string; url?: string; owned?: boolean; dnsReady?: boolean; certificate?: string; records?: Array<{ type: string; name: string; value: string; note?: string }> } | null>(null);
   const [hostingUrl, setHostingUrl] = React.useState("");
   const [backendMode, setBackendMode] = React.useState<"functions-only" | "schema-and-functions">("functions-only");
   const [backendReady, setBackendReady] = React.useState<null | {
@@ -202,6 +207,24 @@ export function GithubModal(props: {
       setErr(message); onLog("GitHub Full App: " + message);
     } finally { setLoading(null); }
   }
+
+  async function domainAction(action: "prepareDomain" | "connectDomain" | "domainStatus") {
+    if (!managedRepo.trim()) { setErr("Choose the published repository first."); return; }
+    setLoading(action); setErr(null);
+    try {
+      const result = await ghCall<NonNullable<typeof domainState>>({ action, token, repo: managedRepo.trim(), domain });
+      setDomainState(result);
+      localStorage.setItem("obs.domain:" + user?.login + "/" + managedRepo, JSON.stringify({ domain, result }));
+    } catch (error) { setErr(error instanceof Error ? error.message : "Domain setup failed."); }
+    finally { setLoading(null); }
+  }
+  React.useEffect(() => {
+    setDomain(""); setDomainState(null);
+    try {
+      const saved = JSON.parse(localStorage.getItem("obs.domain:" + user?.login + "/" + managedRepo) || "null");
+      if (saved) { setDomain(saved.domain); setDomainState(saved.result); }
+    } catch { /* saved status is optional */ }
+  }, [managedRepo, user?.login]);
 
   async function importOne(repo: Repo) {
     setErr(null);
@@ -474,6 +497,20 @@ export function GithubModal(props: {
               )}
             </section>
 
+            <section className="obs-node" aria-label="Connect an owned domain">
+              <h3>Connect a domain you own</h3>
+              <p className="text-xs opacity-70">Choose a published GitHub Pages repository below. Prepare the domain, add the DNS records at your domain provider, then connect. Keep your TXT proof to retain verification.</p>
+              <input aria-label="Owned domain" placeholder="www.example.com" value={domain} onChange={event => { setDomain(event.target.value); setDomainState(null); }}/>
+              <button type="button" className="obs-chip" disabled={!!loading || !domain.trim() || !managedRepo.trim()} onClick={() => void domainAction("prepareDomain")}>1. Show DNS records</button>
+              <button type="button" className="obs-chip" disabled={!!loading || !domainState} onClick={() => void domainAction("connectDomain")}>2. Verify and connect</button>
+              <button type="button" className="obs-chip" disabled={!!loading || !domain.trim()} onClick={() => void domainAction("domainStatus")}>Check DNS and HTTPS</button>
+              {domainState && <div role="status" className="text-xs">
+                <p>{domainState.message}</p>
+                {domainState.certificate && <p>Ownership: {domainState.owned ? "verified" : "pending"} · DNS: {domainState.dnsReady ? "ready" : "pending"} · Certificate: {domainState.certificate}</p>}
+                {domainState.records?.map(record => <p key={record.type + record.value} className="break-all">{record.type} · {record.name} · <code>{record.value}</code> {record.note}</p>)}
+                {domainState.url && <a href={domainState.url} target="_blank" rel="noopener noreferrer">Open verified domain</a>}
+              </div>}
+            </section>
             <section style={{ borderTop: "1px solid rgba(182,188,200,.2)", paddingTop: 14, marginBottom: 18 }}>
               <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, opacity: .75, marginBottom: 9 }}>
                 Full App · managed build and release

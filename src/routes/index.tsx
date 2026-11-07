@@ -1,3 +1,7 @@
+import { ProjectImages } from "@/components/ProjectImages";
+import { assetToken, restoreProjectImages, readProjectImage, type ProjectImage } from "@/lib/project-assets";
+import { generateDurably, pendingBuilds, readBuild, forgetBuild, stopBuild } from "@/lib/build-job-client";
+import { assertRefineDesign } from "@/lib/refine-design";
 import { createFileRoute, redirect, ClientOnly, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -1384,6 +1388,7 @@ function Index() {
   }
 
   function stopGeneration() {
+    void stopBuild("studio:" + activeId);
     cancelBuild(activeId);
   }
 
@@ -1556,6 +1561,43 @@ function Index() {
     setHydrated(true);
   }, []);
 
+  // Reattach to durable jobs once the saved Studio sessions have hydrated.
+  useEffect(() => {
+    if (!hydrated) return;
+    let disposed = false;
+    const jobs = pendingBuilds().filter(j => j.scope.startsWith("studio:"));
+    const timers: ReturnType<typeof setTimeout>[] = [];
+    const poll = async (job: (typeof jobs)[number]) => {
+      try {
+        const response = await readBuild(job);
+        if (disposed) return;
+        if (!response.ok) { timers.push(setTimeout(() => void poll(job), 5000)); return; }
+        const out = await response.json();
+        if (disposed) return;
+        if (out.status === "complete" && out.resultHtml) {
+          const sid = job.scope.slice("studio:".length);
+          // A separate recovered version avoids silently replacing newer manual edits.
+          setSessions(all => {
+            const recovered = { ...newSession(), title: "Recovered background build", html: out.resultHtml,
+              versions: [{ id: job.jobId, ts: Date.now(), html: out.resultHtml, label: "Background build" }] };
+            return all.some(s => s.id === sid)
+              ? all.map(s => s.id === sid ? { ...s, versions: [...s.versions, ...recovered.versions],
+                  messages: [...s.messages, { role: "assistant" as const, content: "Background build finished. Open its saved version to review and restore it." }] } : s)
+              : [...all, recovered];
+          });
+          return;
+        }
+        if (out.status === "failed" || out.status === "cancelled") {
+          setTerminal(lines => [...lines, "Background build: " + (out.error || out.status)]);
+          forgetBuild(job.jobId); return;
+        }
+      } catch { /* keep the durable reference across temporary network failures */ }
+      if (!disposed) timers.push(setTimeout(() => void poll(job), 4000));
+    };
+    jobs.forEach(job => void poll(job));
+    return () => { disposed = true; timers.forEach(clearTimeout); };
+  }, [hydrated]);
+
   // One-time import of the legacy global discussion into the active build.
   // Runs once after hydration; never duplicates into a second build.
   const migratedRef = useRef(false);
@@ -1586,6 +1628,16 @@ function Index() {
     if (writeTimerRef.current) clearTimeout(writeTimerRef.current);
     writeTimerRef.current = setTimeout(() => {
       const ok = dualSafeSet(STORAGE_KEY, sessions);
+      if (ok) for (const job of pendingBuilds().filter(j => j.scope.startsWith("studio:"))) {
+        const session = sessions.find(s => "studio:" + s.id === job.scope);
+        if (!session) continue;
+        void readBuild(job).then(async response => {
+          if (!response.ok) return;
+          const out = await response.json();
+          if (out.status === "complete" && (session.html === out.resultHtml || session.versions.some(v => v.html === out.resultHtml || v.id === job.jobId)))
+            forgetBuild(job.jobId);
+        }).catch(() => {});
+      }
       if (!ok) setTerminal((t) => (t[t.length - 1]?.includes("Storage quota") ? t : [...t, "! Storage quota exceeded — session not persisted"]));
     }, 250);
     return () => { if (writeTimerRef.current) clearTimeout(writeTimerRef.current); };
@@ -1840,6 +1892,7 @@ function Index() {
     | { kind: "image"; name: string; dataUrl: string }
     | { kind: "text"; name: string; text: string; source: "text" | "pdf" };
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [projectImages, setProjectImages] = useState<ProjectImage[]>([]);
   const [captureMode, setCaptureMode] = useState<null | "full" | "snip">(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -1872,12 +1925,7 @@ function Index() {
           continue;
         }
         if (file.type.startsWith("image/")) {
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            const r = new FileReader();
-            r.onload = () => resolve(String(r.result));
-            r.onerror = () => reject(new Error("read failed"));
-            r.readAsDataURL(file);
-          });
+          const { dataUrl } = await readProjectImage(file);
           setPendingAttachments((a) => [...a, { kind: "image", name: file.name, dataUrl }]);
         } else if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
           const text = await extractPdfText(file);
@@ -2219,7 +2267,8 @@ function Index() {
       previewMode &&
       classification.strategy === "ai-patch" &&
       stableHtml &&
-      pendingAttachments.length === 0
+      pendingAttachments.length === 0 &&
+      !basePrompt.includes("obs-asset://")
     ) {
 
       const modelForPatch = adaptiveModel;
@@ -2230,18 +2279,11 @@ function Index() {
       abortMapRef.current.set(sessionId, patchController);
       try {
         setTerminal((t) => [...t, `→ Patch mode → ${modelForPatch}`]);
-        const pRes = await authFetch("/api/patch", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          signal: patchController.signal,
-          body: JSON.stringify({
-            prompt: basePrompt,
-            currentHtml: stableHtml,
-            outline,
-            memory: memoryStr,
-            model: modelForPatch,
-          }),
-        });
+        const pRes = await generateDurably({
+          task: "patch", surface: "coder", prompt: basePrompt, currentHtml: stableHtml,
+          outline, memory: memoryStr, model: modelForPatch,
+        }, { method: "POST", headers: { "Content-Type": "application/json" }, signal: patchController.signal },
+          "studio:" + sessionId);
         const pCtype = (pRes.headers.get("content-type") || "").toLowerCase();
         let pJson:
           | { ok: true; patch: unknown; model: string; fallbackUsed: boolean; requestId?: string }
@@ -2286,6 +2328,8 @@ function Index() {
             break patchAttempt;
           } else if (patchParsed.data.operations.length === 0) {
 
+            const finished = pendingBuilds().find(j => j.scope === "studio:" + sessionId);
+            if (finished) forgetBuild(finished.jobId);
             // Legitimate escape hatch: model explicitly deferred to full generation.
             setTerminal((t) => [...t, `· Model deferred to full generation (empty patch).`]);
 
@@ -2299,6 +2343,7 @@ function Index() {
 
             let validation = validateHtml(applied.html);
             let patchedHtml = applied.html;
+            assertRefineDesign(stableHtml, patchedHtml, basePrompt);
             const patchRepairAttempts: RepairAttempt[] = [];
             if (validation.status === "failed") {
               const rep = tryLocalRepair(patchedHtml, validation.issues);
@@ -2389,7 +2434,9 @@ function Index() {
             };
             validation = finP.finalValidation;
 
+            assertRefineDesign(stableHtml, committedPatchHtml, basePrompt);
             const newVersion: Version = makeVersion(committedPatchHtml, versionLabel, commitMeta);
+            newVersion.id = pendingBuilds().find(j => j.scope === "studio:" + sessionId)?.jobId ?? newVersion.id;
             setSessions((all) => all.map((s) => s.id === sessionId
               ? {
                   ...s,
@@ -2435,6 +2482,10 @@ function Index() {
           abortRef.current = null;
           return;
         }
+        if (pendingBuilds().some(j => j.scope === "studio:" + sessionId)) {
+          setError("The background refinement is still available. Reopen the project to reconnect, or stop it before retrying.");
+          setLoading(false); setStage(null); markBuildEnd(sessionId); return;
+        }
         setTerminal((t) => [...t, `✗ Patch route error: ${(err as Error).message.slice(0, 120)} — falling back to full AI generation.`]);
         abortRef.current = null;
         break patchAttempt;
@@ -2447,10 +2498,16 @@ function Index() {
 
     // 3. Full-generation AI path (streaming).
     const modePrefix = MODE_PREFIX[activeMode] ? `[${activeMode.toUpperCase()} MODE] ${MODE_PREFIX[activeMode]}\n\n` : "";
+    const attachedImages: ProjectImage[] = [
+      ...projectImages,
+      ...pendingAttachments.filter((a): a is Extract<Attachment, { kind: "image" }> => a.kind === "image").map(a => ({
+        id: crypto.randomUUID(), name: a.name, dataUrl: a.dataUrl, role: "content" as const,
+      })),
+    ];
     let prompt = modePrefix + (basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : ""));
     for (const att of pendingAttachments) {
       if (att.kind === "image") {
-        prompt += `\n\n[Attached image — embed exactly, do not replace]\nfilename: ${att.name}\nsrc: ${att.dataUrl}`;
+        prompt += `\n\n[Attached image — embed exactly, do not replace]\nfilename: ${att.name}\nsrc: ${assetToken(attachedImages.find(a => a.dataUrl === att.dataUrl)!)}`;
       } else {
         const label = att.source === "pdf" ? "PDF style guide (extracted text)" : "Style guide / reference document";
         prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
@@ -2582,6 +2639,7 @@ function Index() {
       };
       const genBody: Record<string, unknown> = {
         prompt,
+        projectAssets: attachedImages,
         currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
         // A fresh premium build carries no chat history — nothing in it can
         // help, and it dilutes the art-direction brief.
@@ -2634,12 +2692,9 @@ function Index() {
             })()
           : {}),
       };
-      const res = await authFetch("/api/generate", {
-        method: "POST",
-        headers: genHeaders,
-        body: JSON.stringify(genBody),
-        signal: controller.signal,
-      });
+      const res = await generateDurably(genBody, {
+        method: "POST", headers: genHeaders, signal: controller.signal,
+      }, "studio:" + sessionId);
 
 
       // Free-demo mode: the server confirms the claim via X-Obs-Demo header.
@@ -2923,6 +2978,8 @@ function Index() {
       setTerminal((t) => [...t,
         `→ Stages: plan ${stageMarks.planMs}ms${stageMarks.plannerCalled ? " (planner call)" : stageMarks.speedPath ? " (speed path — proven direction reused)" : " (deterministic)"} · build ${Math.round(durationMsGen - stageMarks.planMs)}ms · total ${Math.round(durationMsGen)}ms`,
       ]);
+      finalHtml = restoreProjectImages(finalHtml, attachedImages);
+      assertRefineDesign(stableHtml, finalHtml, basePrompt);
       const fullDiff = diffSummary(stableHtml, finalHtml);
       const providerChain = parseProviderHeader(imgProviders);
       const rollbackId = current.versions?.[0]?.id;
@@ -3251,7 +3308,9 @@ function Index() {
         return;
       }
 
+      assertRefineDesign(stableHtml, committedFinalHtml, basePrompt);
       const newVersion: Version = makeVersion(committedFinalHtml, versionLabel, genMeta);
+      newVersion.id = pendingBuilds().find(j => j.scope === "studio:" + sessionId)?.jobId ?? newVersion.id;
       setSessions((all) => all.map((s) => s.id === sessionId
         ? {
             ...s,
@@ -4907,6 +4966,8 @@ function Index() {
                   </>
                 );
               })()}
+              <ProjectImages scope={"studio:" + current.id} onChange={setProjectImages}
+                onUse={image => setInput(value => value + "\nUse project image " + image.name + " (" + assetToken(image) + ") in the existing build; preserve the primary layout.")}/>
               {pendingAttachments.length > 0 && (
                 <div className="obs-attach-list">
                   {pendingAttachments.map((att, i) => (

@@ -1,3 +1,5 @@
+import { assertRefineDesign, preserveDesignDirective } from "@/lib/refine-design";
+import { applyPatch } from "@/lib/patch-engine";
 // Patch generation route. Non-streaming. Returns JSON only.
 // The model is instructed to emit a Patch document (see src/lib/patch-protocol.ts).
 // If the first response is malformed, we retry ONCE with a repair instruction
@@ -196,10 +198,7 @@ async function callGateway(
 
 
 
-export const Route = createFileRoute("/api/patch")({
-  server: {
-    handlers: {
-      POST: async ({ request }) => {
+export async function handlePatch(request: Request): Promise<Response> {
         const requestId = newRequestId();
         let entitlement: EntitlementResult | null = null;
         let settled = false;
@@ -282,7 +281,7 @@ export const Route = createFileRoute("/api/patch")({
 
           const userMsg = `USER REQUEST:\n${data.prompt}\n\n${contextBlock}`;
           const baseMessages = [
-            { role: "system", content: SYSTEM_PROMPT },
+            { role: "system", content: SYSTEM_PROMPT + "\n" + preserveDesignDirective(data.currentHtml, data.prompt) },
             { role: "user", content: userMsg },
           ];
 
@@ -293,6 +292,11 @@ export const Route = createFileRoute("/api/patch")({
           if (attempt.ok) {
             const parsed = parsePatchResponse(attempt.text);
             if (parsed.ok) {
+              if (parsed.patch.operations.length) {
+                const candidate = applyPatch(data.currentHtml, parsed.patch);
+                if (!candidate.ok) throw new Error(candidate.error);
+                assertRefineDesign(data.currentHtml, candidate.html, data.prompt);
+              }
               await settleSuccess();
               return Response.json({
                 ok: true, patch: parsed.patch, model: modelUsed, fallbackUsed: false,
@@ -336,6 +340,11 @@ export const Route = createFileRoute("/api/patch")({
               { status: 200, headers: { "X-Request-Id": requestId } },
             );
           }
+          if (parsed2.patch.operations.length) {
+            const candidate = applyPatch(data.currentHtml, parsed2.patch);
+            if (!candidate.ok) throw new Error(candidate.error);
+            assertRefineDesign(data.currentHtml, candidate.html, data.prompt);
+          }
           await settleSuccess();
           return Response.json({
             ok: true, patch: parsed2.patch, model: modelUsed, fallbackUsed: true,
@@ -352,8 +361,6 @@ export const Route = createFileRoute("/api/patch")({
               });
           return aiErr.toResponse();
         }
-      },
-    },
-  },
-});
+}
 
+export const Route = createFileRoute("/api/patch")({ server: { handlers: { POST: ({ request }) => handlePatch(request) } } });

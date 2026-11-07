@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { createBuildJob } from "@/lib/build-jobs.server";
-import { claimAndRunBuildJob } from "@/lib/run-build-job.server";
+import { failBuildJob } from "@/lib/build-jobs.server";
 import { isOwnerRequest, resolveUserFromRequest, OWNER_CODE_HEADER } from "@/lib/credit-gate.server";
 import type { StoredJobRequest } from "@/lib/run-build-job.server";
 
@@ -13,7 +13,7 @@ import type { StoredJobRequest } from "@/lib/run-build-job.server";
 const createSchema = z.object({
   prompt: z.string().trim().min(1).max(20_000),
   libraryCode: z.string().trim().max(64).optional(),
-  surface: z.enum(["pocket", "coder"]).default("pocket"),
+  surface: z.enum(["pocket", "coder", "vibe"]).default("pocket"),
 }).passthrough();
 
 export const Route = createFileRoute("/api/jobs/create")({
@@ -41,35 +41,59 @@ export const Route = createFileRoute("/api/jobs/create")({
         // queuing rows at all.
         const owner = await isOwnerRequest(request);
         const user = owner ? null : await resolveUserFromRequest(request);
-        if (!owner && !user) {
+        const freePocket = parsed.data.surface === "pocket" && request.headers.get("x-obs-free") === "1";
+        const accessToken = crypto.randomUUID();
+        if (!owner && !user && !freePocket) {
           return Response.json(
             { error: "Sign in to use paid AI features. Local editing remains free." },
             { status: 401 },
           );
         }
 
+        let cookie = request.headers.get("cookie");
+        let setCookie: string | undefined;
+        if (freePocket) {
+          const { readOrMintFreeOpenCookie } = await import("@/lib/free-open.server");
+          const minted = readOrMintFreeOpenCookie(request);
+          setCookie = minted.setCookieHeader;
+          if (setCookie) cookie = (cookie ? cookie + "; " : "") + "obs-free-open=" + minted.cookieId;
+        }
         const stored: StoredJobRequest = {
           body: parsed.data,
           authorization: request.headers.get("authorization"),
           ownerCodeHeader: request.headers.get(OWNER_CODE_HEADER),
+          cookie,
+          userAgent: request.headers.get("user-agent"),
+          freePocket,
+          forwardedFor: request.headers.get("cf-connecting-ip") ?? request.headers.get("x-forwarded-for") ?? request.headers.get("x-real-ip"),
         };
 
         const jobId = await createBuildJob({
           idempotencyKey: crypto.randomUUID(),
           userId: user?.userId ?? null,
           libraryCode: parsed.data.libraryCode ?? null,
-          surface: parsed.data.surface,
+          surface: parsed.data.surface === "vibe" ? "coder" : parsed.data.surface,
+          anonId: !owner && !user ? accessToken : null,
           prompt: parsed.data.prompt,
           requestBody: stored,
         });
 
-        // No immediate background kick: the live /api/generate call claims
-        // this job itself, so a parallel run here would build (and bill)
-        // the same prompt twice. The recovery sweep only picks up jobs the
-        // live request never claimed or abandoned (expired lease).
-        void claimAndRunBuildJob;
-
-        return Response.json({ jobId });
+        // Database-owned delivery survives navigation; a detached Promise does not.
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const baseUrl = process.env.OBSIDIAN_APP_URL;
+        const runnerKey = process.env.OBSIDIAN_JOB_RUNNER_SECRET;
+        if (!baseUrl || !runnerKey || runnerKey.length < 32) {
+          await failBuildJob(jobId, "Background worker is not configured.");
+          return Response.json({ error: "Background builds require OBSIDIAN_APP_URL and the database job worker. No AI call was made." }, { status: 503 });
+        }
+        const { error } = await supabaseAdmin.rpc("build_job_kick", {
+          _id: jobId, _base_url: new URL(baseUrl).origin, _apikey: runnerKey,
+        });
+        if (error) {
+          await failBuildJob(jobId, "Could not dispatch background worker.");
+          return Response.json({ error: "Could not start the background build. No AI call was made." }, { status: 503 });
+        }
+        return Response.json({ jobId, accessToken: !owner && !user ? accessToken : undefined }, { headers: setCookie ? { "Set-Cookie": setCookie, "Cache-Control": "no-store" } : { "Cache-Control": "no-store" } });
       },
     },
   },

@@ -19,7 +19,9 @@ assert.ok(!files[".github/workflows/obsidian-build.yml"].includes("pages: write"
 assert.ok(files[".github/workflows/obsidian-publish.yml"].includes("actions/deploy-pages@v4"));
 assert.ok(files[".github/workflows/obsidian-publish.yml"].includes("pages: write"));
 assert.ok(files[".github/workflows/obsidian-publish.yml"].includes("id-token: write"));
-assert.ok(files[".github/workflows/obsidian-publish.yml"].includes("${{ github.event.repository.name }}"));
+assert.ok(files[".github/workflows/obsidian-publish.yml"].includes("vars.OBSIDIAN_PAGES_BASE"));
+assert.ok(files[".github/workflows/obsidian-publish.yml"].includes("github.event.repository.name"));
+assert.ok(files[".github/workflows/obsidian-build.yml"].includes("actions/cache@v4"));
 assert.ok(files[".github/workflows/obsidian-publish.yml"].includes("vars.VITE_SUPABASE_PUBLISHABLE_KEY"));
 assert.ok(files[".gitignore"].includes(".env.*"));
 assert.deepEqual(validateAppAddons([]), []);

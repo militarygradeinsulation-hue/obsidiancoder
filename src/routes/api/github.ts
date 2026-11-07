@@ -1,3 +1,4 @@
+import { normalizeDomain, domainRecords, dnsAnswers, PAGES_IPV4 } from "@/lib/owned-domain";
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import {
@@ -14,6 +15,9 @@ import { reconcileFullAppFiles } from "@/lib/full-app-edits";
 import { validateAppAddons } from "@/lib/full-app-build";
 
 const bodySchema = z.discriminatedUnion("action", [
+  z.object({ action: z.literal("prepareDomain"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90), domain: z.string().min(3).max(253) }),
+  z.object({ action: z.literal("connectDomain"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90), domain: z.string().min(3).max(253) }),
+  z.object({ action: z.literal("domainStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90), domain: z.string().min(3).max(253) }),
   z.object({ action: z.literal("verify"), token: z.string().min(10).max(400) }),
   z.object({ action: z.literal("listRepos"), token: z.string().min(10).max(400) }),
   z.object({
@@ -366,6 +370,76 @@ export const Route = createFileRoute("/api/github")({
                 }));
               }
             }
+          }
+
+          if (parsed.action === "prepareDomain" || parsed.action === "connectDomain" || parsed.action === "domainStatus") {
+            const user = await getUser(parsed.token);
+            const repo = managedRepoName(parsed.repo);
+            const domain = normalizeDomain(parsed.domain);
+            const { branch } = await managedDefaultHead(parsed.token, user.login, repo);
+            const base = "/repos/" + user.login + "/" + repo;
+            const manifestPath = ".obsidian/domain.json";
+            const manifestRes = await gh(parsed.token, base + "/contents/" + manifestPath + "?ref=" + encodeURIComponent(branch));
+            let manifest: { domain: string; proof: string } | null = null;
+            if (manifestRes.ok) {
+              const file = await ghJson(manifestRes) as { content: string };
+              manifest = JSON.parse(fromB64(file.content));
+            } else if (manifestRes.status !== 404) throw new Error("Could not read domain configuration.");
+            if (parsed.action === "prepareDomain") {
+              if (!manifest || manifest.domain !== domain) {
+                manifest = { domain, proof: "obsidian-domain=" + user.login.toLowerCase() + "/" + repo.toLowerCase() + ":" + crypto.randomUUID() };
+                await putFile(parsed.token, user.login, repo, manifestPath, JSON.stringify(manifest, null, 2), "Prepare owned-domain verification", branch);
+              }
+              return Response.json({ ok: true, domain, records: domainRecords(domain, user.login, manifest.proof),
+                message: "Add the TXT proof and either the CNAME or root A records at your DNS provider, then connect." });
+            }
+            if (!manifest || manifest.domain !== domain) throw new Error("Prepare this domain first.");
+            const [txt, cname, addresses] = await Promise.all([
+              dnsAnswers("_obsidian-verification." + domain, "TXT"), dnsAnswers(domain, "CNAME"), dnsAnswers(domain, "A"),
+            ]);
+            const owned = txt.includes(manifest.proof.toLowerCase());
+            const dnsReady = cname.includes(user.login.toLowerCase() + ".github.io") ||
+              (addresses.length > 0 && addresses.every(ip => PAGES_IPV4.includes(ip)));
+            const pagesPath = base + "/pages";
+            if (parsed.action === "connectDomain") {
+              if (!owned) throw new Error("Ownership TXT record is missing or still propagating. Keep the record and retry.");
+              if (!dnsReady) throw new Error("Ownership verified. Hosting DNS is not pointing to GitHub Pages yet.");
+              const existing = await gh(parsed.token, pagesPath);
+              if (!existing.ok) throw new Error("Publish this repository to GitHub Pages first.");
+              const config = await ghJson(existing) as { build_type?: string; cname?: string };
+              if (config.cname && config.cname !== domain) throw new Error("This repository already has another custom domain. Remove it in GitHub Pages settings before switching.");
+              // Workflow sites copy public/CNAME; branch sites read root/CNAME.
+              await putFile(parsed.token, user.login, repo, config.build_type === "workflow" ? "public/CNAME" : "CNAME",
+                domain + "\n", "Connect verified owned domain", branch);
+              if (config.build_type === "workflow") {
+                const workflowRes = await gh(parsed.token, base + "/contents/.github/workflows/obsidian-publish.yml?ref=" + encodeURIComponent(branch));
+                if (!workflowRes.ok) throw new Error("Missing Obsidian publishing workflow.");
+                const workflow = fromB64((await ghJson(workflowRes)).content);
+                // Upgrade previously exported projects to use a root asset base on custom domains.
+                const updated = workflow.replace("GITHUB_PAGES_BASE: /" + "$" + "{{ github.event.repository.name }}/",
+                  "GITHUB_PAGES_BASE: " + "$" + "{{ vars.OBSIDIAN_PAGES_BASE || format('/{0}/', github.event.repository.name) }}");
+                if (updated !== workflow) await putFile(parsed.token, user.login, repo, ".github/workflows/obsidian-publish.yml", updated, "Support custom-domain asset paths", branch);
+                await setPublicRepoVariable(parsed.token, user.login, repo, "OBSIDIAN_PAGES_BASE", "/");
+              }
+              const configured = await gh(parsed.token, pagesPath, { method: "PUT", body: JSON.stringify({ cname: domain }) });
+              if (!configured.ok) throw new Error("GitHub could not attach the domain (" + configured.status + "). Review Pages permissions and GitHub domain verification.");
+              if (config.build_type === "workflow") await workflowDispatch(parsed.token, user.login, repo, "obsidian-publish.yml");
+            }
+            const pagesRes = await gh(parsed.token, pagesPath);
+            if (!pagesRes.ok) throw new Error("Could not inspect GitHub Pages.");
+            const pages = await ghJson(pagesRes) as { cname?: string; https_enforced?: boolean; https_certificate?: { state?: string }; protected_domain_state?: string };
+            const certificateReady = pages.https_certificate?.state === "approved";
+            if (owned && dnsReady && pages.cname === domain && certificateReady && !pages.https_enforced) {
+              const enforce = await gh(parsed.token, pagesPath, { method: "PUT", body: JSON.stringify({ https_enforced: true }) });
+              if (enforce.ok) pages.https_enforced = true;
+            }
+            const ready = owned && dnsReady && pages.cname === domain && certificateReady && !!pages.https_enforced;
+            return Response.json({ ok: true, domain, owned, dnsReady, ready,
+              certificate: pages.https_certificate?.state ?? "pending", httpsEnforced: !!pages.https_enforced,
+              records: domainRecords(domain, user.login, manifest.proof),
+              url: ready ? "https://" + domain + "/" : null,
+              fallbackUrl: "https://" + user.login.toLowerCase() + ".github.io/" + repo + "/",
+              message: ready ? "Custom domain is ready." : "Domain setup is pending. Check DNS, deployment and GitHub certificate provisioning, then check again." });
           }
 
           if (parsed.action === "buildStatus" || parsed.action === "triggerBuild" ||

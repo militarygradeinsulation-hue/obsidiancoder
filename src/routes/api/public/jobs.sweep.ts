@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/public/jobs/sweep")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
+        const expected = process.env.OBSIDIAN_JOB_RUNNER_SECRET;
         const provided = request.headers.get("apikey");
         if (!expected || !provided || provided !== expected) {
           return new Response("Unauthorized", { status: 401 });
@@ -36,11 +36,7 @@ export const Route = createFileRoute("/api/public/jobs/sweep")({
           return Response.json({ ok: true, kicked: 0 });
         }
 
-        for (const job of stale) {
-          claimAndRunBuildJob(job.id).catch(() => {
-            /* claimAndRunBuildJob already records failures on the job row itself */
-          });
-        }
+        await Promise.all(stale.map(job => claimAndRunBuildJob(job.id)));
 
         return Response.json({ ok: true, kicked: stale.length });
       },
