@@ -81,8 +81,8 @@ export const Route = createFileRoute("/api/jobs/create")({
         // Database-owned delivery survives navigation; a detached Promise does not.
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const baseUrl = process.env.OBSIDIAN_APP_URL;
-        const runnerKey = process.env.SUPABASE_PUBLISHABLE_KEY;
-        if (!baseUrl || !runnerKey) {
+        const runnerKey = process.env.OBSIDIAN_JOB_RUNNER_SECRET;
+        if (!baseUrl || !runnerKey || runnerKey.length < 32) {
           await failBuildJob(jobId, "Background worker is not configured.");
           return Response.json({ error: "Background builds require OBSIDIAN_APP_URL and the database job worker. No AI call was made." }, { status: 503 });
         }

@@ -11,15 +11,15 @@ Changes are implemented against main. Earlier Full App QA/Ship claims in the ref
 
 ## Background jobs
 
-Studio and Pocket submit a persisted job and poll it. The database dispatches an independent HTTP runner. The runner holds its request until generation completes, rather than leaving an untracked Promise after responding. Only the runner that wins the existing atomic claim invokes generation; browsers cannot attach arbitrary job IDs. Explicit Stop requests cancellation; detaching a viewer leaves the job running. Authenticated ownership or a per-job guest capability protects status and cancellation.
+Studio and Pocket submit a persisted job and poll it. Studio targeted AI refinements use the same queue. The database dispatches an independent HTTP runner. The runner holds its request until generation completes, rather than leaving an untracked Promise after responding. Only the runner that wins the existing atomic claim invokes generation; browsers cannot attach arbitrary job IDs. Explicit Stop requests cancellation; detaching a viewer leaves the job running. Authenticated ownership or a per-job guest capability protects status and cancellation.
 
 Studio recovery adds a saved version for review, preserving any newer edits. Pocket recovers the result on return. Pending references are retained through transient errors and long jobs.
 
 Deployment prerequisites:
-1. Set OBSIDIAN_APP_URL to the canonical HTTPS application origin.
+1. Set OBSIDIAN_APP_URL to the canonical HTTPS application origin and OBSIDIAN_JOB_RUNNER_SECRET to a random server-only secret of at least 32 characters.
 2. Deploy the application source with a request duration of at least 240 seconds for /api/public/jobs/run and /sweep.
 3. Apply docs/build-jobs-operations.sql to the EXISTING Obsidian database. Confirm build_jobs, build_job_claim and build_jobs_stale already exist.
-4. Retain/configure the existing minute cron sweep with a 240000ms HTTP timeout and the configured runner apikey.
+4. Retain/configure the existing minute cron sweep with a 240000ms HTTP timeout and the same server-only runner secret in the apikey header (never the public Supabase key).
 5. Check job creation, independent runner delivery, explicit cancellation and navigation recovery in staging before production.
 
 The connected Supabase account does not expose the project configured in this repository. These database and hosting prerequisites have not been applied or live-tested by this change. Stored bearer tokens still expire; delayed retries can fail authentication. Crash recovery remains at-least-once and may repeat provider work after a lease expires. No exactly-once billing guarantee is claimed.
@@ -39,3 +39,7 @@ The GitHub panel prepares a repository-bound TXT challenge, shows subdomain CNAM
 The user must control DNS and publish the project first. GitHub Pages write permissions are required; workflow upgrades also need workflow write permission. No registrar changes or actual domain connection were performed in this review.
 
 Sources: [GitHub Pages REST](https://docs.github.com/en/rest/pages/pages), [Supabase pg_net](https://supabase.com/docs/guides/database/extensions/pg_net).
+
+## Verification and build fixes
+
+The npm lockfile was out of sync with package.json, so npm ci failed before compilation. It is now regenerated to match the manifest. A clean-install dry run succeeds. The existing broad entities alias also sent newer htmlparser2 imports to an incompatible legacy package; only the precise legacy aliases remain. Windows MCP route generation now receives a native filesystem root rather than mixing path separators. These are source fixes; backend delivery remains subject to the deployment prerequisites above.

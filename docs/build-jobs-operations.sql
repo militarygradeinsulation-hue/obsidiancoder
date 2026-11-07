@@ -21,3 +21,8 @@ revoke all on function public.build_job_kick(uuid,text,text) from public, anon, 
 grant execute on function public.build_job_kick(uuid,text,text) to service_role;
 -- Retain the existing minute sweep, using the same 240000ms timeout.
 -- Inspect cron.job and net._http_response to confirm delivery and completion.
+
+-- Job rows contain short-lived replay credentials. Only server routes may read them.
+alter table public.build_jobs enable row level security;
+revoke all on public.build_jobs from anon, authenticated;
+grant select, insert, update, delete on public.build_jobs to service_role;

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { idbGet, idbSet } from "@/lib/idb-storage";
 import { readProjectImage, type ProjectImage } from "@/lib/project-assets";
 export function ProjectImages({ scope, onChange, onUse }: {
@@ -8,6 +8,7 @@ export function ProjectImages({ scope, onChange, onUse }: {
   const [readyScope, setReadyScope] = useState("");
   const [message, setMessage] = useState("");
   const key = "project-images:" + scope;
+  const activeScope = useRef(scope); activeScope.current = scope;
   useEffect(() => {
     let active = true; setReadyScope(""); setImages([]); onChange([]);
     void idbGet<ProjectImage[]>(key).then(items => {
@@ -16,9 +17,11 @@ export function ProjectImages({ scope, onChange, onUse }: {
     return () => { active = false; };
   }, [scope]);
   async function save(next: ProjectImage[]) {
+    if (activeScope.current !== scope) throw new Error("The active project changed. Reopen its image library.");
     if (next.length > 8 || next.reduce((n, a) => n + a.dataUrl.length, 0) > 3_000_000)
       throw new Error("Keep up to 8 project images, totaling at most 3 MB.");
     if (!await idbSet(key, next)) throw new Error("Could not save images. Enable browser storage and retry.");
+    if (activeScope.current !== scope) return;
     setImages(next); onChange(next);
   }
   return <section className="obs-node" aria-label="Project images">

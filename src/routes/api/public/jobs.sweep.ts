@@ -21,7 +21,7 @@ export const Route = createFileRoute("/api/public/jobs/sweep")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const expected = process.env.SUPABASE_PUBLISHABLE_KEY;
+        const expected = process.env.OBSIDIAN_JOB_RUNNER_SECRET;
         const provided = request.headers.get("apikey");
         if (!expected || !provided || provided !== expected) {
           return new Response("Unauthorized", { status: 401 });
