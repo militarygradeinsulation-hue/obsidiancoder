@@ -1,3 +1,4 @@
+import { assetContext, restoreProjectImages } from "@/lib/project-assets";
 import { createFileRoute } from "@tanstack/react-router";
 import { memoryToPrompt, isEmpty as isMemoryEmpty } from "@/lib/project-memory";
 import { memoryDirective } from "@/lib/memory-directive";
@@ -8,7 +9,9 @@ import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors"
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded, firstChunkLooksBad } from "@/lib/upstream-guard";
 import { recordFailure, recordSuccess } from "@/lib/circuit-breaker";
-import { compactHtmlForContext } from "@/lib/context-compactor";
+import { assertRefineDesign, preserveDesignDirective } from "@/lib/refine-design";
+import { validateHtml } from "@/lib/validation";
+import { compactHtmlForContext, restoreAndVerify } from "@/lib/context-compactor";
 import {
   requirePaidOperation,
   denialResponse,
@@ -45,7 +48,6 @@ import {
   failBuildJob,
   cancelBuildJobRecord,
   isBuildJobCancelRequested,
-  claimBuildJob,
 } from "@/lib/build-jobs.server";
 
 
@@ -85,6 +87,11 @@ const pocketConceptSchema = z.object({
 
 const inputSchema = z.object({
   prompt: z.string().min(1).max(6_000_000),
+  projectAssets: z.array(z.object({
+    id: z.string().uuid(), name: z.string().max(100),
+    role: z.enum(["content", "reference"]),
+    dataUrl: z.string().max(500_000).regex(/^data:image\/(?:webp|png|jpeg);base64,[A-Za-z0-9+/=]+$/),
+  })).max(8).default([]),
   currentHtml: z.string().max(6_000_000).optional().default(""),
   history: z.array(messageSchema).max(8).optional().default([]),
   model: z.string().optional().transform((m) => resolveModel(m)),
@@ -638,7 +645,7 @@ async function planAndFetchComponents(
 
 
 
-export async function handleGenerate(request: Request): Promise<Response> {
+export async function handleGenerate(request: Request, execution: { claimedJobId?: string } = {}): Promise<Response> {
         const requestId = newRequestId();
         const requestStartedAt = performance.now();
         const firstResponseDeadline = requestStartedAt + FIRST_RESPONSE_BUDGET_MS;
@@ -712,6 +719,10 @@ export async function handleGenerate(request: Request): Promise<Response> {
               message: normalizeValidationMessage(err, requestId),
             });
           }
+
+          // A job id may only enter through the runner that won its atomic claim.
+          if (data.jobId && execution.claimedJobId !== data.jobId)
+            return Response.json({ error: "Use the background job API." }, { status: 409 });
 
           // Entitlement check — after validation so we know if this is a
           // cheaper advisory op or full HTML generation.
@@ -850,11 +861,7 @@ export async function handleGenerate(request: Request): Promise<Response> {
           coreCeilingTimer = setTimeout(() => serverAbort.abort(), CORE_GENERATION_CEILING_MS);
           jobId = data.jobId ?? null;
           if (jobId) {
-            // Take the job's lease so the recovery sweep never starts a
-            // duplicate run while this live request is working it. A false
-            // result just means a background runner already owns it (and
-            // that runner is this very call) — continue either way.
-            try { await claimBuildJob(jobId, 300); } catch { /* best-effort */ }
+            // The runner has already won the atomic claim.
           } else {
             // No recoverable job behind this request: a browser disconnect
             // or Stop must end the work (and its billing) immediately.
@@ -917,11 +924,13 @@ export async function handleGenerate(request: Request): Promise<Response> {
           const wantImages =
             !data.advisory &&
             !data.referenceRebuild &&
+            !contextHtml &&
             (data.wantImages || (!fastProfile && VISUAL_KEYWORDS.test(data.prompt)));
           const wantComponents =
             !data.advisory &&
             !data.referenceRebuild &&
             !fastProfile &&
+            !contextHtml &&
             !!apiKey &&
             !!(process.env.TWENTYFIRST_API_KEY ?? process.env.API_KEY_21ST);
           const emptyImagePhase: ImagePhaseResult = { images: [], usages: [], planUsage: null };
@@ -965,6 +974,10 @@ export async function handleGenerate(request: Request): Promise<Response> {
             },
             ...data.history,
           ];
+          const imageContext = assetContext(data.projectAssets);
+          if (imageContext) messages.push({ role: "system", content: imageContext });
+          const preservation = preserveDesignDirective(data.currentHtml, data.prompt);
+          if (!data.advisory && preservation) messages.push({ role: "system", content: preservation });
           // Cloud Memory directive — every HTML build (fresh or patch) must use
           // window.ObsidianMemory instead of localStorage/Firebase so data syncs.
           // The director escalates to the full API directive when the prompt
@@ -1556,14 +1569,20 @@ ${memBlock}`,
                     if (err instanceof JobCancelledError) {
                       await cancelBuildJobRecord(jobId);
                     } else if (ok) {
-                      await completeBuildJob(jobId, { resultHtml: jobHtml, servedModel: modelUsed });
+                      const restored = restoreAndVerify(jobHtml.replace(/^\s*\x60{3}(?:html)?\s*/i, "").replace(/\s*\x60{3}\s*$/, ""), compacted.placeholders);
+                      restored.html = restoreProjectImages(restored.html, data.projectAssets);
+                      if (!restored.ok) throw new Error("Build corrupted image references.");
+                      if (validateHtml(restored.html).status === "failed") throw new Error("Build failed HTML validation.");
+                      assertRefineDesign(data.currentHtml, restored.html, data.prompt);
+                      await completeBuildJob(jobId, { resultHtml: restored.html, servedModel: modelUsed });
                     } else {
                       await failBuildJob(
                         jobId,
                         err instanceof Error ? err.message : "Generation failed.",
                       );
                     }
-                  } catch {
+                  } catch (jobError) {
+                    await failBuildJob(jobId, jobError instanceof Error ? jobError.message : "Build validation failed.").catch(() => {});
                     // A failed job-row write must never affect the response
                     // actually being streamed to whatever client is still
                     // connected — this is purely for later recovery.

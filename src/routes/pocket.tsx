@@ -1,3 +1,7 @@
+import { ProjectImages } from "@/components/ProjectImages";
+import { assetToken, restoreProjectImages, type ProjectImage } from "@/lib/project-assets";
+import { generateDurably, pendingBuilds, readBuild, forgetBuild, stopBuild } from "@/lib/build-job-client";
+import { assertRefineDesign } from "@/lib/refine-design";
 // Obsidian Pocket — experimental, additive prompt-to-code workspace.
 // Route: /forge. It does NOT replace the main Obsidian IDE at "/". Every
 // capability here calls the real Obsidian pipeline (streaming /api/generate,
@@ -377,6 +381,7 @@ function ForgePage() {
       }),
     [profile, model, hasRawPinnedModel],
   );
+  const [projectImages, setProjectImages] = React.useState<ProjectImage[]>([]);
   const callEstimate = providerCallEstimate(profile, mode === "refine");
   const buildsLeft = snap.builds && snap.builds.cap > 0 ? snap.builds : null;
   const requireAccount = React.useCallback((what: string) => {
@@ -533,7 +538,7 @@ function ForgePage() {
   // or gives an honest reason for one that failed.
   React.useEffect(() => {
     const code = libraryCode.trim();
-    const pending = safeGet<{ jobId: string; startedAt: number }>(pendingJobKey(code));
+    const pending = pendingBuilds().find(j => j.scope === "pocket:" + (code || "guest"));
     if (!pending?.jobId) return;
 
     let cancelled = false;
@@ -544,10 +549,10 @@ function ForgePage() {
     const poll = async () => {
       if (cancelled) return;
       try {
-        const res = await authFetch(`/api/jobs/${pending.jobId}`);
+        const res = await readBuild(pending);
         if (cancelled) return;
         if (!res.ok) {
-          safeRemove(pendingJobKey(code)); // stale or inaccessible — nothing to recover
+          pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
           return;
         }
         const job: { status: string; resultHtml?: string | null; error?: string | null } =
@@ -558,27 +563,24 @@ function ForgePage() {
           setPane("preview");
           setStatus("Your build finished while you were away");
           log("Recovered a build that finished in the background.");
-          safeRemove(pendingJobKey(code));
+          forgetBuild(pending.jobId);
           return;
         }
         if (job.status === "failed" || job.status === "cancelled") {
-          safeRemove(pendingJobKey(code));
+          forgetBuild(pending.jobId);
           if (job.status === "failed") {
             setStatus("A build that ran while you were away didn't finish");
             log(`Background build failed: ${job.error || "unknown error"}.`);
           }
           return;
         }
-        if (Date.now() - pending.startedAt > MAX_POLL_MS) {
-          safeRemove(pendingJobKey(code));
-          return;
-        }
+        // Keep the reference until a definitive result; long jobs remain recoverable.
         setStatus("Finishing a build that started while you were away…");
         pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
       } catch {
         // A transient network error while polling — retry rather than
         // giving up on the first hiccup, same time budget as above.
-        if (!cancelled && Date.now() - pending.startedAt < MAX_POLL_MS) {
+        if (!cancelled) {
           pollTimer = setTimeout(poll, POLL_INTERVAL_MS);
         }
       }
@@ -971,7 +973,8 @@ function ForgePage() {
       };
       const genBody: Record<string, unknown> = {
         prompt: isRefine ? `[FOCUSED CHANGE] ${p}` : p,
-        currentHtml: isRefine ? previous : previous.slice(0, 8000),
+        currentHtml: isRefine ? previous : "",
+        projectAssets: projectImages,
         history: [],
         model: modelChoice.model,
         pickerModel: hasRawPinnedModel ? model : pickerModel,
@@ -1004,37 +1007,9 @@ function ForgePage() {
               qualityContractFragment(),
             ].filter(Boolean).join("\n\n"),
       };
-      // Create a durable job record before the live call starts. This is
-      // what makes the build recoverable if the connection drops mid-way
-      // — see pendingJobKey's own comment. Failure here must never block
-      // or slow down the actual generation: if it doesn't work, generation
-      // proceeds exactly as it did before this existed, just without the
-      // safety net for this one attempt.
-      try {
-        const jobRes = await authFetch("/api/jobs/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...genBody, libraryCode }),
-        });
-        if (jobRes.ok) {
-          const jobJson: unknown = await jobRes.json().catch(() => null);
-          const id = (jobJson as { jobId?: string } | null)?.jobId;
-          if (id) {
-            genBody.jobId = id;
-            safeSet(pendingJobKey(libraryCode), { jobId: id, startedAt: Date.now() });
-          }
-        }
-      } catch {
-        /* degrade to no background recovery for this attempt — see comment above */
-      }
-
-      const res = await authFetch("/api/generate", {
-        method: "POST",
-        headers: genHeaders,
-        body: JSON.stringify(genBody),
-        signal: controller.signal,
-      });
-
+      const res = await generateDurably(genBody, {
+        method: "POST", headers: genHeaders, signal: controller.signal,
+      }, "pocket:" + (libraryCode.trim() || "guest"));
 
       const ctype = (res.headers.get("content-type") || "").toLowerCase();
       if (ctype.includes("application/json")) {
@@ -1083,7 +1058,8 @@ function ForgePage() {
           }
         }
       }
-      let finalHtml = clean(acc).trim();
+      let finalHtml = restoreProjectImages(clean(acc).trim(), projectImages);
+      if (isRefine) assertRefineDesign(previous, finalHtml, p);
       if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
 
       // ---- 2b. Design floor -------------------------------------------------
@@ -1340,10 +1316,10 @@ function ForgePage() {
     } finally {
       abortRef.current = null;
       setBusy(null);
-      safeRemove(pendingJobKey(libraryCode));
     }
   }, [
     prompt,
+    projectImages,
     busy,
     html,
     mode,
@@ -1388,8 +1364,9 @@ function ForgePage() {
 
   const stop = React.useCallback(() => {
     abortRef.current?.abort();
+    void stopBuild("pocket:" + (libraryCode.trim() || "guest"));
     cancelPendingJob();
-  }, [cancelPendingJob]);
+  }, [cancelPendingJob, libraryCode]);
 
   // ---- Prompt enhancement (real server fn + credit gate) ------------------
   const runEnhanceMode = React.useCallback(
@@ -2224,6 +2201,8 @@ function ForgePage() {
               </div>
             )}
 
+            <ProjectImages scope={"pocket:" + (libraryCode.trim() || "guest")} onChange={setProjectImages}
+              onUse={image => { setMode("refine"); setPrompt(value => value + "\nUse project image " + image.name + " (" + assetToken(image) + ") in the existing build; preserve the primary layout."); }}/>
             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 sm:flex sm:justify-between">
               <div className="flex min-w-0 items-center gap-2">
                 <label className="sr-only" htmlFor="forge-mode">

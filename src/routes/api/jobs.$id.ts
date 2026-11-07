@@ -13,7 +13,7 @@ export const Route = createFileRoute("/api/jobs/$id")({
 
         const owner = await isOwnerRequest(request);
         const user = owner ? null : await resolveUserFromRequest(request);
-        if (!owner && !user) {
+        if (!owner && !user && !request.headers.get("x-obs-job-token")) {
           return Response.json({ error: "Sign in required" }, { status: 401 });
         }
 
@@ -23,7 +23,7 @@ export const Route = createFileRoute("/api/jobs/$id")({
         }
         // Owner can see any job (matches existing owner-has-full-access
         // convention elsewhere). A signed-in user can only see their own.
-        if (!owner && job.userId !== user?.userId) {
+        if (!owner && !(user && job.userId === user.userId) && !(job.anonId && job.anonId === request.headers.get("x-obs-job-token"))) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
 
@@ -37,7 +37,8 @@ export const Route = createFileRoute("/api/jobs/$id")({
           error: job.error,
           createdAt: job.createdAt,
           completedAt: job.completedAt,
-        });
+          servedModel: job.servedModel,
+        }, { headers: { "Cache-Control": "no-store" } });
       },
       DELETE: async ({ request, params }) => {
         const id = params.id;
@@ -46,9 +47,9 @@ export const Route = createFileRoute("/api/jobs/$id")({
         }
         const owner = await isOwnerRequest(request);
         const user = owner ? null : await resolveUserFromRequest(request);
-        if (!owner && !user) return Response.json({ error: "Sign in required" }, { status: 401 });
+        if (!owner && !user && !request.headers.get("x-obs-job-token")) return Response.json({ error: "Sign in required" }, { status: 401 });
         const job = await getBuildJob(id);
-        if (!job || (!owner && job.userId !== user?.userId)) {
+        if (!job || (!owner && !(user && job.userId === user.userId) && !(job.anonId && job.anonId === request.headers.get("x-obs-job-token")))) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
         await requestBuildJobCancel(id);

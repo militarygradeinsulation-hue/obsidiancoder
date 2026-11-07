@@ -36,19 +36,8 @@ export const Route = createFileRoute("/api/public/jobs/run")({
           return Response.json({ error: "jobId is required" }, { status: 400 });
         }
 
-        // Deliberately NOT awaited before responding. Postgres's own
-        // net.http_post call (both build_job_kick and the sweep cron) has
-        // a short timeout on its end — racing that against a generation
-        // that can legitimately run for up to a few minutes would just
-        // make Postgres log a false timeout for work that's actually
-        // proceeding fine. Acknowledge receipt fast; if a retry or the
-        // next sweep tick calls this again for the same jobId before this
-        // one finishes claiming, build_job_claim's own atomic conditional
-        // update in Postgres is what makes only one of them win, not any
-        // ordering guarantee in this file.
-        claimAndRunBuildJob(parsed.data.jobId).catch(() => {
-          /* claimAndRunBuildJob already records failures on the job row itself */
-        });
+        // Hold this database-owned request until work and settlement finish.
+        await claimAndRunBuildJob(parsed.data.jobId);
 
         return Response.json({ ok: true, accepted: true });
       },

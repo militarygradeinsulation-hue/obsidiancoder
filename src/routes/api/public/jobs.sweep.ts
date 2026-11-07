@@ -36,11 +36,7 @@ export const Route = createFileRoute("/api/public/jobs/sweep")({
           return Response.json({ ok: true, kicked: 0 });
         }
 
-        for (const job of stale) {
-          claimAndRunBuildJob(job.id).catch(() => {
-            /* claimAndRunBuildJob already records failures on the job row itself */
-          });
-        }
+        await Promise.all(stale.map(job => claimAndRunBuildJob(job.id)));
 
         return Response.json({ ok: true, kicked: stale.length });
       },
