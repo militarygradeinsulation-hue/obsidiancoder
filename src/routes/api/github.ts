@@ -15,10 +15,9 @@ import { reconcileFullAppFiles } from "@/lib/full-app-edits";
 import { validateAppAddons } from "@/lib/full-app-build";
 
 const bodySchema = z.discriminatedUnion("action", [
-  ...(["prepareDomain", "connectDomain", "domainStatus"] as const).map(action => z.object({
-    action: z.literal(action), token: z.string().min(10).max(400), repo: z.string().min(1).max(90),
-    domain: z.string().min(3).max(253),
-  })),
+  z.object({ action: z.literal("prepareDomain"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90), domain: z.string().min(3).max(253) }),
+  z.object({ action: z.literal("connectDomain"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90), domain: z.string().min(3).max(253) }),
+  z.object({ action: z.literal("domainStatus"), token: z.string().min(10).max(400), repo: z.string().min(1).max(90), domain: z.string().min(3).max(253) }),
   z.object({ action: z.literal("verify"), token: z.string().min(10).max(400) }),
   z.object({ action: z.literal("listRepos"), token: z.string().min(10).max(400) }),
   z.object({
