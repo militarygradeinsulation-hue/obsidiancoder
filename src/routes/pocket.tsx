@@ -1187,6 +1187,7 @@ function ForgePage() {
       }
 
       // ---- 5. Commit -------------------------------------------------------
+      if (isRefine) assertRefineDesign(previous, finalHtml, p);
       setProject((prev) => setEntryHtml(prev, finalHtml));
       const label = [
         titleFromPrompt(p),

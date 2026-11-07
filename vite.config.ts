@@ -54,7 +54,6 @@ export default defineConfig({
       alias: {
         "entities/lib/decode.js": path.join(ENTITIES, "lib/decode.js"),
         "entities/lib/encode.js": path.join(ENTITIES, "lib/encode.js"),
-        entities: ENTITIES,
       },
     },
   },

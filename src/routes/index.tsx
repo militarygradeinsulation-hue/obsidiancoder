@@ -2434,6 +2434,7 @@ function Index() {
             };
             validation = finP.finalValidation;
 
+            assertRefineDesign(stableHtml, committedPatchHtml, basePrompt);
             const newVersion: Version = makeVersion(committedPatchHtml, versionLabel, commitMeta);
             newVersion.id = pendingBuilds().find(j => j.scope === "studio:" + sessionId)?.jobId ?? newVersion.id;
             setSessions((all) => all.map((s) => s.id === sessionId
@@ -3307,6 +3308,7 @@ function Index() {
         return;
       }
 
+      assertRefineDesign(stableHtml, committedFinalHtml, basePrompt);
       const newVersion: Version = makeVersion(committedFinalHtml, versionLabel, genMeta);
       newVersion.id = pendingBuilds().find(j => j.scope === "studio:" + sessionId)?.jobId ?? newVersion.id;
       setSessions((all) => all.map((s) => s.id === sessionId
