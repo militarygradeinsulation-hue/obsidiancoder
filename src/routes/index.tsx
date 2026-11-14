@@ -1,3 +1,4 @@
+import { LovablePartnerSpotlight } from "@/components/LovablePartnerSpotlight";
 import { createFileRoute, redirect, ClientOnly, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -3742,6 +3743,7 @@ function Index() {
 
       {/* ========== MAIN ========== */}
       <section className="obs-main">
+        <LovablePartnerSpotlight compact />
         {/* Topbar */}
         <div className="obs-topbar">
           <div className="obs-topbar-left">
