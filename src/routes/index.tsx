@@ -1,3 +1,4 @@
+import { LovablePartnerSpotlight } from "@/components/LovablePartnerSpotlight";
 import { createFileRoute, redirect, ClientOnly, Link } from "@tanstack/react-router";
 import { useCallback, useMemo, useRef, useState, useEffect, lazy, Suspense } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -3567,6 +3568,7 @@ function Index() {
 
   return (
     <main className={"obs-shell" + (sidebarCollapsed ? " is-sidebar-collapsed" : "") + (railCollapsed ? " is-rail-collapsed" : "") + (isMobile ? ` is-mobile mob-tab-${mobileTab}` : "")}>
+      <LovablePartnerSpotlight compact />
       <h1 className="sr-only">Obsidian Vibe — AI App Builder Workspace</h1>
       {isMobile && mobileTab === "preview" && current.html && (
         <button
