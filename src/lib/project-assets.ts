@@ -1,4 +1,5 @@
 import { idbGet, idbSet, idbRemove } from "./idb-storage";
+import { authFetch } from "./auth-fetch";
 
 export type LocalReferenceAsset = {
   id: string;
@@ -7,6 +8,9 @@ export type LocalReferenceAsset = {
   dataUrl: string;
   bytes: number;
   createdAt: number;
+  hostedId?: string;
+  hostedUrl?: string;
+  storagePath?: string;
 };
 
 const PREFIX = "obs.project-assets.v1.";
@@ -42,6 +46,9 @@ function clean(list: unknown): LocalReferenceAsset[] {
       dataUrl: a.dataUrl,
       bytes: a.bytes,
       createdAt: a.createdAt,
+      hostedId: typeof a.hostedId === "string" ? a.hostedId.slice(0, 120) : undefined,
+      hostedUrl: typeof a.hostedUrl === "string" && /^https:\/\//i.test(a.hostedUrl) ? a.hostedUrl.slice(0, 1200) : undefined,
+      storagePath: typeof a.storagePath === "string" ? a.storagePath.slice(0, 500) : undefined,
     });
     if (out.length >= MAX_ASSETS) break;
   }
@@ -63,11 +70,60 @@ export async function clearProjectAssets(projectId: string): Promise<void> {
   await idbRemove(key(projectId));
 }
 
+export function projectAssetMetadata(
+  assets: readonly LocalReferenceAsset[],
+): Array<{ id: string; name: string }> {
+  return assets
+    .filter((asset) => !!asset.hostedId && !!asset.hostedUrl)
+    .slice(0, 8)
+    .map((asset) => ({ id: asset.hostedId as string, name: asset.name }));
+}
+
+export function resolveProjectAssetTokens(
+  html: string,
+  assets: readonly LocalReferenceAsset[],
+): string {
+  let out = html;
+  for (const asset of assets) {
+    if (!asset.hostedId || !asset.hostedUrl) continue;
+    const token = "obsidian-asset://" + asset.hostedId;
+    if (out.includes(token)) out = out.split(token).join(asset.hostedUrl);
+  }
+  return out;
+}
+
+export async function hostProjectAsset(
+  asset: LocalReferenceAsset,
+): Promise<LocalReferenceAsset> {
+  if (asset.hostedId && asset.hostedUrl) return asset;
+  const response = await authFetch("/api/project-assets", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ name: asset.name, dataUrl: asset.dataUrl }),
+  });
+  if (!response.ok) {
+    const payload = await response.json().catch(() => null) as { error?: string } | null;
+    throw new Error(payload?.error || "Could not host project image.");
+  }
+  const payload = await response.json() as {
+    id?: string;
+    url?: string;
+    path?: string;
+  };
+  if (!payload.id || !payload.url) throw new Error("Project image host returned an incomplete result.");
+  return {
+    ...asset,
+    hostedId: payload.id,
+    hostedUrl: payload.url,
+    storagePath: payload.path,
+  };
+}
+
 export function imageContextBrief(assets: readonly LocalReferenceAsset[]): string {
   if (!assets.length) return "";
   return [
     "LOCAL REFERENCE IMAGES ATTACHED TO THIS PROJECT:",
-    ...assets.map((a, i) => `- Reference ${i + 1}: ${a.name} (${a.mime}, ${Math.round(a.bytes / 1024)} KB)`),
+    ...assets.map((a, i) => `- Reference ${i + 1}: ${a.name} (${a.mime}, ${Math.round(a.bytes / 1024)} KB${a.hostedUrl ? ", hosted" : ", local"})`),
     "Use these as visual/layout/content context. Preserve recognizable composition when the user asks to copy or refine a supplied design.",
   ].join("\n");
 }
