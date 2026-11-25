@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { archiveEntryForLearning } from "../proven-templates.ts";
 
 const archive = [
-  { id:"newer-weak", at:200, surface:"pocket", title:"Weak", prompt:"", model:"m", html:"<main>weak</main>", bytes:20, family:"editorial", profile:"fast" },
+  { id:"newer-weak", at:200, surface:"pocket", title:"Legacy eligible", prompt:"", model:"m", html:"<main><header>Legacy</header><section>valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure valid archived structure </section><section>Proof</section><footer>End</footer></main>", bytes:599, family:"editorial", profile:"fast" },
   { id:"approved-exact", at:100, surface:"pocket", title:"Approved", prompt:"", model:"m", html:"<main><section>approved</section></main>", bytes:40, family:"editorial", profile:"studio" },
 ] as any;
 
