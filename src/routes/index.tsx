@@ -176,6 +176,15 @@ import { compactRecentSignatures, conceptPlanKey } from "@/lib/pocket-hardening"
 import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
 import { planWithLocalCache } from "@/lib/plan-cache";
 import { fileToReferenceAsset, loadProjectAssets, saveProjectAssets } from "@/lib/project-assets";
+import {
+  beginBackgroundBuild,
+  completeBackgroundBuild,
+  failBackgroundBuild,
+  completedBackgroundBuilds,
+  markBackgroundBuildApplied,
+  attachServerJob,
+  recoverableBackgroundBuilds,
+} from "@/lib/background-builds";
 import { buildContext } from "@/lib/staged-context";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { dnaPromptBlock, parseCritique } from "@/lib/pocket-prompt";
@@ -742,6 +751,7 @@ function Index() {
   // Per-tab abort controllers so one tab's build can be cancelled without
   // touching builds running in other tabs.
   const abortMapRef = useRef<Map<string, AbortController>>(new Map());
+  const durableJobBySessionRef = useRef<Map<string, string>>(new Map());
   const writeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const composerRef = useRef<HTMLTextAreaElement>(null);
   const [inspectorEnabled, setInspectorEnabled] = useState(false);
