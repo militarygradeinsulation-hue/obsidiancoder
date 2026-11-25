@@ -3381,6 +3381,17 @@ function ForgePage() {
         onClose={() => setGhOpen(false)}
         currentHtml={html}
         defaultRepoName={title.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase() || "obsidian-forge"}
+        defaultDeployMode="static"
+        onProductionUpdate={(patch) => {
+          if (patch.deploymentUrl) {
+            setPublishedUrl(patch.deploymentUrl);
+            if (patch.customDomain && patch.customDomainHealthy) {
+              setStatus(`Domain connected · ${patch.customDomain}`);
+            } else if (patch.githubRepo) {
+              setStatus("GitHub Pages deployment connected");
+            }
+          }
+        }}
         onImport={(imported) => {
           setProject((p) => setEntryHtml(p, imported));
           setStatus("Imported from GitHub");
