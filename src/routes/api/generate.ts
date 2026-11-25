@@ -1118,12 +1118,15 @@ ${memBlock}`,
             });
           }
           if (!data.advisory && data.projectAssets.length) {
+            const assetBehavior = contextHtml
+              ? "This is an existing build: preserve the current composition and only place or replace imagery required by the user's refinement."
+              : "These were uploaded BEFORE the build and are active project media. Prefer them over generated or placeholder imagery and place them in appropriate visible positions unless a specific asset is clearly irrelevant.";
             messages.push({
               role: "system",
               content:
                 "PROJECT IMAGE ASSETS — these images were uploaded by the user. " +
-                "Use them when relevant by writing the EXACT token as an <img src> or CSS url: obsidian-asset://<id>. " +
-                "Do not invent replacement URLs for these assets. On an existing build, preserve the current composition and only place or replace imagery required by the request.\n\n" +
+                "Use them by writing the EXACT token as an <img src> or CSS url: obsidian-asset://<id>. " +
+                "Do not invent replacement URLs for these assets. " + assetBehavior + "\n\n" +
                 data.projectAssets.map((asset, index) =>
                   `[${index + 1}] ${asset.name} -> obsidian-asset://${asset.id}`
                 ).join("\n"),
