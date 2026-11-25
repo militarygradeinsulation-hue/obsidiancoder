@@ -129,7 +129,7 @@ const inputSchema = z.object({
   projectAssets: z.array(z.object({
     id: z.string().min(4).max(120),
     name: z.string().min(1).max(120),
-  })).max(4).optional().default([]),
+  })).max(8).optional().default([]),
   pocketCritiqueContext: z.string().max(4000).optional(),
   /**
    * "What worked before" brief derived client-side from graded past builds
