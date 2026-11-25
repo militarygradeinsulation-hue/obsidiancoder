@@ -39,13 +39,12 @@ export function isRouteLLMKeyDead(key: string, now: number = Date.now()): boolea
  * Degraded keys
  * ------------------------------------------------------------------ *
  * A key that is slow but not billing-dead used to cost every build the
- * full first-byte budget before a healthy provider was tried. Repeated
- * timeouts now demote the key for a short window: it drops to the back
+ * full first-byte budget before a healthy provider was tried. A single recent timeout now demotes the key for a short window: it drops to the back
  * of the queue instead of being banned outright.
  */
 const SLOW_KEYS = new Map<string, { strikes: number; until: number }>();
-export const DEGRADED_STRIKES = 2;
-export const DEGRADED_TTL_MS = 5 * 60_000;
+export const DEGRADED_STRIKES = 1;
+export const DEGRADED_TTL_MS = 10 * 60_000;
 
 /** Record that a key failed to produce a first byte in time. */
 export function markRouteLLMKeySlow(key: string, now: number = Date.now()): void {
