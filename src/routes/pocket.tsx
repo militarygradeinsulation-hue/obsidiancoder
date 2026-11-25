@@ -1991,7 +1991,7 @@ function ForgePage() {
     setAssetsOpen(false);
     setMode("refine");
     await generate(
-      `Use the uploaded project image named "${asset.name}" in the most appropriate visible image position for this existing build. Preserve the current layout, typography, colors, spacing, components, section order, and interaction patterns. Do not redesign the page. Only make the minimum image-related change needed.`,
+      `Use the exact uploaded project image token obsidian-asset://${asset.id} (file name: "${asset.name}") in the most appropriate visible image position for this existing build. Do not substitute another project image. Preserve the current layout, typography, colors, spacing, components, section order, and interaction patterns. Do not redesign the page. Only make the minimum image-related change needed.`,
       undefined,
       true,
     );
