@@ -1600,6 +1600,28 @@ function ForgePage() {
         })();
       }
 
+      const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
+      if (title === "Untitled build") setTitle(buildTitle);
+
+      // Archive first so quality memory can point to the EXACT document that
+      // earned its score. The Brain may later reuse only this linked skeleton.
+      let learningArchiveId: string | undefined;
+      try {
+        const archived = archiveBuild(
+          {
+            surface: "pocket",
+            title: buildTitle,
+            prompt: p,
+            model: servedModel,
+            html: finalHtml,
+            family: buildDna.family,
+            profile,
+          },
+          libraryCode,
+        );
+        learningArchiveId = archived.entries[0]?.id;
+      } catch { /* archiving is best-effort */ }
+
       // A copied/authorized reference should never become generic Obsidian
       // design DNA for unrelated future projects.
       if (!isReferenceBuild) {
@@ -1613,12 +1635,11 @@ function ForgePage() {
             critique: critiqueScores,
             validationStatus: "passed",
             latencyMs: 0,
+            archiveId: learningArchiveId,
             outcome: "kept",
           }, libraryCode);
         } catch { /* learning is best-effort */ }
       }
-      const buildTitle = title !== "Untitled build" ? title : titleFromPrompt(p);
-      if (title === "Untitled build") setTitle(buildTitle);
 
       // Persist directly, independent of whether this component is still
       // mounted. Generation is not cancelled by navigating away — nothing
@@ -1654,21 +1675,6 @@ function ForgePage() {
         connectedDomain: connectedDomain || undefined,
       } satisfies PocketSession);
 
-      // Shelve every build in the permanent archive, saved or not.
-      try {
-        archiveBuild(
-          {
-            surface: "pocket",
-            title: buildTitle,
-            prompt: p,
-            model: servedModel,
-            html: finalHtml,
-            family: buildDna.family,
-            profile,
-          },
-          libraryCode,
-        );
-      } catch { /* archiving is best-effort */ }
       setStatus("Ready");
       log(
         `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"}`,
