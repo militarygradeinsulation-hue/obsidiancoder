@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useVoiceControl } from "@/lib/voice-control";
 import { styleLockDirective } from "@/lib/style-lock";
+import { checkRefinePreservation } from "@/lib/refine-preservation";
 import { Lock, LockOpen } from "lucide-react";
 
 import { ScreenCaptureModal } from "@/components/ScreenCapture";
@@ -2968,6 +2969,26 @@ function Index() {
           generation_model: modelForServer,
         },
       };
+      if (isRefineBuild) {
+        const preservation = checkRefinePreservation(stableHtml, finalHtml, basePrompt);
+        if (!preservation.ok) {
+          setSessions((all) => all.map((s) => s.id === sessionId
+            ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Refine protection kept the existing design. Rejected: ${preservation.blockers.join(" · ")}.` }] }
+            : s));
+          setTerminal((t) => [...t, `🔒 Refine protection rejected design drift · ${preservation.blockers.join(" · ")}`]);
+          setLastMetrics(metricsFromClassification(classification, {
+            usedAi: true,
+            model: modelForServer,
+            durationMs: performance.now() - t0,
+            summary: "Refine design preservation rejected a redesign.",
+            validation: { status: "failed", summary: "Refine preservation failed", issues: [] },
+            documentChanged: false,
+            strategy: "full-generation",
+          }));
+          return;
+        }
+      }
+
       const gateBlockersG = checkCommitGate(stableHtml, finalHtml, "full-generation");
       if (gateBlockersG) {
         setSessions((all) => all.map((s) => s.id === sessionId
@@ -3041,6 +3062,18 @@ function Index() {
         setIntelligenceTick((n) => n + 1);
         return;
       }
+      if (isRefineBuild) {
+        const repairedPreservation = checkRefinePreservation(stableHtml, finG.finalHtml, basePrompt);
+        if (!repairedPreservation.ok) {
+          setSessions((all) => all.map((s) => s.id === sessionId
+            ? { ...s, html: stableHtml, messages: [...s.messages, { role: "assistant", content: `⚠ Refine protection rejected QA repair drift: ${repairedPreservation.blockers.join(" · ")}.` }] }
+            : s));
+          setTerminal((t) => [...t, `🔒 QA repair rejected by Refine protection · ${repairedPreservation.blockers.join(" · ")}`]);
+          setIntelligenceTick((n) => n + 1);
+          return;
+        }
+      }
+
       const postRepairGateG = checkCommitGate(stableHtml, finG.finalHtml, "full-generation");
       if (postRepairGateG) {
         setSessions((all) => all.map((s) => s.id === sessionId
