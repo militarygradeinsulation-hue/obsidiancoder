@@ -14,7 +14,7 @@ export interface PocketProjectAssetDraft {
   createdAt: number;
 }
 
-export const POCKET_ASSET_MAX = 4;
+export const POCKET_ASSET_MAX = 8;
 export const POCKET_ASSET_TOKEN_PREFIX = "obsidian-asset://";
 
 type StoredAsset = PocketProjectAsset & {
