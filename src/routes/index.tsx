@@ -1454,7 +1454,7 @@ function Index() {
     const startedAt = pending.startedAt || Date.now();
     durableJobBySessionRef.current.set(activeId, pending.jobId);
     markBuildStart(activeId);
-    setStage("generate");
+    setStage("execute");
     setStageDetail("Background build");
 
     const poll = async () => {
@@ -3093,7 +3093,7 @@ function Index() {
             if (info?.jobId) {
               durableJobId = info.jobId;
               durableJobBySessionRef.current.set(sessionId, info.jobId);
-              safeSet<PendingVibeJob>(vibePendingJobKey(sessionId), {
+              safeSet(vibePendingJobKey(sessionId), {
                 jobId: info.jobId,
                 startedAt: Date.now(),
                 prompt: basePrompt,
@@ -3103,7 +3103,7 @@ function Index() {
 
               if (info.backgroundStarted) {
                 durableBackgroundStarted = true;
-                setStage("generate");
+                setStage("execute");
                 setStageDetail("Background build");
                 setTerminal((t) => [...t, "↻ Durable background build started — safe to leave this page"]);
               } else {

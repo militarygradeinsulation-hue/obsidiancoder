@@ -33,6 +33,9 @@ assert.ok(activeBuild.includes("Pocket is building in the background"), "cross-r
 assert.ok(activeBuild.includes("Vibe is building in the background"), "cross-route Vibe build indicator missing");
 assert.ok(activeBuild.includes("obs.vibe.activeBuilds.v1"), "global indicator must observe Vibe's active-build registry");
 assert.ok(vibe.includes("obs.vibe.activeBuilds.v1"), "Vibe must persist active build lifecycle outside route state");
+assert.ok(vibe.includes('setStage("execute")'), "Vibe durable background generation must use the typed execute pipeline stage");
+assert.ok(!vibe.includes('setStage("generate")'), "invalid generate pipeline stage must not return");
+assert.ok(!vibe.includes("safeSet<PendingVibeJob>"), "safeSet is not generic; Vibe job persistence must use its value contract directly");
 assert.ok(activeBuild.includes("/api/jobs/"), "global build indicator must observe the durable job API");
 assert.ok(root.includes("<ActivePocketBuildIndicator />"), "global build indicator must be mounted in the root shell");
 assert.ok(pocket.includes("MAX_POLL_MS = 20 * 60_000"), "long-running background recovery window regressed");
