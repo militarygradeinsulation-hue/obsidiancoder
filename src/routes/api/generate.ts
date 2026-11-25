@@ -1212,6 +1212,7 @@ ${memBlock}`,
             type Attempt = { key: string; url: string; wireModel: string; routed: boolean; label: string; google?: boolean; anthropic?: boolean };
             const attempts: Attempt[] = [];
             const viaAnthropic = isAnthropicModel(model);
+            const preferDirectGoogle = isFastTier(model) && !!googleKey;
             if (viaAnthropic) {
               const aKey = anthropicApiKey();
               if (aKey) {
@@ -1224,6 +1225,22 @@ ${memBlock}`,
                   anthropic: true,
                 });
               }
+            }
+
+            // Fast-tier requests should actually be fast: when a direct
+            // Google key exists, try the requested Gemini-family model before
+            // spending seconds walking degraded proxy keys. RouteLLM/gateway
+            // remain fallbacks below.
+            if (preferDirectGoogle && googleKey) {
+              const gm = googleModelFor(model);
+              attempts.push({
+                key: googleKey,
+                url: GOOGLE_OPENAI_CHAT_URL,
+                wireModel: gm,
+                routed: false,
+                label: `google/generate:${gm}`,
+                google: true,
+              });
             }
 
             // 1. ChatLLM / RouteLLM — every healthy key, strongest sensible model.
@@ -1263,8 +1280,9 @@ ${memBlock}`,
               }
             }
 
-            // 3. Gemini (direct Google key).
-            if (googleKey) {
+            // 3. Gemini direct is the final safety net for non-fast
+            // requests. Fast-tier requests already placed it first above.
+            if (googleKey && !preferDirectGoogle) {
               const gm = googleModelFor(model);
               attempts.push({
                 key: googleKey,
