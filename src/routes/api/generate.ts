@@ -889,8 +889,8 @@ export async function handleGenerate(request: Request): Promise<Response> {
           }
           let lastCancelCheckAt = 0;
           let lastProgressWriteAt = 0;
-          const CANCEL_CHECK_INTERVAL_MS = 2_000;
-          const PROGRESS_WRITE_INTERVAL_MS = 2_000;
+          const CANCEL_CHECK_INTERVAL_MS = 3_500;
+          const PROGRESS_WRITE_INTERVAL_MS = 3_000;
           /** Thrown to distinguish a deliberate stop from a genuine failure at the finalize() funnel. */
           class JobCancelledError extends Error {
             constructor() {
@@ -1693,20 +1693,24 @@ ${memBlock}`,
                   controller.error(err ?? new Error("ai_upstream_empty"));
                 }
               };
-              const writeJobProgress = async () => {
-                if (!jobId) return;
+              let progressWriteInFlight = false;
+              const writeJobProgress = () => {
+                if (!jobId || progressWriteInFlight) return;
                 const now = performance.now();
                 if (now - lastProgressWriteAt < PROGRESS_WRITE_INTERVAL_MS) return;
                 lastProgressWriteAt = now;
-                try {
-                  await updateBuildJobProgress(jobId, {
-                    stage: "streaming",
-                    progress: Math.min(95, Math.round((jobHtml.length / 20_000) * 100)),
-                    partialHtml: jobHtml,
-                  });
-                } catch {
-                  /* a failed progress write must never interrupt generation */
-                }
+                progressWriteInFlight = true;
+                const partialHtml = jobHtml;
+                const progress = Math.min(95, Math.round((partialHtml.length / 20_000) * 100));
+                void updateBuildJobProgress(jobId, {
+                  stage: "streaming",
+                  progress,
+                  partialHtml,
+                }).catch(() => {
+                  /* recovery telemetry must never apply provider backpressure */
+                }).finally(() => {
+                  progressWriteInFlight = false;
+                });
               };
               try {
                 const drain = async (): Promise<boolean> => {
@@ -1747,8 +1751,9 @@ ${memBlock}`,
                   const { done, value } = await reader.read();
                   if (done) break;
                   buffer += decoder.decode(value, { stream: true });
-                  await writeJobProgress();
                   if (await drain()) return;
+                  // Persist the newest drained HTML without pausing provider reads.
+                  writeJobProgress();
                 }
                 await finalize(emittedBytes > 0);
               } catch (err) {
