@@ -85,6 +85,10 @@ export async function regenerateForQuality(
 
   const body = {
     ...opts.body,
+    // A corrective retry is a new provider attempt, not a continuation of
+    // the original durable job. Reusing jobId would overwrite/reclaim the
+    // first build's persistence row.
+    jobId: undefined,
     model,
     // Never let the server treat this as a user-pinned cheap model.
     pickerModel: undefined,

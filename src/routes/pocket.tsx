@@ -1525,14 +1525,25 @@ function ForgePage() {
       // An unstyled or truncated page is a failed build even when it is valid
       // HTML. Reject it and regenerate ONCE on an escalated model instead of
       // committing browser-default markup to the preview.
+      let deferredQualityFloor: ReturnType<typeof checkDesignFloor> | null = null;
       {
         const floor = checkDesignFloor(finalHtml);
-        // Same rule as the Coder: a second full generation is for truncated
-        // output or an unstyled FRESH build, never for a focused refinement.
+        // Truly broken design output still blocks. A complete page whose ONLY
+        // blocker is thin CSS is usable immediately, so commit it now and
+        // polish it after the first version is already available.
+        const thinCssOnly =
+          !isRefine &&
+          !floor.incomplete &&
+          floor.blockers.length === 1 &&
+          floor.blockers[0] === "thin-css";
+        const severeDesignBlockers = new Set(["no-css", "no-color", "no-layout", "default-anchors"]);
         const worthRetry =
           floor.incomplete ||
-          (!isRefine && (floor.blockers.includes("no-css") || floor.blockers.includes("thin-css")));
-        if (!floor.ok && worthRetry) {
+          (!isRefine && floor.blockers.some((code) => severeDesignBlockers.has(code)));
+        if (!floor.ok && thinCssOnly) {
+          deferredQualityFloor = floor;
+          log("⚡ First pass is usable; thin-CSS design polish moved to background.");
+        } else if (!floor.ok && worthRetry) {
           log(`Design floor rejected the first pass (${floor.blockers.join(", ")}) — regenerating.`);
           setStatus("Rebuilding to design standard…");
           const retryStartedAt = performance.now();
@@ -1634,10 +1645,47 @@ function ForgePage() {
       setVersions(() => newVersions);
       setLastCritiqueRan(false);
 
+      // A complete thin-CSS page is already usable. Improve it after commit
+      // instead of making the user wait for a second full model round-trip.
+      // If the user edits or starts another build first, this polish is dropped.
+      if (deferredQualityFloor) {
+        const qualityBase = finalHtml;
+        const qualityLabel = `${label} · design polish`;
+        const qualityReport = deferredQualityFloor;
+        void (async () => {
+          try {
+            const retry = await regenerateForQuality({
+              fetcher: authFetch,
+              body: genBody,
+              report: qualityReport,
+              headers: genHeaders,
+            });
+            if (!retry?.improved) return;
+            let improved = resolvePocketAssetTokens(retry.html, projectAssets);
+            const post = assessCandidateForCommit({ html: improved });
+            if (!post.ok) return;
+            improved = post.repairedHtml;
+            let landed = false;
+            setProject((prev) => {
+              if (entryHtml(prev) !== qualityBase) return prev;
+              landed = true;
+              return setEntryHtml(prev, improved);
+            });
+            if (!landed) return;
+            setVersions((prev) => pushVersion(prev, makeForgeVersion(improved, qualityLabel)));
+            log(`Background design polish applied on ${retry.model}.`);
+          } catch {
+            // First version is already committed; optional polish is non-fatal.
+          }
+        })();
+      }
+
       // Cinematic polish is deliberately non-blocking. The safe build is
       // already committed and usable. A later critique can enhance it, but
       // cannot overwrite subsequent user edits or violate Refine preservation.
-      if (!isReferenceBuild && profile === "cinematic" && paidAccess) {
+      // Skip the separate critique when a design-floor polish is already
+      // running; one background quality pass is enough.
+      if (!deferredQualityFloor && !isReferenceBuild && profile === "cinematic" && paidAccess) {
         const polishBase = finalHtml;
         const polishLabel = `${label} · polished`;
         void (async () => {
