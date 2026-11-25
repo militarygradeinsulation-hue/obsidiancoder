@@ -125,7 +125,7 @@ export function skeletonToPrompt(skeleton: StructuralSkeleton, score: number, fa
   return lines.join("\n").slice(0, TEMPLATE_BRIEF_MAX_BYTES);
 }
 
-function bestArchiveEntry(
+export function bestArchiveEntry(
   archive: readonly ArchiveEntry[],
   family: string,
   surface?: string,
@@ -143,6 +143,20 @@ function bestArchiveEntry(
  * quality-gated precedent to reuse. Cheap: reads local memory only, makes no
  * provider call, and is safe to run on every build.
  */
+export function archiveEntryForLearning(
+  archive: readonly ArchiveEntry[],
+  learning: BuildLearningEntry,
+  surface?: string,
+): ArchiveEntry | null {
+  if (learning.archiveId) {
+    return archive.find((candidate) =>
+      candidate.id === learning.archiveId &&
+      (!surface || candidate.surface === surface)
+    ) ?? null;
+  }
+  return bestArchiveEntry(archive, learning.family, surface);
+}
+
 export function provenTemplateBrief(
   entries: readonly BuildLearningEntry[],
   family: string,
@@ -155,12 +169,7 @@ export function provenTemplateBrief(
     const score = scoreOf(best);
     if (score < TEMPLATE_MIN_SCORE) return "";
     const archive = readArchive(libraryCode).entries;
-    const entry = best.archiveId
-      ? archive.find((candidate) =>
-          candidate.id === best.archiveId &&
-          (!surface || candidate.surface === surface)
-        ) ?? null
-      : bestArchiveEntry(archive, best.family, surface);
+    const entry = archiveEntryForLearning(archive, best, surface);
     // A linked learning record must never silently fall back to some other
     // archive entry. Legacy records (no archiveId) keep the old family/surface
     // fallback until enough new exact-linked evidence replaces them.
