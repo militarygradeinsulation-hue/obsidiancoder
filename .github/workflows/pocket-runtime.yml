@@ -15,6 +15,9 @@ on:
       - "src/lib/run-build-job.server.ts"
       - "src/routes/api/project-assets.ts"
       - "src/lib/refine-preservation.ts"
+      - "src/lib/build-learning.ts"
+      - "src/lib/proven-templates.ts"
+      - "src/lib/component-registry.ts"
       - "src/lib/pocket-project-assets.ts"
       - "src/components/PocketProjectAssetsPanel.tsx"
       - "src/components/ActivePocketBuildIndicator.tsx"
@@ -23,6 +26,7 @@ on:
       - "scripts/verify-pocket-runtime.mjs"
       - "src/lib/__tests__/pocket-runtime.selftest.mts"
       - "src/lib/__tests__/refine-preservation.selftest.mts"
+      - "src/lib/__tests__/brain-archive-association.selftest.mts"
       - ".github/workflows/pocket-runtime.yml"
   pull_request:
     paths:
@@ -35,6 +39,9 @@ on:
       - "src/lib/run-build-job.server.ts"
       - "src/routes/api/project-assets.ts"
       - "src/lib/refine-preservation.ts"
+      - "src/lib/build-learning.ts"
+      - "src/lib/proven-templates.ts"
+      - "src/lib/component-registry.ts"
       - "src/lib/pocket-project-assets.ts"
       - "src/components/PocketProjectAssetsPanel.tsx"
       - "src/components/ActivePocketBuildIndicator.tsx"
@@ -43,6 +50,7 @@ on:
       - "scripts/verify-pocket-runtime.mjs"
       - "src/lib/__tests__/pocket-runtime.selftest.mts"
       - "src/lib/__tests__/refine-preservation.selftest.mts"
+      - "src/lib/__tests__/brain-archive-association.selftest.mts"
 
 jobs:
   verify:
@@ -63,6 +71,8 @@ jobs:
         run: bun src/lib/__tests__/pocket-runtime.selftest.mts
       - name: Test Refine design preservation
         run: bun src/lib/__tests__/refine-preservation.selftest.mts
+      - name: Test Brain exact archive association
+        run: bun src/lib/__tests__/brain-archive-association.selftest.mts
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Production build
