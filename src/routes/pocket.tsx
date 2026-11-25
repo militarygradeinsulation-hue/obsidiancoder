@@ -1177,9 +1177,13 @@ function ForgePage() {
         // direction replaces the concept-planning call.
         brain = queryBrain({ prompt: p, family: effectiveStyleFamily, surface: "pocket", libraryCode });
         log(`🧠 ${brainMatchLabel(brain.match)} · ${brain.lookupMs}ms · ${brain.reasons.join(" · ")}`);
+        const strongBrainReuse =
+          brain.match === "partial" &&
+          (brain.confidence ?? 0) >= 70 &&
+          brain.brief.trim().length > 0;
         if (brain.provenDna) {
           log(`⚡ Reused a proven direction (scored ${brain.proven?.score}/100) — planner call skipped`);
-        } else if (profile === "cinematic" && paidAccess) {
+        } else if (profile === "cinematic" && paidAccess && !strongBrainReuse) {
           const planner = resolvePocketPlannerModel();
           try {
             const plannerPrompt = conceptPlannerPrompt({
@@ -1204,6 +1208,8 @@ function ForgePage() {
           } catch {
             log("Planner unavailable — using deterministic directions.");
           }
+        } else if (profile === "cinematic" && paidAccess && strongBrainReuse) {
+          log(`⚡ Cinematic Brain reuse · confidence ${brain.confidence}/100 · remote planner skipped`);
         }
         if (profile === "studio" && !brain?.provenDna) {
           log("⚡ Studio speed path · deterministic art direction used with no planner round-trip");

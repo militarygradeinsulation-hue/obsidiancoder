@@ -152,17 +152,17 @@ export function checkRefinePreservation(
     // typography, palette, or broad visual changes.
     const cssExpansionAllowed =
       broadRedesign ||
-      allowsLayout ||
       allowsPalette ||
       allowsTypography ||
       allowsSectionDelta ||
       allowsImages;
     const cssAddedBytes = Math.max(0, newStyleBytes - oldStyleBytes);
+    const cssExpansionLimit = allowsLayout ? 1.7 : 1.35;
     if (
       !cssExpansionAllowed &&
       oldStyleBytes >= 120 &&
       cssAddedBytes >= 180 &&
-      newStyleBytes > oldStyleBytes * 1.35
+      newStyleBytes > oldStyleBytes * cssExpansionLimit
     ) {
       blockers.push(`large CSS/theme expansion (${Math.round((newStyleBytes / oldStyleBytes) * 100)}% of original size)`);
     }
@@ -192,12 +192,13 @@ export function checkRefinePreservation(
       blockers.push(`section structure drift (${oldCount} -> ${newCount})`);
     }
 
-    if (!allowsLayout) {
+    if (!broadRedesign) {
       const oldLayout = layoutSignatures(stableHtml);
       const newLayout = layoutSignatures(candidateHtml);
       if (oldLayout.length >= 6) {
         const ratio = retainedRatio(oldLayout, newLayout);
-        if (ratio < 0.7) blockers.push(`layout-system drift (${Math.round(ratio * 100)}% retained)`);
+        const floor = allowsLayout ? 0.5 : 0.7;
+        if (ratio < floor) blockers.push(`layout-system drift (${Math.round(ratio * 100)}% retained)`);
       }
     }
 

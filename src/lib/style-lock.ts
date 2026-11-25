@@ -128,6 +128,9 @@ export function styleLockDirective(html: string): string {
     "2. Do NOT redesign, re-theme, restructure, or 'improve' existing sections; keep their markup and classes intact.",
     "3. New UI MUST reuse the existing CSS variables, classes, and component patterns below — never invent new colours or fonts.",
     "4. Keep every existing <link> stylesheet/font tag exactly as-is.",
+    "5. A request that mentions layout, spacing, images, copy, or a component authorizes ONLY that targeted change. It does NOT unlock the rest of the page.",
+    "6. Preserve the current hero, navigation, section order, container widths, major grid/flex structure, and responsive breakpoints unless the user explicitly asks to redesign or replace them.",
+    "7. If the request is ambiguous, preserve the existing design rather than interpreting it as permission to modernize or restyle.",
   ];
 
   if (fp.tokens.length) lines.push(`Locked tokens: ${fp.tokens.join("; ")}`);
