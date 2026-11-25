@@ -34,6 +34,9 @@ export interface StoredJobRequest {
    */
   authorization: string | null;
   ownerCodeHeader: string | null;
+  /** Free Pocket replay: preserves the exact anonymous identity/quota cookie. */
+  freeOpen?: boolean;
+  freeOpenCookie?: string | null;
 }
 
 /**
@@ -69,6 +72,8 @@ export async function claimAndRunBuildJob(jobId: string): Promise<void> {
     const headers = new Headers({ "content-type": "application/json" });
     if (stored.authorization) headers.set("authorization", stored.authorization);
     if (stored.ownerCodeHeader) headers.set(OWNER_CODE_HEADER, stored.ownerCodeHeader);
+    if (stored.freeOpen) headers.set("x-obs-free", "1");
+    if (stored.freeOpenCookie) headers.set("cookie", stored.freeOpenCookie);
 
     // jobId travels INSIDE the body (inputSchema's own jobId field), not as
     // a header — handleGenerate reads it from the parsed body exactly like
