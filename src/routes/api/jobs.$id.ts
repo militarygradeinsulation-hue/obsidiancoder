@@ -1,6 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { getBuildJob, requestBuildJobCancel } from "@/lib/build-jobs.server";
 import { isOwnerRequest, resolveUserFromRequest } from "@/lib/credit-gate.server";
+import {
+  fingerprintFromFreeOpenCookie,
+  readOrMintFreeOpenCookie,
+} from "@/lib/free-open.server";
 
 export const Route = createFileRoute("/api/jobs/$id")({
   server: {
@@ -13,17 +17,21 @@ export const Route = createFileRoute("/api/jobs/$id")({
 
         const owner = await isOwnerRequest(request);
         const user = owner ? null : await resolveUserFromRequest(request);
-        if (!owner && !user) {
-          return Response.json({ error: "Sign in required" }, { status: 401 });
-        }
+        const freeInfo = !owner && !user ? readOrMintFreeOpenCookie(request) : null;
+        const anonymousFingerprint =
+          freeInfo && !freeInfo.setCookieHeader
+            ? fingerprintFromFreeOpenCookie(freeInfo)
+            : null;
 
         const job = await getBuildJob(id);
         if (!job) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
-        // Owner can see any job (matches existing owner-has-full-access
-        // convention elsewhere). A signed-in user can only see their own.
-        if (!owner && job.userId !== user?.userId) {
+        const authorized =
+          owner ||
+          (!!user?.userId && job.userId === user.userId) ||
+          (!!anonymousFingerprint && job.anonId === anonymousFingerprint);
+        if (!authorized) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
 
@@ -47,9 +55,19 @@ export const Route = createFileRoute("/api/jobs/$id")({
         }
         const owner = await isOwnerRequest(request);
         const user = owner ? null : await resolveUserFromRequest(request);
-        if (!owner && !user) return Response.json({ error: "Sign in required" }, { status: 401 });
+        const freeInfo = !owner && !user ? readOrMintFreeOpenCookie(request) : null;
+        const anonymousFingerprint =
+          freeInfo && !freeInfo.setCookieHeader
+            ? fingerprintFromFreeOpenCookie(freeInfo)
+            : null;
         const job = await getBuildJob(id);
-        if (!job || (!owner && job.userId !== user?.userId)) {
+        const authorized =
+          !!job && (
+            owner ||
+            (!!user?.userId && job.userId === user.userId) ||
+            (!!anonymousFingerprint && job.anonId === anonymousFingerprint)
+          );
+        if (!authorized) {
           return Response.json({ error: "Not found" }, { status: 404 });
         }
         await requestBuildJobCancel(id);
