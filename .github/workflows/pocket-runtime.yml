@@ -7,6 +7,7 @@ on:
       - main
     paths:
       - "src/routes/pocket.tsx"
+      - "src/routes/index.tsx"
       - "src/routes/api/generate.ts"
       - "src/routes/api/jobs.create.ts"
       - "src/routes/api/jobs.$id.ts"
@@ -24,6 +25,7 @@ on:
   pull_request:
     paths:
       - "src/routes/pocket.tsx"
+      - "src/routes/index.tsx"
       - "src/routes/api/generate.ts"
       - "src/routes/api/jobs.create.ts"
       - "src/routes/api/jobs.$id.ts"
