@@ -145,9 +145,28 @@ export function checkRefinePreservation(
     if (oldStyleBytes >= 500 && newStyleBytes < oldStyleBytes * 0.72) {
       blockers.push(`existing CSS was replaced or heavily removed (${Math.round((newStyleBytes / oldStyleBytes) * 100)}% retained by size)`);
     }
+    // Refine must not evade preservation by leaving the old stylesheet in
+    // place and appending a second theme/layout system after it. A focused
+    // content/image fix can add some CSS, but a large stylesheet expansion
+    // is effectively a redesign unless the user explicitly asked for layout,
+    // typography, palette, or broad visual changes.
+    const cssExpansionAllowed = broadRedesign || allowsLayout || allowsPalette || allowsTypography;
+    if (!cssExpansionAllowed && oldStyleBytes >= 500 && newStyleBytes > oldStyleBytes * 1.45) {
+      blockers.push(`large CSS/theme expansion (${Math.round((newStyleBytes / oldStyleBytes) * 100)}% of original size)`);
+    }
 
     const oldStructure = structuralTags(stableHtml);
     const newStructure = structuralTags(candidateHtml);
+
+    // Preserve the main authored component identity as well as raw tag order.
+    // This catches wholesale wrapper/component replacement that happens to
+    // keep the same number of <section> tags.
+    const oldIds = Array.from(stripSignature(stableHtml).matchAll(/\bid\s*=\s*["']([^"']+)["']/gi), m => m[1]).slice(0, 80);
+    const newIds = Array.from(stripSignature(candidateHtml).matchAll(/\bid\s*=\s*["']([^"']+)["']/gi), m => m[1]).slice(0, 80);
+    if (oldIds.length >= 3) {
+      const idRatio = retainedRatio(oldIds, newIds);
+      if (idRatio < 0.75) blockers.push(`component/id drift (${Math.round(idRatio * 100)}% retained)`);
+    }
     if (oldStructure.length >= 3) {
       const ratio = lcsRatio(oldStructure, newStructure);
       const floor = allowsReorder ? 0.58 : 0.78;
