@@ -93,7 +93,7 @@ import { applyPatch, preflightPatch } from "@/lib/patch-engine";
 import { patchSchema } from "@/lib/patch-protocol";
 import { diffSummary } from "@/lib/diff-summary";
 import { repairHtml } from "@/lib/repair";
-import { safeGet, safeSet, sessionSafeGet, sessionSafeSet, dualSafeGet, dualSafeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
+import { safeGet, safeSet, safeRemove, sessionSafeGet, sessionSafeSet, dualSafeGet, dualSafeSet, sanitizeErrorMessage } from "@/lib/safe-storage";
 import { isAiErrorEnvelope, type AiErrorEnvelope } from "@/lib/ai-errors";
 import type { VersionMetadata, RepairAttempt } from "@/lib/version-metadata";
 import { MemoryPanel } from "@/components/panels/MemoryPanel";
@@ -175,7 +175,7 @@ import {
 import { compactRecentSignatures, conceptPlanKey } from "@/lib/pocket-hardening";
 import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
 import { planWithLocalCache } from "@/lib/plan-cache";
-import { fileToReferenceAsset, loadProjectAssets, saveProjectAssets } from "@/lib/project-assets";
+import { fileToReferenceAsset, loadProjectAssets, saveProjectAssets, type LocalReferenceAsset } from "@/lib/project-assets";
 import {
   beginBackgroundBuild,
   completeBackgroundBuild,
@@ -1855,6 +1855,7 @@ function Index() {
     | { kind: "image"; name: string; dataUrl: string }
     | { kind: "text"; name: string; text: string; source: "text" | "pdf" };
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [projectAssets, setProjectAssets] = useState<LocalReferenceAsset[]>([]);
   const [assetProjectReady, setAssetProjectReady] = useState<string>("");
   const [captureMode, setCaptureMode] = useState<null | "full" | "snip">(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -1866,6 +1867,7 @@ function Index() {
     setAssetProjectReady("");
     void loadProjectAssets(activeId).then((assets) => {
       if (cancelled) return;
+      setProjectAssets(assets);
       setPendingAttachments((current) => [
         ...current.filter((att) => att.kind !== "image"),
         ...assets.map((asset) => ({
@@ -1881,18 +1883,8 @@ function Index() {
 
   useEffect(() => {
     if (!activeId || assetProjectReady !== activeId) return;
-    const images = pendingAttachments
-      .filter((att): att is Extract<Attachment, { kind: "image" }> => att.kind === "image")
-      .map((att, index) => ({
-        id: `${activeId}:img:${index}:${att.name}`,
-        name: att.name,
-        mime: att.dataUrl.slice(5, att.dataUrl.indexOf(";")) || "image/webp",
-        dataUrl: att.dataUrl,
-        bytes: Math.ceil((att.dataUrl.split(",")[1]?.length ?? 0) * 0.75),
-        createdAt: Date.now(),
-      }));
-    void saveProjectAssets(activeId, images);
-  }, [activeId, assetProjectReady, pendingAttachments]);
+    void saveProjectAssets(activeId, projectAssets);
+  }, [activeId, assetProjectReady, projectAssets]);
 
   async function extractPdfText(file: File): Promise<string> {
     const pdfjs: any = await import("pdfjs-dist");
@@ -1924,8 +1916,15 @@ function Index() {
         }
         if (file.type.startsWith("image/")) {
           const asset = await fileToReferenceAsset(file);
-          setPendingAttachments((a) => [...a, { kind: "image", name: asset.name, dataUrl: asset.dataUrl }]);
-          setTerminal((t) => [...t, `🖼 Reference saved locally for this project: ${asset.name} · ${Math.round(asset.bytes / 1024)} KB`]);
+          setProjectAssets((assets) => {
+            const deduped = assets.filter((existing) => existing.dataUrl !== asset.dataUrl && existing.name !== asset.name);
+            return [...deduped, asset].slice(-12);
+          });
+          setPendingAttachments((a) => [
+            ...a.filter((att) => !(att.kind === "image" && (att.dataUrl === asset.dataUrl || att.name === asset.name))),
+            { kind: "image", name: asset.name, dataUrl: asset.dataUrl },
+          ]);
+          setTerminal((t) => [...t, `🖼 Project image saved: ${asset.name} · ${Math.round(asset.bytes / 1024)} KB · available before and after builds`]);
         } else if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
           const text = await extractPdfText(file);
           setPendingAttachments((a) => [...a, { kind: "text", name: file.name, text, source: "pdf" }]);
@@ -1943,7 +1942,15 @@ function Index() {
   }
 
   function removeAttachment(idx: number) {
-    setPendingAttachments((a) => a.filter((_, i) => i !== idx));
+    setPendingAttachments((attachments) => {
+      const target = attachments[idx];
+      if (target?.kind === "image") {
+        setProjectAssets((assets) => assets.filter(
+          (asset) => asset.dataUrl !== target.dataUrl && asset.name !== target.name,
+        ));
+      }
+      return attachments.filter((_, i) => i !== idx);
+    });
   }
 
   // Deterministic bounded repair — one pass. Returns repaired html + attempt record.
