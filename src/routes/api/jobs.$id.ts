@@ -34,6 +34,7 @@ export const Route = createFileRoute("/api/jobs/$id")({
           progress: job.progress,
           partialHtml: job.partialHtml,
           resultHtml: job.status === "complete" ? job.resultHtml : null,
+          servedModel: job.servedModel,
           error: job.error,
           createdAt: job.createdAt,
           completedAt: job.completedAt,
