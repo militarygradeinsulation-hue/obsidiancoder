@@ -1039,6 +1039,7 @@ function ForgePage() {
   const generate = React.useCallback(async (
     promptOverride?: string,
     styleOverride?: PocketStyleFamily,
+    forceRefine = false,
   ) => {
     const p = (promptOverride ?? prompt).trim();
     const isReferenceBuild = p.startsWith("[OBSIDIAN REBUILD FROM REFERENCE]");
@@ -1054,7 +1055,7 @@ function ForgePage() {
     const controller = new AbortController();
     abortRef.current = controller;
     const previous = html;
-    const isRefine = !isReferenceBuild && mode === "refine";
+    const isRefine = !isReferenceBuild && (forceRefine || mode === "refine");
     // Auto-extract project facts from this prompt and merge into session memory.
     // Only fills blank fields; never overwrites anything the user or a prior
     // extraction already set.
@@ -1178,6 +1179,7 @@ function ForgePage() {
             }
           : undefined,
         pocketRecentSignatures: recentDigest.slice(0, 12),
+        projectAssets: projectAssets.map(({ id, name }) => ({ id, name })),
         // Proven decisions + proven structure from this user's best past builds.
         // Fresh builds use the Brain brief (proven decisions + structure, capped);
         // reused-plan builds fall back to the same underlying sources.
@@ -1350,6 +1352,10 @@ function ForgePage() {
         if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
       }
 
+      // Resolve lightweight project-asset tokens only after generation. The
+      // model never receives image bytes, so assets do not inflate context.
+      finalHtml = resolvePocketAssetTokens(finalHtml, projectAssets);
+
       // ---- 2b. Design floor -------------------------------------------------
       // An unstyled or truncated page is a failed build even when it is valid
       // HTML. Reject it and regenerate ONCE on an escalated model instead of
@@ -1390,6 +1396,9 @@ function ForgePage() {
         }
       }
 
+
+      // A quality retry may emit asset tokens again.
+      finalHtml = resolvePocketAssetTokens(finalHtml, projectAssets);
 
       // ---- 3. Deterministic safety/parity gate. Build completion never
       //         waits on an optional AI review; malformed scripts and unsafe
@@ -1624,6 +1633,7 @@ function ForgePage() {
     hasRawPinnedModel,
     pickerModel,
     libraryCode,
+    projectAssets,
 
     modelChoice,
     planConcepts,
