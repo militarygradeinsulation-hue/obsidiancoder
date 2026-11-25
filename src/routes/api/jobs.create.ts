@@ -3,6 +3,12 @@ import { z } from "zod";
 import { createBuildJob, kickBuildJob } from "@/lib/build-jobs.server";
 import { isOwnerRequest, resolveUserFromRequest, OWNER_CODE_HEADER } from "@/lib/credit-gate.server";
 import type { StoredJobRequest } from "@/lib/run-build-job.server";
+import {
+  FREE_OPEN_COOKIE_NAME,
+  FREE_OPEN_REQUEST_HEADER,
+  fingerprintFromFreeOpenCookie,
+  readOrMintFreeOpenCookie,
+} from "@/lib/free-open.server";
 
 // Deliberately light — the real validation gate is handleGenerate's own
 // inputSchema.parse(), which runs when the job actually executes (either
@@ -51,7 +57,21 @@ export const Route = createFileRoute("/api/jobs/create")({
         // queuing rows at all.
         const owner = await isOwnerRequest(request);
         const user = owner ? null : await resolveUserFromRequest(request);
-        if (!owner && !user) {
+        const freePocket =
+          parsed.data.surface === "pocket" &&
+          request.headers.get(FREE_OPEN_REQUEST_HEADER) === "1";
+
+        let anonymousFingerprint: string | null = null;
+        let anonymousCookieHeader: string | null = null;
+        let setCookieHeader: string | undefined;
+        if (freePocket) {
+          const info = readOrMintFreeOpenCookie(request);
+          anonymousFingerprint = fingerprintFromFreeOpenCookie(info);
+          anonymousCookieHeader = `${FREE_OPEN_COOKIE_NAME}=${info.cookieId}`;
+          setCookieHeader = info.setCookieHeader;
+        }
+
+        if (!owner && !user && !freePocket) {
           return Response.json(
             { error: "Sign in to use paid AI features. Local editing remains free." },
             { status: 401 },
@@ -62,11 +82,14 @@ export const Route = createFileRoute("/api/jobs/create")({
           body: parsed.data,
           authorization: request.headers.get("authorization"),
           ownerCodeHeader: request.headers.get(OWNER_CODE_HEADER),
+          freeOpen: freePocket,
+          freeOpenCookie: anonymousCookieHeader,
         };
 
         const jobId = await createBuildJob({
           idempotencyKey: crypto.randomUUID(),
           userId: user?.userId ?? null,
+          anonId: anonymousFingerprint,
           libraryCode: parsed.data.libraryCode ?? null,
           sessionId: parsed.data.sessionId ?? null,
           title: parsed.data.title ?? null,
@@ -90,7 +113,10 @@ export const Route = createFileRoute("/api/jobs/create")({
           }
         }
 
-        return Response.json({ jobId, backgroundStarted });
+        return Response.json(
+          { jobId, backgroundStarted },
+          setCookieHeader ? { headers: { "Set-Cookie": setCookieHeader } } : undefined,
+        );
       },
     },
   },
