@@ -86,6 +86,14 @@ import {
   type ReferenceMode,
   type ReferenceRebuildReady,
 } from "@/components/ReferenceRebuildPanel";
+import { PocketProjectAssetsPanel } from "@/components/PocketProjectAssetsPanel";
+import {
+  deletePocketProjectAsset,
+  listPocketProjectAssets,
+  resolvePocketAssetTokens,
+  savePocketProjectAsset,
+  type PocketProjectAsset,
+} from "@/lib/pocket-project-assets";
 
 import { PricingModal } from "@/components/PricingModal";
 import { UpgradeNudge, type NudgeReason } from "@/components/UpgradeNudge";
@@ -402,6 +410,9 @@ function ForgePage() {
   const [ghOpen, setGhOpen] = React.useState(false);
   const [referenceOpen, setReferenceOpen] = React.useState(false);
   const [referenceStartMode, setReferenceStartMode] = React.useState<ReferenceMode>("url");
+  const [assetsOpen, setAssetsOpen] = React.useState(false);
+  const [projectAssets, setProjectAssets] = React.useState<PocketProjectAsset[]>([]);
+  const [assetsLoaded, setAssetsLoaded] = React.useState(false);
   const [pricingOpen, setPricingOpen] = React.useState(false);
   const [nudge, setNudge] = React.useState<{ reason: NudgeReason; envelope?: CreditsRequiredEnvelope } | null>(null);
   const [status, setStatus] = React.useState<string>("Ready");
@@ -446,6 +457,36 @@ function ForgePage() {
   React.useEffect(() => {
     writeCreativePrefs({ profile, family: styleFamily });
   }, [profile, styleFamily]);
+  React.useEffect(() => {
+    let cancelled = false;
+    setAssetsLoaded(false);
+    const scope = libraryCode.trim() || "guest";
+    void listPocketProjectAssets(scope)
+      .then((assets) => {
+        if (!cancelled) setProjectAssets(assets);
+      })
+      .catch(() => {
+        if (!cancelled) setProjectAssets([]);
+      })
+      .finally(() => {
+        if (!cancelled) setAssetsLoaded(true);
+      });
+    return () => { cancelled = true; };
+  }, [libraryCode]);
+
+  // Resolve any asset tokens recovered from a background build once local
+  // project images are loaded. This makes leave-and-return recovery render
+  // the same result as a build observed live.
+  React.useEffect(() => {
+    if (!assetsLoaded || !projectAssets.length) return;
+    setProject((prev) => {
+      const currentHtml = entryHtml(prev);
+      const resolved = resolvePocketAssetTokens(currentHtml, projectAssets);
+      return resolved === currentHtml ? prev : setEntryHtml(prev, resolved);
+    });
+  }, [assetsLoaded, projectAssets]);
+
+
 
   const unlockWithCode = useServerFn(unlockSite);
   const [submittingCode, setSubmittingCode] = React.useState(false);
