@@ -53,6 +53,38 @@ function styleBytes(html: string): number {
   return total;
 }
 
+function layoutSignatures(html: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  const css = Array.from(
+    stripSignature(html).matchAll(/<style\b[^>]*>([\s\S]*?)<\/style>/gi),
+    (match) => match[1],
+  ).join("\n");
+  for (const match of css.matchAll(/\b(display|grid-template-columns|grid-template-rows|grid-template-areas|flex-direction|justify-content|align-items|max-width|min-width|gap|column-gap|row-gap|padding|margin)\s*:\s*([^;}{]{1,100})[;}]/gi)) {
+    const value = `${match[1].toLowerCase()}:${match[2].trim().toLowerCase()}`;
+    if (seen.has(value)) continue;
+    seen.add(value);
+    out.push(value);
+    if (out.length >= 100) break;
+  }
+  return out;
+}
+
+function imageSources(html: string): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const match of stripSignature(html).matchAll(/<img\b[^>]*\bsrc\s*=\s*["']([^"']+)["'][^>]*>/gi)) {
+    const src = match[1].trim();
+    if (!src || src.startsWith("data:image/svg+xml")) continue;
+    const normalized = src.startsWith("data:image/") ? src.slice(0, 80) : src;
+    if (seen.has(normalized)) continue;
+    seen.add(normalized);
+    out.push(normalized);
+    if (out.length >= 40) break;
+  }
+  return out;
+}
+
 function lcsRatio(before: readonly string[], after: readonly string[]): number {
   if (!before.length) return 1;
   if (!after.length) return 0;
@@ -78,10 +110,12 @@ export function checkRefinePreservation(
 
   const request = (userRequest || "").toLowerCase();
   const broadRedesign =
-    /\b(redesign|re-?design|retheme|re-theme|overhaul|start over|new visual style|completely change|replace the design|replace the layout|change the whole design|change the entire design)\b/.test(request);
+    /\b(redesign|re-?design|retheme|re-theme|restyle|overhaul|start over|from scratch|new visual style|new visual direction|completely change|replace the design|replace the layout|change the whole design|change the entire design|rebuild the whole|rebuild the entire)\b/.test(request);
   const allowsPalette = broadRedesign || /\b(colou?r|palette|background|gradient|theme|brand colors?)\b/.test(request);
   const allowsTypography = broadRedesign || /\b(font|typeface|typography|text style|heading style)\b/.test(request);
   const allowsReorder = broadRedesign || /\b(move|reorder|swap|rearrange)\b/.test(request);
+  const allowsLayout = broadRedesign || /\b(layout|spacing|padding|margin|gap|width|columns?|grid|flex|align|position|move|reorder|swap|rearrange)\b/.test(request);
+  const allowsImages = broadRedesign || /\b(image|images|photo|photos|picture|pictures|logo|logos|icon|icons|illustration|background image)\b/.test(request);
   const allowsSectionDelta = broadRedesign || /\b(add|remove|delete)\b[^.]{0,40}\b(section|header|footer|nav|sidebar|panel)\b/.test(request);
 
   const before = extractStyleFingerprint(stableHtml);
@@ -125,6 +159,24 @@ export function checkRefinePreservation(
     const allowedDelta = allowsSectionDelta ? Math.max(2, Math.ceil(oldCount * 0.25)) : 1;
     if (oldCount >= 2 && Math.abs(newCount - oldCount) > allowedDelta) {
       blockers.push(`section structure drift (${oldCount} -> ${newCount})`);
+    }
+
+    if (!allowsLayout) {
+      const oldLayout = layoutSignatures(stableHtml);
+      const newLayout = layoutSignatures(candidateHtml);
+      if (oldLayout.length >= 6) {
+        const ratio = retainedRatio(oldLayout, newLayout);
+        if (ratio < 0.7) blockers.push(`layout-system drift (${Math.round(ratio * 100)}% retained)`);
+      }
+    }
+
+    if (!allowsImages) {
+      const oldImages = imageSources(stableHtml);
+      const newImages = imageSources(candidateHtml);
+      if (oldImages.length >= 2) {
+        const ratio = retainedRatio(oldImages, newImages);
+        if (ratio < 0.75) blockers.push(`existing imagery changed (${Math.round(ratio * 100)}% retained)`);
+      }
     }
   }
 
