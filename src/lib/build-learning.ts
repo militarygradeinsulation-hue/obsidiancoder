@@ -39,6 +39,8 @@ export type LearningValidation = "passed" | "warnings" | "failed" | "unknown";
 export interface BuildLearningEntry {
   id: string;
   at: number;
+  /** Exact archived build that earned this learning score, when available. */
+  archiveId?: string;
   surface: LearningSurface;
   profile: PocketProfile;
   /** Concrete family ("auto" is resolved before recording). */
@@ -137,6 +139,8 @@ export type BuildOutcomeInput = {
   designIssues?: readonly string[];
   validationStatus?: LearningValidation;
   latencyMs?: number;
+  /** Exact archive entry created for this build. */
+  archiveId?: string;
   outcome: LearningOutcome;
 };
 
@@ -151,6 +155,7 @@ export function recordBuildOutcome(
   const entry: BuildLearningEntry = {
     id: `b_${now.toString(36)}${Math.random().toString(36).slice(2, 6)}`,
     at: now,
+    ...(input.archiveId ? { archiveId: String(input.archiveId).slice(0, 60) } : {}),
     surface: input.surface,
     profile: input.profile,
     family,
