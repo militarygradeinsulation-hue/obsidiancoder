@@ -1303,7 +1303,10 @@ function ForgePage() {
               "REFINE MODE CONTRACT: preserve the existing primary design. Do not redesign, re-theme, reorder sections, replace the typography system, or replace the palette unless the user's request explicitly asks for that exact change. Apply the smallest possible diff.",
             ].filter(Boolean).join("\n\n")
           : p,
-        currentHtml: isRefine ? previous : previous.slice(0, 8000),
+        // Fresh builds should not pay for or inherit the previous project's
+        // HTML. Refine gets the complete existing document because preserving
+        // and editing that exact design is the point of Refine.
+        currentHtml: isRefine ? previous : "",
         history: [],
         model: modelChoice.model,
         pickerModel: hasRawPinnedModel ? model : pickerModel,
