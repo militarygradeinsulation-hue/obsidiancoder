@@ -96,6 +96,7 @@ import {
   resolvePocketAssetTokens,
   savePocketProjectAsset,
   type PocketProjectAsset,
+  type PocketProjectAssetDraft,
 } from "@/lib/pocket-project-assets";
 
 import { PricingModal } from "@/components/PricingModal";
@@ -1693,19 +1694,70 @@ function ForgePage() {
     runCritique,
   ]);
 
-  const addProjectAsset = React.useCallback(async (asset: PocketProjectAsset) => {
+  const addProjectAsset = React.useCallback(async (draft: PocketProjectAssetDraft) => {
     const scope = libraryCode.trim() || "guest";
+    let asset: PocketProjectAsset = {
+      id: draft.id,
+      name: draft.name,
+      url: draft.dataUrl,
+      createdAt: draft.createdAt,
+      localOnly: true,
+    };
+
+    try {
+      const response = await authFetch("/api/project-assets", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: draft.name, dataUrl: draft.dataUrl }),
+      });
+      if (response.ok) {
+        const hosted = await response.json() as {
+          id?: string;
+          name?: string;
+          url?: string;
+          path?: string;
+        };
+        if (hosted.url) {
+          asset = {
+            id: hosted.id || draft.id,
+            name: hosted.name || draft.name,
+            url: hosted.url,
+            storagePath: hosted.path,
+            createdAt: draft.createdAt,
+            localOnly: false,
+          };
+        }
+      } else {
+        log("Project image hosting unavailable — kept a local fallback.");
+      }
+    } catch {
+      log("Project image hosting unavailable — kept a local fallback.");
+    }
+
     await savePocketProjectAsset(scope, asset);
     setProjectAssets((current) => [...current.filter((item) => item.id !== asset.id), asset].slice(-4));
-    setStatus(`Added project image · ${asset.name}`);
-  }, [libraryCode]);
+    setStatus(`Added project image · ${asset.name}${asset.localOnly ? " · local" : " · hosted"}`);
+  }, [libraryCode, log]);
 
   const removeProjectAsset = React.useCallback(async (id: string) => {
     const scope = libraryCode.trim() || "guest";
+    const asset = projectAssets.find((item) => item.id === id);
+    if (asset?.storagePath) {
+      try {
+        await authFetch("/api/project-assets", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ path: asset.storagePath }),
+        });
+      } catch {
+        // Removing from the Pocket project should not be blocked by a remote
+        // cleanup failure; the hosted object can be garbage-collected later.
+      }
+    }
     await deletePocketProjectAsset(scope, id);
-    setProjectAssets((current) => current.filter((asset) => asset.id !== id));
+    setProjectAssets((current) => current.filter((item) => item.id !== id));
     setStatus("Project image removed");
-  }, [libraryCode]);
+  }, [libraryCode, projectAssets]);
 
   const useProjectAssetNow = React.useCallback(async (asset: PocketProjectAsset) => {
     if (html.length < 40 || busy) return;
