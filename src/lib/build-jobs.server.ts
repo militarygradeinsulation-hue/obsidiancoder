@@ -122,6 +122,27 @@ export async function createBuildJob(input: CreateBuildJobInput): Promise<string
   return (data as { id: string }).id;
 }
 
+
+/**
+ * Ask Postgres/pg_net to invoke the server-owned runner for this job.
+ * This is intentionally external to the browser request: once queued, the
+ * build keeps running even if the user navigates away, backgrounds mobile,
+ * or closes the tab. The atomic build_job_claim RPC prevents duplicate work.
+ */
+export async function kickBuildJob(id: string): Promise<boolean> {
+  const baseUrl = (process.env.OBSIDIAN_PUBLIC_BASE_URL || process.env.PUBLIC_APP_URL || "https://obsidianvibe.live").replace(/\/+$/, "");
+  const apiKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+  if (!apiKey) return false;
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { error } = await supabaseAdmin.rpc("build_job_kick" as never, {
+    _id: id,
+    _base_url: baseUrl,
+    _apikey: apiKey,
+  } as never);
+  if (error) throw new Error(`build_job_kick failed: ${error.message}`);
+  return true;
+}
+
 /** Fetch one job by id. Returns null if not found. */
 export async function getBuildJob(id: string): Promise<BuildJobRow | null> {
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
