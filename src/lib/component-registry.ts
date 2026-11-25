@@ -25,6 +25,8 @@ export interface StoredComponent {
   markup: string;       // trimmed HTML (max 1600 chars)
   keywords: string[];   // extracted from class names and attributes
   usageCount: number;
+  /** Only components extracted from a clean, passed build may be reused. */
+  qualityApproved?: boolean;
   createdAt: number;
   lastUsedAt: number;
 }
@@ -216,7 +218,12 @@ export function saveToRegistry(incoming: StoredComponent[]): void {
       if (merged.has(c.id)) {
         // Increment usage count on re-extraction
         const ex = merged.get(c.id)!;
-        merged.set(c.id, { ...ex, usageCount: ex.usageCount + 1, lastUsedAt: Date.now() });
+        merged.set(c.id, {
+          ...ex,
+          qualityApproved: !!(ex.qualityApproved || c.qualityApproved),
+          usageCount: ex.usageCount + 1,
+          lastUsedAt: Date.now(),
+        });
       } else {
         merged.set(c.id, c);
       }
@@ -240,7 +247,10 @@ export function matchComponentsIn(registry: readonly StoredComponent[], prompt: 
     prompt.toLowerCase().split(/[\s,.:!?]+/).filter((w) => w.length >= 3)
   );
   const lower = prompt.toLowerCase();
-  const scored = registry.map((c) => {
+  // Historical registry entries predate quality evidence. Do not treat
+  // "it existed" or "it was recent" as proof that it should shape a future
+  // build. New entries must be explicitly promoted by the builder after QA.
+  const scored = registry.filter((c) => c.qualityApproved === true).map((c) => {
     // Match the whole kind/label phrase, or any meaningful token inside it
     // ("build a pricing page" should reach a stored `pricing-card`), not
     // just an exact substring of the hyphenated kind or the full label.
