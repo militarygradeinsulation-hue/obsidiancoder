@@ -32,7 +32,7 @@
 import { createHash, randomBytes } from "node:crypto";
 import type { Environment } from "@/lib/credit-gate.server";
 
-const COOKIE_NAME = "obs-free-open";
+export const FREE_OPEN_COOKIE_NAME = "obs-free-open";
 const COOKIE_MAX_AGE_SECONDS = 60 * 60 * 24 * 365; // 1 year
 
 /** Generous on purpose — a real first-time visitor should never feel capped. */
@@ -91,12 +91,12 @@ export interface FreeOpenCookieInfo {
 /** Read the cookie or mint a new one. Never returns a raw IP. */
 export function readOrMintFreeOpenCookie(request: Request): FreeOpenCookieInfo {
   const cookies = parseCookies(request.headers.get("cookie"));
-  let cookieId = cookies[COOKIE_NAME];
+  let cookieId = cookies[FREE_OPEN_COOKIE_NAME];
   let setCookieHeader: string | undefined;
   if (!cookieId || cookieId.length < 32 || !/^[a-f0-9]+$/i.test(cookieId)) {
     cookieId = randomBytes(32).toString("hex");
     setCookieHeader =
-      `${COOKIE_NAME}=${cookieId}; Max-Age=${COOKIE_MAX_AGE_SECONDS}; ` +
+      `${FREE_OPEN_COOKIE_NAME}=${cookieId}; Max-Age=${COOKIE_MAX_AGE_SECONDS}; ` +
       `Path=/; HttpOnly; Secure; SameSite=Lax`;
   }
   const ip = firstIp(
