@@ -3875,11 +3875,17 @@ function Index() {
         // Normal debounced persistence remains the fallback while mounted.
       }
 
-      // Extract reusable components from the just-built HTML and save to
-      // the local registry for future builds. Best-effort, never blocks.
-      if (committedFinalHtml && committedFinalHtml.length > 200) {
+      // Promote reusable components only from a clean, passed build. A
+      // merely recent component is not "proven" and must not shape later work.
+      if (
+        committedFinalHtml &&
+        committedFinalHtml.length > 200 &&
+        validationForLearning === "passed" &&
+        designIssuesForLearning.length === 0
+      ) {
         try {
-          const extracted = extractComponents(committedFinalHtml);
+          const extracted = extractComponents(committedFinalHtml)
+            .map((component) => ({ ...component, qualityApproved: true }));
           if (extracted.length > 0) saveToRegistry(extracted);
         } catch { /* component extraction is non-fatal */ }
       }
