@@ -193,6 +193,42 @@ export const Route = createFileRoute("/pocket")({
 type BuildMode = "build" | "refine";
 type TabId = "build" | "versions" | "settings";
 
+type PocketCloudMeta = {
+  assetIds?: string[];
+  publishedUrl?: string;
+  publishedRepo?: string;
+  connectedDomain?: string;
+  mode?: BuildMode;
+  model?: string;
+  profile?: PocketProfile;
+  styleFamily?: PocketStyleFamily;
+};
+
+function readPocketCloudMeta(value: unknown): PocketCloudMeta {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const meta = (value as Record<string, unknown>).pocketMeta;
+  if (!meta || typeof meta !== "object" || Array.isArray(meta)) return {};
+  const raw = meta as Record<string, unknown>;
+  return {
+    assetIds: Array.isArray(raw.assetIds)
+      ? raw.assetIds.filter((id): id is string => typeof id === "string").slice(0, POCKET_ASSET_MAX)
+      : undefined,
+    publishedUrl: typeof raw.publishedUrl === "string" ? raw.publishedUrl : undefined,
+    publishedRepo: typeof raw.publishedRepo === "string" ? raw.publishedRepo : undefined,
+    connectedDomain: typeof raw.connectedDomain === "string" ? raw.connectedDomain : undefined,
+    mode: raw.mode === "build" || raw.mode === "refine" ? raw.mode : undefined,
+    model: typeof raw.model === "string" ? raw.model : undefined,
+    profile: raw.profile === "fast" || raw.profile === "studio" || raw.profile === "cinematic" ? raw.profile : undefined,
+    styleFamily: typeof raw.styleFamily === "string" && (POCKET_STYLE_FAMILIES as readonly string[]).includes(raw.styleFamily)
+      ? raw.styleFamily as PocketStyleFamily
+      : undefined,
+  };
+}
+
+function pocketCloudProjectJson(project: Project, meta: PocketCloudMeta): unknown {
+  return { ...project, pocketMeta: meta };
+}
+
 interface LibraryBuild {
   id: string;
   title: string;
@@ -885,6 +921,15 @@ function ForgePage() {
       void cloudProjects.load(cloudProjectId).then((full) => {
         if (!full) return;
         setProject(projectFromHtml(full.html));
+        const cloudMeta = readPocketCloudMeta(full.projectJson);
+        if (cloudMeta.assetIds) setProjectAssetIds(cloudMeta.assetIds);
+        if (cloudMeta.publishedUrl !== undefined) setPublishedUrl(cloudMeta.publishedUrl || null);
+        if (cloudMeta.publishedRepo !== undefined) setPublishedRepo(cloudMeta.publishedRepo || null);
+        if (cloudMeta.connectedDomain !== undefined) setConnectedDomain(cloudMeta.connectedDomain || null);
+        if (cloudMeta.mode) setMode(cloudMeta.mode);
+        if (cloudMeta.model) setModel(cloudMeta.model);
+        if (cloudMeta.profile) setProfile(cloudMeta.profile);
+        if (cloudMeta.styleFamily) setStyleFamily(cloudMeta.styleFamily);
         if (full.projectName) setTitle(full.projectName);
         log(`☁ Live sync: pulled r${u.revision} from ${u.device ?? "another device"}`);
       });
@@ -903,7 +948,7 @@ function ForgePage() {
 
   // Autosave a few seconds after the last change so other devices catch up.
   useAutosave(
-    `${cloudProjectId ?? ""}:${html.length}:${title}`,
+    `${cloudProjectId ?? ""}:${html.length}:${title}:${projectAssets.map((asset) => asset.id).join(",")}:${publishedRepo ?? ""}:${connectedDomain ?? ""}:${mode}:${model}`,
     () => {
       if (!authUserId || html === EMPTY_DOC || html.length < 40) return;
       void cloudProjects.save({
@@ -911,7 +956,16 @@ function ForgePage() {
         name: title || "Pocket build",
         html,
         prompt: prompt.slice(0, 2000),
-        projectJson: project,
+        projectJson: pocketCloudProjectJson(project, {
+          assetIds: projectAssets.map((asset) => asset.id).slice(0, POCKET_ASSET_MAX),
+          publishedUrl: publishedUrl || undefined,
+          publishedRepo: publishedRepo || undefined,
+          connectedDomain: connectedDomain || undefined,
+          mode,
+          model,
+          profile,
+          styleFamily,
+        }),
         model: undefined,
       }).then((r) => {
         if (r.ok && !cloudProjectId) setCloudProjectId(r.cloudId);
@@ -933,12 +987,17 @@ function ForgePage() {
       cloudProjects.load(top.id).then((full) => {
         if (!full) return;
         const next = projectFromHtml(full.html);
+        const cloudMeta = readPocketCloudMeta(full.projectJson);
         setProject(next);
         setProjectAssets([]);
-        setProjectAssetIds([]);
-        setPublishedUrl(null);
-        setPublishedRepo(null);
-        setConnectedDomain(null);
+        setProjectAssetIds(cloudMeta.assetIds ?? []);
+        setPublishedUrl(cloudMeta.publishedUrl ?? null);
+        setPublishedRepo(cloudMeta.publishedRepo ?? null);
+        setConnectedDomain(cloudMeta.connectedDomain ?? null);
+        if (cloudMeta.mode) setMode(cloudMeta.mode);
+        if (cloudMeta.model) setModel(cloudMeta.model);
+        if (cloudMeta.profile) setProfile(cloudMeta.profile);
+        if (cloudMeta.styleFamily) setStyleFamily(cloudMeta.styleFamily);
         setTitle(full.projectName ?? "Cloud project");
         if (full.prompt) setPrompt(full.prompt);
         if (!cloudProjectId) setCloudProjectId(top.id);
@@ -2012,6 +2071,16 @@ function ForgePage() {
           name: title || "Pocket build",
           html,
           prompt,
+          projectJson: pocketCloudProjectJson(project, {
+            assetIds: projectAssets.map((asset) => asset.id).slice(0, POCKET_ASSET_MAX),
+            publishedUrl: publishedUrl || undefined,
+            publishedRepo: publishedRepo || undefined,
+            connectedDomain: connectedDomain || undefined,
+            mode,
+            model,
+            profile,
+            styleFamily,
+          }),
           model,
         }).then((r) => {
           if (r.ok && !cloudProjectId) setCloudProjectId(r.cloudId);
@@ -2025,7 +2094,7 @@ function ForgePage() {
     } finally {
       setBusy(null);
     }
-  }, [busy, html, title, prompt, model, libraryCode, loadLibrary, log, paidAccess, requireAccount, authUserId, cloudProjects, cloudProjectId]);
+  }, [busy, html, title, prompt, model, libraryCode, loadLibrary, log, paidAccess, requireAccount, authUserId, cloudProjects, cloudProjectId, project, projectAssets, publishedUrl, publishedRepo, connectedDomain, mode, profile, styleFamily]);
 
   // ---- Deploy (existing outbound QA gate → save → share URL) --------------
   const deploy = React.useCallback(async () => {

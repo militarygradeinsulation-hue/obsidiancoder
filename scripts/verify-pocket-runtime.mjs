@@ -62,6 +62,10 @@ assert.ok(assetStore.includes("POCKET_ASSET_MAX = 8"), "Pocket project image cap
 assert.ok(assetRoute.includes("GET: async"), "hosted Pocket assets must be listable across devices");
 assert.ok(assetStore.includes('authFetch("/api/project-assets")'), "Pocket must merge hosted assets with local IndexedDB assets");
 assert.ok(pocket.includes("assetIds: projectAssets.map"), "project-specific image selection must persist with the Pocket session");
+assert.ok(pocket.includes("type PocketCloudMeta"), "Pocket cloud project metadata contract missing");
+assert.ok(pocket.includes("readPocketCloudMeta(full.projectJson)"), "Pocket cloud reopen must restore project media/production metadata");
+assert.ok(pocket.includes("projectJson: pocketCloudProjectJson(project"), "Pocket cloud saves must persist image/domain metadata");
+assert.ok(pocket.includes('projectAssets.map((asset) => asset.id).join(",")'), "metadata-only image attachment changes must retrigger cloud autosave");
 
 assert.ok(pocket.includes("styleLockDirective(previous)"), "Refine must always apply style lock");
 assert.ok(styleLock.includes("does NOT unlock the rest of the page"), "targeted refine requests must not unlock the whole design");
