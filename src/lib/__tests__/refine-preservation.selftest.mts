@@ -43,4 +43,27 @@ assert.ok(appendedBlocked.blockers.some(x => x.includes("CSS/theme expansion") |
 const addSection = stable.replace("</main>", '<section class="faq">FAQ</section></main>');
 assert.equal(checkRefinePreservation(stable, addSection, "Add an FAQ section").ok, true);
 
+const layoutStable = stable.replace(
+  ".nav{display:flex}",
+  ".nav{display:flex;gap:18px}.hero{display:flex;align-items:center;max-width:1180px;margin:0 auto;padding:80px}",
+);
+const layoutDrift = layoutStable
+  .replace("display:flex;align-items:center;max-width:1180px;margin:0 auto;padding:80px", "display:grid;grid-template-columns:1fr 1fr;gap:8px;max-width:720px;margin:12px;padding:16px")
+  .replace(".features{", ".features{display:grid;grid-template-columns:repeat(4,1fr);gap:4px;");
+const layoutBlocked = checkRefinePreservation(layoutStable, layoutDrift, "Change the hero headline copy");
+assert.equal(layoutBlocked.ok, false);
+assert.ok(layoutBlocked.blockers.some((x) => x.includes("layout-system drift")));
+
+const imageStable = stable.replace(
+  "<h1>Title</h1>",
+  '<h1>Title</h1><img src="https://cdn.example.com/a.jpg"><img src="https://cdn.example.com/b.jpg">',
+);
+const imageChanged = imageStable
+  .replace("https://cdn.example.com/a.jpg", "https://cdn.example.com/new-a.jpg")
+  .replace("https://cdn.example.com/b.jpg", "https://cdn.example.com/new-b.jpg");
+const imageBlocked = checkRefinePreservation(imageStable, imageChanged, "Change the card copy");
+assert.equal(imageBlocked.ok, false);
+assert.ok(imageBlocked.blockers.some((x) => x.includes("existing imagery changed")));
+assert.equal(checkRefinePreservation(imageStable, imageChanged, "Replace both photos").ok, true);
+
 console.log("Refine preservation contract tests passed");
