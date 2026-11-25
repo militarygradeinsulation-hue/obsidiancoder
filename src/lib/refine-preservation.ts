@@ -150,8 +150,20 @@ export function checkRefinePreservation(
     // content/image fix can add some CSS, but a large stylesheet expansion
     // is effectively a redesign unless the user explicitly asked for layout,
     // typography, palette, or broad visual changes.
-    const cssExpansionAllowed = broadRedesign || allowsLayout || allowsPalette || allowsTypography;
-    if (!cssExpansionAllowed && oldStyleBytes >= 500 && newStyleBytes > oldStyleBytes * 1.45) {
+    const cssExpansionAllowed =
+      broadRedesign ||
+      allowsLayout ||
+      allowsPalette ||
+      allowsTypography ||
+      allowsSectionDelta ||
+      allowsImages;
+    const cssAddedBytes = Math.max(0, newStyleBytes - oldStyleBytes);
+    if (
+      !cssExpansionAllowed &&
+      oldStyleBytes >= 120 &&
+      cssAddedBytes >= 180 &&
+      newStyleBytes > oldStyleBytes * 1.35
+    ) {
       blockers.push(`large CSS/theme expansion (${Math.round((newStyleBytes / oldStyleBytes) * 100)}% of original size)`);
     }
 
