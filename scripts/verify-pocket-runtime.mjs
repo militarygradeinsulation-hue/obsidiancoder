@@ -71,6 +71,7 @@ assert.ok(pocket.includes("styleLockDirective(previous)"), "Refine must always a
 assert.ok(styleLock.includes("does NOT unlock the rest of the page"), "targeted refine requests must not unlock the whole design");
 assert.ok(refineGuard.includes("const floor = allowsLayout ? 0.5 : 0.7"), "targeted layout refinements must still preserve the primary layout system");
 assert.ok(generate.includes("REFINE MODE — EXISTING DESIGN IS LOCKED"), "server generation must enforce Refine design preservation");
+assert.ok(pocket.includes("refineMode: isRefine"), "Pocket must activate the server-level Refine design lock");
 assert.ok(pocket.includes("checkRefinePreservation(previous, finalHtml, p)"), "Refine post-generation drift guard missing");
 assert.ok(pocket.includes("forceRefine"), "post-build image insertion must be able to force Refine semantics");
 assert.ok(vibe.includes('checkRefinePreservation(stableHtml, finalHtml, basePrompt)'), "main Vibe refinements must enforce the same deterministic design-preservation guard");
