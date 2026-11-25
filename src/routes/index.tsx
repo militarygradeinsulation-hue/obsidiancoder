@@ -2694,6 +2694,14 @@ function Index() {
               validation,
               repairAttempts: patchRepairAttempts,
             });
+            if (isRefineBuild) {
+              const preservation = checkRefinePreservation(stableHtml, patchedHtml, basePrompt);
+              if (!preservation.ok) {
+                setTerminal((t) => [...t, `🔒 Refine protection rejected patch drift · ${preservation.blockers.join(" · ")}`]);
+                abortRef.current = null;
+                break patchAttempt;
+              }
+            }
             const gateBlockersP = checkCommitGate(stableHtml, patchedHtml, "ai-patch");
             if (gateBlockersP) {
               setTerminal((t) => [...t, `✗ Rule gate rejected patch: ${gateBlockersP[0].slice(0, 100)} — falling back to full AI generation.`]);
@@ -2729,6 +2737,14 @@ function Index() {
               pushFeedback(sessionId, { taskType: classification.taskType, strategy: "ai-patch", model: pJson.model, validationStatus: finP.finalValidation.status, runtimeErrors: 0, outcome: "rejected", reason: `qa:${finP.blockers[0] ?? "unresolved"}` });
               abortRef.current = null;
               break patchAttempt;
+            }
+            if (isRefineBuild) {
+              const repairedPreservation = checkRefinePreservation(stableHtml, finP.finalHtml, basePrompt);
+              if (!repairedPreservation.ok) {
+                setTerminal((t) => [...t, `🔒 Refine protection rejected QA patch drift · ${repairedPreservation.blockers.join(" · ")}`]);
+                abortRef.current = null;
+                break patchAttempt;
+              }
             }
             const postRepairGateP = checkCommitGate(stableHtml, finP.finalHtml, "ai-patch");
             if (postRepairGateP) {
