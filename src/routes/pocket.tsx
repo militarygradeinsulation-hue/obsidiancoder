@@ -1707,6 +1707,20 @@ function ForgePage() {
       log(
         `Timing · direction ${Math.round(buildTiming.direction)}ms · job handoff ${Math.round(buildTiming.handoff)}ms · first byte ${Math.round(buildTiming.firstByte)}ms · generation ${Math.round(buildTiming.generation)}ms · retry ${Math.round(buildTiming.retry)}ms · QA ${Math.round(buildTiming.qa)}ms`,
       );
+      const slowStages: string[] = [];
+      if (buildTiming.direction >= 4_000) slowStages.push(`planning ${(buildTiming.direction / 1000).toFixed(1)}s`);
+      if (buildTiming.handoff >= 1_500) slowStages.push(`durable handoff ${(buildTiming.handoff / 1000).toFixed(1)}s`);
+      if (buildTiming.firstByte >= 8_000) slowStages.push(`provider first byte ${(buildTiming.firstByte / 1000).toFixed(1)}s`);
+      if (buildTiming.retry >= 3_000) slowStages.push(`quality retry ${(buildTiming.retry / 1000).toFixed(1)}s`);
+      if (buildTiming.qa >= 4_000) slowStages.push(`QA ${(buildTiming.qa / 1000).toFixed(1)}s`);
+      if (buildTiming.generation >= 45_000 && buildTiming.firstByte < 8_000) {
+        slowStages.push(`generation/output ${(buildTiming.generation / 1000).toFixed(1)}s`);
+      }
+      if (slowStages.length) {
+        log(`⏱ Slow stage detected · ${slowStages.join(" · ")}`);
+      } else {
+        log("⚡ No major build-stage bottleneck detected");
+      }
 
       // ---- 6. Real photography (non-blocking) -----------------------------
       // The page is already on screen. If the model marked image slots
