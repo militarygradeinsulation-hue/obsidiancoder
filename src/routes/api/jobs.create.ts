@@ -13,9 +13,10 @@ const createSchema = z.object({
   prompt: z.string().trim().min(1).max(20_000),
   libraryCode: z.string().trim().max(64).optional(),
   surface: z.enum(["pocket", "coder"]).default("pocket"),
-  // Pocket starts the server-owned runner immediately. Vibe can opt out so
-  // its live stream claims first while the same durable row remains recoverable.
-  backgroundStart: z.boolean().optional().default(true),
+  // Fast-first by default: create the durable row, then let the immediate
+  // live streaming request claim it. Callers may opt into a separate
+  // server-owned runner explicitly when they truly need background-first.
+  backgroundStart: z.boolean().optional().default(false),
   sessionId: z.string().trim().max(120).optional(),
   title: z.string().trim().max(180).optional(),
   mode: z.string().trim().max(80).optional(),
