@@ -18,6 +18,9 @@ assert.ok(jobs.includes('rpc("build_job_kick"'), "background kick must use durab
 assert.ok(pocket.includes("Building in background"), "Pocket must observe durable jobs instead of owning generation");
 assert.ok(pocket.includes("durableJobInFlight"), "Pocket must preserve recovery markers for active server jobs");
 assert.ok(activeBuild.includes("Pocket is building in the background"), "cross-route Pocket build indicator missing");
+assert.ok(activeBuild.includes("Vibe is building in the background"), "cross-route Vibe build indicator missing");
+assert.ok(activeBuild.includes("obs.vibe.activeBuilds.v1"), "global indicator must observe Vibe's active-build registry");
+assert.ok(vibe.includes("obs.vibe.activeBuilds.v1"), "Vibe must persist active build lifecycle outside route state");
 assert.ok(activeBuild.includes("/api/jobs/"), "global build indicator must observe the durable job API");
 assert.ok(root.includes("<ActivePocketBuildIndicator />"), "global build indicator must be mounted in the root shell");
 assert.ok(pocket.includes("MAX_POLL_MS = 20 * 60_000"), "long-running background recovery window regressed");
