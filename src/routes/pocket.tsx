@@ -1034,6 +1034,9 @@ function ForgePage() {
     let providerCalls = 0;
     let critiqueRan = false;
     let brain: BrainResult | null = null;
+    // Remains true only while a server-owned job may still finish after this
+    // component stops observing it. The recovery marker must survive then.
+    let durableJobInFlight = false;
     try {
       // ---- 1. Choose a creative direction --------------------------------
       setStatus("Choosing direction…");
@@ -1171,6 +1174,7 @@ function ForgePage() {
             if (info?.backgroundStarted) {
               backgroundJobId = id;
               backgroundStarted = true;
+              durableJobInFlight = true;
             } else {
               // Durable storage exists, but the server-owned kick was unavailable.
               // Let the existing live path claim the job and keep recovery semantics.
@@ -1197,6 +1201,7 @@ function ForgePage() {
 
         for (;;) {
           if (controller.signal.aborted) {
+            durableJobInFlight = false;
             throw new DOMException("Build stopped", "AbortError");
           }
           const jobRes = await authFetch(`/api/jobs/${backgroundJobId}`);
@@ -1225,12 +1230,15 @@ function ForgePage() {
           if (job.status === "complete" && job.resultHtml) {
             finalHtml = job.resultHtml.trim();
             servedModel = job.servedModel || modelChoice.model;
+            durableJobInFlight = false;
             break;
           }
           if (job.status === "failed") {
+            durableJobInFlight = false;
             throw new Error(job.error || "Background build failed.");
           }
           if (job.status === "cancelled") {
+            durableJobInFlight = false;
             throw new DOMException("Build stopped", "AbortError");
           }
           if (Date.now() - startedAt > BACKGROUND_WAIT_MS) {
@@ -1553,7 +1561,9 @@ function ForgePage() {
     } finally {
       abortRef.current = null;
       setBusy(null);
-      safeRemove(pendingJobKey(libraryCode));
+      // A durable server job can outlive this observer. Keep its marker until
+      // it actually completes/fails/cancels so the next mount can recover it.
+      if (!durableJobInFlight) safeRemove(pendingJobKey(libraryCode));
     }
   }, [
     prompt,
