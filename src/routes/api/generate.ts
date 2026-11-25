@@ -124,6 +124,12 @@ const inputSchema = z.object({
     .transform((list) =>
       list ? list.map(normalizeRecentSignatureInput).filter(Boolean) : undefined,
     ),
+  // Project image bytes stay in browser IndexedDB. Only ids/names are sent
+  // through generation so image support does not bloat the LLM context.
+  projectAssets: z.array(z.object({
+    id: z.string().min(4).max(120),
+    name: z.string().min(1).max(120),
+  })).max(4).optional().default([]),
   pocketCritiqueContext: z.string().max(4000).optional(),
   /**
    * "What worked before" brief derived client-side from graded past builds
@@ -1109,6 +1115,19 @@ ${memBlock}`,
               content: `For reference only — the user's current build (do NOT rewrite it, just advise):\n\n${contextHtml.slice(0, 8000)}`,
             });
           }
+          if (!data.advisory && data.projectAssets.length) {
+            messages.push({
+              role: "system",
+              content:
+                "PROJECT IMAGE ASSETS — these images were uploaded by the user. " +
+                "Use them when relevant by writing the EXACT token as an <img src> or CSS url: obsidian-asset://<id>. " +
+                "Do not invent replacement URLs for these assets. On an existing build, preserve the current composition and only place or replace imagery required by the request.\n\n" +
+                data.projectAssets.map((asset, index) =>
+                  `[${index + 1}] ${asset.name} -> obsidian-asset://${asset.id}`
+                ).join("\n"),
+            });
+          }
+
           if (!data.advisory && data.referenceRebuild) {
             messages.push({
               role: "system",
