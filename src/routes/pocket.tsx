@@ -738,7 +738,7 @@ function ForgePage() {
     let cancelled = false;
     let pollTimer: ReturnType<typeof setTimeout> | undefined;
     const POLL_INTERVAL_MS = 4000;
-    const MAX_POLL_MS = 5 * 60_000; // stop watching after 5 minutes either way
+    const MAX_POLL_MS = 20 * 60_000; // observe long builds without owning/cancelling them
 
     const poll = async () => {
       if (cancelled) return;
@@ -755,12 +755,14 @@ function ForgePage() {
         if (job.status === "complete" && job.resultHtml) {
           setProject((prev) => setEntryHtml(prev, job.resultHtml as string));
           setPane("preview");
+          setBusy(null);
           setStatus("Your build finished while you were away");
           log("Recovered a build that finished in the background.");
           safeRemove(pendingJobKey(code));
           return;
         }
         if (job.status === "failed" || job.status === "cancelled") {
+          setBusy(null);
           safeRemove(pendingJobKey(code));
           if (job.status === "failed") {
             setStatus("A build that ran while you were away didn't finish");
@@ -768,8 +770,13 @@ function ForgePage() {
           }
           return;
         }
+        setBusy("generating");
         if (Date.now() - pending.startedAt > MAX_POLL_MS) {
-          safeRemove(pendingJobKey(code));
+          // Stop active polling to avoid keeping a page alive forever, but do
+          // NOT delete the durable marker. A later visit will check the same
+          // server-owned job and recover its final result.
+          setBusy(null);
+          setStatus("Build is still running in the background — you can leave and check later");
           return;
         }
         setStatus("Finishing a build that started while you were away…");
