@@ -16,6 +16,10 @@ const createSchema = z.object({
   // Pocket starts the server-owned runner immediately. Vibe can opt out so
   // its live stream claims first while the same durable row remains recoverable.
   backgroundStart: z.boolean().optional().default(true),
+  sessionId: z.string().trim().max(120).optional(),
+  title: z.string().trim().max(180).optional(),
+  mode: z.string().trim().max(80).optional(),
+  profile: z.string().trim().max(80).optional(),
 }).passthrough();
 
 export const Route = createFileRoute("/api/jobs/create")({
@@ -60,8 +64,12 @@ export const Route = createFileRoute("/api/jobs/create")({
           idempotencyKey: crypto.randomUUID(),
           userId: user?.userId ?? null,
           libraryCode: parsed.data.libraryCode ?? null,
+          sessionId: parsed.data.sessionId ?? null,
+          title: parsed.data.title ?? null,
           surface: parsed.data.surface,
           prompt: parsed.data.prompt,
+          mode: parsed.data.mode,
+          profile: parsed.data.profile,
           requestBody: stored,
         });
 
