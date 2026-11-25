@@ -54,6 +54,61 @@ const GH_ACTION_GUARDS: Record<string, GuardOperation> = {
   configureSupabaseAuth: "github_deploy",
 };
 
+const GITHUB_PAGES_APEX_A = [
+  "185.199.108.153",
+  "185.199.109.153",
+  "185.199.110.153",
+  "185.199.111.153",
+] as const;
+
+const GITHUB_PAGES_APEX_AAAA = [
+  "2606:50c0:8000::153",
+  "2606:50c0:8001::153",
+  "2606:50c0:8002::153",
+  "2606:50c0:8003::153",
+] as const;
+
+function PagesDnsGuide({ owner }: { owner: string }) {
+  const cname = `${owner}.github.io`;
+  const pillStyle: React.CSSProperties = {
+    display: "inline-block",
+    margin: "2px 4px 2px 0",
+    padding: "3px 6px",
+    borderRadius: 6,
+    background: "rgba(255,255,255,.05)",
+    border: "1px solid rgba(182,188,200,.14)",
+    color: "#d8dde8",
+    fontFamily: "ui-monospace,SFMono-Regular,Menlo,monospace",
+    fontSize: 10,
+  };
+  return (
+    <details style={{ margin: "8px 0", padding: 9, borderRadius: 8, background: "rgba(255,255,255,.025)", border: "1px solid rgba(182,188,200,.12)" }}>
+      <summary style={{ cursor: "pointer", color: "#F4A125", fontSize: 11, fontWeight: 700 }}>
+        DNS records to use
+      </summary>
+      <div style={{ marginTop: 8, color: "#B6BCC8", fontSize: 10, lineHeight: 1.5 }}>
+        <p style={{ margin: "0 0 6px" }}>
+          Add the domain to this build first. Then change DNS at the company where you own the domain. Do not use wildcard DNS records.
+        </p>
+        <div style={{ marginTop: 6 }}>
+          <b style={{ color: "#E7E2EA" }}>Subdomain</b> · CNAME → <code style={pillStyle}>{cname}</code>
+        </div>
+        <div style={{ marginTop: 7 }}>
+          <b style={{ color: "#E7E2EA" }}>Apex/root domain</b> · A records for <code style={pillStyle}>@</code>
+          <div>{GITHUB_PAGES_APEX_A.map((value) => <code key={value} style={pillStyle}>{value}</code>)}</div>
+        </div>
+        <div style={{ marginTop: 7 }}>
+          <b style={{ color: "#E7E2EA" }}>Optional IPv6</b> · AAAA records for <code style={pillStyle}>@</code>
+          <div>{GITHUB_PAGES_APEX_AAAA.map((value) => <code key={value} style={pillStyle}>{value}</code>)}</div>
+        </div>
+        <p style={{ margin: "7px 0 0", opacity: .72 }}>
+          DNS can take time to propagate. Use Check DNS / HTTPS after the records are saved.
+        </p>
+      </div>
+    </details>
+  );
+}
+
 async function ghCall<T = unknown>(body: unknown): Promise<T> {
   // Central client-side guard — free users can't reach any GitHub route.
   const action = typeof body === "object" && body ? (body as { action?: string }).action : undefined;
@@ -1235,6 +1290,7 @@ export function GithubModal(props: {
                   <p style={{ color: "#B6BCC8", fontSize: 11, lineHeight: 1.5, margin: "0 0 8px" }}>
                     Publish this Pocket build to GitHub Pages, then bind a domain you own. For a subdomain, point its CNAME to {user ? user.login + ".github.io" : "YOUR-ACCOUNT.github.io"}. Apex/root domains use GitHub Pages A/AAAA records at your DNS provider.
                   </p>
+                  <PagesDnsGuide owner={user?.login ?? "YOUR-ACCOUNT"} />
                   <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                     <input
                       value={customDomainInput}
@@ -1615,6 +1671,7 @@ export function GithubModal(props: {
                   Bind a domain you own to this GitHub Pages app. For a subdomain, point its CNAME to {user ? user.login + ".github.io" : "YOUR-ACCOUNT.github.io"}.
                   Apex domains need GitHub Pages A/AAAA records at your DNS provider.
                 </p>
+                <PagesDnsGuide owner={user?.login ?? "YOUR-ACCOUNT"} />
                 <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
                   <input
                     value={customDomainInput}
