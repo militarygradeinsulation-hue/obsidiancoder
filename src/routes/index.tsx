@@ -1571,6 +1571,142 @@ function Index() {
     setHydrated(true);
   }, []);
 
+  // Apply a fully processed Vibe result that finished while this route was
+  // not mounted. These entries contain the client-approved/final HTML, not
+  // the raw provider stream.
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+    void completedBackgroundBuilds().then(async (jobs) => {
+      if (cancelled || !jobs.length) return;
+      const known = new Set(sessions.map((session) => session.id));
+      const applicable = jobs.filter((job) => known.has(job.sessionId) && !!job.html);
+      if (!applicable.length) return;
+
+      setSessions((all) => all.map((session) => {
+        const job = applicable.find((candidate) => candidate.sessionId === session.id);
+        if (!job?.html) return session;
+        return {
+          ...session,
+          html: job.html,
+          messages: [
+            ...session.messages,
+            { role: "assistant" as const, content: `✓ ${job.message ?? "Background build completed while you were away."}` },
+          ],
+        };
+      }));
+      for (const job of applicable) {
+        durableJobBySessionRef.current.delete(job.sessionId);
+        await markBackgroundBuildApplied(job.operationId);
+      }
+      setTerminal((t) => [...t, `✓ Recovered ${applicable.length} completed background build${applicable.length === 1 ? "" : "s"}`]);
+    });
+    return () => { cancelled = true; };
+    // Run once for the hydrated session snapshot. New live jobs are observed
+    // by their active route and become recoverable on a future mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
+  // Reconnect to durable server jobs after route navigation/reload. Raw server
+  // output is accepted only after basic HTML validation and Refine preservation
+  // checks; otherwise the existing stable project stays untouched.
+  useEffect(() => {
+    if (!hydrated) return;
+    let cancelled = false;
+    let timer: number | null = null;
+
+    const poll = async () => {
+      const jobs = await recoverableBackgroundBuilds();
+      if (cancelled || !jobs.length) return;
+      let stillRunning = false;
+
+      for (const localJob of jobs) {
+        if (!localJob.serverJobId) continue;
+        // A job actively observed in this mount should finish through the
+        // normal full QA/commit path, not race this recovery loop.
+        if ([...durableJobBySessionRef.current.values()].includes(localJob.serverJobId)) {
+          stillRunning = true;
+          continue;
+        }
+
+        try {
+          const response = await authFetch(`/api/jobs/${localJob.serverJobId}`, { method: "GET" });
+          if (!response.ok) {
+            stillRunning = true;
+            continue;
+          }
+          const remote = await response.json() as {
+            status?: string;
+            resultHtml?: string | null;
+            error?: string | null;
+          };
+
+          if (remote.status === "complete" && remote.resultHtml) {
+            const session = sessions.find((candidate) => candidate.id === localJob.sessionId);
+            const stable = session?.html ?? "";
+            const assessment = assessCandidateForCommit({ html: remote.resultHtml });
+            const validation = assessment.ok ? validateHtml(assessment.repairedHtml) : null;
+            const preservation = stable
+              ? checkRefinePreservation(stable, assessment.ok ? assessment.repairedHtml : remote.resultHtml, localJob.prompt)
+              : { ok: true, blockers: [] as string[] };
+
+            if (!assessment.ok || validation?.status === "failed" || !preservation.ok) {
+              const reason = !assessment.ok
+                ? "Recovered build failed the candidate safety check."
+                : validation?.status === "failed"
+                  ? "Recovered build failed HTML validation."
+                  : `Recovered Refine build changed the main design: ${preservation.blockers.join(" · ")}`;
+              await failBackgroundBuild(localJob.sessionId, localJob.operationId, reason);
+              setTerminal((t) => [...t, `⚠ ${reason} Existing project preserved.`]);
+              continue;
+            }
+
+            const recoveredHtml = assessment.repairedHtml;
+            await completeBackgroundBuild(
+              localJob.sessionId,
+              localJob.operationId,
+              recoveredHtml,
+              "Background build completed while you were away.",
+            );
+            setSessions((all) => all.map((item) => item.id === localJob.sessionId
+              ? {
+                  ...item,
+                  html: recoveredHtml,
+                  messages: [
+                    ...item.messages,
+                    { role: "assistant" as const, content: "✓ Background build completed while you were away." },
+                  ],
+                }
+              : item));
+            await markBackgroundBuildApplied(localJob.operationId);
+            durableJobBySessionRef.current.delete(localJob.sessionId);
+            setTerminal((t) => [...t, "✓ Background build recovered and validated"]);
+          } else if (remote.status === "failed" || remote.status === "cancelled") {
+            await failBackgroundBuild(
+              localJob.sessionId,
+              localJob.operationId,
+              remote.error || "Background build did not complete.",
+            );
+            durableJobBySessionRef.current.delete(localJob.sessionId);
+          } else {
+            stillRunning = true;
+          }
+        } catch {
+          stillRunning = true;
+        }
+      }
+
+      if (!cancelled && stillRunning) timer = window.setTimeout(poll, 2500);
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timer != null) window.clearTimeout(timer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated]);
+
   // One-time import of the legacy global discussion into the active build.
   // Runs once after hydration; never duplicates into a second build.
   const migratedRef = useRef(false);
