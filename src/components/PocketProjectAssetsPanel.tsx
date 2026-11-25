@@ -128,7 +128,7 @@ export function PocketProjectAssetsPanel({
           </span>
           <div>
             <p className="text-xs font-semibold text-white">Project images</p>
-            <p className="text-[10px] text-[#7d8494]">Reusable assets for builds and refinements. Stored locally with this Pocket workspace.</p>
+            <p className="text-[10px] text-[#7d8494]">Images attached to this Pocket project for generation and targeted refinements.</p>
           </div>
         </div>
         <button type="button" onClick={onClose} aria-label="Close project images" className="rounded-lg p-1.5 text-[#77727E] hover:bg-white/5 hover:text-white">
@@ -155,11 +155,22 @@ export function PocketProjectAssetsPanel({
             <span className="grid h-9 w-9 place-items-center rounded-lg bg-white/[0.04] text-[#F4A125]"><Upload size={16} /></span>
             <div>
               <p className="text-xs font-medium text-[#E7E2EA]">{working ? "Preparing images…" : assets.length ? "Add more project images" : "Upload project images"}</p>
-              <p className="mt-0.5 text-[10px] text-[#77727E]">These remain available before and after builds without bloating the AI prompt.</p>
+              <p className="mt-0.5 text-[10px] text-[#77727E]">Upload before Build to make them active project media. After Build, use Add to build to place an exact image.</p>
             </div>
           </div>
           <span className="text-[10px] font-medium text-[#F4A125]">{assets.length}/{POCKET_ASSET_MAX}</span>
         </button>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] px-3 py-2">
+            <p className="text-[10px] font-semibold text-[#E7E2EA]">Before a build</p>
+            <p className="mt-1 text-[9px] leading-relaxed text-[#77727E]">Uploaded images are sent as lightweight project-media references. Pocket can use the real hosted image without sending the image bytes through the LLM prompt.</p>
+          </div>
+          <div className="rounded-lg border border-white/[0.07] bg-white/[0.025] px-3 py-2">
+            <p className="text-[10px] font-semibold text-[#E7E2EA]">After a build</p>
+            <p className="mt-1 text-[9px] leading-relaxed text-[#77727E]">Select Add to build. Pocket runs a focused Refine request that places the image while preserving the current design, section order, typography, and palette.</p>
+          </div>
+        </div>
 
         {assets.length ? (
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
