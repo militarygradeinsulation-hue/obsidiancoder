@@ -649,6 +649,13 @@ export function GithubModal(props: {
 
   async function setCustomDomain() {
     if (!managedRepo.trim() || !customDomainInput.trim()) return;
+    const requestedDomain = customDomainInput.trim().toLowerCase();
+    if (typeof window !== "undefined") {
+      const ownsDomain = window.confirm(
+        `Confirm you own or control DNS for ${requestedDomain}. Obsidian will attach it to this build, then GitHub Pages will verify DNS and HTTPS readiness.`,
+      );
+      if (!ownsDomain) return;
+    }
     setErr(null);
     setLoading("custom-domain");
     try {

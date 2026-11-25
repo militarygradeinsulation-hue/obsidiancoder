@@ -1,3 +1,5 @@
+import { authFetch } from "@/lib/auth-fetch";
+
 export interface PocketProjectAsset {
   id: string;
   name: string;
@@ -68,33 +70,63 @@ export function resolvePocketAssetTokens(html: string, assets: readonly PocketPr
 }
 
 export async function listPocketProjectAssets(scope: string): Promise<PocketProjectAsset[]> {
-  const db = await openDb();
+  let local: PocketProjectAsset[] = [];
   try {
-    return await new Promise((resolve, reject) => {
-      const tx = db.transaction(STORE, "readonly");
-      const index = tx.objectStore(STORE).index(SCOPE_INDEX);
-      const req = index.getAll(IDBKeyRange.only(scope));
-      req.onerror = () => reject(req.error ?? new Error("Could not read project images."));
-      req.onsuccess = () => {
-        const rows = (req.result ?? []) as StoredAsset[];
-        resolve(
-          rows
-            .map((row) => ({
-              id: row.id,
-              name: row.name,
-              url: row.url || row.dataUrl || "",
-              createdAt: row.createdAt,
-              storagePath: row.storagePath,
-              localOnly: row.localOnly ?? !row.url,
-            }))
-            .filter((asset) => !!asset.url)
-            .sort((a, b) => a.createdAt - b.createdAt),
-        );
-      };
-    });
-  } finally {
-    db.close();
+    const db = await openDb();
+    try {
+      local = await new Promise((resolve, reject) => {
+        const tx = db.transaction(STORE, "readonly");
+        const index = tx.objectStore(STORE).index(SCOPE_INDEX);
+        const req = index.getAll(IDBKeyRange.only(scope));
+        req.onerror = () => reject(req.error ?? new Error("Could not read project images."));
+        req.onsuccess = () => {
+          const rows = (req.result ?? []) as StoredAsset[];
+          resolve(
+            rows
+              .map((row) => ({
+                id: row.id,
+                name: row.name,
+                url: row.url || row.dataUrl || "",
+                createdAt: row.createdAt,
+                storagePath: row.storagePath,
+                localOnly: row.localOnly ?? !row.url,
+              }))
+              .filter((asset) => !!asset.url),
+          );
+        };
+      });
+    } finally {
+      db.close();
+    }
+  } catch {
+    local = [];
   }
+
+  // Hosted assets are account-owned, so another browser/device can
+  // rediscover them. IndexedDB stays as a zero-network/local fallback.
+  let remote: PocketProjectAsset[] = [];
+  try {
+    const response = await authFetch("/api/project-assets");
+    if (response.ok) {
+      const json = await response.json() as {
+        assets?: Array<{ id: string; name: string; url: string; path?: string; createdAt?: number }>;
+      };
+      remote = (json.assets ?? []).map((asset) => ({
+        id: asset.id,
+        name: asset.name,
+        url: asset.url,
+        createdAt: Number.isFinite(asset.createdAt) ? Number(asset.createdAt) : 0,
+        storagePath: asset.path,
+        localOnly: false,
+      }));
+    }
+  } catch {
+    remote = [];
+  }
+
+  const merged = new Map<string, PocketProjectAsset>();
+  for (const asset of [...remote, ...local]) merged.set(asset.id, asset);
+  return [...merged.values()].sort((a, b) => a.createdAt - b.createdAt);
 }
 
 export async function savePocketProjectAsset(scope: string, asset: PocketProjectAsset): Promise<void> {

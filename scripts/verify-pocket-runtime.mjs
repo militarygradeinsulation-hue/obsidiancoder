@@ -8,12 +8,18 @@ const generate = readFileSync("src/routes/api/generate.ts", "utf8");
 const github = readFileSync("src/components/GithubModal.tsx", "utf8");
 const assetRoute = readFileSync("src/routes/api/project-assets.ts", "utf8");
 const assetStore = readFileSync("src/lib/pocket-project-assets.ts", "utf8");
+const jobStatus = readFileSync("src/routes/api/jobs.$id.ts", "utf8");
+const routeKeys = readFileSync("src/lib/routellm-keys.ts", "utf8");
 const vibe = readFileSync("src/routes/index.tsx", "utf8");
 const activeBuild = readFileSync("src/components/ActivePocketBuildIndicator.tsx", "utf8");
 const root = readFileSync("src/routes/__root.tsx", "utf8");
 
 assert.ok(createJob.includes("kickBuildJob(jobId)"), "job creation must kick the server-owned runner");
 assert.ok(createJob.includes("backgroundStarted"), "job create response must report background runner state");
+assert.ok(createJob.includes('backgroundStart: z.boolean().optional().default(false)'), "durable Pocket jobs must be stream-first by default");
+assert.ok(jobs.includes("Math.min(90, Math.max(30, leaseSeconds))"), "job claims must use the short renewable recovery lease");
+assert.ok(jobs.includes("Date.now() + 90_000"), "active build progress must renew the recovery lease");
+assert.ok(jobStatus.includes("anonymousFingerprint") && jobStatus.includes("job.anonId === anonymousFingerprint"), "free Pocket must recover and cancel its own anonymous jobs");
 assert.ok(jobs.includes('rpc("build_job_kick"'), "background kick must use durable database->HTTP runner");
 assert.ok(pocket.includes("Building in background"), "Pocket must observe durable jobs instead of owning generation");
 assert.ok(pocket.includes("durableJobInFlight"), "Pocket must preserve recovery markers for active server jobs");
@@ -34,6 +40,8 @@ assert.ok(generate.includes("STUDIO_FIRST_RESPONSE_BUDGET_MS = 42_000"), "Studio
 assert.ok(generate.includes('data.pocketProfile === "cinematic"'), "generation must retain a longer Cinematic response budget");
 assert.ok(pocket.includes('profile === "cinematic" && paidAccess'), "remote concept planner should be reserved for cinematic builds");
 assert.ok(pocket.includes("Studio speed path"), "Studio local art-direction speed path missing");
+assert.ok(routeKeys.includes("DEGRADED_STRIKES = 1"), "slow provider must be deprioritized after its first recent timeout");
+assert.ok(routeKeys.includes("DEGRADED_TTL_MS = 10 * 60_000"), "slow-provider demotion window regressed");
 assert.ok(pocket.includes("Background cinematic polish applied"), "cinematic polish must remain post-commit/background");
 
 assert.ok(pocket.includes("<PocketProjectAssetsPanel"), "Pocket project image panel is not mounted");
@@ -44,6 +52,8 @@ assert.ok(assetRoute.includes('.from("build-images")'), "project assets must reu
 assert.ok(assetRoute.includes("getPublicUrl(path)"), "project assets must return stable public URLs");
 assert.ok(pocket.includes('authFetch("/api/project-assets"'), "Pocket must host project assets before reuse");
 assert.ok(assetStore.includes("POCKET_ASSET_MAX = 8"), "Pocket project image cap should allow eight assets");
+assert.ok(assetRoute.includes("GET: async"), "hosted Pocket assets must be listable across devices");
+assert.ok(assetStore.includes('authFetch("/api/project-assets")'), "Pocket must merge hosted assets with local IndexedDB assets");
 assert.ok(pocket.includes("assetIds: projectAssets.map"), "project-specific image selection must persist with the Pocket session");
 
 assert.ok(pocket.includes("styleLockDirective(previous)"), "Refine must always apply style lock");
@@ -56,6 +66,7 @@ assert.ok(vibe.includes("dualSafeSet(STORAGE_KEY, persisted)"), "Vibe completion
 assert.ok(github.includes("Connect owned domain"), "Pocket/static owned-domain UI missing");
 assert.ok(github.includes("setManagedRepo(res.repo.name)"), "static deploy must retain repo for domain operations");
 assert.ok(github.includes("Check DNS / HTTPS"), "domain DNS/HTTPS verification control missing");
+assert.ok(github.includes("own or control DNS"), "custom-domain flow must require ownership/control confirmation");
 assert.ok(pocket.includes("Connect owned domain"), "Pocket live-build dialog must expose the owned-domain flow");
 assert.ok(pocket.includes("onProductionUpdate={(patch) =>"), "Pocket must receive Pages/custom-domain production URLs");
 
