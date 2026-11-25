@@ -10,7 +10,10 @@ import type { StoredJobRequest } from "@/lib/run-build-job.server";
 // needs enough to satisfy build_jobs' own NOT NULL columns and to avoid
 // queuing something too malformed to ever plausibly run.
 const createSchema = z.object({
-  prompt: z.string().trim().min(1).max(20_000),
+  // Main Vibe can legitimately carry extracted style-guide/PDF context.
+  // The client caps durable payloads at ~750 KB, so rejecting at 20 KB here
+  // silently forced those builds back onto the browser-owned live path.
+  prompt: z.string().trim().min(1).max(750_000),
   libraryCode: z.string().trim().max(64).optional(),
   surface: z.enum(["pocket", "coder"]).default("pocket"),
   // Fast-first by default: create the durable row, then let the immediate
