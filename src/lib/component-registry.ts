@@ -260,7 +260,10 @@ export function matchComponentsIn(registry: readonly StoredComponent[], prompt: 
                       kindTokens.some((w) => promptWords.has(w));
     const kwOverlap = c.keywords.filter((kw) => promptWords.has(kw)).length;
     const recencyBonus = Math.max(0, 1 - (Date.now() - c.lastUsedAt) / (7 * 24 * 60 * 60 * 1000));
-    const score = (kindMatch ? 3 : 0) + kwOverlap + recencyBonus;
+    // Repeated clean extraction is stronger evidence than recency alone.
+    // Keep it bounded so relevance still dominates matching.
+    const reuseBonus = Math.min(2, Math.log2(Math.max(1, c.usageCount + 1)));
+    const score = (kindMatch ? 3 : 0) + kwOverlap + reuseBonus + recencyBonus;
     // Recency alone is not relevance — it only breaks ties between
     // components that already matched on kind or a real keyword. Without
     // this, every recently-used component scored > 0 regardless of topic
