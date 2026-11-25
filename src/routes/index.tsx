@@ -5015,6 +5015,21 @@ function Index() {
                   ))}
                 </div>
               )}
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }}>
+                <button
+                  type="button"
+                  className="obs-chip"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={loading}
+                  title="Upload screenshots or design references before or after a build"
+                >
+                  <Paperclip className="h-3.5 w-3.5" />
+                  Add reference images
+                </button>
+                <span style={{ fontSize: 10, opacity: 0.55 }}>
+                  Stored locally with this project · reused as visual context
+                </span>
+              </div>
               <form
                 ref={composerFormRef}
                 className={"obs-composer" + (composerPos ? " is-floating" : "")}
