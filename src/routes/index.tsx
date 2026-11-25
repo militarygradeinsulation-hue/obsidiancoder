@@ -2348,6 +2348,8 @@ function Index() {
     if (previewMode) resetDemoStatus(activeId);
     // Stable snapshot: never let a failed edit corrupt the last good HTML.
     const stableHtml = current.html;
+    const isRefineBuild = Boolean(stableHtml);
+    const explicitRedesign = /\b(redesign|retheme|restyle|new visual direction|change (?:the )?(?:overall )?(?:design|style)|start over|from scratch|rebuild (?:the )?(?:whole|entire)|replace (?:the )?(?:whole|entire) (?:page|site|app))\b/i.test(basePrompt);
 
     // 1. Classify.
     const classification = classifyTask(basePrompt, { mode: activeMode, hasHtml: !!stableHtml });
@@ -2544,6 +2546,7 @@ function Index() {
       previewMode &&
       classification.strategy === "ai-patch" &&
       stableHtml &&
+      !explicitRedesign &&
       pendingAttachments.length === 0
     ) {
 
@@ -2770,6 +2773,36 @@ function Index() {
       }
     }
 
+    // Refine means preserve the existing design. If the targeted patch path
+    // reached this point, it failed/deferred and would historically trigger a
+    // second full-generation model call. Do NOT rebuild the whole document
+    // unless the user explicitly asked for a redesign.
+    if (
+      previewMode &&
+      classification.strategy === "ai-patch" &&
+      stableHtml &&
+      !explicitRedesign &&
+      pendingAttachments.length === 0
+    ) {
+      setSessions((all) => all.map((s) => s.id === sessionId
+        ? {
+            ...s,
+            html: stableHtml,
+            messages: [...s.messages, {
+              role: "assistant",
+              content: "⚠ Refine could not apply that change safely. I kept the current design instead of rebuilding the page. Try a more specific edit, or explicitly ask for a redesign if you want the overall design changed.",
+            }],
+          }
+        : s));
+      setTerminal((t) => [...t, "🔒 Refine stopped safely — no second full-generation call"]);
+      setLoading(false);
+      setStage(null);
+      setStageDetail("");
+      markBuildEnd(sessionId);
+      abortRef.current = null;
+      return;
+    }
+
     // 3. Full-generation AI path (streaming).
     const modePrefix = MODE_PREFIX[activeMode] ? `[${activeMode.toUpperCase()} MODE] ${MODE_PREFIX[activeMode]}\n\n` : "";
     let prompt = modePrefix + (basePrompt || (pendingAttachments.length ? "Use the attached materials as the source of truth for style, content, and design." : ""));
@@ -2784,8 +2817,6 @@ function Index() {
     // ---- Refine preserves the existing design by default.
     // A user must explicitly ask for a redesign/retheme before Vibe is allowed
     // to replace the primary visual system of an existing build.
-    const isRefineBuild = Boolean(stableHtml);
-    const explicitRedesign = /\b(redesign|retheme|restyle|new visual direction|change (?:the )?(?:overall )?(?:design|style)|start over|from scratch)\b/i.test(basePrompt);
     const preserveExistingDesign = isRefineBuild && !explicitRedesign;
     if ((styleLocked || preserveExistingDesign) && stableHtml) {
       const lockBrief = styleLockDirective(stableHtml);
