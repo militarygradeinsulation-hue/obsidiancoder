@@ -154,7 +154,16 @@ export function provenTemplateBrief(
     if (!best || best.outcome !== "kept") return "";
     const score = scoreOf(best);
     if (score < TEMPLATE_MIN_SCORE) return "";
-    const entry = bestArchiveEntry(readArchive(libraryCode).entries, best.family, surface);
+    const archive = readArchive(libraryCode).entries;
+    const entry = best.archiveId
+      ? archive.find((candidate) =>
+          candidate.id === best.archiveId &&
+          (!surface || candidate.surface === surface)
+        ) ?? null
+      : bestArchiveEntry(archive, best.family, surface);
+    // A linked learning record must never silently fall back to some other
+    // archive entry. Legacy records (no archiveId) keep the old family/surface
+    // fallback until enough new exact-linked evidence replaces them.
     if (!entry) return "";
     const skeleton = extractSkeleton(entry.html);
     if (!skeleton.sections.length && skeleton.layout === "flow") return "";
