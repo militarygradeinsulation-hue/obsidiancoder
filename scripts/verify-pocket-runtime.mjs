@@ -9,12 +9,17 @@ const github = readFileSync("src/components/GithubModal.tsx", "utf8");
 const assetRoute = readFileSync("src/routes/api/project-assets.ts", "utf8");
 const assetStore = readFileSync("src/lib/pocket-project-assets.ts", "utf8");
 const vibe = readFileSync("src/routes/index.tsx", "utf8");
+const activeBuild = readFileSync("src/components/ActivePocketBuildIndicator.tsx", "utf8");
+const root = readFileSync("src/routes/__root.tsx", "utf8");
 
 assert.ok(createJob.includes("kickBuildJob(jobId)"), "job creation must kick the server-owned runner");
 assert.ok(createJob.includes("backgroundStarted"), "job create response must report background runner state");
 assert.ok(jobs.includes('rpc("build_job_kick"'), "background kick must use durable database->HTTP runner");
 assert.ok(pocket.includes("Building in background"), "Pocket must observe durable jobs instead of owning generation");
 assert.ok(pocket.includes("durableJobInFlight"), "Pocket must preserve recovery markers for active server jobs");
+assert.ok(activeBuild.includes("Pocket is building in the background"), "cross-route Pocket build indicator missing");
+assert.ok(activeBuild.includes("/api/jobs/"), "global build indicator must observe the durable job API");
+assert.ok(root.includes("<ActivePocketBuildIndicator />"), "global build indicator must be mounted in the root shell");
 assert.ok(pocket.includes("MAX_POLL_MS = 20 * 60_000"), "long-running background recovery window regressed");
 assert.ok(pocket.includes("Build is still running in the background — you can leave and check later"), "long build recovery message missing");
 
