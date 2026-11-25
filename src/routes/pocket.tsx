@@ -445,6 +445,8 @@ function ForgePage() {
   const [title, setTitle] = React.useState("Untitled build");
   const [shareUrl, setShareUrl] = React.useState<string | null>(null);
   const [publishedUrl, setPublishedUrl] = React.useState<string | null>(null);
+  const [publishedRepo, setPublishedRepo] = React.useState<string | null>(null);
+  const [connectedDomain, setConnectedDomain] = React.useState<string | null>(null);
 
 
   // Account code (entered at /unlock) is the default library code, so every
@@ -662,6 +664,9 @@ function ForgePage() {
     model?: string;
     /** Only these hosted/local image ids belong to this specific Pocket project. */
     assetIds?: string[];
+    publishedUrl?: string;
+    publishedRepo?: string;
+    connectedDomain?: string;
   };
   const sessionKey = React.useCallback(
     (code: string) => `pocket.session.${(code || "guest").trim() || "guest"}`,
@@ -700,6 +705,9 @@ function ForgePage() {
       if (saved.mode) setMode(saved.mode);
       if (saved.model) setModel(saved.model);
       setProjectAssetIds(Array.isArray(saved.assetIds) ? saved.assetIds.slice(0, POCKET_ASSET_MAX) : null);
+      setPublishedUrl(saved.publishedUrl || null);
+      setPublishedRepo(saved.publishedRepo || null);
+      setConnectedDomain(saved.connectedDomain || null);
       setDna(saved.dna ?? null);
       setConceptPlan(saved.conceptPlan ?? null);
       setPlanKey(saved.conceptPlan ? (saved.conceptPlanKey ?? "") : "");
@@ -830,10 +838,13 @@ function ForgePage() {
         mode: prompt.startsWith("[OBSIDIAN REBUILD FROM REFERENCE]") ? "build" : mode,
         model,
         assetIds: projectAssets.map((asset) => asset.id).slice(0, POCKET_ASSET_MAX),
+        publishedUrl: publishedUrl || undefined,
+        publishedRepo: publishedRepo || undefined,
+        connectedDomain: connectedDomain || undefined,
       } satisfies PocketSession);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan, planKey, mode, model, projectAssets]);
+  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan, planKey, mode, model, projectAssets, publishedUrl, publishedRepo, connectedDomain]);
 
 
   // Personal library (real builds rows, scoped by the user's library code).
@@ -989,6 +1000,9 @@ function ForgePage() {
     setProjectAssets([]);
     setProjectAssetIds([]);
     setShareUrl(null);
+    setPublishedUrl(null);
+    setPublishedRepo(null);
+    setConnectedDomain(null);
     setStatus("Ready");
     setPane("preview");
     promptRef.current?.focus();
@@ -1035,6 +1049,8 @@ function ForgePage() {
     setProjectAssetIds([]);
     setShareUrl(null);
     setPublishedUrl(null);
+    setPublishedRepo(null);
+    setConnectedDomain(null);
     setDemoLive(null);
     setLogs([]);
     setError(null);
@@ -1618,6 +1634,9 @@ function ForgePage() {
         mode: isReferenceBuild ? "build" : mode,
         model,
         assetIds: projectAssets.map((asset) => asset.id).slice(0, POCKET_ASSET_MAX),
+        publishedUrl: publishedUrl || undefined,
+        publishedRepo: publishedRepo || undefined,
+        connectedDomain: connectedDomain || undefined,
       } satisfies PocketSession);
 
       // Shelve every build in the permanent archive, saved or not.
@@ -3382,7 +3401,11 @@ function ForgePage() {
         currentHtml={html}
         defaultRepoName={title.replace(/[^a-z0-9-_]+/gi, "-").toLowerCase() || "obsidian-forge"}
         defaultDeployMode="static"
+        defaultManagedRepo={publishedRepo || undefined}
+        defaultDeploymentUrl={publishedUrl || undefined}
         onProductionUpdate={(patch) => {
+          if (patch.githubRepo) setPublishedRepo(patch.githubRepo);
+          if (patch.customDomain) setConnectedDomain(patch.customDomain);
           if (patch.deploymentUrl) {
             setPublishedUrl(patch.deploymentUrl);
             if (patch.customDomain && patch.customDomainHealthy) {
