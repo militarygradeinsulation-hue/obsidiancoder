@@ -28,6 +28,7 @@ assert.ok(pocket.includes("Background cinematic polish applied"), "cinematic pol
 assert.ok(pocket.includes("<PocketProjectAssetsPanel"), "Pocket project image panel is not mounted");
 assert.ok(pocket.includes("projectAssets: projectAssets.map"), "project image metadata is not sent to generation");
 assert.ok(generate.includes("obsidian-asset://<id>"), "generation is missing lightweight project image token contract");
+assert.ok(generate.includes("active project media"), "fresh builds must prioritize images uploaded before generation");
 assert.ok(assetRoute.includes('.from("build-images")'), "project assets must reuse hosted build-images storage");
 assert.ok(assetRoute.includes("getPublicUrl(path)"), "project assets must return stable public URLs");
 assert.ok(pocket.includes('authFetch("/api/project-assets"'), "Pocket must host project assets before reuse");
@@ -38,6 +39,8 @@ assert.ok(pocket.includes("styleLockDirective(previous)"), "Refine must always a
 assert.ok(pocket.includes("checkRefinePreservation(previous, finalHtml, p)"), "Refine post-generation drift guard missing");
 assert.ok(pocket.includes("forceRefine"), "post-build image insertion must be able to force Refine semantics");
 assert.ok(vibe.includes('checkRefinePreservation(stableHtml, finalHtml, basePrompt)'), "main Vibe refinements must enforce the same deterministic design-preservation guard");
+assert.ok(vibe.includes("Mount-independent completion persistence"), "Vibe must persist a completed build even after route navigation");
+assert.ok(vibe.includes("dualSafeSet(STORAGE_KEY, persisted)"), "Vibe completion must write directly to durable session storage");
 
 assert.ok(github.includes("Connect owned domain"), "Pocket/static owned-domain UI missing");
 assert.ok(github.includes("setManagedRepo(res.repo.name)"), "static deploy must retain repo for domain operations");
