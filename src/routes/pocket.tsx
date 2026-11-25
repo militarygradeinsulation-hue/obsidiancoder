@@ -1462,55 +1462,12 @@ function ForgePage() {
       finalHtml = finP.finalHtml;
       const safeFirstVersion = finalHtml;
 
-      // ---- 4. Originality + polish (Cinematic only) -----------------------
+      // ---- 4. Originality + polish -----------------------------------------
+      // Cinematic review used to block the initial commit on a second provider
+      // round-trip. That made otherwise-finished builds feel slow. Commit the
+      // safe result first; the optional critique runs after commit and may land
+      // a follow-up revision only if the user is still on this exact version.
       let critiqueScores: Record<string, number> | null = null;
-      setStatus(isReferenceBuild ? "Finalizing reference match…" : "Checking originality…");
-      if (!isReferenceBuild && profile === "cinematic" && paidAccess) {
-        setStatus("Polishing…");
-        try {
-          const cres = await runCritique({
-            data: {
-              model: modelChoice.model,
-              html: finalHtml,
-              dnaSummary: dnaPromptBlock(buildDna).slice(0, 3000),
-            },
-          });
-          if (!("paywall" in cres) && cres.ok) {
-            if (!cres.cached) providerCalls += 1;
-            critiqueRan = true;
-            const critique = parseCritique(JSON.parse(cres.critiqueJson) as unknown);
-            critiqueScores = critique.scores;
-            if (critique.verdict === "repair" && critique.operations.length) {
-              const parsed = patchSchema.safeParse({
-                summary: critique.issues[0]?.slice(0, 200) || "Design review repair",
-                operations: critique.operations,
-              });
-              if (parsed.success) {
-                const applied = applyPatch(finalHtml, parsed.data);
-                // A failed patch — or one that fails the gate on rerun — must
-                // never ship. Fall back to the safe first repaired version.
-                const opCount = applied.ok ? applied.applied.length : 0;
-                const post =
-                  applied.ok && applied.html.length > 200
-                    ? assessCandidateForCommit({ html: applied.html })
-                    : null;
-                finalHtml = post?.ok ? post.repairedHtml : safeFirstVersion;
-                log(
-                  post?.ok
-                    ? `Polish applied (${opCount} ops)`
-                    : `Polish skipped — kept the safe version${post ? ` (${post.blockers.slice(0, 2).join(" · ")})` : ""}.`,
-                );
-              } else {
-                log("Polish skipped — review operations were not valid.");
-              }
-            } else {
-              log(`Design review verdict: ${critique.verdict}`);
-            }
-          }
-        } catch {
-          log("Design review unavailable — kept the first version.");
-        }
-      }
 
       // ---- 5. Commit -------------------------------------------------------
       setProject((prev) => setEntryHtml(prev, finalHtml));
@@ -1526,7 +1483,64 @@ function ForgePage() {
         .join(" ");
       const newVersions = pushVersion(versions, makeForgeVersion(finalHtml, label));
       setVersions(() => newVersions);
-      setLastCritiqueRan(critiqueRan);
+      setLastCritiqueRan(false);
+
+      // Cinematic polish is deliberately non-blocking. The safe build is
+      // already committed and usable. A later critique can enhance it, but
+      // cannot overwrite subsequent user edits or violate Refine preservation.
+      if (!isReferenceBuild && profile === "cinematic" && paidAccess) {
+        const polishBase = finalHtml;
+        const polishLabel = `${label} · polished`;
+        void (async () => {
+          try {
+            const cres = await runCritique({
+              data: {
+                model: modelChoice.model,
+                html: polishBase,
+                dnaSummary: dnaPromptBlock(buildDna).slice(0, 3000),
+              },
+            });
+            if ("paywall" in cres || !cres.ok) return;
+            const critique = parseCritique(JSON.parse(cres.critiqueJson) as unknown);
+            critiqueScores = critique.scores;
+            if (critique.verdict !== "repair" || !critique.operations.length) {
+              setLastCritiqueRan(true);
+              log(`Background design review: ${critique.verdict}`);
+              return;
+            }
+            const parsed = patchSchema.safeParse({
+              summary: critique.issues[0]?.slice(0, 200) || "Design review repair",
+              operations: critique.operations,
+            });
+            if (!parsed.success) return;
+            const applied = applyPatch(polishBase, parsed.data);
+            if (!applied.ok || applied.html.length < 200) return;
+            const post = assessCandidateForCommit({ html: applied.html });
+            if (!post.ok) return;
+            const polished = post.repairedHtml;
+            if (isRefine) {
+              const preservation = checkRefinePreservation(previous, polished, p);
+              if (!preservation.ok) {
+                log(`Background polish skipped to preserve Refine design · ${preservation.blockers.join(" · ")}`);
+                return;
+              }
+            }
+            let landed = false;
+            setProject((prev) => {
+              if (entryHtml(prev) !== polishBase) return prev;
+              landed = true;
+              return setEntryHtml(prev, polished);
+            });
+            if (!landed) return;
+            setVersions((prev) => pushVersion(prev, makeForgeVersion(polished, polishLabel)));
+            setLastCritiqueRan(true);
+            log(`Background cinematic polish applied (${applied.applied.length} ops)`);
+          } catch {
+            // The safe build is already committed; polish failure is non-fatal.
+          }
+        })();
+      }
+
       // A copied/authorized reference should never become generic Obsidian
       // design DNA for unrelated future projects.
       if (!isReferenceBuild) {
