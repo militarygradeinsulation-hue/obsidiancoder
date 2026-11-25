@@ -1634,6 +1634,12 @@ function ForgePage() {
       if ((err as { name?: string })?.name === "AbortError") {
         setProject((prev) => setEntryHtml(prev, previous));
         setStatus("Stopped — preview unchanged");
+      } else if (durableJobInFlight) {
+        // Losing the observer is not a failed build. The server-owned job is
+        // still durable and the pending marker lets Pocket recover it later.
+        setError(null);
+        setStatus("Build continues in background — you can leave this page");
+        log("Background build is still running. Pocket will recover it when you return.");
       } else {
         setError(sanitizeErrorMessage(err, "Generation failed."));
         setStatus("Generation failed");
