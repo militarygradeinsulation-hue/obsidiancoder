@@ -22,10 +22,11 @@ const createSchema = z.object({
   prompt: z.string().trim().min(1).max(750_000),
   libraryCode: z.string().trim().max(64).optional(),
   surface: z.enum(["pocket", "coder"]).default("pocket"),
-  // Fast-first by default: create the durable row, then let the immediate
-  // live streaming request claim it. Callers may opt into a separate
-  // server-owned runner explicitly when they truly need background-first.
-  backgroundStart: z.boolean().optional().default(false),
+  // Background-first by default: the server-owned runner is independent
+  // of the browser, so navigation, mobile suspension, or closing the tab
+  // cannot stop the build. Callers can still opt out for a deliberate
+  // foreground-only diagnostic path.
+  backgroundStart: z.boolean().optional().default(true),
   sessionId: z.string().trim().max(120).optional(),
   title: z.string().trim().max(180).optional(),
   mode: z.string().trim().max(80).optional(),
