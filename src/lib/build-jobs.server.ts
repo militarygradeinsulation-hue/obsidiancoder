@@ -166,7 +166,7 @@ export async function claimBuildJob(id: string, leaseSeconds = 300): Promise<boo
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { data, error } = await supabaseAdmin.rpc("build_job_claim" as never, {
     _id: id,
-    _lease_seconds: leaseSeconds,
+    _lease_seconds: Math.min(60, Math.max(30, leaseSeconds)),
   } as never);
   if (error) throw new Error(`build_job_claim failed: ${error.message}`);
   return data === true;
@@ -192,6 +192,9 @@ export async function updateBuildJobProgress(
   if (patch.stage !== undefined) update.stage = patch.stage;
   if (patch.progress !== undefined) update.progress = Math.max(0, Math.min(100, Math.round(patch.progress)));
   if (patch.partialHtml !== undefined) update.partial_html = patch.partialHtml;
+  // Each active stream heartbeat renews only a short lease. If a worker dies,
+  // the existing minute-level sweep can reclaim it promptly.
+  update.lease_until = new Date(Date.now() + 60_000).toISOString();
   if (Object.keys(update).length === 0) return;
   const { error } = await supabaseAdmin.from("build_jobs").update(update as never).eq("id", id);
   if (error) throw new Error(`build_jobs progress update failed: ${error.message}`);
