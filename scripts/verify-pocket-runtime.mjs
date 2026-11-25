@@ -6,6 +6,7 @@ const createJob = readFileSync("src/routes/api/jobs.create.ts", "utf8");
 const jobs = readFileSync("src/lib/build-jobs.server.ts", "utf8");
 const generate = readFileSync("src/routes/api/generate.ts", "utf8");
 const github = readFileSync("src/components/GithubModal.tsx", "utf8");
+const assetRoute = readFileSync("src/routes/api/project-assets.ts", "utf8");
 
 assert.ok(createJob.includes("kickBuildJob(jobId)"), "job creation must kick the server-owned runner");
 assert.ok(createJob.includes("backgroundStarted"), "job create response must report background runner state");
@@ -19,7 +20,9 @@ assert.ok(generate.indexOf("if (preferDirectGoogle && googleKey)") < generate.in
 assert.ok(pocket.includes("<PocketProjectAssetsPanel"), "Pocket project image panel is not mounted");
 assert.ok(pocket.includes("projectAssets: projectAssets.map"), "project image metadata is not sent to generation");
 assert.ok(generate.includes("obsidian-asset://<id>"), "generation is missing lightweight project image token contract");
-assert.ok(!generate.includes("projectAssets: z.array(z.object({\n    id") || generate.includes("name:"), "asset contract must include metadata only");
+assert.ok(assetRoute.includes('.from("build-images")'), "project assets must reuse hosted build-images storage");
+assert.ok(assetRoute.includes("getPublicUrl(path)"), "project assets must return stable public URLs");
+assert.ok(pocket.includes('authFetch("/api/project-assets"'), "Pocket must host project assets before reuse");
 
 assert.ok(pocket.includes("styleLockDirective(previous)"), "Refine must always apply style lock");
 assert.ok(pocket.includes("checkRefinePreservation(previous, finalHtml, p)"), "Refine post-generation drift guard missing");
