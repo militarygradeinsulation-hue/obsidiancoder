@@ -28,15 +28,15 @@ const requestedTheme = checkRefinePreservation(stable, stable.replaceAll("#100f1
 assert.equal(requestedTheme.ok, true);
 
 const assets = [
-  { id: "hero-1", name: "hero.webp", dataUrl: "data:image/webp;base64,AAA", createdAt: 1 },
-  { id: "logo-2", name: "logo.webp", dataUrl: "data:image/webp;base64,BBB", createdAt: 2 },
+  { id: "hero-1", name: "hero.webp", url: "https://cdn.example/hero.webp", createdAt: 1 },
+  { id: "logo-2", name: "logo.webp", url: "https://cdn.example/logo.webp", createdAt: 2 },
 ];
 const resolved = resolvePocketAssetTokens(
   '<img src="obsidian-asset://hero-1"><div style="background:url(obsidian-asset://logo-2)"></div>',
   assets,
 );
-assert.ok(resolved.includes("data:image/webp;base64,AAA"));
-assert.ok(resolved.includes("data:image/webp;base64,BBB"));
+assert.ok(resolved.includes("https://cdn.example/hero.webp"));
+assert.ok(resolved.includes("https://cdn.example/logo.webp"));
 assert.equal(resolved.includes("obsidian-asset://"), false);
 
 console.log("Pocket refine-preservation and asset-token tests passed");
