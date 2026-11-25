@@ -16,6 +16,8 @@ export type LocalReferenceAsset = {
 const PREFIX = "obs.project-assets.v1.";
 const MAX_ASSETS = 12;
 const MAX_TOTAL_BYTES = 18 * 1024 * 1024;
+const MAX_HOST_DATA_URL_CHARS = 600_000;
+const MAX_HOST_BYTES = 450_000;
 
 function key(projectId: string) {
   return PREFIX + projectId;
@@ -175,7 +177,7 @@ export async function fileToReferenceAsset(file: File): Promise<LocalReferenceAs
           dataUrl = candidate;
           mime = "image/webp";
         }
-        if (dataUrlBytes(dataUrl) <= 900_000) break;
+        if (dataUrl.length <= MAX_HOST_DATA_URL_CHARS && dataUrlBytes(dataUrl) <= MAX_HOST_BYTES) break;
         maxSide = Math.max(760, Math.round(maxSide * 0.82));
         quality = Math.max(0.58, quality - 0.05);
       }
@@ -185,7 +187,7 @@ export async function fileToReferenceAsset(file: File): Promise<LocalReferenceAs
   }
 
   const bytes = dataUrlBytes(dataUrl);
-  if (bytes > 900_000) {
+  if (dataUrl.length > MAX_HOST_DATA_URL_CHARS || bytes > MAX_HOST_BYTES) {
     throw new Error("Image is still too large after local compression. Use a smaller screenshot.");
   }
 
