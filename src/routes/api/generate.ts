@@ -111,6 +111,8 @@ const inputSchema = z.object({
   // True when Pocket is rebuilding from a scanned URL/screenshot. Reference
   // fidelity outranks Obsidian's normal creative archetype/Brain styling.
   referenceRebuild: z.boolean().optional().default(false),
+  // Refine is a server-level design-preservation contract, not just prompt text.
+  refineMode: z.boolean().optional().default(false),
   pocketProfile: z.enum(["fast", "studio", "cinematic"]).optional(),
   pocketStyleFamily: z.enum(POCKET_STYLE_FAMILIES as unknown as [string, ...string[]]).optional(),
   pocketDesignDNA: pocketDnaSchema.optional(),
@@ -1148,6 +1150,16 @@ ${memBlock}`,
                 data.projectAssets.map((asset, index) =>
                   `[${index + 1}] ${asset.name} -> obsidian-asset://${asset.id}`
                 ).join("\n"),
+            });
+          }
+
+          if (!data.advisory && data.refineMode && contextHtml) {
+            messages.push({
+              role: "system",
+              content:
+                "REFINE MODE — EXISTING DESIGN IS LOCKED. Preserve the current primary layout, section order, component hierarchy, typography system, palette, spacing rhythm, radii, shadows, motion language, imagery placement, and interaction patterns. " +
+                "Make the smallest targeted change that satisfies the user's request. Do not redesign, re-theme, modernize, simplify, rearrange, or replace existing visual systems unless the user explicitly asks for that exact visual change. " +
+                "When adding new UI, imitate the existing components and CSS tokens. Existing design preservation outranks generic art direction, template reuse, and novelty.",
             });
           }
 
