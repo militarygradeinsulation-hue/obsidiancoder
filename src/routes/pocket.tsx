@@ -1289,6 +1289,12 @@ function ForgePage() {
       };
       buildTiming.direction = performance.now() - buildStartedAt;
 
+      // Reuse proven structure without letting historical markup dominate the
+      // prompt. Fast favors latency, Studio balances context, Cinematic keeps
+      // the richest approved reuse set.
+      const reusableComponentLimit = profile === "fast" ? 1 : profile === "studio" ? 2 : 3;
+      const reusableMarkupLimit = profile === "fast" ? 900 : profile === "studio" ? 1200 : 1600;
+
       const genBody: Record<string, unknown> = {
         prompt: isRefine
           ? [
@@ -1322,7 +1328,15 @@ function ForgePage() {
         // Fresh builds use the Brain brief (proven decisions + structure, capped);
         // reused-plan builds fall back to the same underlying sources.
         ...(!isReferenceBuild && brain && brain.components.length
-          ? { reusableComponents: brain.components.map((c) => ({ label: c.label, kind: c.kind, markup: c.markup })) }
+          ? {
+              reusableComponents: brain.components
+                .slice(0, reusableComponentLimit)
+                .map((c) => ({
+                  label: c.label,
+                  kind: c.kind,
+                  markup: c.markup.slice(0, reusableMarkupLimit),
+                })),
+            }
           : {}),
         learningBrief: isReferenceBuild
           ? undefined

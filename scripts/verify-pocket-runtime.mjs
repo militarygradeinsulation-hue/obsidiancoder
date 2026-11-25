@@ -56,6 +56,8 @@ assert.ok(routeKeys.includes("DEGRADED_STRIKES = 1"), "slow provider must be dep
 assert.ok(routeKeys.includes("DEGRADED_TTL_MS = 10 * 60_000"), "slow-provider demotion window regressed");
 assert.ok(pocket.includes("Background cinematic polish applied"), "cinematic polish must remain post-commit/background");
 assert.ok(pocket.includes("strongBrainReuse"), "high-confidence Brain reuse must skip redundant cinematic planning");
+assert.ok(pocket.includes('profile === "fast" ? 1 : profile === "studio" ? 2 : 3'), "Brain component reuse must be profile-bounded");
+assert.ok(pocket.includes('profile === "fast" ? 900 : profile === "studio" ? 1200 : 1600'), "Brain markup context must be profile-bounded");
 assert.ok(pocket.includes("remote planner skipped"), "Cinematic reuse speed-path log missing");
 assert.ok(qualityRetry.includes("jobId: undefined"), "quality retry must not reuse the original durable job id");
 assert.ok(pocket.includes("deferredQualityFloor"), "thin-CSS-only polish must not block first usable commit");
