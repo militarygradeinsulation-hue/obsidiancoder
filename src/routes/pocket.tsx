@@ -1154,6 +1154,8 @@ function ForgePage() {
       // or slow down the actual generation: if it doesn't work, generation
       // proceeds exactly as it did before this existed, just without the
       // safety net for this one attempt.
+      let backgroundJobId: string | null = null;
+      let backgroundStarted = false;
       try {
         const jobRes = await authFetch("/api/jobs/create", {
           method: "POST",
@@ -1162,73 +1164,142 @@ function ForgePage() {
         });
         if (jobRes.ok) {
           const jobJson: unknown = await jobRes.json().catch(() => null);
-          const id = (jobJson as { jobId?: string } | null)?.jobId;
+          const info = jobJson as { jobId?: string; backgroundStarted?: boolean } | null;
+          const id = info?.jobId;
           if (id) {
-            genBody.jobId = id;
             safeSet(pendingJobKey(libraryCode), { jobId: id, startedAt: Date.now() });
+            if (info?.backgroundStarted) {
+              backgroundJobId = id;
+              backgroundStarted = true;
+            } else {
+              // Durable storage exists, but the server-owned kick was unavailable.
+              // Let the existing live path claim the job and keep recovery semantics.
+              genBody.jobId = id;
+            }
           }
         }
       } catch {
         /* degrade to no background recovery for this attempt — see comment above */
       }
 
-      const res = await authFetch("/api/generate", {
-        method: "POST",
-        headers: genHeaders,
-        body: JSON.stringify(genBody),
-        signal: controller.signal,
-      });
+      let finalHtml = "";
+      let servedModel = modelChoice.model;
 
+      if (backgroundStarted && backgroundJobId) {
+        // Background-first path: the durable server job owns generation.
+        // This page only observes progress. Navigation/unmount can stop this
+        // polling loop without cancelling the actual build.
+        providerCalls += 1;
+        setStatus("Building in background…");
+        const startedAt = Date.now();
+        const BACKGROUND_WAIT_MS = 4 * 60_000;
+        let lastPartial = "";
 
-      const ctype = (res.headers.get("content-type") || "").toLowerCase();
-      if (ctype.includes("application/json")) {
-        const envelope: unknown = await res.json().catch(() => null);
-        if (isCreditsRequiredEnvelope(envelope)) {
-          if (envelope.code === "credits_required") {
-            setNudge({ reason: "daily_limit", envelope });
-          } else if (envelope.code === "free_demo_used" || envelope.code === "free_demo_unavailable") {
-            setNudge({ reason: "demo_used", envelope });
-          } else {
-            setNudge({ reason: "not_pro", envelope });
+        for (;;) {
+          if (controller.signal.aborted) {
+            throw new DOMException("Build stopped", "AbortError");
           }
-          throw new Error(envelope.message);
-        }
-        if (isAiErrorEnvelope(envelope)) throw new Error(envelope.message);
-        throw new Error(`Generation failed (${res.status})`);
-      }
-      if (!res.ok || !res.body) throw new Error(`Generation failed (${res.status})`);
-      // Only now has the request actually reached a streaming provider response.
-      providerCalls += 1;
-      if (res.headers.get("x-obs-demo") === "1") log("Free demo claim committed server-side.");
-      const servedModel = readServedModel(res.headers, modelChoice.model);
+          const jobRes = await authFetch(`/api/jobs/${backgroundJobId}`);
+          if (!jobRes.ok) {
+            throw new Error(`Background build status failed (${jobRes.status})`);
+          }
+          const job = await jobRes.json() as {
+            status: string;
+            stage?: string;
+            progress?: number;
+            partialHtml?: string | null;
+            resultHtml?: string | null;
+            servedModel?: string | null;
+            error?: string | null;
+          };
 
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let acc = "";
-      let lastPaint = 0;
-      const clean = (str: string) =>
-        str
-          .replace(/\s*<!--OBS_(?:TIMING|PLACEHOLDERS):[\s\S]*?-->\s*$/g, "")
-          .replace(/^```(?:html)?\s*/i, "")
-          .replace(/```\s*$/i, "");
-      for (;;) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        acc += decoder.decode(value, { stream: true });
-        const now = performance.now();
-        // Repaint on a slower cadence and only at a safe tag boundary, so the
-        // preview grows in cleanly instead of flashing half-parsed markup.
-        if (now - lastPaint > 650) {
-          const partial = clean(acc);
-          const cut = partial.lastIndexOf(">");
-          if (cut > 200) {
-            lastPaint = now;
-            setProject((prev) => setEntryHtml(prev, partial.slice(0, cut + 1)));
+          if (job.partialHtml && job.partialHtml.length > 200 && job.partialHtml !== lastPartial) {
+            lastPartial = job.partialHtml;
+            setProject((prev) => setEntryHtml(prev, job.partialHtml as string));
+          }
+          if (typeof job.progress === "number") {
+            const stageLabel = job.stage && job.stage !== "running" ? ` · ${job.stage}` : "";
+            setStatus(`Building in background · ${Math.max(0, Math.min(100, Math.round(job.progress)))}%${stageLabel}`);
+          }
+
+          if (job.status === "complete" && job.resultHtml) {
+            finalHtml = job.resultHtml.trim();
+            servedModel = job.servedModel || modelChoice.model;
+            break;
+          }
+          if (job.status === "failed") {
+            throw new Error(job.error || "Background build failed.");
+          }
+          if (job.status === "cancelled") {
+            throw new DOMException("Build stopped", "AbortError");
+          }
+          if (Date.now() - startedAt > BACKGROUND_WAIT_MS) {
+            // Leave the pending marker intact. If this page times out while
+            // the durable job is still running, the existing mount recovery
+            // logic will pick up its result later instead of losing it.
+            throw new Error("Build is still running in the background. You can leave this page and return later.");
+          }
+          await new Promise((resolve) => setTimeout(resolve, 900));
+        }
+
+        if (finalHtml.length < 40) throw new Error("The background build returned an empty document.");
+      } else {
+        // Fallback/live path for demo users or environments where the durable
+        // server kick is unavailable.
+        const res = await authFetch("/api/generate", {
+          method: "POST",
+          headers: genHeaders,
+          body: JSON.stringify(genBody),
+          signal: controller.signal,
+        });
+
+        const ctype = (res.headers.get("content-type") || "").toLowerCase();
+        if (ctype.includes("application/json")) {
+          const envelope: unknown = await res.json().catch(() => null);
+          if (isCreditsRequiredEnvelope(envelope)) {
+            if (envelope.code === "credits_required") {
+              setNudge({ reason: "daily_limit", envelope });
+            } else if (envelope.code === "free_demo_used" || envelope.code === "free_demo_unavailable") {
+              setNudge({ reason: "demo_used", envelope });
+            } else {
+              setNudge({ reason: "not_pro", envelope });
+            }
+            throw new Error(envelope.message);
+          }
+          if (isAiErrorEnvelope(envelope)) throw new Error(envelope.message);
+          throw new Error(`Generation failed (${res.status})`);
+        }
+        if (!res.ok || !res.body) throw new Error(`Generation failed (${res.status})`);
+        providerCalls += 1;
+        if (res.headers.get("x-obs-demo") === "1") log("Free demo claim committed server-side.");
+        servedModel = readServedModel(res.headers, modelChoice.model);
+
+        const reader = res.body.getReader();
+        const decoder = new TextDecoder();
+        let acc = "";
+        let lastPaint = 0;
+        const clean = (str: string) =>
+          str
+            .replace(/\s*<!--OBS_(?:TIMING|PLACEHOLDERS):[\s\S]*?-->\s*$/g, "")
+            .replace(/^\`\`\`(?:html)?\s*/i, "")
+            .replace(/\`\`\`\s*$/i, "");
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          acc += decoder.decode(value, { stream: true });
+          const now = performance.now();
+          if (now - lastPaint > 650) {
+            const partial = clean(acc);
+            const cut = partial.lastIndexOf(">");
+            if (cut > 200) {
+              lastPaint = now;
+              setProject((prev) => setEntryHtml(prev, partial.slice(0, cut + 1)));
+            }
           }
         }
+        finalHtml = clean(acc).trim();
+        if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
       }
-      let finalHtml = clean(acc).trim();
-      if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
 
       // ---- 2b. Design floor -------------------------------------------------
       // An unstyled or truncated page is a failed build even when it is valid
