@@ -10,6 +10,8 @@ const assetRoute = readFileSync("src/routes/api/project-assets.ts", "utf8");
 const assetStore = readFileSync("src/lib/pocket-project-assets.ts", "utf8");
 const jobStatus = readFileSync("src/routes/api/jobs.$id.ts", "utf8");
 const routeKeys = readFileSync("src/lib/routellm-keys.ts", "utf8");
+const styleLock = readFileSync("src/lib/style-lock.ts", "utf8");
+const refineGuard = readFileSync("src/lib/refine-preservation.ts", "utf8");
 const vibe = readFileSync("src/routes/index.tsx", "utf8");
 const activeBuild = readFileSync("src/components/ActivePocketBuildIndicator.tsx", "utf8");
 const root = readFileSync("src/routes/__root.tsx", "utf8");
@@ -46,6 +48,8 @@ assert.ok(pocket.includes("Studio speed path"), "Studio local art-direction spee
 assert.ok(routeKeys.includes("DEGRADED_STRIKES = 1"), "slow provider must be deprioritized after its first recent timeout");
 assert.ok(routeKeys.includes("DEGRADED_TTL_MS = 10 * 60_000"), "slow-provider demotion window regressed");
 assert.ok(pocket.includes("Background cinematic polish applied"), "cinematic polish must remain post-commit/background");
+assert.ok(pocket.includes("strongBrainReuse"), "high-confidence Brain reuse must skip redundant cinematic planning");
+assert.ok(pocket.includes("remote planner skipped"), "Cinematic reuse speed-path log missing");
 
 assert.ok(pocket.includes("<PocketProjectAssetsPanel"), "Pocket project image panel is not mounted");
 assert.ok(pocket.includes("projectAssets: projectAssets.map"), "project image metadata is not sent to generation");
@@ -60,6 +64,9 @@ assert.ok(assetStore.includes('authFetch("/api/project-assets")'), "Pocket must 
 assert.ok(pocket.includes("assetIds: projectAssets.map"), "project-specific image selection must persist with the Pocket session");
 
 assert.ok(pocket.includes("styleLockDirective(previous)"), "Refine must always apply style lock");
+assert.ok(styleLock.includes("does NOT unlock the rest of the page"), "targeted refine requests must not unlock the whole design");
+assert.ok(refineGuard.includes("const floor = allowsLayout ? 0.5 : 0.7"), "targeted layout refinements must still preserve the primary layout system");
+assert.ok(generate.includes("REFINE MODE — EXISTING DESIGN IS LOCKED"), "server generation must enforce Refine design preservation");
 assert.ok(pocket.includes("checkRefinePreservation(previous, finalHtml, p)"), "Refine post-generation drift guard missing");
 assert.ok(pocket.includes("forceRefine"), "post-build image insertion must be able to force Refine semantics");
 assert.ok(vibe.includes('checkRefinePreservation(stableHtml, finalHtml, basePrompt)'), "main Vibe refinements must enforce the same deterministic design-preservation guard");
