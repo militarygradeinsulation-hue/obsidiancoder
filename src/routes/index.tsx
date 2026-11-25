@@ -3656,11 +3656,14 @@ function Index() {
         finG.finalValidation.status === "passed" ? "passed"
           : finG.finalValidation.status === "failed" ? "failed" : "warnings";
 
-      // Permanent archive: shelve every build the Vibe Coder commits.
+      // Permanent archive: shelve every committed Vibe build and retain the
+      // exact archive id so quality memory can never borrow a different,
+      // merely newer build from the same family.
+      let learningArchiveId: string | undefined;
       try {
         const sessionTitle =
           sessions.find((s) => s.id === sessionId)?.title || basePrompt.slice(0, 60) || "Untitled build";
-        archiveBuild(
+        const archived = archiveBuild(
           {
             surface: "vibe",
             title: sessionTitle,
@@ -3672,6 +3675,7 @@ function Index() {
           },
           libraryCode,
         );
+        learningArchiveId = archived.entries[0]?.id;
       } catch { /* archiving is best-effort */ }
       // Anti-repetition memory: remember this build's structure.
       if (previewMode && buildDna) {
@@ -3690,6 +3694,7 @@ function Index() {
               designIssues: designIssuesForLearning,
               validationStatus: validationForLearning,
               latencyMs: durationMsGen,
+              archiveId: learningArchiveId,
               outcome: "kept",
             }, libraryCode);
             setIntelligenceTick((n) => n + 1);
@@ -3777,6 +3782,7 @@ function Index() {
               designIssues: designIssuesForLearning,
               validationStatus: validationForLearning,
               latencyMs: durationMsGen,
+              archiveId: learningArchiveId,
               outcome: "kept",
             }, libraryCode);
             setIntelligenceTick((n) => n + 1);
