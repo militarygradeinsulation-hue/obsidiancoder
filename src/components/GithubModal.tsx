@@ -318,8 +318,10 @@ export function GithubModal(props: {
         ...(deployMode === "full-app" && fullAppAddons ? { addons: fullAppAddons } : {}),
       });
       setResult(res);
+      // Domain controls and Pages health need the actual exported repo for
+      // both Pocket/static and Full App deployments.
+      setManagedRepo(res.repo.name);
       if (res.mode === "full-app") {
-        setManagedRepo(res.repo.name);
         onProductionUpdate?.({ githubRepo: res.repo.name });
       }
       onLog(`✓ Pushed to ${res.repo.full_name}`);
@@ -1212,6 +1214,51 @@ export function GithubModal(props: {
                       </span>
                     </div>
                   )}
+                </div>
+              )}
+              {deployMode === "static" && managedRepo && (
+                <div style={{ marginTop: 14, padding: 12, border: "1px solid rgba(244,161,37,.24)", borderRadius: 10, background: "rgba(244,161,37,.035)" }}>
+                  <div style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: 1, opacity: .72, marginBottom: 6 }}>
+                    Connect owned domain
+                  </div>
+                  <p style={{ color: "#B6BCC8", fontSize: 11, lineHeight: 1.5, margin: "0 0 8px" }}>
+                    Publish this Pocket build to GitHub Pages, then bind a domain you own. For a subdomain, point its CNAME to {user ? user.login + ".github.io" : "YOUR-ACCOUNT.github.io"}. Apex/root domains use GitHub Pages A/AAAA records at your DNS provider.
+                  </p>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                    <input
+                      value={customDomainInput}
+                      onChange={e => setCustomDomainInput(e.target.value.toLowerCase().replace(/^https?:\/\//, "").replace(/\/$/, ""))}
+                      placeholder="app.example.com"
+                      aria-label="Pocket custom domain"
+                      style={{ flex: 1, minWidth: 180, background: "#0b0d10", border: "1px solid #464b56", color: "#fff", borderRadius: 8, padding: 8 }}
+                    />
+                    <button
+                      type="button"
+                      className="obs-chip"
+                      disabled={!!loading || !customDomainInput.trim()}
+                      onClick={() => void setCustomDomain()}
+                    >
+                      Connect domain
+                    </button>
+                    <button
+                      type="button"
+                      className="obs-chip"
+                      disabled={!!loading}
+                      onClick={() => void refreshCustomDomain()}
+                    >
+                      Check DNS / HTTPS
+                    </button>
+                  </div>
+                  {domainStatus && (() => {
+                    const flags = domainHealthFlags(domainStatus);
+                    return (
+                      <div style={{ marginTop: 8, color: "#B6BCC8", fontSize: 11 }}>
+                        <div>{flags.healthy ? "✓" : "○"} Domain: {flags.healthy ? "DNS valid" : domainStatus.healthPending ? "checking DNS" : "DNS not ready"}</div>
+                        <div>{flags.https ? "✓" : "○"} HTTPS: {flags.https ? "ready/enforced" : "waiting for GitHub eligibility"}</div>
+                        {flags.reason && <div style={{ color: "#d8a45d", marginTop: 3 }}>{flags.reason}</div>}
+                      </div>
+                    );
+                  })()}
                 </div>
               )}
             </section>
