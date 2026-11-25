@@ -1111,6 +1111,8 @@ function ForgePage() {
     setError(null);
     setBusy("generating");
     setPane("preview");
+    const buildStartedAt = performance.now();
+    const buildTiming = { direction: 0, handoff: 0, generation: 0, retry: 0, qa: 0 };
     const controller = new AbortController();
     abortRef.current = controller;
     const previous = html;
@@ -1220,6 +1222,8 @@ function ForgePage() {
         // Paid accounts go through the metered path (Pocket = 10 builds/mo).
         ...(paidAccess ? {} : { "x-obs-free": "1" }),
       };
+      buildTiming.direction = performance.now() - buildStartedAt;
+
       const genBody: Record<string, unknown> = {
         prompt: isRefine
           ? [
@@ -1270,6 +1274,7 @@ function ForgePage() {
       // safety net for this one attempt.
       let backgroundJobId: string | null = null;
       let backgroundStarted = false;
+      const handoffStartedAt = performance.now();
       try {
         const jobRes = await authFetch("/api/jobs/create", {
           method: "POST",
@@ -1296,9 +1301,11 @@ function ForgePage() {
       } catch {
         /* degrade to no background recovery for this attempt — see comment above */
       }
+      buildTiming.handoff = performance.now() - handoffStartedAt;
 
       let finalHtml = "";
       let servedModel = modelChoice.model;
+      const generationStartedAt = performance.now();
 
       if (backgroundStarted && backgroundJobId) {
         // Background-first path: the durable server job owns generation.
@@ -1420,6 +1427,8 @@ function ForgePage() {
         if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
       }
 
+      buildTiming.generation = performance.now() - generationStartedAt;
+
       // Resolve lightweight project-asset tokens only after generation. The
       // model never receives image bytes, so assets do not inflate context.
       finalHtml = resolvePocketAssetTokens(finalHtml, projectAssets);
@@ -1449,6 +1458,7 @@ function ForgePage() {
         if (!floor.ok && worthRetry) {
           log(`Design floor rejected the first pass (${floor.blockers.join(", ")}) — regenerating.`);
           setStatus("Rebuilding to design standard…");
+          const retryStartedAt = performance.now();
           const retry = await regenerateForQuality({
             fetcher: authFetch,
             body: genBody,
@@ -1460,6 +1470,7 @@ function ForgePage() {
               if (cut > 200) setProject((prev) => setEntryHtml(prev, partial.slice(0, cut + 1)));
             },
           });
+          buildTiming.retry += performance.now() - retryStartedAt;
           if (retry) {
             providerCalls += 1;
             if (retry.improved || retry.report.blockers.length < floor.blockers.length) {
@@ -1493,6 +1504,7 @@ function ForgePage() {
       //         waits on an optional AI review; malformed scripts and unsafe
       //         navigation are repaired locally before this result commits.
       setStatus("Running safety checks…");
+      const qaStartedAt = performance.now();
       const finP = applySalvage(await finalizeCandidate({
         candidateHtml: finalHtml,
         stableHtml: previous,
@@ -1503,6 +1515,7 @@ function ForgePage() {
         strategy: "full-generation",
         advisoryOnly: true,
       }, async () => null), finalHtml);
+      buildTiming.qa = performance.now() - qaStartedAt;
       if (finP.claudeInvoked) {
         setStatus("Repairing…");
         log(`Claude QA repair attempted via ${finP.claudeModel ?? "?"} — ${finP.claudeVerdict ?? "unknown"}`);
@@ -1676,8 +1689,12 @@ function ForgePage() {
       } satisfies PocketSession);
 
       setStatus("Ready");
+      const totalBuildMs = performance.now() - buildStartedAt;
       log(
-        `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"}`,
+        `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"} · ${Math.round(totalBuildMs / 100) / 10}s total`,
+      );
+      log(
+        `Timing · direction ${Math.round(buildTiming.direction)}ms · job handoff ${Math.round(buildTiming.handoff)}ms · generation ${Math.round(buildTiming.generation)}ms · retry ${Math.round(buildTiming.retry)}ms · QA ${Math.round(buildTiming.qa)}ms`,
       );
 
       // ---- 6. Real photography (non-blocking) -----------------------------
