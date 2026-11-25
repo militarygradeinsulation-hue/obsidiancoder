@@ -498,7 +498,7 @@ interface ComponentPhaseResult {
 // (Google → ChatLLM keys → Lovable gateway) on a large system prompt; the
 // previous 6s primary budget expired before Gemini ever produced a byte.
 const FIRST_RESPONSE_BUDGET_MS = 55_000;
-const ENRICHMENT_BUDGET_MS = 4_000;
+const ENRICHMENT_BUDGET_MS = 1_500;
 // First-byte budget only — it never caps how long a generation may run once
 // the stream is open. Kept tight so a degraded provider costs seconds, not
 // half a minute, before the fallback is tried.
@@ -915,9 +915,11 @@ export async function handleGenerate(request: Request): Promise<Response> {
           const t_ctx = performance.now();
           timing.compact_ms = Math.round(t_ctx - t0);
 
-          // 2) Image planning — skipped entirely unless the user explicitly
-          //    asked for imagery or opted in via wantImages. This is what was
-          //    silently adding 12-17s to every non-visual build.
+          // 2) Optional pre-stream enrichment. Generated photography is normally
+          //    filled AFTER the first usable build, so merely asking for a website,
+          //    restaurant, portfolio, etc. must not block first output on image
+          //    generation. Only an explicit wantImages request may do pre-stream
+          //    image work. Component enrichment gets a tight latency budget.
           // The `fast` profile trades enrichment for latency: it never pays
           // the pre-stream image/component round-trips unless the user asked
           // for imagery outright.
@@ -925,7 +927,7 @@ export async function handleGenerate(request: Request): Promise<Response> {
           const wantImages =
             !data.advisory &&
             !data.referenceRebuild &&
-            (data.wantImages || (!fastProfile && VISUAL_KEYWORDS.test(data.prompt)));
+            data.wantImages;
           const wantComponents =
             !data.advisory &&
             !data.referenceRebuild &&
