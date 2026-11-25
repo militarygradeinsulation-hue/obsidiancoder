@@ -91,6 +91,7 @@ export function GithubModal(props: {
   defaultManagedRepo?: string;
   defaultSupabaseProjectRef?: string;
   defaultDeploymentUrl?: string;
+  defaultCustomDomain?: string;
   onProductionUpdate?: (patch: {
     githubRepo?: string;
     lastBuildRunId?: number;
@@ -119,7 +120,7 @@ export function GithubModal(props: {
   const {
     open, onClose, currentHtml, defaultRepoName, onImport, onLog,
     fullAppFiles, fullAppAddons, requiredIntegrations = [], requiresAuthAcceptance = false, onRepairDiagnostics, onApplyFullAppFiles,
-    defaultManagedRepo, defaultSupabaseProjectRef, defaultDeploymentUrl, onProductionUpdate, defaultDeployMode = "static",
+    defaultManagedRepo, defaultSupabaseProjectRef, defaultDeploymentUrl, defaultCustomDomain, onProductionUpdate, defaultDeployMode = "static",
   } = props;
   const [token, setToken] = React.useState("");
   const [user, setUser] = React.useState<GhUser | null>(null);
@@ -221,9 +222,10 @@ export function GithubModal(props: {
     setManagedRepo(defaultManagedRepo ?? "");
     setSupabaseProjectRef(defaultSupabaseProjectRef ?? "");
     setHostingUrl(defaultDeploymentUrl ?? "");
+    setCustomDomainInput(defaultCustomDomain ?? "");
     setResult(null);
     setErr(null);
-  }, [open, defaultRepoName, defaultManagedRepo, defaultSupabaseProjectRef, defaultDeploymentUrl, defaultDeployMode]);
+  }, [open, defaultRepoName, defaultManagedRepo, defaultSupabaseProjectRef, defaultDeploymentUrl, defaultCustomDomain, defaultDeployMode]);
 
   React.useEffect(() => {
     if (!open || !token || user) return;
