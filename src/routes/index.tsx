@@ -2233,15 +2233,30 @@ function Index() {
   }
 
   function removeAttachment(idx: number) {
+    // Remove from the NEXT request only. Project images remain saved until
+    // the user explicitly deletes them from the project image library.
+    setPendingAttachments((attachments) => attachments.filter((_, i) => i !== idx));
+  }
+
+  function toggleProjectImage(asset: LocalReferenceAsset) {
     setPendingAttachments((attachments) => {
-      const target = attachments[idx];
-      if (target?.kind === "image") {
-        setProjectAssets((assets) => assets.filter(
-          (asset) => asset.dataUrl !== target.dataUrl && asset.name !== target.name,
-        ));
+      const selected = attachments.some(
+        (att) => att.kind === "image" && att.dataUrl === asset.dataUrl,
+      );
+      if (selected) {
+        return attachments.filter(
+          (att) => !(att.kind === "image" && att.dataUrl === asset.dataUrl),
+        );
       }
-      return attachments.filter((_, i) => i !== idx);
+      return [...attachments, { kind: "image", name: asset.name, dataUrl: asset.dataUrl }];
     });
+  }
+
+  function deleteProjectImage(asset: LocalReferenceAsset) {
+    setProjectAssets((assets) => assets.filter((item) => item.id !== asset.id));
+    setPendingAttachments((attachments) => attachments.filter(
+      (att) => !(att.kind === "image" && att.dataUrl === asset.dataUrl),
+    ));
   }
 
   // Deterministic bounded repair — one pass. Returns repaired html + attempt record.
