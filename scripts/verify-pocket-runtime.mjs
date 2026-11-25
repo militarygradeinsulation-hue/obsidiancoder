@@ -21,6 +21,9 @@ assert.ok(pocket.includes("Build is still running in the background — you can 
 assert.ok(generate.includes("preferDirectGoogle"), "Fast generation must prefer direct Google/Gemini");
 assert.ok(generate.indexOf("if (preferDirectGoogle && googleKey)") < generate.indexOf("// 1. ChatLLM / RouteLLM"), "direct fast provider must be ordered before proxy fallbacks");
 assert.ok(generate.includes("const ENRICHMENT_BUDGET_MS = 1_500"), "optional pre-stream enrichment budget must stay tight");
+assert.ok(generate.includes("FAST_FIRST_RESPONSE_BUDGET_MS = 32_000"), "Fast first-response failover budget regressed");
+assert.ok(generate.includes("STUDIO_FIRST_RESPONSE_BUDGET_MS = 42_000"), "Studio first-response failover budget regressed");
+assert.ok(generate.includes('data.pocketProfile === "cinematic"'), "generation must retain a longer Cinematic response budget");
 assert.ok(pocket.includes('profile === "cinematic" && paidAccess'), "remote concept planner should be reserved for cinematic builds");
 assert.ok(pocket.includes("Studio speed path"), "Studio local art-direction speed path missing");
 assert.ok(pocket.includes("Background cinematic polish applied"), "cinematic polish must remain post-commit/background");
