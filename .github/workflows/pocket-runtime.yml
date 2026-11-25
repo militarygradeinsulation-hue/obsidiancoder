@@ -11,9 +11,15 @@ on:
       - "src/routes/api/generate.ts"
       - "src/routes/api/jobs.create.ts"
       - "src/routes/api/jobs.$id.ts"
+      - "src/routes/api/public/jobs.run.ts"
+      - "src/routes/api/public/jobs.sweep.ts"
       - "src/lib/build-jobs.server.ts"
       - "src/lib/run-build-job.server.ts"
+      - "src/lib/free-open.server.ts"
+      - "src/lib/runtime-context.server.ts"
+      - "src/server.ts"
       - "src/routes/api/project-assets.ts"
+      - "src/lib/project-assets.ts"
       - "src/lib/refine-preservation.ts"
       - "src/lib/build-learning.ts"
       - "src/lib/proven-templates.ts"
@@ -28,6 +34,8 @@ on:
       - "src/lib/__tests__/refine-preservation.selftest.mts"
       - "src/lib/__tests__/brain-archive-association.selftest.mts"
       - "src/lib/__tests__/component-registry-quality.selftest.mts"
+      - "package.json"
+      - "bun.lock"
       - ".github/workflows/pocket-runtime.yml"
   pull_request:
     paths:
@@ -36,9 +44,15 @@ on:
       - "src/routes/api/generate.ts"
       - "src/routes/api/jobs.create.ts"
       - "src/routes/api/jobs.$id.ts"
+      - "src/routes/api/public/jobs.run.ts"
+      - "src/routes/api/public/jobs.sweep.ts"
       - "src/lib/build-jobs.server.ts"
       - "src/lib/run-build-job.server.ts"
+      - "src/lib/free-open.server.ts"
+      - "src/lib/runtime-context.server.ts"
+      - "src/server.ts"
       - "src/routes/api/project-assets.ts"
+      - "src/lib/project-assets.ts"
       - "src/lib/refine-preservation.ts"
       - "src/lib/build-learning.ts"
       - "src/lib/proven-templates.ts"
@@ -53,6 +67,9 @@ on:
       - "src/lib/__tests__/refine-preservation.selftest.mts"
       - "src/lib/__tests__/brain-archive-association.selftest.mts"
       - "src/lib/__tests__/component-registry-quality.selftest.mts"
+      - "package.json"
+      - "bun.lock"
+      - ".github/workflows/pocket-runtime.yml"
 
 jobs:
   verify:
@@ -66,7 +83,6 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "22"
-          cache: npm
       - name: Verify source contracts
         run: node scripts/verify-pocket-runtime.mjs
       - name: Test pure Pocket guardrails
@@ -77,7 +93,7 @@ jobs:
         run: bun src/lib/__tests__/brain-archive-association.selftest.mts
       - name: Test Brain component quality gate
         run: bun src/lib/__tests__/component-registry-quality.selftest.mts
-      - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+      - name: Install dependencies from canonical Bun lock
+        run: bun install --frozen-lockfile
       - name: Production build
-        run: npm run build
+        run: bun run build
