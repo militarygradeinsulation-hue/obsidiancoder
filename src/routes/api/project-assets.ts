@@ -37,6 +37,44 @@ async function identity(request: Request): Promise<{ scope: string } | null> {
 export const Route = createFileRoute("/api/project-assets")({
   server: {
     handlers: {
+      GET: async ({ request }) => {
+        const who = await identity(request);
+        if (!who) return Response.json({ assets: [] });
+
+        const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const prefix = `project-assets/${who.scope}`;
+        const listed = await supabaseAdmin.storage
+          .from("build-images")
+          .list(prefix, {
+            limit: 100,
+            sortBy: { column: "created_at", order: "asc" },
+          });
+
+        if (listed.error) {
+          return Response.json({ assets: [] });
+        }
+
+        const assets = (listed.data ?? [])
+          .filter((item) => !!item.name && !item.name.endsWith("/"))
+          .map((item) => {
+            const match = /^([0-9a-f-]{36})-(.+)\.(png|jpe?g|webp)$/i.exec(item.name);
+            if (!match) return null;
+            const storagePath = `${prefix}/${item.name}`;
+            const url = supabaseAdmin.storage.from("build-images").getPublicUrl(storagePath).data.publicUrl;
+            const display = match[2].replace(/-/g, " ").trim() || "Project image";
+            return {
+              id: match[1],
+              name: display,
+              url,
+              path: storagePath,
+              createdAt: item.created_at ? Date.parse(item.created_at) : 0,
+            };
+          })
+          .filter(Boolean);
+
+        return Response.json({ assets });
+      },
+
       POST: async ({ request }) => {
         const who = await identity(request);
         if (!who) return Response.json({ error: "Sign in to host project images." }, { status: 401 });
