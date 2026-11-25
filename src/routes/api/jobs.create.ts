@@ -13,6 +13,9 @@ const createSchema = z.object({
   prompt: z.string().trim().min(1).max(20_000),
   libraryCode: z.string().trim().max(64).optional(),
   surface: z.enum(["pocket", "coder"]).default("pocket"),
+  // Pocket starts the server-owned runner immediately. Vibe can opt out so
+  // its live stream claims first while the same durable row remains recoverable.
+  backgroundStart: z.boolean().optional().default(true),
 }).passthrough();
 
 export const Route = createFileRoute("/api/jobs/create")({
@@ -67,10 +70,12 @@ export const Route = createFileRoute("/api/jobs/create")({
         // running. If pg_net is unavailable/misconfigured, the client gets a
         // false flag and can fall back to the live streaming path.
         let backgroundStarted = false;
-        try {
-          backgroundStarted = await kickBuildJob(jobId);
-        } catch {
-          backgroundStarted = false;
+        if (parsed.data.backgroundStart !== false) {
+          try {
+            backgroundStarted = await kickBuildJob(jobId);
+          } catch {
+            backgroundStarted = false;
+          }
         }
 
         return Response.json({ jobId, backgroundStarted });
