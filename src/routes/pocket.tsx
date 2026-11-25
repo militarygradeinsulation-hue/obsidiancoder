@@ -1304,6 +1304,7 @@ function ForgePage() {
         advisory: false,
         surface: "pocket",
         referenceRebuild: isReferenceBuild,
+        refineMode: isRefine,
         projectMemory: effectiveMemory,
         pocketProfile: profile,
         pocketStyleFamily: effectiveStyleFamily,

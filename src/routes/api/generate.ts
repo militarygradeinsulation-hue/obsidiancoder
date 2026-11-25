@@ -508,6 +508,20 @@ const ENRICHMENT_BUDGET_MS = 1_500;
 // half a minute, before the fallback is tried.
 const PRIMARY_OPEN_BUDGET_MS = 20_000;
 const FALLBACK_OPEN_BUDGET_MS = 16_000;
+const FAST_PRIMARY_OPEN_BUDGET_MS = 12_000;
+const FAST_FALLBACK_OPEN_BUDGET_MS = 9_000;
+const STUDIO_PRIMARY_OPEN_BUDGET_MS = 15_000;
+const STUDIO_FALLBACK_OPEN_BUDGET_MS = 12_000;
+
+function providerOpenBudgets(profile?: string): { primary: number; fallback: number } {
+  if (profile === "fast") {
+    return { primary: FAST_PRIMARY_OPEN_BUDGET_MS, fallback: FAST_FALLBACK_OPEN_BUDGET_MS };
+  }
+  if (profile === "studio") {
+    return { primary: STUDIO_PRIMARY_OPEN_BUDGET_MS, fallback: STUDIO_FALLBACK_OPEN_BUDGET_MS };
+  }
+  return { primary: PRIMARY_OPEN_BUDGET_MS, fallback: FALLBACK_OPEN_BUDGET_MS };
+}
 const MAX_COMPONENT_CONTEXT_BYTES = 32_000;
 
 async function runOptionalPhase<T>(
@@ -1573,8 +1587,12 @@ ${memBlock}`,
           let opened;
           let fallbackReason = "";
           const remainingFirstResponseMs = () => Math.max(0, firstResponseDeadline - performance.now());
+          const openBudgets = providerOpenBudgets(data.pocketProfile);
           try {
-            const primaryBudget = Math.min(PRIMARY_OPEN_BUDGET_MS, remainingFirstResponseMs() - FALLBACK_OPEN_BUDGET_MS - 1_000);
+            const primaryBudget = Math.min(
+              openBudgets.primary,
+              remainingFirstResponseMs() - openBudgets.fallback - 1_000,
+            );
             if (primaryBudget < 750) {
               throw new AiError({ code: "ai_timeout", stage: "generate", requestId });
             }
@@ -1585,7 +1603,7 @@ ${memBlock}`,
             const canFallback = !explicit && data.model !== DEFAULT_MODEL && !isFastTier(data.model);
             if (!canFallback) throw err;
             fallbackReason = err instanceof Error ? err.message.slice(0, 60) : "unknown";
-            const fallbackBudget = Math.min(FALLBACK_OPEN_BUDGET_MS, remainingFirstResponseMs() - 500);
+            const fallbackBudget = Math.min(openBudgets.fallback, remainingFirstResponseMs() - 500);
             if (fallbackBudget < 750) {
               throw new AiError({ code: "ai_timeout", stage: "generate", requestId });
             }
