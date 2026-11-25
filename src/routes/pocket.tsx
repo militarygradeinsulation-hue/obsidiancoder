@@ -3240,6 +3240,17 @@ function ForgePage() {
               </button>
               <button
                 type="button"
+                className="rounded-lg border border-[#F4A125]/35 bg-[#F4A125]/10 px-3 py-1.5 text-sm font-medium text-[#F4A125]"
+                onClick={() => {
+                  setPublishedUrl(null);
+                  setGhOpen(true);
+                  setStatus("Connect GitHub Pages to attach your owned domain");
+                }}
+              >
+                Connect owned domain
+              </button>
+              <button
+                type="button"
                 className="ml-auto rounded-lg border border-white/15 px-3 py-1.5 text-sm text-[#B6BCC8]"
                 onClick={() => setPublishedUrl(null)}
               >
