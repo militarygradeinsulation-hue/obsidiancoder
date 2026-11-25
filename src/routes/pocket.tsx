@@ -95,6 +95,7 @@ import {
   listPocketProjectAssets,
   resolvePocketAssetTokens,
   savePocketProjectAsset,
+  POCKET_ASSET_MAX,
   type PocketProjectAsset,
   type PocketProjectAssetDraft,
 } from "@/lib/pocket-project-assets";
@@ -416,6 +417,9 @@ function ForgePage() {
   const [referenceStartMode, setReferenceStartMode] = React.useState<ReferenceMode>("url");
   const [assetsOpen, setAssetsOpen] = React.useState(false);
   const [projectAssets, setProjectAssets] = React.useState<PocketProjectAsset[]>([]);
+  // null = legacy session: show the old account-scoped asset pool once.
+  // [] / ids = this Pocket project's explicit asset selection.
+  const [projectAssetIds, setProjectAssetIds] = React.useState<string[] | null>(null);
   const [assetsLoaded, setAssetsLoaded] = React.useState(false);
   const [pricingOpen, setPricingOpen] = React.useState(false);
   const [nudge, setNudge] = React.useState<{ reason: NudgeReason; envelope?: CreditsRequiredEnvelope } | null>(null);
@@ -467,7 +471,12 @@ function ForgePage() {
     const scope = libraryCode.trim() || "guest";
     void listPocketProjectAssets(scope)
       .then((assets) => {
-        if (!cancelled) setProjectAssets(assets);
+        if (!cancelled) {
+          const selected = projectAssetIds === null
+            ? assets
+            : assets.filter((asset) => projectAssetIds.includes(asset.id));
+          setProjectAssets(selected);
+        }
       })
       .catch(() => {
         if (!cancelled) setProjectAssets([]);
@@ -476,7 +485,7 @@ function ForgePage() {
         if (!cancelled) setAssetsLoaded(true);
       });
     return () => { cancelled = true; };
-  }, [libraryCode]);
+  }, [libraryCode, projectAssetIds]);
 
   // Resolve any asset tokens recovered from a background build once local
   // project images are loaded. This makes leave-and-return recovery render
@@ -651,6 +660,8 @@ function ForgePage() {
      * to DEFAULT_MODEL on any remount, with no indication it had happened.
      */
     model?: string;
+    /** Only these hosted/local image ids belong to this specific Pocket project. */
+    assetIds?: string[];
   };
   const sessionKey = React.useCallback(
     (code: string) => `pocket.session.${(code || "guest").trim() || "guest"}`,
@@ -688,6 +699,7 @@ function ForgePage() {
       if (saved.styleFamily) setStyleFamily(saved.styleFamily);
       if (saved.mode) setMode(saved.mode);
       if (saved.model) setModel(saved.model);
+      setProjectAssetIds(Array.isArray(saved.assetIds) ? saved.assetIds.slice(0, POCKET_ASSET_MAX) : null);
       setDna(saved.dna ?? null);
       setConceptPlan(saved.conceptPlan ?? null);
       setPlanKey(saved.conceptPlan ? (saved.conceptPlanKey ?? "") : "");
@@ -810,10 +822,11 @@ function ForgePage() {
         conceptPlanKey: planKey,
         mode: prompt.startsWith("[OBSIDIAN REBUILD FROM REFERENCE]") ? "build" : mode,
         model,
+        assetIds: projectAssets.map((asset) => asset.id).slice(0, POCKET_ASSET_MAX),
       } satisfies PocketSession);
     }, 600);
     return () => window.clearTimeout(t);
-  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan, planKey, mode, model]);
+  }, [html, title, prompt, versions, libraryCode, sessionKey, profile, styleFamily, dna, conceptPlan, planKey, mode, model, projectAssets]);
 
 
   // Personal library (real builds rows, scoped by the user's library code).
@@ -966,6 +979,8 @@ function ForgePage() {
     setTitle("Untitled build");
     setPrompt("");
     setVersions([]);
+    setProjectAssets([]);
+    setProjectAssetIds([]);
     setShareUrl(null);
     setStatus("Ready");
     setPane("preview");
@@ -1009,6 +1024,8 @@ function ForgePage() {
     setTitle("Untitled build");
     setPrompt("");
     setVersions([]);
+    setProjectAssets([]);
+    setProjectAssetIds([]);
     setShareUrl(null);
     setPublishedUrl(null);
     setDemoLive(null);
@@ -1593,6 +1610,7 @@ function ForgePage() {
         conceptPlanKey: activePlanKey,
         mode: isReferenceBuild ? "build" : mode,
         model,
+        assetIds: projectAssets.map((asset) => asset.id).slice(0, POCKET_ASSET_MAX),
       } satisfies PocketSession);
 
       // Shelve every build in the permanent archive, saved or not.
@@ -1735,9 +1753,12 @@ function ForgePage() {
     }
 
     await savePocketProjectAsset(scope, asset);
-    setProjectAssets((current) => [...current.filter((item) => item.id !== asset.id), asset].slice(-4));
+    setProjectAssets((current) => [...current.filter((item) => item.id !== asset.id), asset].slice(-POCKET_ASSET_MAX));
+    setProjectAssetIds((current) => [
+      ...new Set([...(current ?? projectAssets.map((item) => item.id)), asset.id]),
+    ].slice(-POCKET_ASSET_MAX));
     setStatus(`Added project image · ${asset.name}${asset.localOnly ? " · local" : " · hosted"}`);
-  }, [libraryCode, log]);
+  }, [libraryCode, log, projectAssets]);
 
   const removeProjectAsset = React.useCallback(async (id: string) => {
     const scope = libraryCode.trim() || "guest";
@@ -1756,6 +1777,9 @@ function ForgePage() {
     }
     await deletePocketProjectAsset(scope, id);
     setProjectAssets((current) => current.filter((item) => item.id !== id));
+    setProjectAssetIds((current) =>
+      (current ?? projectAssets.map((item) => item.id)).filter((assetId) => assetId !== id),
+    );
     setStatus("Project image removed");
   }, [libraryCode, projectAssets]);
 
