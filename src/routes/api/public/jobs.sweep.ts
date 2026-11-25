@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { listStaleBuildJobs } from "@/lib/build-jobs.server";
 import { claimAndRunBuildJob } from "@/lib/run-build-job.server";
+import { keepRequestAlive } from "@/lib/runtime-context.server";
 
 /**
  * Same apikey protection as jobs.run.ts. This is the route the ALREADY
@@ -39,7 +40,9 @@ export const Route = createFileRoute("/api/public/jobs/sweep")({
         }
 
         for (const job of stale) {
-          claimAndRunBuildJob(job.id).catch(() => {
+          const task = claimAndRunBuildJob(job.id);
+          keepRequestAlive(request, task);
+          task.catch(() => {
             /* claimAndRunBuildJob already records failures on the job row itself */
           });
         }
