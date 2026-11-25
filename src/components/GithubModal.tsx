@@ -321,9 +321,11 @@ export function GithubModal(props: {
       // Domain controls and Pages health need the actual exported repo for
       // both Pocket/static and Full App deployments.
       setManagedRepo(res.repo.name);
-      if (res.mode === "full-app") {
-        onProductionUpdate?.({ githubRepo: res.repo.name });
-      }
+      onProductionUpdate?.({
+        githubRepo: res.repo.name,
+        deploymentUrl: res.pages?.html_url || undefined,
+        lastCheckedAt: Date.now(),
+      });
       onLog(`✓ Pushed to ${res.repo.full_name}`);
       if (res.pages) onLog(`  Pages: ${res.pages.html_url}`);
       if (deployMode === "full-app") onLog("✓ Full App starter created: configure Supabase and deploy through a build-capable host.");
