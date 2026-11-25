@@ -196,7 +196,11 @@ export async function updateBuildJobProgress(
   // the existing minute-level sweep can reclaim it promptly.
   update.lease_until = new Date(Date.now() + 60_000).toISOString();
   if (Object.keys(update).length === 0) return;
-  const { error } = await supabaseAdmin.from("build_jobs").update(update as never).eq("id", id);
+  const { error } = await supabaseAdmin
+    .from("build_jobs")
+    .update(update as never)
+    .eq("id", id)
+    .in("status", ["queued", "running"]);
   if (error) throw new Error(`build_jobs progress update failed: ${error.message}`);
 }
 
