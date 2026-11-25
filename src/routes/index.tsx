@@ -2914,6 +2914,8 @@ function Index() {
     abortRef.current = controller;
     abortMapRef.current.set(sessionId, controller);
     let providerStarted = false;
+    let durableJobId: string | null = null;
+    let durableBackgroundStarted = false;
     try {
 
       const genHeaders: Record<string, string> = {
@@ -2980,12 +2982,134 @@ function Index() {
             })()
           : {}),
       };
-      const res = await authFetch("/api/generate", {
-        method: "POST",
-        headers: genHeaders,
-        body: JSON.stringify(genBody),
-        signal: controller.signal,
-      });
+      let genPayload = JSON.stringify(genBody);
+      let res: Response;
+
+      // Durable server-owned generation for substantive Vibe builds. Quick
+      // deterministic/patch edits never reach this block. Very large inline
+      // image payloads stay on the live path until those assets are hosted,
+      // avoiding multi-megabyte build_job rows.
+      const durableEligible = !demoMode && previewMode && genPayload.length <= 750_000;
+      if (durableEligible) {
+        try {
+          const jobRes = await authFetch("/api/jobs/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              ...genBody,
+              libraryCode,
+              surface: "coder",
+              sessionId,
+              title: current.title,
+              mode: isRefineBuild ? "refine" : "create",
+              profile: artProfile,
+              backgroundStart: true,
+            }),
+          });
+          if (jobRes.ok) {
+            const info = await jobRes.json().catch(() => null) as { jobId?: string; backgroundStarted?: boolean } | null;
+            if (info?.jobId) {
+              durableJobId = info.jobId;
+              durableJobBySessionRef.current.set(sessionId, info.jobId);
+              safeSet<PendingVibeJob>(vibePendingJobKey(sessionId), {
+                jobId: info.jobId,
+                startedAt: Date.now(),
+                prompt: basePrompt,
+                wasRefine: isRefineBuild,
+                baseVersionId: current.versions?.[0]?.id ?? null,
+              });
+
+              if (info.backgroundStarted) {
+                durableBackgroundStarted = true;
+                setStage("generate");
+                setStageDetail("Background build");
+                setTerminal((t) => [...t, "↻ Durable background build started — safe to leave this page"]);
+              } else {
+                // The durable row still protects this request. The live
+                // request claims it and the cron sweep can recover it later.
+                genBody.jobId = info.jobId;
+                genPayload = JSON.stringify(genBody);
+              }
+            }
+          }
+        } catch {
+          // Background durability is an enhancement. Never block generation
+          // because the job ledger itself is temporarily unavailable.
+        }
+      } else if (!demoMode && previewMode && genPayload.length > 750_000) {
+        setTerminal((t) => [...t, "→ Large inline image context — using live stream; project images remain saved locally"]);
+      }
+
+      if (durableBackgroundStarted && durableJobId) {
+        const started = Date.now();
+        let lastPartial = "";
+        let transientFailures = 0;
+        for (;;) {
+          if (controller.signal.aborted) throw new DOMException("Build stopped", "AbortError");
+          try {
+            const statusRes = await authFetch(`/api/jobs/${durableJobId}`);
+            if (!statusRes.ok) throw new Error(`Background status failed (${statusRes.status})`);
+            transientFailures = 0;
+            const job = await statusRes.json() as {
+              status: string;
+              stage?: string;
+              progress?: number;
+              partialHtml?: string | null;
+              resultHtml?: string | null;
+              servedModel?: string | null;
+              error?: string | null;
+            };
+
+            // Fresh builds can grow into the preview. Refines deliberately
+            // keep the last stable design visible until preservation passes.
+            if (!isRefineBuild && job.partialHtml && job.partialHtml.length > 200 && job.partialHtml !== lastPartial) {
+              lastPartial = job.partialHtml;
+              setSessions((all) => all.map((s) => s.id === sessionId ? { ...s, html: job.partialHtml as string } : s));
+            }
+            const pct = typeof job.progress === "number"
+              ? Math.max(0, Math.min(100, Math.round(job.progress)))
+              : null;
+            setStageDetail(`Background build${pct === null ? "" : ` · ${pct}%`}${job.stage && job.stage !== "running" ? ` · ${job.stage}` : ""}`);
+
+            if (job.status === "complete" && job.resultHtml) {
+              const headers = new Headers({ "content-type": "text/plain; charset=utf-8" });
+              if (job.servedModel) headers.set("x-obs-model-used", job.servedModel);
+              res = new Response(job.resultHtml, { status: 200, headers });
+              break;
+            }
+            if (job.status === "failed") {
+              safeRemove(vibePendingJobKey(sessionId));
+              durableJobBySessionRef.current.delete(sessionId);
+              throw new Error(job.error || "Background build failed.");
+            }
+            if (job.status === "cancelled") {
+              safeRemove(vibePendingJobKey(sessionId));
+              durableJobBySessionRef.current.delete(sessionId);
+              throw new DOMException("Build stopped", "AbortError");
+            }
+          } catch (statusError) {
+            if ((statusError as { name?: string })?.name === "AbortError") throw statusError;
+            transientFailures += 1;
+            if (transientFailures >= 5) {
+              // Leave the durable marker intact; route recovery will continue
+              // watching the server-owned job on the next visit.
+              throw new Error("Build continues in the background. You can leave this page and return later.");
+            }
+          }
+
+          if (Date.now() - started > 20 * 60_000) {
+            throw new Error("Build continues in the background. You can leave this page and return later.");
+          }
+          await new Promise((resolve) => setTimeout(resolve, 750));
+        }
+      } else {
+        res = await authFetch("/api/generate", {
+          method: "POST",
+          headers: genHeaders,
+          body: genPayload,
+          signal: controller.signal,
+        });
+      }
 
 
       // Free-demo mode: the server confirms the claim via X-Obs-Demo header.
@@ -3638,6 +3762,10 @@ function Index() {
       });
 
       setSessions((all) => all.map((s) => s.id === sessionId ? applyCommittedBuild(s) : s));
+      if (durableJobId) {
+        safeRemove(vibePendingJobKey(sessionId));
+        durableJobBySessionRef.current.delete(sessionId);
+      }
 
       // Mount-independent completion persistence. If the user navigates to a
       // different route while this request is still finishing, React state may
