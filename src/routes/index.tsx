@@ -175,6 +175,7 @@ import {
 import { compactRecentSignatures, conceptPlanKey } from "@/lib/pocket-hardening";
 import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
 import { planWithLocalCache } from "@/lib/plan-cache";
+import { fileToReferenceAsset, loadProjectAssets, saveProjectAssets } from "@/lib/project-assets";
 import { buildContext } from "@/lib/staged-context";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { dnaPromptBlock, parseCritique } from "@/lib/pocket-prompt";
@@ -1844,8 +1845,44 @@ function Index() {
     | { kind: "image"; name: string; dataUrl: string }
     | { kind: "text"; name: string; text: string; source: "text" | "pdf" };
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [assetProjectReady, setAssetProjectReady] = useState<string>("");
   const [captureMode, setCaptureMode] = useState<null | "full" | "snip">(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Reference images are project-local memory. Switching Vibe projects
+  // restores that project's visual context instead of sharing attachments.
+  useEffect(() => {
+    let cancelled = false;
+    setAssetProjectReady("");
+    void loadProjectAssets(activeId).then((assets) => {
+      if (cancelled) return;
+      setPendingAttachments((current) => [
+        ...current.filter((att) => att.kind !== "image"),
+        ...assets.map((asset) => ({
+          kind: "image" as const,
+          name: asset.name,
+          dataUrl: asset.dataUrl,
+        })),
+      ]);
+      setAssetProjectReady(activeId);
+    });
+    return () => { cancelled = true; };
+  }, [activeId]);
+
+  useEffect(() => {
+    if (!activeId || assetProjectReady !== activeId) return;
+    const images = pendingAttachments
+      .filter((att): att is Extract<Attachment, { kind: "image" }> => att.kind === "image")
+      .map((att, index) => ({
+        id: `${activeId}:img:${index}:${att.name}`,
+        name: att.name,
+        mime: att.dataUrl.slice(5, att.dataUrl.indexOf(";")) || "image/webp",
+        dataUrl: att.dataUrl,
+        bytes: Math.ceil((att.dataUrl.split(",")[1]?.length ?? 0) * 0.75),
+        createdAt: Date.now(),
+      }));
+    void saveProjectAssets(activeId, images);
+  }, [activeId, assetProjectReady, pendingAttachments]);
 
   async function extractPdfText(file: File): Promise<string> {
     const pdfjs: any = await import("pdfjs-dist");
@@ -1876,13 +1913,9 @@ function Index() {
           continue;
         }
         if (file.type.startsWith("image/")) {
-          const dataUrl = await new Promise<string>((resolve, reject) => {
-            const r = new FileReader();
-            r.onload = () => resolve(String(r.result));
-            r.onerror = () => reject(new Error("read failed"));
-            r.readAsDataURL(file);
-          });
-          setPendingAttachments((a) => [...a, { kind: "image", name: file.name, dataUrl }]);
+          const asset = await fileToReferenceAsset(file);
+          setPendingAttachments((a) => [...a, { kind: "image", name: asset.name, dataUrl: asset.dataUrl }]);
+          setTerminal((t) => [...t, `🖼 Reference saved locally for this project: ${asset.name} · ${Math.round(asset.bytes / 1024)} KB`]);
         } else if (file.type === "application/pdf" || file.name.toLowerCase().endsWith(".pdf")) {
           const text = await extractPdfText(file);
           setPendingAttachments((a) => [...a, { kind: "text", name: file.name, text, source: "pdf" }]);
