@@ -75,6 +75,8 @@ import { suggestionAllowed } from "@/lib/suggestion-safety";
 
 
 import { safeGet, safeSet, safeRemove, sanitizeErrorMessage } from "@/lib/safe-storage";
+import { styleLockDirective } from "@/lib/style-lock";
+import { checkRefinePreservation } from "@/lib/refine-preservation";
 import { getAccountCode, setAccountCode, isFullAccessCode, isValidAccountCode } from "@/lib/account-code";
 import { unlockSite } from "@/lib/gate.functions";
 import { pushFeaturedDemo, deleteFeaturedDemo } from "@/lib/featured-demos.functions";
@@ -1160,7 +1162,13 @@ function ForgePage() {
         ...(paidAccess ? {} : { "x-obs-free": "1" }),
       };
       const genBody: Record<string, unknown> = {
-        prompt: isRefine ? `[FOCUSED CHANGE] ${p}` : p,
+        prompt: isRefine
+          ? [
+              `[FOCUSED CHANGE] ${p}`,
+              styleLockDirective(previous),
+              "REFINE MODE CONTRACT: preserve the existing primary design. Do not redesign, re-theme, reorder sections, replace the typography system, or replace the palette unless the user's request explicitly asks for that exact change. Apply the smallest possible diff.",
+            ].filter(Boolean).join("\n\n")
+          : p,
         currentHtml: isRefine ? previous : previous.slice(0, 8000),
         history: [],
         model: modelChoice.model,
@@ -1357,6 +1365,17 @@ function ForgePage() {
       // model never receives image bytes, so assets do not inflate context.
       finalHtml = resolvePocketAssetTokens(finalHtml, projectAssets);
 
+      if (isRefine) {
+        const preservation = checkRefinePreservation(previous, finalHtml, p);
+        if (!preservation.ok) {
+          setProject((prev) => setEntryHtml(prev, previous));
+          setError(`Refine protection kept your current design. The proposed change caused: ${preservation.blockers.join(" · ")}`);
+          setStatus("Refine protected current design");
+          log(`🔒 Refine protection rejected design drift · ${preservation.blockers.join(" · ")}`);
+          return;
+        }
+      }
+
       // ---- 2b. Design floor -------------------------------------------------
       // An unstyled or truncated page is a failed build even when it is valid
       // HTML. Reject it and regenerate ONCE on an escalated model instead of
@@ -1400,6 +1419,16 @@ function ForgePage() {
 
       // A quality retry may emit asset tokens again.
       finalHtml = resolvePocketAssetTokens(finalHtml, projectAssets);
+      if (isRefine) {
+        const preservation = checkRefinePreservation(previous, finalHtml, p);
+        if (!preservation.ok) {
+          setProject((prev) => setEntryHtml(prev, previous));
+          setError(`Refine protection kept your current design. The retry caused: ${preservation.blockers.join(" · ")}`);
+          setStatus("Refine protected current design");
+          log(`🔒 Refine protection rejected retry drift · ${preservation.blockers.join(" · ")}`);
+          return;
+        }
+      }
 
       // ---- 3. Deterministic safety/parity gate. Build completion never
       //         waits on an optional AI review; malformed scripts and unsafe
