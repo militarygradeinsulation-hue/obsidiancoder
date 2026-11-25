@@ -1287,6 +1287,10 @@ function ForgePage() {
           const id = info?.jobId;
           if (id) {
             safeSet(pendingJobKey(libraryCode), { jobId: id, startedAt: Date.now() });
+            // Any job-backed request is durable, including the fast streaming
+            // path. Keep the recovery marker if the observer disappears before
+            // the server reaches a terminal result.
+            durableJobInFlight = true;
             if (info?.backgroundStarted) {
               backgroundJobId = id;
               backgroundStarted = true;
@@ -1424,6 +1428,10 @@ function ForgePage() {
           }
         }
         finalHtml = clean(acc).trim();
+        // The streamed response reached EOF/[DONE]. For a job-backed request
+        // generate.ts has now persisted the terminal result, so normal cleanup
+        // may remove the pending marker.
+        if (genBody.jobId) durableJobInFlight = false;
         if (finalHtml.length < 40) throw new Error("The model returned an empty document.");
       }
 
