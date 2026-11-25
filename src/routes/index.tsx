@@ -359,6 +359,17 @@ const STORAGE_KEY = "obsidian.vibe.sessions.v1";
 const ACTIVE_KEY = "obsidian.vibe.active.v1";
 const IDEA_CACHE_VERSION_KEY = "obs.idea-cache.version";
 const IDEA_CACHE_VERSION = "3";
+const VIBE_PENDING_JOB_PREFIX = "obs.vibe.pending-job.v1.";
+type PendingVibeJob = {
+  jobId: string;
+  startedAt: number;
+  prompt: string;
+  wasRefine: boolean;
+  baseVersionId?: string | null;
+};
+function vibePendingJobKey(sessionId: string) {
+  return VIBE_PENDING_JOB_PREFIX + sessionId;
+}
 
 function newSession(): Session {
   return {
@@ -1392,6 +1403,13 @@ function Index() {
     const ctrl = abortMapRef.current.get(id);
     ctrl?.abort();
     abortMapRef.current.delete(id);
+    const pending = safeGet<PendingVibeJob>(vibePendingJobKey(id));
+    const durableId = durableJobBySessionRef.current.get(id) ?? pending?.jobId;
+    if (durableId) {
+      void authFetch(`/api/jobs/${durableId}`, { method: "DELETE" }).catch(() => {});
+      durableJobBySessionRef.current.delete(id);
+      safeRemove(vibePendingJobKey(id));
+    }
     // Drop anything this tab still has queued so cancel really means stop.
     setPromptQueue((q) => q.filter((p) => p.sid !== id));
     markBuildEnd(id);
@@ -1403,6 +1421,123 @@ function Index() {
   }
 
   const current = sessions.find((s) => s.id === activeId) ?? sessions[0];
+
+  // Recover a durable generation that kept running after this route was
+  // backgrounded/unmounted. Cleanup stops only polling; it never cancels the
+  // server-owned job. Explicit Stop uses cancelBuild() above.
+  useEffect(() => {
+    const pending = safeGet<PendingVibeJob>(vibePendingJobKey(activeId));
+    if (!pending?.jobId) return;
+
+    let disposed = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const startedAt = pending.startedAt || Date.now();
+    durableJobBySessionRef.current.set(activeId, pending.jobId);
+    markBuildStart(activeId);
+    setStage("generate");
+    setStageDetail("Background build");
+
+    const poll = async () => {
+      if (disposed) return;
+      try {
+        const res = await authFetch(`/api/jobs/${pending.jobId}`);
+        if (!res.ok) {
+          if (res.status === 404 || res.status === 401) {
+            safeRemove(vibePendingJobKey(activeId));
+            durableJobBySessionRef.current.delete(activeId);
+            markBuildEnd(activeId);
+          } else {
+            timer = setTimeout(poll, 3500);
+          }
+          return;
+        }
+        const job = await res.json() as {
+          status: string;
+          stage?: string;
+          progress?: number;
+          partialHtml?: string | null;
+          resultHtml?: string | null;
+          error?: string | null;
+        };
+
+        if (job.partialHtml && job.partialHtml.length > 200 && job.status !== "complete") {
+          setSessions((all) => all.map((s) => s.id === activeId ? { ...s, html: job.partialHtml as string } : s));
+        }
+
+        if (job.status === "complete" && job.resultHtml) {
+          const candidate = job.resultHtml.trim();
+          const validation = validateHtml(candidate);
+          let accepted = validation.status !== "failed";
+          let rejection = validation.status === "failed" ? "background result failed validation" : "";
+          setSessions((all) => all.map((s) => {
+            if (s.id !== activeId) return s;
+            let baseHtml = s.html;
+            if (pending.baseVersionId) {
+              baseHtml = s.versions.find((v) => v.id === pending.baseVersionId)?.html ?? baseHtml;
+            }
+            if (accepted && pending.wasRefine && baseHtml) {
+              const preservation = checkRefinePreservation(baseHtml, candidate, pending.prompt);
+              if (!preservation.ok) {
+                accepted = false;
+                rejection = `refine protection: ${preservation.blockers.join(" · ")}`;
+              }
+            }
+            return accepted
+              ? {
+                  ...s,
+                  html: candidate,
+                  messages: [...s.messages, { role: "assistant", content: "Done — background build finished while you were away." }],
+                }
+              : {
+                  ...s,
+                  html: baseHtml,
+                  messages: [...s.messages, { role: "assistant", content: `⚠ Background result rejected — ${rejection}.` }],
+                };
+          }));
+          setTerminal((t) => [...t, accepted ? "✓ Recovered completed background build" : `🔒 Background build rejected · ${rejection}`]);
+          safeRemove(vibePendingJobKey(activeId));
+          durableJobBySessionRef.current.delete(activeId);
+          markBuildEnd(activeId);
+          setStage(null);
+          setStageDetail("");
+          return;
+        }
+
+        if (job.status === "failed" || job.status === "cancelled") {
+          safeRemove(vibePendingJobKey(activeId));
+          durableJobBySessionRef.current.delete(activeId);
+          markBuildEnd(activeId);
+          setStage(null);
+          setStageDetail("");
+          if (job.status === "failed") {
+            setTerminal((t) => [...t, `✗ Background build failed: ${job.error || "unknown error"}`]);
+          }
+          return;
+        }
+
+        const pct = typeof job.progress === "number" ? ` · ${Math.max(0, Math.min(100, Math.round(job.progress)))}%` : "";
+        setStageDetail(`Background build${pct}`);
+        if (Date.now() - startedAt < 25 * 60_000) {
+          timer = setTimeout(poll, 2500);
+        } else {
+          markBuildEnd(activeId);
+          setStage(null);
+          setStageDetail("Build continues in background");
+        }
+      } catch {
+        if (!disposed) timer = setTimeout(poll, 4000);
+      }
+    };
+
+    void poll();
+    return () => {
+      disposed = true;
+      if (timer) clearTimeout(timer);
+    };
+    // Polling is keyed only to the project id. It must not restart on every
+    // preview/terminal state update.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeId]);
 
   // A build handed over from /archive opens straight into the active session.
   // A mission sent from /agent lands in the composer for review — never auto-sent.
