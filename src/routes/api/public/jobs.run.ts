@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
 import { claimAndRunBuildJob } from "@/lib/run-build-job.server";
+import { keepRequestAlive } from "@/lib/runtime-context.server";
 
 const bodySchema = z.object({ jobId: z.string().uuid() });
 
@@ -48,7 +49,13 @@ export const Route = createFileRoute("/api/public/jobs/run")({
         // one finishes claiming, build_job_claim's own atomic conditional
         // update in Postgres is what makes only one of them win, not any
         // ordering guarantee in this file.
-        claimAndRunBuildJob(parsed.data.jobId).catch(() => {
+        const task = claimAndRunBuildJob(parsed.data.jobId);
+        // On Nitro/Cloudflare-style runtimes, explicitly extend the request
+        // lifetime so the acknowledged job is not cut off when the HTTP
+        // response is returned. Other runtimes fall back to the existing
+        // unawaited task + lease/cron recovery path.
+        keepRequestAlive(request, task);
+        task.catch(() => {
           /* claimAndRunBuildJob already records failures on the job row itself */
         });
 
