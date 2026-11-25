@@ -813,6 +813,11 @@ function ForgePage() {
     const next = projectFromHtml(handoff.html);
     setProject(next);
     setActiveFileId(next.entryFileId);
+    setProjectAssets([]);
+    setProjectAssetIds([]);
+    setPublishedUrl(null);
+    setPublishedRepo(null);
+    setConnectedDomain(null);
     setTitle(handoff.title);
     setPrompt(handoff.prompt);
     setPane("preview");
@@ -929,6 +934,11 @@ function ForgePage() {
         if (!full) return;
         const next = projectFromHtml(full.html);
         setProject(next);
+        setProjectAssets([]);
+        setProjectAssetIds([]);
+        setPublishedUrl(null);
+        setPublishedRepo(null);
+        setConnectedDomain(null);
         setTitle(full.projectName ?? "Cloud project");
         if (full.prompt) setPrompt(full.prompt);
         if (!cloudProjectId) setCloudProjectId(top.id);
@@ -949,6 +959,11 @@ function ForgePage() {
         const next = projectFromHtml(j.html ?? EMPTY_DOC);
         setProject(next);
         setActiveFileId(next.entryFileId);
+        setProjectAssets([]);
+        setProjectAssetIds([]);
+        setPublishedUrl(null);
+        setPublishedRepo(null);
+        setConnectedDomain(null);
         setTitle(j.title ?? "Untitled build");
         setPrompt("");
         setVersions((v) =>
