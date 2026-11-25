@@ -1,7 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { z } from "zod";
-import { createBuildJob } from "@/lib/build-jobs.server";
-import { claimAndRunBuildJob } from "@/lib/run-build-job.server";
+import { createBuildJob, kickBuildJob } from "@/lib/build-jobs.server";
 import { isOwnerRequest, resolveUserFromRequest, OWNER_CODE_HEADER } from "@/lib/credit-gate.server";
 import type { StoredJobRequest } from "@/lib/run-build-job.server";
 
@@ -63,13 +62,18 @@ export const Route = createFileRoute("/api/jobs/create")({
           requestBody: stored,
         });
 
-        // No immediate background kick: the live /api/generate call claims
-        // this job itself, so a parallel run here would build (and bill)
-        // the same prompt twice. The recovery sweep only picks up jobs the
-        // live request never claimed or abandoned (expired lease).
-        void claimAndRunBuildJob;
+        // Start the durable server-owned runner immediately. The browser does
+        // not own this work: it can navigate away or close and the job keeps
+        // running. If pg_net is unavailable/misconfigured, the client gets a
+        // false flag and can fall back to the live streaming path.
+        let backgroundStarted = false;
+        try {
+          backgroundStarted = await kickBuildJob(jobId);
+        } catch {
+          backgroundStarted = false;
+        }
 
-        return Response.json({ jobId });
+        return Response.json({ jobId, backgroundStarted });
       },
     },
   },
