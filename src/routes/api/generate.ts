@@ -498,6 +498,8 @@ interface ComponentPhaseResult {
 // (Google → ChatLLM keys → Lovable gateway) on a large system prompt; the
 // previous 6s primary budget expired before Gemini ever produced a byte.
 const FIRST_RESPONSE_BUDGET_MS = 55_000;
+const FAST_FIRST_RESPONSE_BUDGET_MS = 32_000;
+const STUDIO_FIRST_RESPONSE_BUDGET_MS = 42_000;
 const ENRICHMENT_BUDGET_MS = 1_500;
 // First-byte budget only — it never caps how long a generation may run once
 // the stream is open. Kept tight so a degraded provider costs seconds, not
@@ -649,7 +651,9 @@ async function planAndFetchComponents(
 export async function handleGenerate(request: Request): Promise<Response> {
         const requestId = newRequestId();
         const requestStartedAt = performance.now();
-        const firstResponseDeadline = requestStartedAt + FIRST_RESPONSE_BUDGET_MS;
+        // Set conservatively before parsing; Pocket/Vibe replace this with a
+        // profile-aware deadline as soon as the bounded request body is known.
+        let firstResponseDeadline = requestStartedAt + FIRST_RESPONSE_BUDGET_MS;
         // Dual gate: site-owner cookie OR signed-in Pro user with credits.
         // Advisory (chat/plan) is a lighter op; full HTML generation is priced higher.
         // We defer the entitlement decision to after we parse `data` so we can
@@ -719,6 +723,20 @@ export async function handleGenerate(request: Request): Promise<Response> {
               requestId,
               message: normalizeValidationMessage(err, requestId),
             });
+          }
+
+          // Fast and Studio are interactive builder modes. A degraded provider
+          // must fail over quickly instead of consuming the same first-byte
+          // allowance as a deliberately deeper Cinematic request. Generic API
+          // callers and Cinematic keep the conservative 55s window.
+          if (!data.advisory && (data.surface === "pocket" || data.surface === "vibe")) {
+            const responseBudget =
+              data.pocketProfile === "cinematic"
+                ? FIRST_RESPONSE_BUDGET_MS
+                : data.pocketProfile === "studio"
+                  ? STUDIO_FIRST_RESPONSE_BUDGET_MS
+                  : FAST_FIRST_RESPONSE_BUDGET_MS;
+            firstResponseDeadline = requestStartedAt + responseBudget;
           }
 
           // Entitlement check — after validation so we know if this is a
