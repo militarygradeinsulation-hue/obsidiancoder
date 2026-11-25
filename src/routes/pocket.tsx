@@ -43,6 +43,7 @@ import {
   Bolt,
   Brain,
   Lightbulb,
+  Images,
 } from "lucide-react";
 
 import { authFetch } from "@/lib/auth-fetch";
@@ -1640,6 +1641,31 @@ function ForgePage() {
     runCritique,
   ]);
 
+  const addProjectAsset = React.useCallback(async (asset: PocketProjectAsset) => {
+    const scope = libraryCode.trim() || "guest";
+    await savePocketProjectAsset(scope, asset);
+    setProjectAssets((current) => [...current.filter((item) => item.id !== asset.id), asset].slice(-4));
+    setStatus(`Added project image · ${asset.name}`);
+  }, [libraryCode]);
+
+  const removeProjectAsset = React.useCallback(async (id: string) => {
+    const scope = libraryCode.trim() || "guest";
+    await deletePocketProjectAsset(scope, id);
+    setProjectAssets((current) => current.filter((asset) => asset.id !== id));
+    setStatus("Project image removed");
+  }, [libraryCode]);
+
+  const useProjectAssetNow = React.useCallback(async (asset: PocketProjectAsset) => {
+    if (html.length < 40 || busy) return;
+    setAssetsOpen(false);
+    setMode("refine");
+    await generate(
+      `Use the uploaded project image named "${asset.name}" in the most appropriate visible image position for this existing build. Preserve the current layout, typography, colors, spacing, components, section order, and interaction patterns. Do not redesign the page. Only make the minimum image-related change needed.`,
+      undefined,
+      true,
+    );
+  }, [busy, generate, html.length]);
+
   const handleReferenceReady = React.useCallback(
     async (result: ReferenceRebuildReady) => {
       setMode("build");
@@ -2673,6 +2699,20 @@ function ForgePage() {
                 <Copy className="size-4" />
                 <span>Copy website</span>
               </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setAssetsOpen((open) => !open);
+                  setReferenceOpen(false);
+                }}
+                disabled={!!busy}
+                aria-pressed={assetsOpen}
+                title="Upload reusable images before or after a build"
+                className="flex items-center gap-1.5 rounded-full border border-white/10 bg-[#08090b] px-3 py-1.5 text-xs font-medium text-[#8a8a8f] transition-all duration-200 hover:border-[#F4A125]/35 hover:bg-[#1a1a1e] hover:text-white active:scale-95 disabled:opacity-40"
+              >
+                <Images className="size-4" />
+                <span>Images{projectAssets.length ? ` (${projectAssets.length})` : ""}</span>
+              </button>
             </div>
 
             <ReferenceRebuildPanel
@@ -2680,6 +2720,17 @@ function ForgePage() {
               disabled={!!busy}
               onClose={() => setReferenceOpen(false)}
               onReady={handleReferenceReady}
+            />
+
+            <PocketProjectAssetsPanel
+              open={assetsOpen}
+              disabled={!!busy}
+              assets={projectAssets}
+              hasBuild={html.length >= 40 && html !== EMPTY_DOC}
+              onClose={() => setAssetsOpen(false)}
+              onAdd={addProjectAsset}
+              onRemove={removeProjectAsset}
+              onUseNow={useProjectAssetNow}
             />
           </div>
 
