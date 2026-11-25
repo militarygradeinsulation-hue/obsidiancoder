@@ -8,7 +8,7 @@ import { AiError, newRequestId, sanitizeUpstreamMessage } from "@/lib/ai-errors"
 import { aiFetch } from "@/lib/ai-fetch";
 import { readGuarded, firstChunkLooksBad } from "@/lib/upstream-guard";
 import { recordFailure, recordSuccess } from "@/lib/circuit-breaker";
-import { compactHtmlForContext } from "@/lib/context-compactor";
+import { compactHtmlForContext, restoreAndVerify } from "@/lib/context-compactor";
 import {
   requirePaidOperation,
   denialResponse,
@@ -1600,7 +1600,19 @@ ${memBlock}`,
                     if (err instanceof JobCancelledError) {
                       await cancelBuildJobRecord(jobId);
                     } else if (ok) {
-                      await completeBuildJob(jobId, { resultHtml: jobHtml, servedModel: modelUsed });
+                      if (compacted.imagesReplaced > 0) {
+                        const restored = restoreAndVerify(jobHtml, compacted.placeholders);
+                        if (!restored.ok) {
+                          await failBuildJob(
+                            jobId,
+                            `Image placeholder integrity failed (corrupted=${restored.corrupted}, unknown=${restored.unknown}).`,
+                          );
+                        } else {
+                          await completeBuildJob(jobId, { resultHtml: restored.html, servedModel: modelUsed });
+                        }
+                      } else {
+                        await completeBuildJob(jobId, { resultHtml: jobHtml, servedModel: modelUsed });
+                      }
                     } else {
                       await failBuildJob(
                         jobId,
