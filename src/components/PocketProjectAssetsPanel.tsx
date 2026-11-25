@@ -1,6 +1,10 @@
 import * as React from "react";
 import { ImagePlus, Images, Trash2, Upload, X } from "lucide-react";
-import { POCKET_ASSET_MAX, type PocketProjectAsset } from "@/lib/pocket-project-assets";
+import {
+  POCKET_ASSET_MAX,
+  type PocketProjectAsset,
+  type PocketProjectAssetDraft,
+} from "@/lib/pocket-project-assets";
 
 type Props = {
   open: boolean;
@@ -8,7 +12,7 @@ type Props = {
   assets: PocketProjectAsset[];
   hasBuild: boolean;
   onClose: () => void;
-  onAdd: (asset: PocketProjectAsset) => void | Promise<void>;
+  onAdd: (asset: PocketProjectAssetDraft) => void | Promise<void>;
   onRemove: (id: string) => void | Promise<void>;
   onUseNow: (asset: PocketProjectAsset) => void | Promise<void>;
 };
@@ -94,7 +98,7 @@ export function PocketProjectAssetsPanel({
     setError(null);
     try {
       for (const file of accepted) {
-        const asset: PocketProjectAsset = {
+        const asset: PocketProjectAssetDraft = {
           id: globalThis.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`,
           name: file.name.slice(0, 120),
           dataUrl: await prepareProjectImage(file),
@@ -161,9 +165,10 @@ export function PocketProjectAssetsPanel({
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             {assets.map((asset) => (
               <div key={asset.id} className="overflow-hidden rounded-xl border border-white/10 bg-black/30">
-                <img src={asset.dataUrl} alt={asset.name} className="h-24 w-full object-cover object-center" />
+                <img src={asset.url} alt={asset.name} className="h-24 w-full object-cover object-center" />
                 <div className="p-2">
                   <p className="truncate text-[10px] text-white/75">{asset.name}</p>
+                  <p className="mt-0.5 text-[9px] text-[#67636d]">{asset.localOnly ? "Local fallback" : "Hosted asset"}</p>
                   <div className="mt-2 flex gap-1">
                     {hasBuild ? (
                       <button
