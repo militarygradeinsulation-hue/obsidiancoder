@@ -5,7 +5,6 @@ import { isOwnerRequest, resolveUserFromRequest, OWNER_CODE_HEADER } from "@/lib
 import type { StoredJobRequest } from "@/lib/run-build-job.server";
 import {
   FREE_OPEN_COOKIE_NAME,
-  FREE_OPEN_REQUEST_HEADER,
   fingerprintFromFreeOpenCookie,
   readOrMintFreeOpenCookie,
 } from "@/lib/free-open.server";
@@ -60,9 +59,16 @@ export const Route = createFileRoute("/api/jobs/create")({
         // queuing rows at all.
         const owner = await isOwnerRequest(request);
         const user = owner ? null : await resolveUserFromRequest(request);
+        // Pocket is intentionally a free no-sign-in surface. The browser's
+        // /api/jobs/create call happens before /api/generate and does not need
+        // a special header to establish durable ownership. Unsigned Pocket
+        // jobs receive the same anonymous fingerprint cookie; when the job
+        // executes, StoredJobRequest.freeOpen routes it through the existing
+        // free-open rate limit instead of bypassing entitlement checks.
         const freePocket =
-          parsed.data.surface === "pocket" &&
-          request.headers.get(FREE_OPEN_REQUEST_HEADER) === "1";
+          !owner &&
+          !user &&
+          parsed.data.surface === "pocket";
 
         let anonymousFingerprint: string | null = null;
         let anonymousCookieHeader: string | null = null;
