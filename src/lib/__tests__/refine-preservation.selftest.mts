@@ -29,6 +29,17 @@ assert.ok(blocked.blockers.some(x => x.includes("CSS") || x.includes("section") 
 const explicit = checkRefinePreservation(stable, redesign, "Redesign the entire page with a new visual style and layout");
 assert.equal(explicit.ok, true);
 
+const appendedTheme = stable.replace(
+  "</style>",
+  `.new-theme{display:grid;grid-template-columns:1fr 1fr;gap:48px;padding:64px;margin:32px}
+.hero,.features,.proof{display:grid;grid-template-columns:repeat(2,1fr);gap:40px;padding:56px}
+body{background:#f8f8f8!important;color:#111!important;font-family:Georgia,serif!important}
+</style>`,
+);
+const appendedBlocked = checkRefinePreservation(stable, appendedTheme, "Fix the CTA copy");
+assert.equal(appendedBlocked.ok, false);
+assert.ok(appendedBlocked.blockers.some(x => x.includes("CSS/theme expansion") || x.includes("palette") || x.includes("font")));
+
 const addSection = stable.replace("</main>", '<section class="faq">FAQ</section></main>');
 assert.equal(checkRefinePreservation(stable, addSection, "Add an FAQ section").ok, true);
 
