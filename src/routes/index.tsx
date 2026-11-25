@@ -3342,14 +3342,34 @@ function Index() {
       }
 
       const newVersion: Version = makeVersion(committedFinalHtml, versionLabel, genMeta);
-      setSessions((all) => all.map((s) => s.id === sessionId
-        ? {
-            ...s,
-            html: committedFinalHtml,
-            messages: [...s.messages, { role: "assistant", content: fullRepairAttempts.length ? "Done — updated the preview (auto-repaired minor issues)." : "Done — updated the preview." }],
-            versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
-          }
-        : s));
+      const applyCommittedBuild = (s: Session): Session => ({
+        ...s,
+        html: committedFinalHtml,
+        messages: [...s.messages, { role: "assistant", content: fullRepairAttempts.length ? "Done — updated the preview (auto-repaired minor issues)." : "Done — updated the preview." }],
+        versions: [newVersion, ...(s.versions ?? [])].slice(0, 25),
+      });
+
+      setSessions((all) => all.map((s) => s.id === sessionId ? applyCommittedBuild(s) : s));
+
+      // Mount-independent completion persistence. If the user navigates to a
+      // different route while this request is still finishing, React state may
+      // no longer have a mounted consumer. Merge only THIS session into the
+      // latest durable snapshot so parallel Vibe tabs/builds are never lost.
+      try {
+        const stored = dualSafeGet<Session[]>(STORAGE_KEY);
+        const latest = Array.isArray(stored) && stored.length ? stored : sessions;
+        const fallback = sessions.find((s) => s.id === sessionId);
+        let found = false;
+        const persisted = latest.map((s) => {
+          if (s.id !== sessionId) return s;
+          found = true;
+          return applyCommittedBuild(s);
+        });
+        if (!found && fallback) persisted.push(applyCommittedBuild(fallback));
+        if (persisted.length) dualSafeSet(STORAGE_KEY, persisted);
+      } catch {
+        // Normal debounced persistence remains the fallback while mounted.
+      }
 
       // Extract reusable components from the just-built HTML and save to
       // the local registry for future builds. Best-effort, never blocks.
