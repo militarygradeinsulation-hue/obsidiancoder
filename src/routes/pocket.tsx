@@ -1112,7 +1112,7 @@ function ForgePage() {
     setBusy("generating");
     setPane("preview");
     const buildStartedAt = performance.now();
-    const buildTiming = { direction: 0, handoff: 0, generation: 0, retry: 0, qa: 0 };
+    const buildTiming = { direction: 0, handoff: 0, firstByte: 0, generation: 0, retry: 0, qa: 0 };
     const controller = new AbortController();
     abortRef.current = controller;
     const previous = html;
@@ -1403,6 +1403,10 @@ function ForgePage() {
         providerCalls += 1;
         if (res.headers.get("x-obs-demo") === "1") log("Free demo claim committed server-side.");
         servedModel = readServedModel(res.headers, modelChoice.model);
+        const upstreamFirstByte = Number(res.headers.get("X-Obs-First-Byte-Ms") || 0);
+        if (Number.isFinite(upstreamFirstByte) && upstreamFirstByte > 0) {
+          buildTiming.firstByte = upstreamFirstByte;
+        }
 
         const reader = res.body.getReader();
         const decoder = new TextDecoder();
@@ -1701,7 +1705,7 @@ function ForgePage() {
         `Generated ${finalHtml.length.toLocaleString()} chars · ${servedModel} · ${providerCalls} provider call${providerCalls === 1 ? "" : "s"} · ${Math.round(totalBuildMs / 100) / 10}s total`,
       );
       log(
-        `Timing · direction ${Math.round(buildTiming.direction)}ms · job handoff ${Math.round(buildTiming.handoff)}ms · generation ${Math.round(buildTiming.generation)}ms · retry ${Math.round(buildTiming.retry)}ms · QA ${Math.round(buildTiming.qa)}ms`,
+        `Timing · direction ${Math.round(buildTiming.direction)}ms · job handoff ${Math.round(buildTiming.handoff)}ms · first byte ${Math.round(buildTiming.firstByte)}ms · generation ${Math.round(buildTiming.generation)}ms · retry ${Math.round(buildTiming.retry)}ms · QA ${Math.round(buildTiming.qa)}ms`,
       );
 
       // ---- 6. Real photography (non-blocking) -----------------------------
