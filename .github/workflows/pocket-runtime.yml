@@ -27,6 +27,7 @@ on:
       - "src/lib/__tests__/pocket-runtime.selftest.mts"
       - "src/lib/__tests__/refine-preservation.selftest.mts"
       - "src/lib/__tests__/brain-archive-association.selftest.mts"
+      - "src/lib/__tests__/component-registry-quality.selftest.mts"
       - ".github/workflows/pocket-runtime.yml"
   pull_request:
     paths:
@@ -51,6 +52,7 @@ on:
       - "src/lib/__tests__/pocket-runtime.selftest.mts"
       - "src/lib/__tests__/refine-preservation.selftest.mts"
       - "src/lib/__tests__/brain-archive-association.selftest.mts"
+      - "src/lib/__tests__/component-registry-quality.selftest.mts"
 
 jobs:
   verify:
@@ -73,6 +75,8 @@ jobs:
         run: bun src/lib/__tests__/refine-preservation.selftest.mts
       - name: Test Brain exact archive association
         run: bun src/lib/__tests__/brain-archive-association.selftest.mts
+      - name: Test Brain component quality gate
+        run: bun src/lib/__tests__/component-registry-quality.selftest.mts
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Production build
