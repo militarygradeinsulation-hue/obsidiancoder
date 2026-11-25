@@ -2520,7 +2520,7 @@ function Index() {
           buildDna = provenDna;
           stageMarks.speedPath = true;
           setTerminal((t) => [...t, `⚡ Reused a proven ${getFamily(provenDna.family).label} direction (scored ${proven!.score}/100) — planner call skipped`]);
-        } else if (artProfile !== "fast" && paidAccess) {
+        } else if (artProfile === "cinematic" && paidAccess) {
           const planner = resolvePocketPlannerModel();
           try {
             const plannerPrompt = conceptPlannerPrompt({
@@ -2545,6 +2545,10 @@ function Index() {
           } catch {
             setTerminal((t) => [...t, "⚠ Planner unavailable — using deterministic directions."]);
           }
+        }
+        if (artProfile === "studio" && !provenDna) {
+          stageMarks.speedPath = true;
+          setTerminal((t) => [...t, "⚡ Studio speed path · local art direction used with no planner round-trip"]);
         }
         buildDna = buildDna ?? selectedConcept(buildPlan).dna;
       }
