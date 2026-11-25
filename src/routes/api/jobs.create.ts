@@ -22,11 +22,13 @@ const createSchema = z.object({
   prompt: z.string().trim().min(1).max(750_000),
   libraryCode: z.string().trim().max(64).optional(),
   surface: z.enum(["pocket", "coder"]).default("pocket"),
-  // Background-first by default: the server-owned runner is independent
-  // of the browser, so navigation, mobile suspension, or closing the tab
-  // cannot stop the build. Callers can still opt out for a deliberate
-  // foreground-only diagnostic path.
-  backgroundStart: z.boolean().optional().default(true),
+  // Stream-first by default: create a durable job row, then let the
+  // immediately-following /api/generate request claim it and stream output
+  // without paying an extra dispatch/poll round trip. Because job-backed
+  // generation is server-owned after claim, navigation or tab suspension
+  // does not kill the work; the sweep remains the recovery safety net.
+  // Callers may still opt into background-first explicitly.
+  backgroundStart: z.boolean().optional().default(false),
   sessionId: z.string().trim().max(120).optional(),
   title: z.string().trim().max(180).optional(),
   mode: z.string().trim().max(80).optional(),
