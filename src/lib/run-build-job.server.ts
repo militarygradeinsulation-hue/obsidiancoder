@@ -10,7 +10,7 @@
 // Postgres -> HTTP callback) and /api/public/jobs/sweep (the cron-driven
 // safety net for anything that didn't finish through its original path).
 
-import { claimBuildJob, getBuildJob, failBuildJob } from "@/lib/build-jobs.server";
+import { claimBuildJob, getBuildJob, failBuildJob, updateBuildJobProgress } from "@/lib/build-jobs.server";
 import { OWNER_CODE_HEADER } from "@/lib/credit-gate.server";
 
 /** The shape createBuildJob's caller stores in request_body — see jobs.create.ts. */
@@ -57,6 +57,7 @@ export async function claimAndRunBuildJob(jobId: string): Promise<void> {
   if (!claimed) return; // Already running elsewhere, already finished, or cancelled.
 
   try {
+    try { await updateBuildJobProgress(jobId, { stage: "starting", progress: 2 }); } catch { /* best-effort */ }
     const row = await getBuildJob(jobId);
     if (!row) return;
     const stored = row.requestBody as Partial<StoredJobRequest> | null;
@@ -87,6 +88,7 @@ export async function claimAndRunBuildJob(jobId: string): Promise<void> {
       // behave normally rather than being artificially skipped.
     });
 
+    try { await updateBuildJobProgress(jobId, { stage: "generating", progress: 5 }); } catch { /* best-effort */ }
     const { handleGenerate } = await import("@/routes/api/generate");
     const response = await handleGenerate(reconstructed);
 
