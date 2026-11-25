@@ -175,6 +175,7 @@ import {
 import { compactRecentSignatures, conceptPlanKey } from "@/lib/pocket-hardening";
 import { resolvePocketModel, resolvePocketPlannerModel } from "@/lib/pocket-model-resolver";
 import { planWithLocalCache } from "@/lib/plan-cache";
+import { buildContext } from "@/lib/staged-context";
 import { planPocketConcepts, critiquePocketBuild } from "@/lib/pocket-studio.functions";
 import { dnaPromptBlock, parseCritique } from "@/lib/pocket-prompt";
 import { ArtDirectionControl } from "@/components/ArtDirectionControl";
@@ -2459,16 +2460,23 @@ function Index() {
         prompt += `\n\n[Attached ${label} — treat as authoritative brand/style/content reference]\nfilename: ${att.name}\n---\n${att.text}\n---`;
       }
     }
-    // ---- Style Lock: freeze the current visual identity, add features only.
-    if (styleLocked && stableHtml) {
+    // ---- Refine preserves the existing design by default.
+    // A user must explicitly ask for a redesign/retheme before Vibe is allowed
+    // to replace the primary visual system of an existing build.
+    const isRefineBuild = Boolean(stableHtml);
+    const explicitRedesign = /\b(redesign|retheme|restyle|new visual direction|change (?:the )?(?:overall )?(?:design|style)|start over|from scratch)\b/i.test(basePrompt);
+    const preserveExistingDesign = isRefineBuild && !explicitRedesign;
+    if ((styleLocked || preserveExistingDesign) && stableHtml) {
       const lockBrief = styleLockDirective(stableHtml);
       if (lockBrief) {
         prompt += `\n\n${lockBrief}`;
-        setTerminal((t) => [...t, "🔒 Style lock ON — palette, fonts, and layout language preserved."]);
+        prompt += "\n\nREFINE CONTRACT: keep the current section order, palette, typography, spacing rhythm, component hierarchy, and interaction language unless the user explicitly requested that specific design change. Apply the smallest useful diff.";
+        setTerminal((t) => [...t, preserveExistingDesign
+          ? "🔒 Refine mode — existing design preserved by default."
+          : "🔒 Style lock ON — palette, fonts, and layout language preserved."]);
       }
     }
     // ---- Art direction: choose (or reuse) a Design DNA, exactly like Pocket.
-    const isRefineBuild = Boolean(stableHtml);
 
     // Graded memory of past builds — drives the exemplar brief, the proven
     // direction reuse, and the model bias below.
@@ -2593,7 +2601,13 @@ function Index() {
       };
       const genBody: Record<string, unknown> = {
         prompt,
-        currentHtml: previewMode ? stableHtml : stableHtml.slice(0, 8000),
+        // Existing-build refinements send only locally selected nearby/section
+        // context. Full HTML is reserved for explicit redesign/rebuild work.
+        currentHtml: previewMode
+          ? (isRefineBuild && !explicitRedesign
+              ? buildContext(stableHtml, basePrompt, "sections").text
+              : stableHtml)
+          : stableHtml.slice(0, 8000),
         // A fresh premium build carries no chat history — nothing in it can
         // help, and it dilutes the art-direction brief.
         history: !stableHtml && previewMode
