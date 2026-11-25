@@ -19,6 +19,7 @@ on:
       - "src/components/GithubModal.tsx"
       - "scripts/verify-pocket-runtime.mjs"
       - "src/lib/__tests__/pocket-runtime.selftest.mts"
+      - "src/lib/__tests__/refine-preservation.selftest.mts"
       - ".github/workflows/pocket-runtime.yml"
   pull_request:
     paths:
@@ -35,6 +36,7 @@ on:
       - "src/components/GithubModal.tsx"
       - "scripts/verify-pocket-runtime.mjs"
       - "src/lib/__tests__/pocket-runtime.selftest.mts"
+      - "src/lib/__tests__/refine-preservation.selftest.mts"
 
 jobs:
   verify:
@@ -53,6 +55,8 @@ jobs:
         run: node scripts/verify-pocket-runtime.mjs
       - name: Test pure Pocket guardrails
         run: bun src/lib/__tests__/pocket-runtime.selftest.mts
+      - name: Test Refine design preservation
+        run: bun src/lib/__tests__/refine-preservation.selftest.mts
       - name: Install dependencies
         run: npm ci --no-audit --no-fund
       - name: Production build
