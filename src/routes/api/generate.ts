@@ -1226,10 +1226,10 @@ ${memBlock}`,
               throw new AiError({ code: "ai_unauthorized", stage: "generate", requestId, message: "AI is not configured." });
             }
 
-            // Attempt chain: ChatLLM (Abacus RouteLLM) first, then OpenAI via
-            // the Lovable gateway, then Gemini (direct Google key) as the
-            // final safety net — so builds never hard-fail on a billing
-            // problem at one provider.
+            // Attempt chain: Fast-tier Gemini requests use direct Google first
+            // for lower time-to-first-byte. Other requests keep the resilient
+            // RouteLLM -> gateway -> Google ordering. In every case the
+            // remaining providers stay available as fallbacks.
             type Attempt = { key: string; url: string; wireModel: string; routed: boolean; label: string; google?: boolean; anthropic?: boolean };
             const attempts: Attempt[] = [];
             const viaAnthropic = isAnthropicModel(model);
