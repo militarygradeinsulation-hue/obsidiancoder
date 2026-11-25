@@ -10,6 +10,7 @@ const assetRoute = readFileSync("src/routes/api/project-assets.ts", "utf8");
 const assetStore = readFileSync("src/lib/pocket-project-assets.ts", "utf8");
 const jobStatus = readFileSync("src/routes/api/jobs.$id.ts", "utf8");
 const routeKeys = readFileSync("src/lib/routellm-keys.ts", "utf8");
+const qualityRetry = readFileSync("src/lib/quality-retry.ts", "utf8");
 const styleLock = readFileSync("src/lib/style-lock.ts", "utf8");
 const refineGuard = readFileSync("src/lib/refine-preservation.ts", "utf8");
 const vibe = readFileSync("src/routes/index.tsx", "utf8");
@@ -53,6 +54,9 @@ assert.ok(routeKeys.includes("DEGRADED_TTL_MS = 10 * 60_000"), "slow-provider de
 assert.ok(pocket.includes("Background cinematic polish applied"), "cinematic polish must remain post-commit/background");
 assert.ok(pocket.includes("strongBrainReuse"), "high-confidence Brain reuse must skip redundant cinematic planning");
 assert.ok(pocket.includes("remote planner skipped"), "Cinematic reuse speed-path log missing");
+assert.ok(qualityRetry.includes("jobId: undefined"), "quality retry must not reuse the original durable job id");
+assert.ok(pocket.includes("deferredQualityFloor"), "thin-CSS-only polish must not block first usable commit");
+assert.ok(pocket.includes('new Set(["no-css", "no-color", "no-layout", "default-anchors"])'), "objective design blockers must still force a quality rebuild");
 
 assert.ok(pocket.includes("<PocketProjectAssetsPanel"), "Pocket project image panel is not mounted");
 assert.ok(pocket.includes("projectAssets: projectAssets.map"), "project image metadata is not sent to generation");
