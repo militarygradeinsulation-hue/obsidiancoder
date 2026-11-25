@@ -552,8 +552,28 @@ function Index() {
   useEffect(() => {
     try { window.localStorage.setItem("obs.demoBySession", JSON.stringify(demoBySession)); } catch {}
   }, [demoBySession]);
-  const markBuildStart = (sid: string) => setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
-  const markBuildEnd = (sid: string) => { abortMapRef.current.delete(sid); setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; }); };
+  const markBuildStart = (sid: string) => {
+    try {
+      const key = "obs.vibe.activeBuilds.v1";
+      const raw = window.localStorage.getItem(key);
+      const current = raw ? JSON.parse(raw) as Record<string, { startedAt: number }> : {};
+      current[sid] = { startedAt: current[sid]?.startedAt ?? Date.now() };
+      window.localStorage.setItem(key, JSON.stringify(current));
+    } catch { /* cross-route status is best-effort */ }
+    setBuildingIds((prev) => { const n = new Set(prev); n.add(sid); return n; });
+  };
+  const markBuildEnd = (sid: string) => {
+    abortMapRef.current.delete(sid);
+    try {
+      const key = "obs.vibe.activeBuilds.v1";
+      const raw = window.localStorage.getItem(key);
+      const current = raw ? JSON.parse(raw) as Record<string, { startedAt: number }> : {};
+      delete current[sid];
+      if (Object.keys(current).length) window.localStorage.setItem(key, JSON.stringify(current));
+      else window.localStorage.removeItem(key);
+    } catch { /* cross-route status is best-effort */ }
+    setBuildingIds((prev) => { const n = new Set(prev); n.delete(sid); return n; });
+  };
   // Parallel builds: `loading` mirrors "any tab is building" so one tab
   // finishing never clears the busy state of another tab still running.
   useEffect(() => { setLoading(buildingIds.size > 0); }, [buildingIds]);
