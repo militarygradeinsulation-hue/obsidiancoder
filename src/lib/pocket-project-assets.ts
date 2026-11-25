@@ -1,6 +1,15 @@
 export interface PocketProjectAsset {
   id: string;
   name: string;
+  url: string;
+  createdAt: number;
+  storagePath?: string;
+  localOnly?: boolean;
+}
+
+export interface PocketProjectAssetDraft {
+  id: string;
+  name: string;
   dataUrl: string;
   createdAt: number;
 }
@@ -8,7 +17,12 @@ export interface PocketProjectAsset {
 export const POCKET_ASSET_MAX = 4;
 export const POCKET_ASSET_TOKEN_PREFIX = "obsidian-asset://";
 
-type StoredAsset = PocketProjectAsset & { key: string; scope: string };
+type StoredAsset = PocketProjectAsset & {
+  key: string;
+  scope: string;
+  /** Backward compatibility for assets saved before hosted URLs existed. */
+  dataUrl?: string;
+};
 
 const DB_NAME = "obsidian-pocket-assets";
 const DB_VERSION = 1;
@@ -48,7 +62,7 @@ export function resolvePocketAssetTokens(html: string, assets: readonly PocketPr
   let out = html;
   for (const asset of assets) {
     const token = pocketAssetToken(asset.id);
-    if (out.includes(token)) out = out.split(token).join(asset.dataUrl);
+    if (out.includes(token)) out = out.split(token).join(asset.url);
   }
   return out;
 }
@@ -65,7 +79,15 @@ export async function listPocketProjectAssets(scope: string): Promise<PocketProj
         const rows = (req.result ?? []) as StoredAsset[];
         resolve(
           rows
-            .map(({ id, name, dataUrl, createdAt }) => ({ id, name, dataUrl, createdAt }))
+            .map((row) => ({
+              id: row.id,
+              name: row.name,
+              url: row.url || row.dataUrl || "",
+              createdAt: row.createdAt,
+              storagePath: row.storagePath,
+              localOnly: row.localOnly ?? !row.url,
+            }))
+            .filter((asset) => !!asset.url)
             .sort((a, b) => a.createdAt - b.createdAt),
         );
       };
