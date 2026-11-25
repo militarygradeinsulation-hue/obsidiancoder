@@ -1276,7 +1276,7 @@ function ForgePage() {
         providerCalls += 1;
         setStatus("Building in background…");
         const startedAt = Date.now();
-        const BACKGROUND_WAIT_MS = 4 * 60_000;
+        const BACKGROUND_WAIT_MS = 20 * 60_000;
         let lastPartial = "";
 
         for (;;) {
