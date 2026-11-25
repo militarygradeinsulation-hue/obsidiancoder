@@ -131,7 +131,9 @@ export async function createBuildJob(input: CreateBuildJobInput): Promise<string
  */
 export async function kickBuildJob(id: string): Promise<boolean> {
   const baseUrl = (process.env.OBSIDIAN_PUBLIC_BASE_URL || process.env.PUBLIC_APP_URL || "https://obsidianvibe.live").replace(/\/+$/, "");
-  const apiKey = process.env.SUPABASE_PUBLISHABLE_KEY;
+  const apiKey =
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    process.env.VITE_SUPABASE_PUBLISHABLE_KEY;
   if (!apiKey) return false;
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   const { error } = await supabaseAdmin.rpc("build_job_kick" as never, {
